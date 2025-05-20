@@ -1,0 +1,465 @@
+pub struct Section {
+    beg: u8,
+    end: u8,
+}
+
+impl std::fmt::Debug for Section {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Section")
+            .field(&self.beg)
+            .field(&self.end)
+            .finish()
+    }
+}
+
+impl Section {
+    pub const fn new(beg: u8, end: u8) -> Self {
+        Section { beg, end }
+    }
+
+    pub fn its(&self, key: u8) -> bool {
+        return (!(self.beg == self.end && self.beg == 0xFF))
+            && (key >= self.beg && key <= self.end);
+    }
+}
+
+#[derive(Debug)]
+pub struct ScriptInfo {
+    pub name: &'static str,
+    pub version: u16,
+    /// \[op: byte\] \[arg1: uint8\] \[arg2: uint8\]
+    pub uint8x2: Section,
+    /// \[op: byte\] \[arg1: uint8\] \[arg2: string\]
+    pub uint8str: Section,
+    /// \[op: byte\] \[arg1: string\]
+    pub string: Section,
+    /// \[op: byte\] \[arg1: encstr\]
+    pub encstr: Section,
+    /// \[op: byte\] \[arg1: uint16\] \[arg2: uint16\] \[arg3: uint16\] \[arg4: uint16\]
+    pub uint16x4: Section,
+    /// the opcode for unencrypted strings in scene text
+    pub optunenc: u8,
+    pub deckey: u8,
+    pub nameopcode: u8,
+}
+
+const SCRIPT_INFO: [ScriptInfo; 31] = [
+    ScriptInfo::new(
+        "ffexa",
+        0x7B69,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0x43,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "ffexs",
+        0x7B6B,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x4B),
+        (0x4c, 0x4F),
+        (0x50, 0xFF),
+        0x43,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "ef",
+        0x466A,
+        (0x00, 0x28),
+        (0x2A, 0x2F),
+        (0x30, 0x4A),
+        (0x4B, 0x4E),
+        (0x4F, 0xFF),
+        0x46,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dcos",
+        0x315D,
+        (0x00, 0x2B),
+        (0xFF, 0xFF),
+        (0x2C, 0x45),
+        (0x46, 0x49),
+        (0x4A, 0xFF),
+        0x42,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "ktlep",
+        0x6E69,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0x45,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dcws",
+        0x656C,
+        (0x00, 0x2B),
+        (0x2C, 0x31),
+        (0x32, 0x4C),
+        (0x4D, 0x50),
+        (0x51, 0xFF),
+        0x48,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dcsv",
+        0x636C,
+        (0x00, 0x2B),
+        (0x2C, 0x31),
+        (0x32, 0x4C),
+        (0x4D, 0x50),
+        (0x51, 0xFF),
+        0x46,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dcpc",
+        0x3D63,
+        (0x00, 0x2C),
+        (0xFF, 0xFF),
+        (0x2D, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0x44,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dcmems",
+        0x315D,
+        (0x00, 0x2B),
+        (0xFF, 0xFF),
+        (0x2C, 0x45),
+        (0x46, 0x49),
+        (0x4A, 0xFF),
+        0x42,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dcdx",
+        0x7769,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0x45,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dcas",
+        0x4E69,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0x43,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dcbs",
+        0x3163,
+        (0x00, 0x2B),
+        (0xFF, 0xFF),
+        (0x2C, 0x48),
+        (0x49, 0x4C),
+        (0x4D, 0xFF),
+        0xFF,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2fl",
+        0x9C69,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0x45,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2bs",
+        0x316C,
+        (0x00, 0x2B),
+        (0x2C, 0x31),
+        (0x32, 0x4C),
+        (0x4D, 0x50),
+        (0x51, 0xFF),
+        0xFF,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2dm",
+        0x9D72,
+        (0x00, 0x29),
+        (0x2A, 0x31),
+        (0x32, 0x4C),
+        (0x4D, 0x50),
+        (0x51, 0xFF),
+        0x44,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2fy",
+        0x3866,
+        (0x00, 0x2E),
+        (0xFF, 0xFF),
+        (0x2F, 0x4B),
+        (0x4C, 0x4F),
+        (0x50, 0xFF),
+        0x48,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2cckko",
+        0x026C,
+        (0x00, 0x2B),
+        (0x2C, 0x31),
+        (0x32, 0x4C),
+        (0x4D, 0x50),
+        (0x51, 0xFF),
+        0xFF,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2ccotm",
+        0x016C,
+        (0x00, 0x2B),
+        (0x2C, 0x31),
+        (0x32, 0x4C),
+        (0x4D, 0x50),
+        (0x51, 0xFF),
+        0xFF,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2sc",
+        0x3B69,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0x45,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2ty",
+        0x5F69,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0xFF,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc2pc",
+        0x5769,
+        (0x00, 0x28),
+        (0x29, 0x2E),
+        (0x2F, 0x49),
+        (0x4A, 0x4D),
+        (0x4E, 0xFF),
+        0x45,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc3rx",
+        0x9772,
+        (0x00, 0x2B),
+        (0x2C, 0x33),
+        (0x34, 0x4E),
+        (0x4F, 0x52),
+        (0x53, 0xFF),
+        0x45,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc3pp",
+        0x9872,
+        (0x00, 0x2A),
+        (0x2B, 0x32),
+        (0x33, 0x4E),
+        (0x4F, 0x51),
+        (0x52, 0xFF),
+        0x45,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc3wy",
+        0xA09F,
+        (0x00, 0x38),
+        (0x39, 0x41),
+        (0x42, 0x5F),
+        (0x60, 0x63),
+        (0x64, 0xFF),
+        0x55,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc3dd",
+        0xA5A8,
+        (0x00, 0x38),
+        (0x39, 0x43),
+        (0x44, 0x62),
+        (0x63, 0x67),
+        (0x68, 0xFF),
+        0x58,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc4",
+        0xAAB6,
+        (0x00, 0x3A),
+        (0x3B, 0x47),
+        (0x48, 0x68),
+        (0x69, 0x6D),
+        (0x6E, 0xFF),
+        0x5D,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dc4ph",
+        0xABB6,
+        (0x00, 0x3A),
+        (0x3B, 0x47),
+        (0x48, 0x68),
+        (0x69, 0x6D),
+        (0x6E, 0xFF),
+        0x5D,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "ds",
+        0x9F9A,
+        (0x00, 0x38),
+        (0x39, 0x4A),
+        (0x41, 0x5E),
+        (0x5F, 0x62),
+        (0x63, 0xFF),
+        0x54,
+        0x20,
+        0xFF,
+    ),
+    ScriptInfo::new(
+        "dsif",
+        0xA1A1,
+        (0x00, 0x39),
+        (0x3A, 0x42),
+        (0x43, 0x60),
+        (0x61, 0x64),
+        (0x65, 0xFF),
+        0x56,
+        0x20,
+        0x62,
+    ),
+    ScriptInfo::new(
+        "tmpl",
+        0xA6B4,
+        (0x00, 0x3B),
+        (0x3A, 0x46),
+        (0x46, 0x67),
+        (0x68, 0x6E),
+        (0x6D, 0xFF),
+        0x5C,
+        0x20,
+        0x69,
+    ),
+    ScriptInfo::new(
+        "nightshade",
+        0x0871,
+        (0x00, 0x2B),
+        (0x2C, 0x33),
+        (0x34, 0x4E),
+        (0x4F, 0x52),
+        (0x53, 0xFF),
+        0x43,
+        0x01,
+        0xFF,
+    ),
+];
+
+impl ScriptInfo {
+    pub const fn new(
+        name: &'static str,
+        version: u16,
+        uint8x2: (u8, u8),
+        uint8str: (u8, u8),
+        string: (u8, u8),
+        encstr: (u8, u8),
+        uint16x4: (u8, u8),
+        optunenc: u8,
+        deckey: u8,
+        nameopcode: u8,
+    ) -> Self {
+        ScriptInfo {
+            name,
+            version,
+            uint8x2: Section::new(uint8x2.0, uint8x2.1),
+            uint8str: Section::new(uint8str.0, uint8str.1),
+            string: Section::new(string.0, string.1),
+            encstr: Section::new(encstr.0, encstr.1),
+            uint16x4: Section::new(uint16x4.0, uint16x4.1),
+            optunenc,
+            deckey,
+            nameopcode,
+        }
+    }
+
+    pub fn query(name: &str) -> Option<&'static ScriptInfo> {
+        for info in SCRIPT_INFO.iter() {
+            if info.name == name {
+                return Some(info);
+            }
+        }
+        None
+    }
+
+    pub fn query_by_version(version: u16) -> Option<&'static ScriptInfo> {
+        for info in SCRIPT_INFO.iter() {
+            if info.version == version {
+                return Some(info);
+            }
+        }
+        None
+    }
+}
