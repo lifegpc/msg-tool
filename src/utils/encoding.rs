@@ -50,9 +50,7 @@ pub fn encode_string(encoding: Encoding, data: &str) -> Result<Vec<u8>, anyhow::
             }
         }
         #[cfg(windows)]
-        Encoding::CodePage(code_page) => {
-            Ok(super::encoding_win::encode_string(code_page, data)?)
-        }
+        Encoding::CodePage(code_page) => Ok(super::encoding_win::encode_string(code_page, data)?),
     }
 }
 

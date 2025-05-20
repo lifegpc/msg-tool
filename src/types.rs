@@ -184,4 +184,3 @@ impl Message {
         Message { message, name }
     }
 }
-

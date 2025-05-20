@@ -1,7 +1,7 @@
 use std::fs;
 use std::io;
-use std::path::Path;
 use std::io::{Read, Write};
+use std::path::Path;
 
 use crate::scripts::ALL_EXTS;
 

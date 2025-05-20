@@ -1,7 +1,7 @@
 use super::info::*;
 use crate::scripts::base::*;
 use crate::types::*;
-use crate::utils::encoding::decode_to_string;
+use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
 
 pub struct CircusMesScriptBuilder {}
@@ -188,7 +188,7 @@ impl Script for CircusMesScript {
             let mut t = None;
             if self.info.encstr.its(token.value) {
                 let mut text = self.data[self.asm_bin_offset + token.offset + 1
-                    ..self.asm_bin_offset + token.offset + token.length]
+                    ..self.asm_bin_offset + token.offset + token.length - 1]
                     .to_vec();
                 for t in text.iter_mut() {
                     *t = (*t).overflowing_add(self.info.deckey).0;
@@ -197,7 +197,7 @@ impl Script for CircusMesScript {
                 // println!("Token(enc): {:?}, {}", token, t.as_ref().unwrap());
             } else if token.value == self.info.optunenc {
                 let text = &self.data[self.asm_bin_offset + token.offset + 1
-                    ..self.asm_bin_offset + token.offset + token.length];
+                    ..self.asm_bin_offset + token.offset + token.length - 1];
                 t = Some(decode_to_string(self.encoding, text)?);
                 // println!("Token: {:?}, {}", token, t.as_ref().unwrap());
             }
@@ -214,5 +214,110 @@ impl Script for CircusMesScript {
             }
         }
         Ok(mes)
+    }
+
+    fn import_messages(
+        &self,
+        messages: Vec<Message>,
+        filename: &str,
+        encoding: Encoding,
+    ) -> Result<()> {
+        let mut buffer = Vec::with_capacity(self.data.len());
+        buffer.extend_from_slice(&self.data[..self.asm_bin_offset]);
+        let mut nmes = Vec::with_capacity(messages.len());
+        for m in messages {
+            nmes.insert(0, m);
+        }
+        let mut mes = nmes.pop();
+        let mut s = None;
+        let mut block_count = 0;
+        for token in self.tokens.iter() {
+            if !self.is_new_ver {
+                let count = buffer.len() as u32;
+                let offset = count - self.asm_bin_offset as u32 + 2;
+                buffer[self.blocks_offset + block_count * 4
+                    ..self.blocks_offset + block_count * 4 + 4]
+                    .copy_from_slice(&offset.to_le_bytes());
+                block_count += 1;
+            }
+            if self.info.encstr.its(token.value) {
+                if mes.is_none() {
+                    mes = nmes.pop();
+                    if mes.is_none() {
+                        return Err(anyhow::anyhow!("No more messages to import"));
+                    }
+                }
+                if token.value == self.info.nameopcode {
+                    if mes.as_ref().unwrap().name.is_none() {
+                        s = Some(mes.as_ref().unwrap().message.clone());
+                        mes = None;
+                    } else {
+                        s = mes.as_mut().unwrap().name.take();
+                    }
+                } else {
+                    s = Some(mes.as_ref().unwrap().message.clone());
+                    mes = None;
+                }
+                let s = s.take().ok_or(anyhow::anyhow!("No string found"))?;
+                let mut text = encode_string(encoding, &s)?;
+                buffer.push(token.value);
+                for t in text.iter_mut() {
+                    *t = (*t).overflowing_sub(self.info.deckey).0;
+                }
+                buffer.extend_from_slice(&text);
+                buffer.push(0x00);
+                continue;
+            }
+            if token.value == self.info.optunenc {
+                if mes.is_none() {
+                    mes = nmes.pop();
+                    if mes.is_none() {
+                        return Err(anyhow::anyhow!("No more messages to import"));
+                    }
+                }
+                if token.value == self.info.nameopcode {
+                    if mes.as_ref().unwrap().name.is_none() {
+                        s = Some(mes.as_ref().unwrap().message.clone());
+                        mes = None;
+                    } else {
+                        s = mes.as_mut().unwrap().name.take();
+                    }
+                } else {
+                    s = Some(mes.as_ref().unwrap().message.clone());
+                    mes = None;
+                }
+                buffer.push(token.value);
+                let s = s.take().ok_or(anyhow::anyhow!("No string found"))?;
+                let text = encode_string(encoding, &s)?;
+                buffer.extend_from_slice(&text);
+                buffer.push(0x00);
+                continue;
+            }
+            if self.is_new_ver && (token.value == 0x3 || token.value == 0x4) {
+                let count = buffer.len() as u32;
+                let offset = count - self.asm_bin_offset as u32 + token.length as u32;
+                let block = u32::from_le_bytes(
+                    buffer[self.blocks_offset + block_count * 4
+                        ..self.blocks_offset + block_count * 4 + 4]
+                        .try_into()?,
+                );
+                let block = (block & (0xFF << 0x18)) | offset;
+                buffer[self.blocks_offset + block_count * 4
+                    ..self.blocks_offset + block_count * 4 + 4]
+                    .copy_from_slice(&block.to_le_bytes());
+                block_count += 1;
+            }
+            let len = std::cmp::min(
+                self.asm_bin_offset + token.offset + token.length,
+                self.data.len(),
+            );
+            buffer.extend_from_slice(
+                &self.data[self.asm_bin_offset + token.offset
+                    ..len]
+            );
+        }
+        let mut f = crate::utils::files::write_file(filename)?;
+        f.write_all(&buffer)?;
+        Ok(())
     }
 }

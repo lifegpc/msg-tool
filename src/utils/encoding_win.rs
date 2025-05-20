@@ -1,5 +1,7 @@
 use windows_sys::Win32::Foundation::GetLastError;
-use windows_sys::Win32::Globalization::{MB_ERR_INVALID_CHARS, MultiByteToWideChar, WideCharToMultiByte};
+use windows_sys::Win32::Globalization::{
+    MB_ERR_INVALID_CHARS, MultiByteToWideChar, WideCharToMultiByte,
+};
 
 #[derive(Debug)]
 pub struct WinError {

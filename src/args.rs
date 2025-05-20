@@ -52,6 +52,24 @@ pub struct Arg {
     pub command: Command,
 }
 
+#[derive(Parser, Debug)]
+#[clap(group = ArgGroup::new("patched_encodingg").multiple(false))]
+pub struct ImportArgs {
+    /// Input script file or directory
+    pub input: String,
+    /// Text file or directory
+    pub output: String,
+    /// Patched script file or directory
+    pub patched: String,
+    #[arg(short = 'p', long, group = "patched_encodingg")]
+    /// Patched script encoding
+    pub patched_encoding: Option<TextEncoding>,
+    #[cfg(windows)]
+    #[arg(short = 'P', long, group = "patched_encodingg")]
+    /// Patched script code page
+    pub patched_code_page: Option<u32>,
+}
+
 #[derive(Subcommand, Debug)]
 /// Commands
 pub enum Command {
@@ -62,6 +80,8 @@ pub enum Command {
         /// Output file or directory
         output: Option<String>,
     },
+    /// Import to script
+    Import(ImportArgs),
 }
 
 pub fn parse_args() -> Arg {
