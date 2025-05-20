@@ -311,10 +311,7 @@ impl Script for CircusMesScript {
                 self.asm_bin_offset + token.offset + token.length,
                 self.data.len(),
             );
-            buffer.extend_from_slice(
-                &self.data[self.asm_bin_offset + token.offset
-                    ..len]
-            );
+            buffer.extend_from_slice(&self.data[self.asm_bin_offset + token.offset..len]);
         }
         let mut f = crate::utils::files::write_file(filename)?;
         f.write_all(&buffer)?;

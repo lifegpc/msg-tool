@@ -43,7 +43,7 @@ pub enum TextEncoding {
 /// Script type
 pub enum OutputScriptType {
     /// Text script
-    Txt,
+    M3t,
     /// JSON which can be used for GalTransl
     Json,
 }
@@ -51,7 +51,7 @@ pub enum OutputScriptType {
 impl AsRef<str> for OutputScriptType {
     fn as_ref(&self) -> &str {
         match self {
-            OutputScriptType::Txt => "txt",
+            OutputScriptType::M3t => "m3t",
             OutputScriptType::Json => "json",
         }
     }

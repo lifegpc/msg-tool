@@ -1,4 +1,5 @@
 pub mod args;
+pub mod output_scripts;
 pub mod scripts;
 pub mod types;
 pub mod utils;
@@ -82,7 +83,10 @@ pub fn parse_script(
     filename: &str,
     arg: &args::Arg,
     config: &types::ExtraConfig,
-) -> anyhow::Result<(Box<dyn scripts::Script>, &'static Box<dyn scripts::ScriptBuilder + Send + Sync>)> {
+) -> anyhow::Result<(
+    Box<dyn scripts::Script>,
+    &'static Box<dyn scripts::ScriptBuilder + Send + Sync>,
+)> {
     match &arg.script_type {
         Some(typ) => {
             for builder in scripts::BUILDER.iter() {
@@ -160,7 +164,13 @@ pub fn export_script(
             let mut f = utils::files::write_file(&f)?;
             f.write_all(&b)?;
         }
-        _ => {}
+        types::OutputScriptType::M3t => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::m3t::M3tDumper::dump(&mes);
+            let b = utils::encoding::encode_string(enc, &s)?;
+            let mut f = utils::files::write_file(&f)?;
+            f.write_all(&b)?;
+        }
     }
     Ok(())
 }
@@ -189,6 +199,10 @@ pub fn import_script(
     } else {
         imp_cfg.output.clone()
     };
+    if !std::fs::exists(&out_f).unwrap_or(false) {
+        eprintln!("Output file does not exist");
+        return Ok(());
+    }
     let mes = match of {
         types::OutputScriptType::Json => {
             let enc = get_output_encoding(arg);
@@ -196,8 +210,12 @@ pub fn import_script(
             let s = utils::encoding::decode_to_string(enc, &b)?;
             serde_json::from_str::<Vec<types::Message>>(&s)?
         }
-        _ => {
-            return Err(anyhow::anyhow!("Unsupported script type"));
+        types::OutputScriptType::M3t => {
+            let enc = get_output_encoding(arg);
+            let b = utils::files::read_file(&out_f)?;
+            let s = utils::encoding::decode_to_string(enc, &b)?;
+            let mut parser = output_scripts::m3t::M3tParser::new(&s);
+            parser.parse()?
         }
     };
     if mes.is_empty() {
@@ -244,8 +262,7 @@ fn main() {
                             std::fs::create_dir_all(op).unwrap();
                         }
                     }
-                    None => {
-                    }
+                    None => {}
                 }
             }
             for script in scripts.iter() {
