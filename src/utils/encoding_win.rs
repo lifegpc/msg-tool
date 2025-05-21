@@ -1,6 +1,6 @@
 use windows_sys::Win32::Foundation::GetLastError;
 use windows_sys::Win32::Globalization::{
-    MB_ERR_INVALID_CHARS, MultiByteToWideChar, WideCharToMultiByte,
+    CP_UTF7, CP_UTF8, MB_ERR_INVALID_CHARS, MultiByteToWideChar, WideCharToMultiByte,
 };
 use windows_sys::Win32::System::Diagnostics::Debug::{
     FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS, FormatMessageW,
@@ -79,7 +79,7 @@ pub fn decode_to_string(cp: u32, data: &[u8]) -> Result<String, WinError> {
     Ok(String::from_utf16_lossy(&wc))
 }
 
-pub fn encode_string(cp: u32, data: &str) -> Result<Vec<u8>, WinError> {
+pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinError> {
     let wstr = data.encode_utf16().collect::<Vec<u16>>();
     let needed_len = unsafe {
         WideCharToMultiByte(
@@ -98,6 +98,7 @@ pub fn encode_string(cp: u32, data: &str) -> Result<Vec<u8>, WinError> {
     }
     let mut mb = Vec::with_capacity(needed_len as usize);
     mb.resize(needed_len as usize, 0);
+    let mut used_default_char = 0;
     let result = unsafe {
         WideCharToMultiByte(
             cp,
@@ -107,9 +108,23 @@ pub fn encode_string(cp: u32, data: &str) -> Result<Vec<u8>, WinError> {
             mb.as_mut_ptr(),
             needed_len,
             std::ptr::null_mut(),
-            std::ptr::null_mut(),
+            if cp == CP_UTF7 || cp == CP_UTF8 {
+                std::ptr::null_mut()
+            } else {
+                &mut used_default_char
+            },
         )
     };
+    if used_default_char != 0 {
+        if check {
+            return Err(WinError::new(0));
+        } else {
+            eprintln!(
+                "Warning: Some characters could not be encoded in code page {}: {}",
+                cp, data
+            );
+        }
+    }
     if result == 0 {
         return Err(WinError::from_last_error());
     }
@@ -145,17 +160,25 @@ fn test_decode_to_string() {
 #[test]
 fn test_encode_string() {
     assert_eq!(
-        encode_string(65001, "中文测试").unwrap(),
+        encode_string(65001, "中文测试", true).unwrap(),
         vec![228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149]
     );
     assert_eq!(
-        encode_string(932, "きゃべつそふと").unwrap(),
+        encode_string(932, "きゃべつそふと", true).unwrap(),
         vec![
             130, 171, 130, 225, 130, 215, 130, 194, 130, 187, 130, 211, 130, 198
         ]
     );
     assert_eq!(
-        encode_string(936, "中文").unwrap(),
+        encode_string(936, "中文", true).unwrap(),
         vec![214, 208, 206, 196]
+    );
+    assert!(
+        encode_string(
+            936,
+            "「あ、こーら、逃げちゃダメだよー？　起きちゃうのも、まだダメだけ\nどね♪」",
+            true
+        )
+        .is_err()
     );
 }

@@ -181,6 +181,13 @@ impl Script for CircusMesScript {
         OutputScriptType::Json
     }
 
+    fn default_format_type(&self) -> FormatOptions {
+        FormatOptions::Fixed {
+            length: 32,
+            keep_original: false,
+        }
+    }
+
     fn extract_messages(&self) -> Result<Vec<Message>> {
         let mut mes = vec![];
         let mut name = None;
@@ -222,6 +229,27 @@ impl Script for CircusMesScript {
         filename: &str,
         encoding: Encoding,
     ) -> Result<()> {
+        let mut repls = Vec::new();
+        if !encoding.is_jis() {
+            fn insert_repl(
+                repls: &mut Vec<(&'static str, String)>,
+                s: &'static str,
+                encoding: Encoding,
+            ) -> Result<()> {
+                let jis = encode_string(Encoding::Cp932, s, true)?;
+                let out = decode_to_string(encoding, &jis)?;
+                repls.push((s, out));
+                Ok(())
+            }
+            let _ = insert_repl(&mut repls, "｛", encoding);
+            let _ = insert_repl(&mut repls, "／", encoding);
+            let _ = insert_repl(&mut repls, "｝", encoding);
+            if repls.len() < 3 {
+                println!(
+                    "Warning: Some replacements cannot used in current encoding. Ruby text may be broken."
+                );
+            }
+        }
         let mut buffer = Vec::with_capacity(self.data.len());
         buffer.extend_from_slice(&self.data[..self.asm_bin_offset]);
         let mut nmes = Vec::with_capacity(messages.len());
@@ -246,7 +274,7 @@ impl Script for CircusMesScript {
                         return Err(anyhow::anyhow!("No more messages to import"));
                     }
                 }
-                let s = if token.value == self.info.nameopcode {
+                let mut s = if token.value == self.info.nameopcode {
                     match mes.as_mut().unwrap().name.take() {
                         Some(s) => s,
                         None => {
@@ -260,7 +288,10 @@ impl Script for CircusMesScript {
                     mes = None;
                     t
                 };
-                let mut text = encode_string(encoding, &s)?;
+                for i in repls.iter() {
+                    s = s.replace(i.0, i.1.as_str());
+                }
+                let mut text = encode_string(encoding, &s, false)?;
                 buffer.push(token.value);
                 for t in text.iter_mut() {
                     *t = (*t).overflowing_sub(self.info.deckey).0;
@@ -276,7 +307,7 @@ impl Script for CircusMesScript {
                         return Err(anyhow::anyhow!("No more messages to import"));
                     }
                 }
-                let s = if token.value == self.info.nameopcode {
+                let mut s = if token.value == self.info.nameopcode {
                     match mes.as_mut().unwrap().name.take() {
                         Some(s) => s,
                         None => {
@@ -290,8 +321,11 @@ impl Script for CircusMesScript {
                     mes = None;
                     t
                 };
+                for i in repls.iter() {
+                    s = s.replace(i.0, i.1.as_str());
+                }
                 buffer.push(token.value);
-                let text = encode_string(encoding, &s)?;
+                let text = encode_string(encoding, &s, false)?;
                 buffer.extend_from_slice(&text);
                 buffer.push(0x00);
                 continue;

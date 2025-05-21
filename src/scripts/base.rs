@@ -23,6 +23,8 @@ pub trait ScriptBuilder {
 pub trait Script: std::fmt::Debug {
     fn default_output_script_type(&self) -> OutputScriptType;
 
+    fn default_format_type(&self) -> FormatOptions;
+
     fn extract_messages(&self) -> Result<Vec<Message>>;
 
     fn import_messages(

@@ -1,4 +1,5 @@
 pub mod args;
+pub mod format;
 pub mod output_scripts;
 pub mod scripts;
 pub mod types;
@@ -160,14 +161,14 @@ pub fn export_script(
         types::OutputScriptType::Json => {
             let enc = get_output_encoding(arg);
             let s = serde_json::to_string_pretty(&mes)?;
-            let b = utils::encoding::encode_string(enc, &s)?;
+            let b = utils::encoding::encode_string(enc, &s, false)?;
             let mut f = utils::files::write_file(&f)?;
             f.write_all(&b)?;
         }
         types::OutputScriptType::M3t => {
             let enc = get_output_encoding(arg);
             let s = output_scripts::m3t::M3tDumper::dump(&mes);
-            let b = utils::encoding::encode_string(enc, &s)?;
+            let b = utils::encoding::encode_string(enc, &s, false)?;
             let mut f = utils::files::write_file(&f)?;
             f.write_all(&b)?;
         }
@@ -203,7 +204,7 @@ pub fn import_script(
         eprintln!("Output file does not exist");
         return Ok(types::ScriptResult::Ignored);
     }
-    let mes = match of {
+    let mut mes = match of {
         types::OutputScriptType::Json => {
             let enc = get_output_encoding(arg);
             let b = utils::files::read_file(&out_f)?;
@@ -234,6 +235,17 @@ pub fn import_script(
     } else {
         imp_cfg.patched.clone()
     };
+    let fmt = match imp_cfg.patched_format {
+        Some(fmt) => match fmt {
+            types::FormatType::Fixed => types::FormatOptions::Fixed {
+                length: imp_cfg.patched_fixed_length.unwrap_or(32),
+                keep_original: imp_cfg.patched_keep_original,
+            },
+            types::FormatType::None => types::FormatOptions::None,
+        },
+        None => script.default_format_type(),
+    };
+    format::fmt_message(&mut mes, fmt);
     script.import_messages(mes, &patched_f, encoding)?;
     Ok(types::ScriptResult::Ok)
 }

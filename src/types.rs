@@ -24,6 +24,17 @@ impl Default for Encoding {
     }
 }
 
+impl Encoding {
+    pub fn is_jis(&self) -> bool {
+        match self {
+            Self::Cp932 => true,
+            #[cfg(windows)]
+            Self::CodePage(code_page) => *code_page == 932,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
 /// Text Encoding
 pub enum TextEncoding {
@@ -188,4 +199,26 @@ impl Message {
 pub enum ScriptResult {
     Ok,
     Ignored,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+/// Format type
+pub enum FormatType {
+    /// Wrap line with fixed length
+    Fixed,
+    /// Do not wrap line
+    None,
+}
+
+/// Format options
+pub enum FormatOptions {
+    /// Wrap line with fixed length
+    Fixed {
+        /// Fixed length
+        length: usize,
+        /// Whether to keep original line breaks
+        keep_original: bool,
+    },
+    /// Do not wrap line
+    None,
 }

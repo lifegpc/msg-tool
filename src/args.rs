@@ -68,6 +68,15 @@ pub struct ImportArgs {
     #[arg(short = 'P', long, group = "patched_encodingg")]
     /// Patched script code page
     pub patched_code_page: Option<u32>,
+    #[arg(long)]
+    /// Patched script format type
+    pub patched_format: Option<FormatType>,
+    #[arg(long)]
+    /// Fixed length of one line in patched script (for fixed format)
+    pub patched_fixed_length: Option<usize>,
+    #[arg(long, action = ArgAction::SetTrue)]
+    /// Keep original line breaks in patched script (for fixed format)
+    pub patched_keep_original: bool,
 }
 
 #[derive(Subcommand, Debug)]
