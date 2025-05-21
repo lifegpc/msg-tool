@@ -1,3 +1,4 @@
+pub mod counter;
 pub mod encoding;
 #[cfg(windows)]
 mod encoding_win;

@@ -116,7 +116,7 @@ pub fn export_script(
     config: &types::ExtraConfig,
     output: &Option<String>,
     is_dir: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Exporting {}", filename);
     let script = parse_script(filename, arg, config)?.0;
     // println!("{:?}", script);
@@ -126,7 +126,7 @@ pub fn export_script(
     // }
     if mes.is_empty() {
         eprintln!("No messages found");
-        return Ok(());
+        return Ok(types::ScriptResult::Ignored);
     }
     let of = match &arg.output_type {
         Some(t) => t.clone(),
@@ -172,7 +172,7 @@ pub fn export_script(
             f.write_all(&b)?;
         }
     }
-    Ok(())
+    Ok(types::ScriptResult::Ok)
 }
 
 pub fn import_script(
@@ -181,7 +181,7 @@ pub fn import_script(
     config: &types::ExtraConfig,
     imp_cfg: &args::ImportArgs,
     is_dir: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Importing {}", filename);
     let (script, builder) = parse_script(filename, arg, config)?;
     let of = match &arg.output_type {
@@ -201,7 +201,7 @@ pub fn import_script(
     };
     if !std::fs::exists(&out_f).unwrap_or(false) {
         eprintln!("Output file does not exist");
-        return Ok(());
+        return Ok(types::ScriptResult::Ignored);
     }
     let mes = match of {
         types::OutputScriptType::Json => {
@@ -220,7 +220,7 @@ pub fn import_script(
     };
     if mes.is_empty() {
         eprintln!("No messages found");
-        return Ok(());
+        return Ok(types::ScriptResult::Ignored);
     }
     let encoding = get_patched_encoding(imp_cfg, builder);
     let patched_f = if is_dir {
@@ -235,7 +235,7 @@ pub fn import_script(
         imp_cfg.patched.clone()
     };
     script.import_messages(mes, &patched_f, encoding)?;
-    Ok(())
+    Ok(types::ScriptResult::Ok)
 }
 
 fn main() {
@@ -246,6 +246,7 @@ fn main() {
     let cfg = types::ExtraConfig {
         circus_mes_type: arg.circus_mes_type.clone(),
     };
+    let counter = utils::counter::Counter::new();
     match &arg.command {
         args::Command::Export { input, output } => {
             let (scripts, is_dir) = utils::files::collect_files(input, arg.recursive).unwrap();
@@ -268,8 +269,11 @@ fn main() {
             for script in scripts.iter() {
                 let re = export_script(&script, &arg, &cfg, output, is_dir);
                 match re {
-                    Ok(_) => {}
+                    Ok(s) => {
+                        counter.inc(s);
+                    }
                     Err(e) => {
+                        counter.inc_error();
                         eprintln!("Error exporting {}: {}", script, e);
                         if arg.backtrace {
                             eprintln!("Backtrace: {}", e.backtrace());
@@ -295,8 +299,11 @@ fn main() {
             for script in scripts.iter() {
                 let re = import_script(&script, &arg, &cfg, args, is_dir);
                 match re {
-                    Ok(_) => {}
+                    Ok(s) => {
+                        counter.inc(s);
+                    }
                     Err(e) => {
+                        counter.inc_error();
                         eprintln!("Error exporting {}: {}", script, e);
                         if arg.backtrace {
                             eprintln!("Backtrace: {}", e.backtrace());
@@ -306,4 +313,5 @@ fn main() {
             }
         }
     }
+    eprintln!("{}", counter);
 }

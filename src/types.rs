@@ -184,3 +184,8 @@ impl Message {
         Message { message, name }
     }
 }
+
+pub enum ScriptResult {
+    Ok,
+    Ignored,
+}
