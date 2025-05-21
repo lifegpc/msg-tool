@@ -181,6 +181,9 @@ pub struct ExtraConfig {
 pub enum ScriptType {
     /// Circus MES script
     Circus,
+    #[value(alias("ethornell"))]
+    /// Buriko General Interpreter/Ethornell Script
+    BGI,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
