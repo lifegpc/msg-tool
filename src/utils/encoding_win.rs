@@ -2,6 +2,9 @@ use windows_sys::Win32::Foundation::GetLastError;
 use windows_sys::Win32::Globalization::{
     MB_ERR_INVALID_CHARS, MultiByteToWideChar, WideCharToMultiByte,
 };
+use windows_sys::Win32::System::Diagnostics::Debug::{
+    FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS, FormatMessageW,
+};
 
 #[derive(Debug)]
 pub struct WinError {
@@ -23,7 +26,24 @@ impl std::error::Error for WinError {}
 
 impl std::fmt::Display for WinError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Windows error code: {}", self.code)
+        let mut buffer = [0u16; 256];
+        let len = unsafe {
+            FormatMessageW(
+                FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                std::ptr::null(),
+                self.code,
+                0,
+                buffer.as_mut_ptr(),
+                buffer.len() as u32,
+                std::ptr::null_mut(),
+            )
+        };
+        if len == 0 {
+            write!(f, "Unknown error code: 0x{:08X}", self.code)
+        } else {
+            let message = String::from_utf16_lossy(&buffer[..len as usize]);
+            write!(f, "{} (0x{:08X})", message.trim(), self.code)
+        }
     }
 }
 
@@ -119,5 +139,23 @@ fn test_decode_to_string() {
     assert_eq!(
         decode_to_string(936, &[214, 208, 206, 196]).unwrap(),
         "中文".to_string()
+    );
+}
+
+#[test]
+fn test_encode_string() {
+    assert_eq!(
+        encode_string(65001, "中文测试").unwrap(),
+        vec![228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149]
+    );
+    assert_eq!(
+        encode_string(932, "きゃべつそふと").unwrap(),
+        vec![
+            130, 171, 130, 225, 130, 215, 130, 194, 130, 187, 130, 211, 130, 198
+        ]
+    );
+    assert_eq!(
+        encode_string(936, "中文").unwrap(),
+        vec![214, 208, 206, 196]
     );
 }

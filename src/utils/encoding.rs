@@ -102,3 +102,26 @@ fn test_decode_to_string() {
         "中文".to_string()
     );
 }
+
+#[test]
+fn test_encode_string() {
+    assert_eq!(
+        encode_string(Encoding::Utf8, "中文测试").unwrap(),
+        vec![228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149]
+    );
+    assert_eq!(
+        encode_string(Encoding::Cp932, "きゃべつそふと").unwrap(),
+        vec![
+            130, 171, 130, 225, 130, 215, 130, 194, 130, 187, 130, 211, 130, 198
+        ]
+    );
+    assert_eq!(
+        encode_string(Encoding::Gb2312, "中文").unwrap(),
+        vec![214, 208, 206, 196]
+    );
+    #[cfg(windows)]
+    assert_eq!(
+        encode_string(Encoding::CodePage(936), "中文").unwrap(),
+        vec![214, 208, 206, 196]
+    );
+}
