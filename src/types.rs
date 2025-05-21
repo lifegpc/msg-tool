@@ -222,3 +222,13 @@ pub enum FormatOptions {
     /// Do not wrap line
     None,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NameTableCell {
+    #[serde(rename = "JP_Name")]
+    pub jp_name: String,
+    #[serde(rename = "CN_Name")]
+    pub cn_name: String,
+    #[serde(rename = "Count")]
+    pub count: usize,
+}
