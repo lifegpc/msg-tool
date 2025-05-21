@@ -229,7 +229,6 @@ impl Script for CircusMesScript {
             nmes.insert(0, m);
         }
         let mut mes = nmes.pop();
-        let mut s = None;
         let mut block_count = 0;
         for token in self.tokens.iter() {
             if !self.is_new_ver {
@@ -247,18 +246,20 @@ impl Script for CircusMesScript {
                         return Err(anyhow::anyhow!("No more messages to import"));
                     }
                 }
-                if token.value == self.info.nameopcode {
-                    if mes.as_ref().unwrap().name.is_none() {
-                        s = Some(mes.as_ref().unwrap().message.clone());
-                        mes = None;
-                    } else {
-                        s = mes.as_mut().unwrap().name.take();
+                let s = if token.value == self.info.nameopcode {
+                    match mes.as_mut().unwrap().name.take() {
+                        Some(s) => s,
+                        None => {
+                            let t = mes.as_ref().unwrap().message.clone();
+                            mes = None;
+                            t
+                        }
                     }
                 } else {
-                    s = Some(mes.as_ref().unwrap().message.clone());
+                    let t = mes.as_ref().unwrap().message.clone();
                     mes = None;
-                }
-                let s = s.take().ok_or(anyhow::anyhow!("No string found"))?;
+                    t
+                };
                 let mut text = encode_string(encoding, &s)?;
                 buffer.push(token.value);
                 for t in text.iter_mut() {
@@ -275,19 +276,21 @@ impl Script for CircusMesScript {
                         return Err(anyhow::anyhow!("No more messages to import"));
                     }
                 }
-                if token.value == self.info.nameopcode {
-                    if mes.as_ref().unwrap().name.is_none() {
-                        s = Some(mes.as_ref().unwrap().message.clone());
-                        mes = None;
-                    } else {
-                        s = mes.as_mut().unwrap().name.take();
+                let s = if token.value == self.info.nameopcode {
+                    match mes.as_mut().unwrap().name.take() {
+                        Some(s) => s,
+                        None => {
+                            let t = mes.as_ref().unwrap().message.clone();
+                            mes = None;
+                            t
+                        }
                     }
                 } else {
-                    s = Some(mes.as_ref().unwrap().message.clone());
+                    let t = mes.as_ref().unwrap().message.clone();
                     mes = None;
-                }
+                    t
+                };
                 buffer.push(token.value);
-                let s = s.take().ok_or(anyhow::anyhow!("No string found"))?;
                 let text = encode_string(encoding, &s)?;
                 buffer.extend_from_slice(&text);
                 buffer.push(0x00);
