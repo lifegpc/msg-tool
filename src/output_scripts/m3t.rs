@@ -34,6 +34,7 @@ impl<'a> M3tParser<'a> {
     pub fn parse(&mut self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let mut name = None;
+        let mut llm = None;
         while let Some(line) = self.next_line() {
             if line.is_empty() {
                 continue;
@@ -43,9 +44,29 @@ impl<'a> M3tParser<'a> {
                 if line.starts_with("NAME:") {
                     name = Some(line[5..].trim().to_string());
                 }
+            } else if line.starts_with("△") {
+                let line = line[3..].trim();
+                llm = Some(line);
             } else if line.starts_with("●") {
                 let message = line[3..].trim();
-                messages.push(Message::new(message.replace("\\n", "\n"), name.take()));
+                let message = if message
+                    .trim_start_matches("「")
+                    .trim_end_matches("」")
+                    .is_empty()
+                {
+                    llm.take()
+                        .unwrap_or_else(|| {
+                            if message.starts_with("「") {
+                                "「」"
+                            } else {
+                                ""
+                            }
+                        })
+                        .replace("\\n", "\n")
+                } else {
+                    message.replace("\\n", "\n")
+                };
+                messages.push(Message::new(message, name.take()));
             } else {
                 return Err(anyhow::anyhow!(
                     "Invalid line format at line {}: {}",
