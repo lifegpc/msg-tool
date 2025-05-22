@@ -32,5 +32,6 @@ pub trait Script: std::fmt::Debug {
         messages: Vec<Message>,
         filename: &str,
         encoding: Encoding,
+        replacement: Option<&ReplacementTable>,
     ) -> Result<()>;
 }

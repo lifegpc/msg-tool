@@ -141,6 +141,7 @@ impl Script for BGIScript {
         _messages: Vec<Message>,
         _filename: &str,
         _encoding: Encoding,
+        _replacement: Option<&ReplacementTable>,
     ) -> Result<()> {
         Ok(())
     }

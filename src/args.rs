@@ -80,6 +80,9 @@ pub struct ImportArgs {
     #[arg(long)]
     /// Name table file
     pub name_csv: Option<String>,
+    #[arg(long)]
+    /// Replacement table file
+    pub replacement_json: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]

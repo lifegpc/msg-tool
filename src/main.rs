@@ -183,6 +183,7 @@ pub fn import_script(
     imp_cfg: &args::ImportArgs,
     is_dir: bool,
     name_csv: Option<&std::collections::HashMap<String, String>>,
+    repl: Option<&types::ReplacementTable>,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Importing {}", filename);
     let (script, builder) = parse_script(filename, arg, config)?;
@@ -253,7 +254,8 @@ pub fn import_script(
         None => {}
     }
     format::fmt_message(&mut mes, fmt, *builder.script_type());
-    script.import_messages(mes, &patched_f, encoding)?;
+
+    script.import_messages(mes, &patched_f, encoding, repl)?;
     Ok(types::ScriptResult::Ok)
 }
 
@@ -312,6 +314,15 @@ fn main() {
                 }
                 None => None,
             };
+            let repl = match &args.replacement_json {
+                Some(replacement_json) => {
+                    let b = utils::files::read_file(replacement_json).unwrap();
+                    let s = String::from_utf8(b).unwrap();
+                    let table = serde_json::from_str::<types::ReplacementTable>(&s).unwrap();
+                    Some(table)
+                }
+                None => None,
+            };
             let (scripts, is_dir) =
                 utils::files::collect_files(&args.input, arg.recursive).unwrap();
             if is_dir {
@@ -326,7 +337,15 @@ fn main() {
                 }
             }
             for script in scripts.iter() {
-                let re = import_script(&script, &arg, &cfg, args, is_dir, name_csv.as_ref());
+                let re = import_script(
+                    &script,
+                    &arg,
+                    &cfg,
+                    args,
+                    is_dir,
+                    name_csv.as_ref(),
+                    repl.as_ref(),
+                );
                 match re {
                     Ok(s) => {
                         COUNTER.inc(s);

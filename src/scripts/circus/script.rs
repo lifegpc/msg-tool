@@ -228,17 +228,18 @@ impl Script for CircusMesScript {
         messages: Vec<Message>,
         filename: &str,
         encoding: Encoding,
+        replacement: Option<&ReplacementTable>,
     ) -> Result<()> {
         let mut repls = Vec::new();
         if !encoding.is_jis() {
             fn insert_repl(
-                repls: &mut Vec<(&'static str, String)>,
+                repls: &mut Vec<(String, String)>,
                 s: &'static str,
                 encoding: Encoding,
             ) -> Result<()> {
                 let jis = encode_string(Encoding::Cp932, s, true)?;
                 let out = decode_to_string(encoding, &jis)?;
-                repls.push((s, out));
+                repls.push((s.to_string(), out));
                 Ok(())
             }
             let _ = insert_repl(&mut repls, "｛", encoding);
@@ -250,6 +251,14 @@ impl Script for CircusMesScript {
                 );
                 crate::COUNTER.inc_warning();
             }
+        }
+        match replacement {
+            Some(repl) => {
+                for (k, v) in repl.map.iter() {
+                    repls.push((k.to_string(), v.to_string()));
+                }
+            }
+            None => {}
         }
         let mut buffer = Vec::with_capacity(self.data.len());
         buffer.extend_from_slice(&self.data[..self.asm_bin_offset]);
@@ -290,7 +299,7 @@ impl Script for CircusMesScript {
                     t
                 };
                 for i in repls.iter() {
-                    s = s.replace(i.0, i.1.as_str());
+                    s = s.replace(i.0.as_str(), i.1.as_str());
                 }
                 let mut text = encode_string(encoding, &s, false)?;
                 buffer.push(token.value);
@@ -323,7 +332,7 @@ impl Script for CircusMesScript {
                     t
                 };
                 for i in repls.iter() {
-                    s = s.replace(i.0, i.1.as_str());
+                    s = s.replace(i.0.as_str(), i.1.as_str());
                 }
                 buffer.push(token.value);
                 let text = encode_string(encoding, &s, false)?;

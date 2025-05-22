@@ -1,5 +1,6 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
 #[serde(untagged, rename_all = "camelCase")]
@@ -234,4 +235,10 @@ pub struct NameTableCell {
     pub cn_name: String,
     #[serde(rename = "Count")]
     pub count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReplacementTable {
+    #[serde(flatten)]
+    pub map: HashMap<String, String>,
 }
