@@ -302,6 +302,13 @@ impl Script for CircusMesScript {
                     s = s.replace(i.0.as_str(), i.1.as_str());
                 }
                 let mut text = encode_string(encoding, &s, false)?;
+                if text.contains(&self.info.deckey) {
+                    eprintln!(
+                        "Warning: text contains deckey, text may be truncated: {}",
+                        s
+                    );
+                    crate::COUNTER.inc_warning();
+                }
                 buffer.push(token.value);
                 for t in text.iter_mut() {
                     *t = (*t).overflowing_sub(self.info.deckey).0;
