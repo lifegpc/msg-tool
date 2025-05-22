@@ -252,7 +252,7 @@ pub fn import_script(
         }
         None => {}
     }
-    format::fmt_message(&mut mes, fmt);
+    format::fmt_message(&mut mes, fmt, *builder.script_type());
     script.import_messages(mes, &patched_f, encoding)?;
     Ok(types::ScriptResult::Ok)
 }
