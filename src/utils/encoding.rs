@@ -47,6 +47,7 @@ pub fn encode_string(
                     "Warning: Some characters could not be encoded in Shift-JIS: {}",
                     data
                 );
+                crate::COUNTER.inc_warning();
             }
             Ok(result.0.to_vec())
         }
@@ -60,6 +61,7 @@ pub fn encode_string(
                     "Warning: Some characters could not be encoded in GB2312: {}",
                     data
                 );
+                crate::COUNTER.inc_warning();
             }
             Ok(result.0.to_vec())
         }

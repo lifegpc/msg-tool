@@ -257,6 +257,10 @@ pub fn import_script(
     Ok(types::ScriptResult::Ok)
 }
 
+lazy_static::lazy_static! {
+    static ref COUNTER: utils::counter::Counter = utils::counter::Counter::new();
+}
+
 fn main() {
     let arg = args::parse_args();
     if arg.backtrace {
@@ -265,7 +269,6 @@ fn main() {
     let cfg = types::ExtraConfig {
         circus_mes_type: arg.circus_mes_type.clone(),
     };
-    let counter = utils::counter::Counter::new();
     match &arg.command {
         args::Command::Export { input, output } => {
             let (scripts, is_dir) = utils::files::collect_files(input, arg.recursive).unwrap();
@@ -289,10 +292,10 @@ fn main() {
                 let re = export_script(&script, &arg, &cfg, output, is_dir);
                 match re {
                     Ok(s) => {
-                        counter.inc(s);
+                        COUNTER.inc(s);
                     }
                     Err(e) => {
-                        counter.inc_error();
+                        COUNTER.inc_error();
                         eprintln!("Error exporting {}: {}", script, e);
                         if arg.backtrace {
                             eprintln!("Backtrace: {}", e.backtrace());
@@ -326,10 +329,10 @@ fn main() {
                 let re = import_script(&script, &arg, &cfg, args, is_dir, name_csv.as_ref());
                 match re {
                     Ok(s) => {
-                        counter.inc(s);
+                        COUNTER.inc(s);
                     }
                     Err(e) => {
-                        counter.inc_error();
+                        COUNTER.inc_error();
                         eprintln!("Error exporting {}: {}", script, e);
                         if arg.backtrace {
                             eprintln!("Backtrace: {}", e.backtrace());
@@ -339,5 +342,5 @@ fn main() {
             }
         }
     }
-    eprintln!("{}", counter);
+    eprintln!("{}", std::ops::Deref::deref(&COUNTER));
 }

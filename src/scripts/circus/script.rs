@@ -248,6 +248,7 @@ impl Script for CircusMesScript {
                 println!(
                     "Warning: Some replacements cannot used in current encoding. Ruby text may be broken."
                 );
+                crate::COUNTER.inc_warning();
             }
         }
         let mut buffer = Vec::with_capacity(self.data.len());

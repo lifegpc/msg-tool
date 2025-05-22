@@ -123,6 +123,7 @@ pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinErr
                 "Warning: Some characters could not be encoded in code page {}: {}",
                 cp, data
             );
+            crate::COUNTER.inc_warning();
         }
     }
     if result == 0 {
