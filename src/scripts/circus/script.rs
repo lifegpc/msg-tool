@@ -304,8 +304,8 @@ impl Script for CircusMesScript {
                 let mut text = encode_string(encoding, &s, false)?;
                 if text.contains(&self.info.deckey) {
                     eprintln!(
-                        "Warning: text contains deckey, text may be truncated: {}",
-                        s
+                        "Warning: text contains deckey 0x{:02X}, text may be truncated: {}",
+                        self.info.deckey, s,
                     );
                     crate::COUNTER.inc_warning();
                 }
