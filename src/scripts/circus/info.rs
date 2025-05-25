@@ -378,7 +378,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x63, 0xFF),
         0x54,
         0x20,
-        0xFF,
+        0x60,
     ),
     ScriptInfo::new(
         "dsif",
