@@ -30,9 +30,12 @@ impl FixedFormatter {
         let mut pre_is_lf = false;
         let mut is_ruby = false;
         let mut is_ruby_rt = false;
+        let mut last_command = None;
         for grapheme in vec {
             if grapheme == "\n" {
-                if self.keep_original {
+                if self.keep_original
+                    || (self.is_circus() && last_command.as_ref().is_some_and(|cmd| cmd == "@n"))
+                {
                     result.push('\n');
                     current_length = 0;
                 }
@@ -50,6 +53,7 @@ impl FixedFormatter {
             if self.is_circus() {
                 if grapheme == "@" {
                     is_command = true;
+                    last_command = Some(String::new());
                 } else if is_command && grapheme.len() != 1
                     || !grapheme
                         .chars()
@@ -68,6 +72,11 @@ impl FixedFormatter {
                 } else if is_ruby && grapheme == "｝" {
                     is_ruby = false;
                     continue;
+                }
+            }
+            if is_command {
+                if let Some(ref mut cmd) = last_command {
+                    cmd.push_str(grapheme);
                 }
             }
             if !is_command && !is_ruby_rt {
@@ -107,5 +116,10 @@ fn test_format() {
         circus_formatter
             .format("● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一\n　二三　四五六七八九十"),
         "● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一二三\n四五六七八九十"
+    );
+    let circus_formatter2 = FixedFormatter::new(32, false, Some(ScriptType::Circus));
+    assert_eq!(
+        circus_formatter2.format("@re1@re2@b1@t30@w1「当然现在我很幸福哦？\n　因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？\n　因为有敦也君在身边」"),
+        "@re1@re2@b1@t30@w1「当然现在我很幸福哦？因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？因为有敦也君在身边」"
     );
 }
