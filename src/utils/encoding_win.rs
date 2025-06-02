@@ -48,6 +48,9 @@ impl std::fmt::Display for WinError {
 }
 
 pub fn decode_to_string(cp: u32, data: &[u8]) -> Result<String, WinError> {
+    if data.is_empty() {
+        return Ok(String::new());
+    }
     let needed_len = unsafe {
         MultiByteToWideChar(
             cp,

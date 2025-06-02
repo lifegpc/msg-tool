@@ -20,15 +20,11 @@ impl ScriptBuilder for CircusMesScriptBuilder {
 
     fn build_script(
         &self,
-        filename: &str,
+        buf: Vec<u8>,
         encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(CircusMesScript::new(
-            filename.as_ref(),
-            encoding,
-            config,
-        )?))
+        Ok(Box::new(CircusMesScript::new(buf, encoding, config)?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -59,8 +55,7 @@ pub struct CircusMesScript {
 }
 
 impl CircusMesScript {
-    pub fn new(filename: &str, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
-        let data = crate::utils::files::read_file(filename)?;
+    pub fn new(data: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let head0 = i32::from_le_bytes(data[0..4].try_into()?);
         let head1 = i32::from_le_bytes(data[4..8].try_into()?);
         let mut is_new_ver = false;

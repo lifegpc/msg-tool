@@ -45,8 +45,10 @@ pub enum TextEncoding {
     Auto,
     /// UTF-8 encoding
     Utf8,
+    #[value(alias("jis"))]
     /// Shift-JIS encoding
     Cp932,
+    #[value(alias("gbk"))]
     /// GB2312 encoding
     Gb2312,
 }
@@ -185,6 +187,10 @@ pub enum ScriptType {
     #[value(alias("ethornell"))]
     /// Buriko General Interpreter/Ethornell Script
     BGI,
+    /// Escude bin archive
+    EscudeArc,
+    /// Escude bin script
+    Escude,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

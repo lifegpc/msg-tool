@@ -1,9 +1,12 @@
 pub mod args;
+pub mod ext;
 pub mod format;
 pub mod output_scripts;
 pub mod scripts;
 pub mod types;
 pub mod utils;
+
+use scripts::base::ArchiveContent;
 
 fn get_encoding(
     arg: &args::Arg,
@@ -93,7 +96,8 @@ pub fn parse_script(
             for builder in scripts::BUILDER.iter() {
                 if typ == builder.script_type() {
                     let encoding = get_encoding(arg, builder);
-                    return Ok((builder.build_script(filename, encoding, config)?, builder));
+                    let data = utils::files::read_file(filename)?;
+                    return Ok((builder.build_script(data, encoding, config)?, builder));
                 }
             }
         }
@@ -105,6 +109,7 @@ pub fn parse_script(
         for ext in exts {
             if filename.to_lowercase().ends_with(ext) {
                 exts_builder.push(builder);
+                break;
             }
         }
     }
@@ -116,7 +121,8 @@ pub fn parse_script(
     if exts_builder.len() == 1 {
         let builder = exts_builder.first().unwrap();
         let encoding = get_encoding(arg, builder);
-        return Ok((builder.build_script(filename, encoding, config)?, builder));
+        let data = utils::files::read_file(filename)?;
+        return Ok((builder.build_script(data, encoding, config)?, builder));
     }
     let mut buf = [0u8; 1024];
     let mut size = 0;
@@ -143,12 +149,79 @@ pub fn parse_script(
     if best_builders.len() == 1 {
         let builder = best_builders.first().unwrap();
         let encoding = get_encoding(arg, builder);
-        return Ok((builder.build_script(filename, encoding, config)?, builder));
+        let data = utils::files::read_file(filename)?;
+        return Ok((builder.build_script(data, encoding, config)?, builder));
     }
     if best_builders.len() > 1 {
         eprintln!(
             "Multiple script types found for {}: {:?}",
             filename, best_builders
+        );
+        return Err(anyhow::anyhow!("Multiple script types found"));
+    }
+    Err(anyhow::anyhow!("Unsupported script type"))
+}
+
+pub fn parse_script_from_archive(
+    file: &Box<dyn ArchiveContent>,
+    arg: &args::Arg,
+    config: &types::ExtraConfig,
+) -> anyhow::Result<(
+    Box<dyn scripts::Script>,
+    &'static Box<dyn scripts::ScriptBuilder + Send + Sync>,
+)> {
+    let mut exts_builder = Vec::new();
+    for builder in scripts::BUILDER.iter() {
+        let exts = builder.extensions();
+        for ext in exts {
+            if file.name().to_lowercase().ends_with(ext) {
+                exts_builder.push(builder);
+                break;
+            }
+        }
+    }
+    let exts_builder = if exts_builder.is_empty() {
+        scripts::BUILDER.iter().collect::<Vec<_>>()
+    } else {
+        exts_builder
+    };
+    if exts_builder.len() == 1 {
+        let builder = exts_builder.first().unwrap();
+        let encoding = get_encoding(arg, builder);
+        return Ok((
+            builder.build_script(file.data().to_vec(), encoding, config)?,
+            builder,
+        ));
+    }
+    let mut scores = Vec::new();
+    for builder in exts_builder.iter() {
+        if let Some(score) = builder.is_this_format(file.name(), file.data(), file.data().len()) {
+            scores.push((score, builder));
+        }
+    }
+    if scores.is_empty() {
+        return Err(anyhow::anyhow!("Unsupported script type"));
+    }
+    let max_score = scores.iter().map(|s| s.0).max().unwrap();
+    let mut best_builders = Vec::new();
+    for (score, builder) in scores.iter() {
+        if *score == max_score {
+            best_builders.push(builder);
+        }
+    }
+    if best_builders.len() == 1 {
+        let builder = best_builders.first().unwrap();
+        let encoding = get_encoding(arg, builder);
+        return Ok((
+            builder.build_script(file.data().to_vec(), encoding, config)?,
+            builder,
+        ));
+    }
+    if best_builders.len() > 1 {
+        eprintln!(
+            "Multiple script types found for {}: {:?}",
+            file.name(),
+            best_builders
         );
         return Err(anyhow::anyhow!("Multiple script types found"));
     }
@@ -164,6 +237,144 @@ pub fn export_script(
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Exporting {}", filename);
     let script = parse_script(filename, arg, config)?.0;
+    if script.is_archive() {
+        let odir = match output.as_ref() {
+            Some(output) => {
+                if is_dir {
+                    let mut pb = std::path::PathBuf::from(output);
+                    let filename = std::path::PathBuf::from(filename);
+                    if let Some(fname) = filename.file_name() {
+                        pb.push(fname);
+                    }
+                    pb.to_string_lossy().into_owned()
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "A directory is required for archive export"
+                    ));
+                }
+            }
+            None => {
+                let mut pb = std::path::PathBuf::from(filename);
+                pb.set_extension("");
+                pb.to_string_lossy().into_owned()
+            }
+        };
+        if !std::fs::exists(&odir)? {
+            std::fs::create_dir_all(&odir)?;
+        }
+        for f in script.iter_archive()? {
+            let f = f?;
+            if f.is_script() {
+                let (script_file, _) = parse_script_from_archive(&f, arg, config)?;
+                let mes = match script_file.extract_messages() {
+                    Ok(mes) => mes,
+                    Err(e) => {
+                        eprintln!("Error extracting messages from {}: {}", f.name(), e);
+                        COUNTER.inc_error();
+                        if arg.backtrace {
+                            eprintln!("Backtrace: {}", e.backtrace());
+                        }
+                        continue;
+                    }
+                };
+                if mes.is_empty() {
+                    eprintln!("No messages found in {}", f.name());
+                    COUNTER.inc(types::ScriptResult::Ignored);
+                    continue;
+                }
+                let of = match &arg.output_type {
+                    Some(t) => t.clone(),
+                    None => script_file.default_output_script_type(),
+                };
+                let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                out_path.set_extension(of.as_ref());
+                match of {
+                    types::OutputScriptType::Json => {
+                        let enc = get_output_encoding(arg);
+                        let s = match serde_json::to_string_pretty(&mes) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                eprintln!("Error serializing messages to JSON: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let b = match utils::encoding::encode_string(enc, &s, false) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                eprintln!("Error encoding string: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let mut f = match utils::files::write_file(&out_path) {
+                            Ok(f) => f,
+                            Err(e) => {
+                                eprintln!("Error writing file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        match f.write_all(&b) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                    }
+                    types::OutputScriptType::M3t => {
+                        let enc = get_output_encoding(arg);
+                        let s = output_scripts::m3t::M3tDumper::dump(&mes);
+                        let b = match utils::encoding::encode_string(enc, &s, false) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                eprintln!("Error encoding string: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let mut f = match utils::files::write_file(&out_path) {
+                            Ok(f) => f,
+                            Err(e) => {
+                                eprintln!("Error writing file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        match f.write_all(&b) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                    }
+                }
+            } else {
+                let out_path = std::path::PathBuf::from(&odir).join(f.name());
+                match utils::files::write_file(&out_path) {
+                    Ok(mut fi) => match fi.write_all(f.data()) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Error writing file {}: {}", out_path.display(), e);
+                        COUNTER.inc_error();
+                        continue;
+                    }
+                }
+            }
+            COUNTER.inc(types::ScriptResult::Ok);
+        }
+        return Ok(types::ScriptResult::Ok);
+    }
     // println!("{:?}", script);
     let mes = script.extract_messages()?;
     // for m in mes.iter() {

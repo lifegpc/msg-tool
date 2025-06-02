@@ -10,7 +10,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
 
     fn build_script(
         &self,
-        filename: &str,
+        buf: Vec<u8>,
         encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>>;
@@ -24,18 +24,48 @@ pub trait ScriptBuilder: std::fmt::Debug {
     fn script_type(&self) -> &'static ScriptType;
 }
 
+pub trait ArchiveContent {
+    fn name(&self) -> &str;
+    fn data(&self) -> &[u8];
+    fn is_script(&self) -> bool;
+}
+
 pub trait Script: std::fmt::Debug {
     fn default_output_script_type(&self) -> OutputScriptType;
 
     fn default_format_type(&self) -> FormatOptions;
 
-    fn extract_messages(&self) -> Result<Vec<Message>>;
+    fn extract_messages(&self) -> Result<Vec<Message>> {
+        if !self.is_archive() {
+            return Err(anyhow::anyhow!(
+                "This script type does not support extracting messages."
+            ));
+        }
+        Ok(vec![])
+    }
 
     fn import_messages(
         &self,
-        messages: Vec<Message>,
-        filename: &str,
-        encoding: Encoding,
-        replacement: Option<&ReplacementTable>,
-    ) -> Result<()>;
+        _messages: Vec<Message>,
+        _filename: &str,
+        _encoding: Encoding,
+        _replacement: Option<&ReplacementTable>,
+    ) -> Result<()> {
+        if !self.is_archive() {
+            return Err(anyhow::anyhow!(
+                "This script type does not support importing messages."
+            ));
+        }
+        Ok(())
+    }
+
+    fn is_archive(&self) -> bool {
+        false
+    }
+
+    fn iter_archive<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
+        Ok(Box::new(std::iter::empty()))
+    }
 }

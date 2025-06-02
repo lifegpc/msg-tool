@@ -20,15 +20,11 @@ impl ScriptBuilder for BGIScriptBuilder {
 
     fn build_script(
         &self,
-        filename: &str,
+        buf: Vec<u8>,
         encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(BGIScript::new(
-            filename.as_ref(),
-            encoding,
-            config,
-        )?))
+        Ok(Box::new(BGIScript::new(buf, encoding, config)?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -64,8 +60,7 @@ impl std::fmt::Debug for BGIScript {
 }
 
 impl BGIScript {
-    pub fn new(filename: &str, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
-        let data = crate::utils::files::read_file(filename)?;
+    pub fn new(data: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         if data.starts_with(b"BurikoCompiledScriptVer1.00\0") {
             let mut parser = V1Parser::new(&data, encoding)?;
             parser.disassemble()?;
