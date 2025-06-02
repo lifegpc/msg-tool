@@ -99,14 +99,58 @@ pub fn parse_script(
         }
         _ => {}
     }
+    let mut exts_builder = Vec::new();
     for builder in scripts::BUILDER.iter() {
         let exts = builder.extensions();
         for ext in exts {
             if filename.to_lowercase().ends_with(ext) {
-                let encoding = get_encoding(arg, builder);
-                return Ok((builder.build_script(filename, encoding, config)?, builder));
+                exts_builder.push(builder);
             }
         }
+    }
+    let exts_builder = if exts_builder.is_empty() {
+        scripts::BUILDER.iter().collect::<Vec<_>>()
+    } else {
+        exts_builder
+    };
+    if exts_builder.len() == 1 {
+        let builder = exts_builder.first().unwrap();
+        let encoding = get_encoding(arg, builder);
+        return Ok((builder.build_script(filename, encoding, config)?, builder));
+    }
+    let mut buf = [0u8; 1024];
+    let mut size = 0;
+    if filename != "-" {
+        let mut f = std::fs::File::open(filename)?;
+        size = std::io::Read::read(&mut f, &mut buf)?;
+    }
+    let mut scores = Vec::new();
+    for builder in exts_builder.iter() {
+        if let Some(score) = builder.is_this_format(filename, &buf, size) {
+            scores.push((score, builder));
+        }
+    }
+    if scores.is_empty() {
+        return Err(anyhow::anyhow!("Unsupported script type"));
+    }
+    let max_score = scores.iter().map(|s| s.0).max().unwrap();
+    let mut best_builders = Vec::new();
+    for (score, builder) in scores.iter() {
+        if *score == max_score {
+            best_builders.push(builder);
+        }
+    }
+    if best_builders.len() == 1 {
+        let builder = best_builders.first().unwrap();
+        let encoding = get_encoding(arg, builder);
+        return Ok((builder.build_script(filename, encoding, config)?, builder));
+    }
+    if best_builders.len() > 1 {
+        eprintln!(
+            "Multiple script types found for {}: {:?}",
+            filename, best_builders
+        );
+        return Err(anyhow::anyhow!("Multiple script types found"));
     }
     Err(anyhow::anyhow!("Unsupported script type"))
 }

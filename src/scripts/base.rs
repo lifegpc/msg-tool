@@ -1,7 +1,7 @@
 use crate::types::*;
 use anyhow::Result;
 
-pub trait ScriptBuilder {
+pub trait ScriptBuilder: std::fmt::Debug {
     fn default_encoding(&self) -> Encoding;
 
     fn default_patched_encoding(&self) -> Encoding {
@@ -16,6 +16,10 @@ pub trait ScriptBuilder {
     ) -> Result<Box<dyn Script>>;
 
     fn extensions(&self) -> &'static [&'static str];
+
+    fn is_this_format(&self, _filename: &str, _buf: &[u8], _buf_len: usize) -> Option<u8> {
+        None
+    }
 
     fn script_type(&self) -> &'static ScriptType;
 }

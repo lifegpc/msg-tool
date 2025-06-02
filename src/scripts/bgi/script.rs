@@ -4,6 +4,7 @@ use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
 
+#[derive(Debug)]
 pub struct BGIScriptBuilder {}
 
 impl BGIScriptBuilder {
@@ -36,6 +37,13 @@ impl ScriptBuilder for BGIScriptBuilder {
 
     fn script_type(&self) -> &'static ScriptType {
         &ScriptType::BGI
+    }
+
+    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+        if buf_len > 28 && buf.starts_with(b"BurikoCompiledScriptVer1.00\0") {
+            return Some(255);
+        }
+        None
     }
 }
 

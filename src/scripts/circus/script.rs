@@ -4,6 +4,7 @@ use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
 
+#[derive(Debug)]
 pub struct CircusMesScriptBuilder {}
 
 impl CircusMesScriptBuilder {

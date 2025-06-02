@@ -1,6 +1,7 @@
 pub mod base;
 pub mod bgi;
 pub mod circus;
+pub mod escude;
 
 pub use base::{Script, ScriptBuilder};
 
