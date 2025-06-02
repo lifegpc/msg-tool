@@ -18,8 +18,14 @@ impl FixedFormatter {
         }
     }
 
+    #[cfg(feature = "circus")]
     fn is_circus(&self) -> bool {
         matches!(self.typ, Some(ScriptType::Circus))
+    }
+
+    #[cfg(not(feature = "circus"))]
+    fn is_circus(&self) -> bool {
+        false
     }
 
     pub fn format(&self, message: &str) -> String {

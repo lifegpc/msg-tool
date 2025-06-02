@@ -182,13 +182,17 @@ pub struct ExtraConfig {
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
 /// Script type
 pub enum ScriptType {
+    #[cfg(feature = "circus")]
     /// Circus MES script
     Circus,
+    #[cfg(feature = "bgi")]
     #[value(alias("ethornell"))]
     /// Buriko General Interpreter/Ethornell Script
     BGI,
+    #[cfg(feature = "escude")]
     /// Escude bin archive
     EscudeArc,
+    #[cfg(feature = "escude")]
     /// Escude bin script
     Escude,
 }
