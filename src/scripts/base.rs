@@ -1,10 +1,14 @@
 use crate::types::*;
 use anyhow::Result;
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, Write};
 
 pub trait ReadSeek: Read + Seek + std::fmt::Debug {}
 
+pub trait WriteSeek: Write + Seek {}
+
 impl<T: Read + Seek + std::fmt::Debug> ReadSeek for T {}
+
+impl<T: Write + Seek> WriteSeek for T {}
 
 pub trait ScriptBuilder: std::fmt::Debug {
     fn default_encoding(&self) -> Encoding;
@@ -112,6 +116,29 @@ pub trait Script: std::fmt::Debug {
         Err(anyhow::anyhow!(
             "This script type does not support custom export."
         ))
+    }
+
+    fn custom_import(
+        &self,
+        _custom_filename: &str,
+        _file: Box<dyn WriteSeek>,
+        _encoding: Encoding,
+        _output_encoding: Encoding,
+    ) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "This script type does not support custom import."
+        ))
+    }
+
+    fn custom_import_filename(
+        &self,
+        custom_filename: &str,
+        filename: &str,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        let f = std::fs::File::create(filename)?;
+        self.custom_import(custom_filename, Box::new(f), encoding, output_encoding)
     }
 
     fn is_archive(&self) -> bool {

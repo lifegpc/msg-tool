@@ -548,10 +548,13 @@ pub fn import_script(
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Importing {}", filename);
     let (script, builder) = parse_script(filename, arg, config)?;
-    let of = match &arg.output_type {
+    let mut of = match &arg.output_type {
         Some(t) => t.clone(),
         None => script.default_output_script_type(),
     };
+    if !script.is_output_supported(of) {
+        of = script.default_output_script_type();
+    }
     let out_f = if is_dir {
         let f = std::path::PathBuf::from(filename);
         let mut pb = std::path::PathBuf::from(&imp_cfg.output);
@@ -581,12 +584,11 @@ pub fn import_script(
             let mut parser = output_scripts::m3t::M3tParser::new(&s);
             parser.parse()?
         }
-        _ => {
-            eprintln!("Unsupported output script type for import: {:?}", of);
-            return Ok(types::ScriptResult::Ignored);
+        types::OutputScriptType::Custom => {
+            Vec::new() // Custom scripts handle their own messages
         }
     };
-    if mes.is_empty() {
+    if !of.is_custom() && mes.is_empty() {
         eprintln!("No messages found");
         return Ok(types::ScriptResult::Ignored);
     }
@@ -602,6 +604,11 @@ pub fn import_script(
     } else {
         imp_cfg.patched.clone()
     };
+    if of.is_custom() {
+        let enc = get_output_encoding(arg);
+        script.custom_import_filename(&out_f, &patched_f, encoding, enc)?;
+        return Ok(types::ScriptResult::Ok);
+    }
     let fmt = match imp_cfg.patched_format {
         Some(fmt) => match fmt {
             types::FormatType::Fixed => types::FormatOptions::Fixed {

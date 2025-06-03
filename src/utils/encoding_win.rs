@@ -83,6 +83,9 @@ pub fn decode_to_string(cp: u32, data: &[u8]) -> Result<String, WinError> {
 }
 
 pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinError> {
+    if data.is_empty() {
+        return Ok(Vec::new());
+    }
     let wstr = data.encode_utf16().collect::<Vec<u16>>();
     let needed_len = unsafe {
         WideCharToMultiByte(

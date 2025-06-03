@@ -1,8 +1,8 @@
-use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::encode_string;
 use crate::utils::struct_pack::*;
+use crate::{ext::io::*, utils::encoding::decode_to_string};
 use anyhow::Result;
 use msg_tool_macro::*;
 use serde::{Deserialize, Serialize};
@@ -280,6 +280,38 @@ impl Script for EscudeBinList {
         let mut writer = crate::utils::files::write_file(filename)?;
         let s = encode_string(encoding, &s, false)?;
         writer.write_all(&s)?;
+        writer.flush()?;
+        Ok(())
+    }
+
+    fn custom_import(
+        &self,
+        custom_filename: &str,
+        mut writer: Box<dyn WriteSeek>,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        let input = crate::utils::files::read_file(custom_filename)?;
+        let s = decode_to_string(output_encoding, &input)?;
+        let entries: Vec<ListEntry> = serde_json::from_str(&s)
+            .map_err(|e| anyhow::anyhow!("Failed to read Escude list from JSON: {}", e))?;
+        writer.write_all(b"LIST")?;
+        writer.write_u32(0)?; // Placeholder for size
+        let mut total_size = 0;
+        for entry in entries {
+            let cur_pos = writer.stream_position()?;
+            writer.write_u32(entry.id)?;
+            writer.write_u32(0)?; // Placeholder for size
+            entry.data.pack(&mut writer, false, encoding)?;
+            let end_pos = writer.stream_position()?;
+            let size = (end_pos - cur_pos - 8) as u32; // 8 bytes for id and size
+            writer.seek(std::io::SeekFrom::Start(cur_pos + 4))?; // Seek to size position
+            writer.write_u32(size)?;
+            writer.seek(std::io::SeekFrom::Start(end_pos))?; // Seek to end
+            total_size += size + 8;
+        }
+        writer.seek(std::io::SeekFrom::Start(4))?; // Seek back to size position
+        writer.write_u32(total_size)?;
         writer.flush()?;
         Ok(())
     }
