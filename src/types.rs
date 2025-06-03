@@ -186,6 +186,7 @@ impl AsRef<str> for CircusMesType {
 
 pub struct ExtraConfig {
     pub circus_mes_type: Option<CircusMesType>,
+    pub escude_fake_compress: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

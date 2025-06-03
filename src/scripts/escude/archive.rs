@@ -105,10 +105,11 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
         filename: &str,
         files: &[&str],
         encoding: Encoding,
+        config: &ExtraConfig,
     ) -> Result<Box<dyn Archive>> {
         let f = std::fs::File::create(filename)?;
         let writer = std::io::BufWriter::new(f);
-        let archive = EscudeBinArchiveWriter::new(writer, files, encoding)?;
+        let archive = EscudeBinArchiveWriter::new(writer, files, encoding, config)?;
         Ok(Box::new(archive))
     }
 }
@@ -284,7 +285,7 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
             };
             data = match decoder.unpack() {
                 Ok(unpacked_data) => unpacked_data,
-                Err(e) => return Some(Err(anyhow::anyhow!("Failed to unpack LZW data: {}", e))),
+                Err(e) => return Some(Err(e)),
             };
         }
         Some(Ok(Box::new(Entry { name, data })))
@@ -295,10 +296,16 @@ pub struct EscudeBinArchiveWriter<T: Write + Seek> {
     writer: T,
     headers: HashMap<String, BinEntry>,
     name_tbl_len: u32,
+    fake: bool,
 }
 
 impl<T: Write + Seek> EscudeBinArchiveWriter<T> {
-    pub fn new(mut writer: T, files: &[&str], encoding: Encoding) -> Result<Self> {
+    pub fn new(
+        mut writer: T,
+        files: &[&str],
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
         writer.write_all(b"ESC-ARC2")?;
         let header_len = 0xC + 0xC * files.len();
         let header = vec![0u8; header_len];
@@ -324,6 +331,7 @@ impl<T: Write + Seek> EscudeBinArchiveWriter<T> {
             writer,
             headers,
             name_tbl_len,
+            fake: config.escude_fake_compress,
         })
     }
 }
@@ -338,11 +346,11 @@ impl<T: Write + Seek> Archive for EscudeBinArchiveWriter<T> {
             return Err(anyhow::anyhow!("File '{}' already exists in archive", name));
         }
         entry.data_offset = self.writer.stream_position()? as u32;
-        Ok(Box::new(EscudeBinArchiveFile {
-            header: entry,
-            writer: &mut self.writer,
-            pos: 0,
-        }))
+        Ok(Box::new(EscudeBinArchiveFileWithLzw::new(
+            entry,
+            &mut self.writer,
+            self.fake,
+        )?))
     }
 
     fn write_header(&mut self) -> Result<()> {
@@ -358,6 +366,75 @@ impl<T: Write + Seek> Archive for EscudeBinArchiveWriter<T> {
             crypto.write_u32(entry.length)?;
         }
         Ok(())
+    }
+}
+
+pub struct EscudeBinArchiveFileWithLzw<'a, T: Write + Seek> {
+    writer: EscudeBinArchiveFile<'a, T>,
+    buf: MemWriter,
+    fake: bool,
+}
+
+impl<'a, T: Write + Seek> EscudeBinArchiveFileWithLzw<'a, T> {
+    fn new(header: &'a mut BinEntry, writer: &'a mut T, fake: bool) -> Result<Self> {
+        let writer = EscudeBinArchiveFile {
+            header,
+            writer,
+            pos: 0,
+        };
+        Ok(EscudeBinArchiveFileWithLzw {
+            writer,
+            buf: MemWriter::new(),
+            fake,
+        })
+    }
+}
+
+impl<'a, T: Write + Seek> Write for EscudeBinArchiveFileWithLzw<'a, T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buf.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.buf.flush()
+    }
+}
+
+impl<'a, T: Write + Seek> Seek for EscudeBinArchiveFileWithLzw<'a, T> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        self.buf.seek(pos)
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        self.buf.stream_position()
+    }
+
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.buf.rewind()
+    }
+}
+
+impl<'a, T: Write + Seek> Drop for EscudeBinArchiveFileWithLzw<'a, T> {
+    fn drop(&mut self) {
+        let buf = self.buf.as_slice();
+        let encoder = super::lzw::LZWEncoder::new();
+        let data = match encoder.encode(buf, self.fake) {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("Failed to encode LZW data: {}", e);
+                crate::COUNTER.inc_error();
+                return;
+            }
+        };
+        match self.writer.write_all(&data) {
+            Ok(_) => {
+                self.writer.header.length = self.writer.header.length.max(data.len() as u32);
+            }
+            Err(e) => {
+                eprintln!("Failed to write LZW data: {}", e);
+                crate::COUNTER.inc_error();
+            }
+        }
     }
 }
 

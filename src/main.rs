@@ -112,6 +112,35 @@ fn get_patched_encoding(
     builder.default_patched_encoding()
 }
 
+fn get_patched_archive_encoding(
+    arg: &args::ImportArgs,
+    builder: &Box<dyn scripts::ScriptBuilder + Send + Sync>,
+    encoding: types::Encoding,
+) -> types::Encoding {
+    match &arg.patched_archive_encoding {
+        Some(enc) => {
+            return match enc {
+                &types::TextEncoding::Default => {
+                    builder.default_archive_encoding().unwrap_or(encoding)
+                }
+                &types::TextEncoding::Auto => types::Encoding::Utf8,
+                &types::TextEncoding::Cp932 => types::Encoding::Cp932,
+                &types::TextEncoding::Utf8 => types::Encoding::Utf8,
+                &types::TextEncoding::Gb2312 => types::Encoding::Gb2312,
+            };
+        }
+        None => {}
+    }
+    #[cfg(windows)]
+    match &arg.patched_archive_code_page {
+        Some(code_page) => {
+            return types::Encoding::CodePage(*code_page);
+        }
+        None => {}
+    }
+    builder.default_archive_encoding().unwrap_or(encoding)
+}
+
 pub fn parse_script(
     filename: &str,
     arg: &args::Arg,
@@ -575,9 +604,9 @@ pub fn import_script(
             imp_cfg.patched.clone()
         };
         let files: Vec<_> = files.iter().map(|s| s.as_str()).collect();
-        let encoding = get_encoding(arg, builder);
-        let enc = get_archived_encoding(arg, builder, encoding);
-        let mut arch = builder.create_archive(&patched_f, &files, enc)?;
+        let pencoding = get_patched_encoding(imp_cfg, builder);
+        let enc = get_patched_archive_encoding(imp_cfg, builder, pencoding);
+        let mut arch = builder.create_archive(&patched_f, &files, enc, config)?;
         for f in script.iter_archive_mut()? {
             let f = f?;
             let mut writer = arch.new_file(f.name())?;
@@ -597,6 +626,46 @@ pub fn import_script(
                     of.as_ref()
                 };
                 out_path.set_extension(ext);
+                if !out_path.exists() {
+                    out_path = std::path::PathBuf::from(&odir).join(f.name());
+                    if !out_path.exists() {
+                        eprintln!(
+                            "Warning: File {} does not exist, using file from original archive.",
+                            out_path.display()
+                        );
+                        COUNTER.inc_warning();
+                        match writer.write_all(f.data()) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                        COUNTER.inc(types::ScriptResult::Ok);
+                        continue;
+                    } else {
+                        let file = match std::fs::File::open(&out_path) {
+                            Ok(f) => f,
+                            Err(e) => {
+                                eprintln!("Error opening file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let mut f = std::io::BufReader::new(file);
+                        match std::io::copy(&mut f, &mut writer) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                        COUNTER.inc(types::ScriptResult::Ok);
+                        continue;
+                    }
+                }
                 let mut mes = match of {
                     types::OutputScriptType::Json => {
                         let enc = get_output_encoding(arg);
@@ -838,6 +907,7 @@ fn main() {
     }
     let cfg = types::ExtraConfig {
         circus_mes_type: arg.circus_mes_type.clone(),
+        escude_fake_compress: arg.escude_fake_compress.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

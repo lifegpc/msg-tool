@@ -66,13 +66,16 @@ pub struct Arg {
     #[arg(global = true, action = ArgAction::SetTrue, short, long)]
     /// Print backtrace on error
     pub backtrace: bool,
+    #[arg(long, action = ArgAction::SetTrue, global = true)]
+    /// Whether to use fake compression for Escude archive
+    pub escude_fake_compress: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
 }
 
 #[derive(Parser, Debug)]
-#[clap(group = ArgGroup::new("patched_encodingg").multiple(false))]
+#[clap(group = ArgGroup::new("patched_encodingg").multiple(false), group = ArgGroup::new("patched_archive_encodingg").multiple(false))]
 pub struct ImportArgs {
     /// Input script file or directory
     pub input: String,
@@ -87,6 +90,13 @@ pub struct ImportArgs {
     #[arg(short = 'P', long, group = "patched_encodingg")]
     /// Patched script code page
     pub patched_code_page: Option<u32>,
+    #[arg(long, value_enum, group = "patched_archive_encodingg", alias = "pa")]
+    /// Patched archive filename encoding
+    pub patched_archive_encoding: Option<TextEncoding>,
+    #[cfg(windows)]
+    #[arg(long, value_enum, group = "patched_archive_encodingg", alias = "PA")]
+    /// Patched archive code page
+    pub patched_archive_code_page: Option<u32>,
     #[arg(long)]
     /// Patched script format type
     pub patched_format: Option<FormatType>,

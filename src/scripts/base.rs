@@ -73,6 +73,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
         _filename: &str,
         _files: &[&str],
         _encoding: Encoding,
+        _config: &ExtraConfig,
     ) -> Result<Box<dyn Archive>> {
         Err(anyhow::anyhow!(
             "This script type does not support creating an archive."

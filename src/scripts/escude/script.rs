@@ -135,7 +135,7 @@ impl Script for EscudeBinScript {
                     s = s.replace(from, to);
                 }
             }
-            let encoded = encode_string(encoding, &s, true)?;
+            let encoded = encode_string(encoding, &s, false)?;
             len += encoded.len() as u32 + 1;
             strs.push(CString::new(encoded)?);
         }
@@ -169,20 +169,20 @@ impl StrReplacer {
         let mut s = StrReplacer {
             replacements: HashMap::new(),
         };
-        s.add("!?｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞﾟ", "！？　。「」、…をぁぃぅぇぉゃゅょっーあいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん゛゜")?;
+        // 0xa0 to 0xde: Half-width katakana in CP932
+        let half_width_katakana = "！？　。「」、…をぁぃぅぇぉゃゅょっーあいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわん゛゜";
+        let mut bytes: Vec<u8> = (0xa0..=0xde).collect();
+        bytes.insert(0, 0x21);
+        bytes.insert(1, 0x22);
+        s.add(&bytes, half_width_katakana)?;
         Ok(s)
     }
 
-    fn add(&mut self, from: &str, to: &str) -> Result<()> {
+    fn add(&mut self, from: &[u8], to: &str) -> Result<()> {
         let encoding = Encoding::Cp932; // Default encoding, can be changed as needed
-        let froms = UnicodeSegmentation::graphemes(from, true);
         let tos = UnicodeSegmentation::graphemes(to, true);
-        for (from, to) in froms.zip(tos) {
-            let from_bytes = if from == "" {
-                vec![0xa0]
-            } else {
-                encode_string(encoding, from, true)?
-            };
+        for (from, to) in from.into_iter().zip(tos) {
+            let from_bytes = vec![from.clone()];
             let to_bytes = encode_string(encoding, to, true)?;
             self.replacements.insert(from_bytes, to_bytes);
         }

@@ -1,5 +1,6 @@
 use crate::ext::io::*;
 use anyhow::Result;
+use std::io::Write;
 
 pub struct BitStream<'a> {
     m_input: MemReaderRef<'a>,
@@ -94,5 +95,131 @@ impl<'a> LZWDecoder<'a> {
             }
         }
         Ok(output)
+    }
+}
+
+pub struct BitWriter<'a, T: Write> {
+    writer: &'a mut T,
+    buffer: u32,
+    buffer_size: u32,
+}
+
+impl<'a, T: Write> BitWriter<'a, T> {
+    pub fn new(writer: &'a mut T) -> Self {
+        BitWriter {
+            writer,
+            buffer: 0,
+            buffer_size: 0,
+        }
+    }
+
+    pub fn flush(&mut self) -> Result<()> {
+        if self.buffer_size > 0 {
+            self.writer.write_u8((self.buffer & 0xFF) as u8)?;
+            self.buffer = 0;
+            self.buffer_size = 0;
+        }
+        Ok(())
+    }
+
+    pub fn put_bits(&mut self, byte: u16, token_width: u8) -> Result<()> {
+        for i in 0..token_width {
+            self.put_bit((byte & (1 << (token_width - 1 - i))) != 0)?;
+        }
+        Ok(())
+    }
+
+    pub fn put_bit(&mut self, bit: bool) -> Result<()> {
+        self.buffer <<= 1;
+        if bit {
+            self.buffer |= 1;
+        }
+        self.buffer_size += 1;
+        if self.buffer_size == 8 {
+            self.writer.write_u8((self.buffer & 0xFF) as u8)?;
+            self.buffer_size -= 8;
+        }
+        Ok(())
+    }
+}
+
+pub struct LZWEncoder {
+    buf: MemWriter,
+}
+
+impl LZWEncoder {
+    pub fn new() -> Self {
+        LZWEncoder {
+            buf: MemWriter::new(),
+        }
+    }
+
+    pub fn encode(mut self, input: &[u8], fake: bool) -> Result<Vec<u8>> {
+        self.buf.write_all(b"acp\0")?;
+        self.buf.write_u32_be(input.len() as u32)?;
+        let mut writer = BitWriter::new(&mut self.buf);
+        if fake {
+            for i in 0..input.len() {
+                if i > 0 && i % 0x4000 == 0 {
+                    writer.put_bits(0x102, 9)?;
+                }
+                writer.put_bits(input[i] as u16, 9)?;
+            }
+            writer.put_bits(0x100, 9)?; // End of stream
+            writer.flush()?;
+        } else {
+            let mut dict = std::collections::HashMap::new();
+            for i in 0..256 {
+                dict.insert(vec![i as u8], i as u16);
+            }
+            let mut next_code = 0x103u16;
+            let mut token_width = 9;
+
+            let mut i = 0;
+            while i < input.len() {
+                let mut current = vec![input[i]];
+                i += 1;
+
+                while i < input.len()
+                    && dict.contains_key(&{
+                        let mut temp = current.clone();
+                        temp.push(input[i]);
+                        temp
+                    })
+                {
+                    current.push(input[i]);
+                    i += 1;
+                }
+
+                let code = dict[&current];
+                writer.put_bits(code, token_width)?;
+
+                if i < input.len() {
+                    let mut new_entry = current.clone();
+                    new_entry.push(input[i]);
+                    dict.insert(new_entry, next_code);
+                    next_code += 1;
+
+                    if next_code >= (1 << token_width) && token_width < 24 {
+                        writer.put_bits(0x101, token_width)?; // Increase token width
+                        token_width += 1;
+                    }
+
+                    if dict.len() >= 0x8900 {
+                        writer.put_bits(0x102, token_width)?; // Clear dictionary
+                        dict.clear();
+                        for j in 0..256 {
+                            dict.insert(vec![j as u8], j as u16);
+                        }
+                        next_code = 0x103;
+                        token_width = 9;
+                    }
+                }
+            }
+            writer.put_bits(0x100, token_width)?; // End of stream
+            writer.flush()?;
+        }
+
+        Ok(self.buf.into_inner())
     }
 }

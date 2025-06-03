@@ -678,3 +678,90 @@ impl<'a> Seek for MemReaderRef<'a> {
         Ok(())
     }
 }
+
+pub struct MemWriter {
+    data: Vec<u8>,
+    pos: usize,
+}
+
+impl MemWriter {
+    pub fn new() -> Self {
+        MemWriter {
+            data: Vec::new(),
+            pos: 0,
+        }
+    }
+
+    pub fn into_inner(self) -> Vec<u8> {
+        self.data
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.data
+    }
+}
+
+impl std::fmt::Debug for MemWriter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemWriter")
+            .field("pos", &self.pos)
+            .field("data_length", &self.data.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl Write for MemWriter {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        if self.pos + buf.len() > self.data.len() {
+            self.data.resize(self.pos + buf.len(), 0);
+        }
+        let bytes_written = buf.len();
+        self.data[self.pos..self.pos + bytes_written].copy_from_slice(buf);
+        self.pos += bytes_written;
+        Ok(bytes_written)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl Seek for MemWriter {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        match pos {
+            SeekFrom::Start(offset) => {
+                self.pos = offset as usize;
+            }
+            SeekFrom::End(offset) => {
+                let end_pos = self.data.len() as i64 + offset;
+                if end_pos < 0 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Seek from end resulted in negative position",
+                    ));
+                }
+                self.pos = end_pos as usize;
+            }
+            SeekFrom::Current(offset) => {
+                let new_pos = self.pos as i64 + offset;
+                if new_pos < 0 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Seek position is negative",
+                    ));
+                }
+                self.pos = new_pos as usize;
+            }
+        }
+        Ok(self.pos as u64)
+    }
+
+    fn stream_position(&mut self) -> Result<u64> {
+        Ok(self.pos as u64)
+    }
+
+    fn rewind(&mut self) -> Result<()> {
+        self.pos = 0;
+        Ok(())
+    }
+}
