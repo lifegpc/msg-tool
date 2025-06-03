@@ -284,10 +284,10 @@ impl Script for EscudeBinList {
         Ok(())
     }
 
-    fn custom_import(
-        &self,
-        custom_filename: &str,
-        mut writer: Box<dyn WriteSeek>,
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        mut writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         output_encoding: Encoding,
     ) -> Result<()> {

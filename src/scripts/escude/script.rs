@@ -116,12 +116,12 @@ impl Script for EscudeBinScript {
             .collect())
     }
 
-    fn import_messages(
-        &self,
+    fn import_messages<'a>(
+        &'a self,
         messages: Vec<Message>,
-        mut writer: Box<dyn WriteSeek>,
+        mut writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
-        replacement: Option<&ReplacementTable>,
+        replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
         writer.write_all(b"ESCR1_00")?;
         let mut offsets = Vec::with_capacity(messages.len());

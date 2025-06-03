@@ -67,6 +67,17 @@ pub trait ScriptBuilder: std::fmt::Debug {
     fn is_archive(&self) -> bool {
         false
     }
+
+    fn create_archive(
+        &self,
+        _filename: &str,
+        _files: &[&str],
+        _encoding: Encoding,
+    ) -> Result<Box<dyn Archive>> {
+        Err(anyhow::anyhow!(
+            "This script type does not support creating an archive."
+        ))
+    }
 }
 
 pub trait ArchiveContent {
@@ -97,12 +108,12 @@ pub trait Script: std::fmt::Debug {
         Ok(vec![])
     }
 
-    fn import_messages(
-        &self,
+    fn import_messages<'a>(
+        &'a self,
         _messages: Vec<Message>,
-        _file: Box<dyn WriteSeek>,
+        _file: Box<dyn WriteSeek + 'a>,
         _encoding: Encoding,
-        _replacement: Option<&ReplacementTable>,
+        _replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
         if !self.is_archive() {
             return Err(anyhow::anyhow!(
@@ -130,10 +141,10 @@ pub trait Script: std::fmt::Debug {
         ))
     }
 
-    fn custom_import(
-        &self,
-        _custom_filename: &str,
-        _file: Box<dyn WriteSeek>,
+    fn custom_import<'a>(
+        &'a self,
+        _custom_filename: &'a str,
+        _file: Box<dyn WriteSeek + 'a>,
         _encoding: Encoding,
         _output_encoding: Encoding,
     ) -> Result<()> {
@@ -158,9 +169,20 @@ pub trait Script: std::fmt::Debug {
         false
     }
 
-    fn iter_archive<'a>(
+    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+        Err(anyhow::anyhow!(
+            "This script type does not support iterating over archive contents."
+        ))
+    }
+
+    fn iter_archive_mut<'a>(
         &'a mut self,
     ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
         Ok(Box::new(std::iter::empty()))
     }
+}
+
+pub trait Archive {
+    fn new_file<'a>(&'a mut self, name: &str) -> Result<Box<dyn WriteSeek + 'a>>;
+    fn write_header(&mut self) -> Result<()>;
 }

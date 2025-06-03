@@ -2,9 +2,11 @@ use super::crypto::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
-use crate::utils::encoding::decode_to_string;
+use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
-use std::io::{Read, Seek, SeekFrom};
+use std::collections::HashMap;
+use std::ffi::CString;
+use std::io::{Read, Seek, SeekFrom, Write};
 
 #[derive(Debug)]
 pub struct EscudeBinArchiveBuilder {}
@@ -97,6 +99,18 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
     fn is_archive(&self) -> bool {
         true
     }
+
+    fn create_archive(
+        &self,
+        filename: &str,
+        files: &[&str],
+        encoding: Encoding,
+    ) -> Result<Box<dyn Archive>> {
+        let f = std::fs::File::create(filename)?;
+        let writer = std::io::BufWriter::new(f);
+        let archive = EscudeBinArchiveWriter::new(writer, files, encoding)?;
+        Ok(Box::new(archive))
+    }
 }
 
 #[derive(Debug)]
@@ -129,7 +143,6 @@ impl ArchiveContent for Entry {
 pub struct EscudeBinArchive<T: Read + Seek + std::fmt::Debug> {
     reader: T,
     file_count: u32,
-    name_tbl_len: u32,
     entries: Vec<BinEntry>,
     archive_encoding: Encoding,
 }
@@ -144,7 +157,7 @@ impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
         reader.seek(SeekFrom::Start(0xC))?;
         let mut crypto_reader = CryptoReader::new(&mut reader)?;
         let file_count = crypto_reader.read_u32()?;
-        let name_tbl_len = crypto_reader.read_u32()?;
+        let _name_tbl_len = crypto_reader.read_u32()?;
         let mut entries = Vec::with_capacity(file_count as usize);
         for _ in 0..file_count {
             let name_offset = crypto_reader.read_u32()?;
@@ -159,7 +172,6 @@ impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
         Ok(EscudeBinArchive {
             reader,
             file_count,
-            name_tbl_len,
             entries,
             archive_encoding,
         })
@@ -179,7 +191,16 @@ impl<T: Read + Seek + std::fmt::Debug> Script for EscudeBinArchive<T> {
         true
     }
 
-    fn iter_archive<'a>(
+    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+        Ok(Box::new(EscudeBinArchiveIter {
+            entries: self.entries.iter(),
+            reader: &mut self.reader,
+            file_count: self.file_count,
+            archive_encoding: self.archive_encoding,
+        }))
+    }
+
+    fn iter_archive_mut<'a>(
         &'a mut self,
     ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
         Ok(Box::new(EscudeBinArchiveIterator {
@@ -188,6 +209,36 @@ impl<T: Read + Seek + std::fmt::Debug> Script for EscudeBinArchive<T> {
             file_count: self.file_count,
             archive_encoding: self.archive_encoding,
         }))
+    }
+}
+
+struct EscudeBinArchiveIter<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> {
+    entries: T,
+    reader: &'a mut R,
+    file_count: u32,
+    archive_encoding: Encoding,
+}
+
+impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
+    for EscudeBinArchiveIter<'a, T, R>
+{
+    type Item = Result<String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entry = match self.entries.next() {
+            Some(entry) => entry,
+            None => return None,
+        };
+        let name_offset = entry.name_offset as usize + self.file_count as usize * 12 + 0x14;
+        let name = match self.reader.peek_cstring_at(name_offset) {
+            Ok(name) => name,
+            Err(e) => return Some(Err(e.into())),
+        };
+        let name = match decode_to_string(self.archive_encoding, name.as_bytes()) {
+            Ok(name) => name,
+            Err(e) => return Some(Err(e.into())),
+        };
+        Some(Ok(name))
     }
 }
 
@@ -237,5 +288,133 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
             };
         }
         Some(Ok(Box::new(Entry { name, data })))
+    }
+}
+
+pub struct EscudeBinArchiveWriter<T: Write + Seek> {
+    writer: T,
+    headers: HashMap<String, BinEntry>,
+    name_tbl_len: u32,
+}
+
+impl<T: Write + Seek> EscudeBinArchiveWriter<T> {
+    pub fn new(mut writer: T, files: &[&str], encoding: Encoding) -> Result<Self> {
+        writer.write_all(b"ESC-ARC2")?;
+        let header_len = 0xC + 0xC * files.len();
+        let header = vec![0u8; header_len];
+        writer.write_all(&header)?;
+        let mut headers = HashMap::new();
+        for file in files {
+            let f = file.to_string();
+            let encoded = encode_string(encoding, file, true)?;
+            let encoded = CString::new(encoded)?;
+            let name_offset = writer.stream_position()? as u32;
+            writer.write_all(encoded.as_bytes_with_nul())?;
+            headers.insert(
+                f,
+                BinEntry {
+                    name_offset,
+                    data_offset: 0,
+                    length: 0,
+                },
+            );
+        }
+        let name_tbl_len = writer.stream_position()? as u32 - header_len as u32 - 0x8;
+        Ok(EscudeBinArchiveWriter {
+            writer,
+            headers,
+            name_tbl_len,
+        })
+    }
+}
+
+impl<T: Write + Seek> Archive for EscudeBinArchiveWriter<T> {
+    fn new_file<'a>(&'a mut self, name: &str) -> Result<Box<dyn WriteSeek + 'a>> {
+        let entry = self
+            .headers
+            .get_mut(name)
+            .ok_or_else(|| anyhow::anyhow!("File '{}' not found in archive", name))?;
+        if entry.data_offset != 0 {
+            return Err(anyhow::anyhow!("File '{}' already exists in archive", name));
+        }
+        entry.data_offset = self.writer.stream_position()? as u32;
+        Ok(Box::new(EscudeBinArchiveFile {
+            header: entry,
+            writer: &mut self.writer,
+            pos: 0,
+        }))
+    }
+
+    fn write_header(&mut self) -> Result<()> {
+        self.writer.seek(SeekFrom::Start(0x8))?;
+        let mut crypto = CryptoWriter::new(&mut self.writer)?;
+        let file_count = self.headers.len() as u32;
+        crypto.write_u32(file_count)?;
+        crypto.write_u32(self.name_tbl_len)?;
+        for entry in self.headers.values() {
+            let name_offset = entry.name_offset - file_count * 12 - 0x14;
+            crypto.write_u32(name_offset)?;
+            crypto.write_u32(entry.data_offset)?;
+            crypto.write_u32(entry.length)?;
+        }
+        Ok(())
+    }
+}
+
+pub struct EscudeBinArchiveFile<'a, T: Write + Seek> {
+    header: &'a mut BinEntry,
+    writer: &'a mut T,
+    pos: usize,
+}
+
+impl<'a, T: Write + Seek> Write for EscudeBinArchiveFile<'a, T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.writer.seek(SeekFrom::Start(
+            self.header.data_offset as u64 + self.pos as u64,
+        ))?;
+        let written = self.writer.write(buf)?;
+        self.pos += written;
+        self.header.length = self.header.length.max(self.pos as u32);
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.flush()
+    }
+}
+
+impl<'a, T: Write + Seek> Seek for EscudeBinArchiveFile<'a, T> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset as usize,
+            SeekFrom::End(offset) => {
+                if offset < 0 {
+                    if (-offset) as usize > self.header.length as usize {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek from end exceeds file length",
+                        ));
+                    }
+                    self.header.length as usize - (-offset) as usize
+                } else {
+                    self.header.length as usize + offset as usize
+                }
+            }
+            SeekFrom::Current(offset) => {
+                if offset < 0 {
+                    if (-offset) as usize > self.pos {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek from current exceeds current position",
+                        ));
+                    }
+                    self.pos.saturating_sub((-offset) as usize)
+                } else {
+                    self.pos + offset as usize
+                }
+            }
+        };
+        self.pos = new_pos;
+        Ok(self.pos as u64)
     }
 }

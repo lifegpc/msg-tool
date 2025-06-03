@@ -299,8 +299,10 @@ pub fn export_script(
             Some(output) => {
                 let mut pb = std::path::PathBuf::from(output);
                 let filename = std::path::PathBuf::from(filename);
-                if let Some(fname) = filename.file_name() {
-                    pb.push(fname);
+                if is_dir {
+                    if let Some(fname) = filename.file_name() {
+                        pb.push(fname);
+                    }
                 }
                 pb.to_string_lossy().into_owned()
             }
@@ -313,7 +315,7 @@ pub fn export_script(
         if !std::fs::exists(&odir)? {
             std::fs::create_dir_all(&odir)?;
         }
-        for f in script.iter_archive()? {
+        for f in script.iter_archive_mut()? {
             let f = f?;
             if f.is_script() {
                 let (script_file, _) = parse_script_from_archive(&f, arg, config)?;
@@ -547,7 +549,201 @@ pub fn import_script(
     repl: Option<&types::ReplacementTable>,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Importing {}", filename);
-    let (script, builder) = parse_script(filename, arg, config)?;
+    let (mut script, builder) = parse_script(filename, arg, config)?;
+    if script.is_archive() {
+        let odir = {
+            let mut pb = std::path::PathBuf::from(&imp_cfg.output);
+            let filename = std::path::PathBuf::from(filename);
+            if is_dir {
+                if let Some(fname) = filename.file_name() {
+                    pb.push(fname);
+                }
+            }
+            pb.to_string_lossy().into_owned()
+        };
+        let files: Vec<_> = script.iter_archive()?.collect();
+        let files = files.into_iter().filter_map(|f| f.ok()).collect::<Vec<_>>();
+        let patched_f = if is_dir {
+            let f = std::path::PathBuf::from(filename);
+            let mut pb = std::path::PathBuf::from(&imp_cfg.patched);
+            if let Some(fname) = f.file_name() {
+                pb.push(fname);
+            }
+            pb.set_extension(builder.extensions().first().unwrap_or(&""));
+            pb.to_string_lossy().into_owned()
+        } else {
+            imp_cfg.patched.clone()
+        };
+        let files: Vec<_> = files.iter().map(|s| s.as_str()).collect();
+        let encoding = get_encoding(arg, builder);
+        let enc = get_archived_encoding(arg, builder, encoding);
+        let mut arch = builder.create_archive(&patched_f, &files, enc)?;
+        for f in script.iter_archive_mut()? {
+            let f = f?;
+            let mut writer = arch.new_file(f.name())?;
+            if f.is_script() {
+                let (script_file, _) = parse_script_from_archive(&f, arg, config)?;
+                let mut of = match &arg.output_type {
+                    Some(t) => t.clone(),
+                    None => script_file.default_output_script_type(),
+                };
+                if !script_file.is_output_supported(of) {
+                    of = script_file.default_output_script_type();
+                }
+                let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                let ext = if of.is_custom() {
+                    script_file.custom_output_extension()
+                } else {
+                    of.as_ref()
+                };
+                out_path.set_extension(ext);
+                let mut mes = match of {
+                    types::OutputScriptType::Json => {
+                        let enc = get_output_encoding(arg);
+                        let b = match utils::files::read_file(&out_path) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                eprintln!("Error reading file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let s = match utils::encoding::decode_to_string(enc, &b) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                eprintln!("Error decoding string: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        match serde_json::from_str::<Vec<types::Message>>(&s) {
+                            Ok(mes) => mes,
+                            Err(e) => {
+                                eprintln!("Error parsing JSON: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                    }
+                    types::OutputScriptType::M3t => {
+                        let enc = get_output_encoding(arg);
+                        let b = match utils::files::read_file(&out_path) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                eprintln!("Error reading file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let s = match utils::encoding::decode_to_string(enc, &b) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                eprintln!("Error decoding string: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let mut parser = output_scripts::m3t::M3tParser::new(&s);
+                        match parser.parse() {
+                            Ok(mes) => mes,
+                            Err(e) => {
+                                eprintln!("Error parsing M3T: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                    }
+                    types::OutputScriptType::Custom => {
+                        Vec::new() // Custom scripts handle their own messages
+                    }
+                };
+                if !of.is_custom() && mes.is_empty() {
+                    eprintln!("No messages found in {}", f.name());
+                    COUNTER.inc(types::ScriptResult::Ignored);
+                    continue;
+                }
+                let encoding = get_patched_encoding(imp_cfg, builder);
+                if of.is_custom() {
+                    let enc = get_output_encoding(arg);
+                    match script_file.custom_import(
+                        &out_path.to_string_lossy(),
+                        writer,
+                        encoding,
+                        enc,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error importing custom script: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                    COUNTER.inc(types::ScriptResult::Ok);
+                    continue;
+                }
+                let fmt = match imp_cfg.patched_format {
+                    Some(fmt) => match fmt {
+                        types::FormatType::Fixed => types::FormatOptions::Fixed {
+                            length: imp_cfg.patched_fixed_length.unwrap_or(32),
+                            keep_original: imp_cfg.patched_keep_original,
+                        },
+                        types::FormatType::None => types::FormatOptions::None,
+                    },
+                    None => script_file.default_format_type(),
+                };
+                match name_csv {
+                    Some(name_table) => {
+                        utils::name_replacement::replace_message(&mut mes, name_table);
+                    }
+                    None => {}
+                }
+                format::fmt_message(&mut mes, fmt, *builder.script_type());
+                if let Err(e) = script_file.import_messages(mes, writer, encoding, repl) {
+                    eprintln!("Error importing messages: {}", e);
+                    COUNTER.inc_error();
+                    continue;
+                }
+            } else {
+                let out_path = std::path::PathBuf::from(&odir).join(f.name());
+                if out_path.is_file() {
+                    let f = match std::fs::File::open(&out_path) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            eprintln!("Error opening file {}: {}", out_path.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let mut f = std::io::BufReader::new(f);
+                    match std::io::copy(&mut f, &mut writer) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                } else {
+                    eprintln!(
+                        "Warning: File {} does not exist, use file from original archive.",
+                        out_path.display()
+                    );
+                    COUNTER.inc_warning();
+                    match writer.write_all(f.data()) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                }
+            }
+            COUNTER.inc(types::ScriptResult::Ok);
+        }
+        arch.write_header()?;
+        return Ok(types::ScriptResult::Ok);
+    }
     let mut of = match &arg.output_type {
         Some(t) => t.clone(),
         None => script.default_output_script_type(),

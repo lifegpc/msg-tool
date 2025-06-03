@@ -221,12 +221,12 @@ impl Script for CircusMesScript {
         Ok(mes)
     }
 
-    fn import_messages(
-        &self,
+    fn import_messages<'a>(
+        &'a self,
         messages: Vec<Message>,
-        mut writer: Box<dyn WriteSeek>,
+        mut writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
-        replacement: Option<&ReplacementTable>,
+        replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
         let mut repls = Vec::new();
         if !encoding.is_jis() {
@@ -244,7 +244,7 @@ impl Script for CircusMesScript {
             let _ = insert_repl(&mut repls, "／", encoding);
             let _ = insert_repl(&mut repls, "｝", encoding);
             if repls.len() < 3 {
-                println!(
+                eprintln!(
                     "Warning: Some replacements cannot used in current encoding. Ruby text may be broken."
                 );
                 crate::COUNTER.inc_warning();

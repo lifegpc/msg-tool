@@ -141,12 +141,12 @@ impl Script for BGIScript {
         Ok(messages)
     }
 
-    fn import_messages(
-        &self,
+    fn import_messages<'a>(
+        &'a self,
         _messages: Vec<Message>,
-        _filename: Box<dyn WriteSeek>,
+        _filename: Box<dyn WriteSeek + 'a>,
         _encoding: Encoding,
-        _replacement: Option<&ReplacementTable>,
+        _replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
         Ok(())
     }
