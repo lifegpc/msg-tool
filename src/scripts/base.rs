@@ -15,6 +15,16 @@ pub trait ScriptBuilder: std::fmt::Debug {
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>>;
 
+    fn build_script_from_file(
+        &self,
+        filename: &str,
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Script>> {
+        let data = crate::utils::files::read_file(filename)?;
+        self.build_script(data, encoding, config)
+    }
+
     fn extensions(&self) -> &'static [&'static str];
 
     fn is_this_format(&self, _filename: &str, _buf: &[u8], _buf_len: usize) -> Option<u8> {
@@ -22,6 +32,10 @@ pub trait ScriptBuilder: std::fmt::Debug {
     }
 
     fn script_type(&self) -> &'static ScriptType;
+
+    fn is_archive(&self) -> bool {
+        false
+    }
 }
 
 pub trait ArchiveContent {
@@ -64,7 +78,7 @@ pub trait Script: std::fmt::Debug {
     }
 
     fn iter_archive<'a>(
-        &'a self,
+        &'a mut self,
     ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
         Ok(Box::new(std::iter::empty()))
     }

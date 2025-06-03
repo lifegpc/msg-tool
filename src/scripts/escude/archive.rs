@@ -1,8 +1,8 @@
 use super::crypto::*;
-use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::decode_to_string;
+use crate::ext::io::*;
 use anyhow::Result;
 use std::io::{Read, Seek, SeekFrom};
 
@@ -26,7 +26,27 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
         encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(EscudeBinArchive::new(data, encoding, config)?))
+        Ok(Box::new(EscudeBinArchive::new(
+            MemReader::new(data),
+            encoding,
+            config,
+        )?))
+    }
+
+    fn build_script_from_file(
+        &self,
+        filename: &str,
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Script>> {
+        if filename == "-" {
+            let data = crate::utils::files::read_file(filename)?;
+            self.build_script(data, encoding, config)
+        } else {
+            let f = std::fs::File::open(filename)?;
+            let reader = std::io::BufReader::new(f);
+            Ok(Box::new(EscudeBinArchive::new(reader, encoding, config)?))
+        }
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -42,6 +62,10 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
             return Some(255);
         }
         None
+    }
+
+    fn is_archive(&self) -> bool {
+        true
     }
 }
 
@@ -72,17 +96,16 @@ impl ArchiveContent for Entry {
 }
 
 #[derive(Debug)]
-pub struct EscudeBinArchive {
-    reader: MemReader,
+pub struct EscudeBinArchive<T: Read + Seek + std::fmt::Debug> {
+    reader: T,
     file_count: u32,
     name_tbl_len: u32,
     entries: Vec<BinEntry>,
     encoding: Encoding,
 }
 
-impl EscudeBinArchive {
-    pub fn new(data: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
-        let mut reader = MemReader::new(data);
+impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
+    pub fn new(mut reader: T, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut header = [0u8; 8];
         reader.read_exact(&mut header)?;
         if &header != b"ESC-ARC2" {
@@ -113,7 +136,7 @@ impl EscudeBinArchive {
     }
 }
 
-impl Script for EscudeBinArchive {
+impl<T: Read + Seek + std::fmt::Debug> Script for EscudeBinArchive<T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -127,27 +150,28 @@ impl Script for EscudeBinArchive {
     }
 
     fn iter_archive<'a>(
-        &'a self,
+        &'a mut self,
     ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        let reader = self.reader.to_ref();
         let encoding = self.encoding;
         Ok(Box::new(EscudeBinArchiveIterator {
             entries: self.entries.iter(),
-            reader,
+            reader: &mut self.reader,
             encoding,
             file_count: self.file_count,
         }))
     }
 }
 
-struct EscudeBinArchiveIterator<'a, T: Iterator<Item = &'a BinEntry>> {
+struct EscudeBinArchiveIterator<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> {
     entries: T,
-    reader: MemReaderRef<'a>,
+    reader: &'a mut R,
     encoding: Encoding,
     file_count: u32,
 }
 
-impl<'a, T: Iterator<Item = &'a BinEntry>> Iterator for EscudeBinArchiveIterator<'a, T> {
+impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
+    for EscudeBinArchiveIterator<'a, T, R>
+{
     type Item = Result<Box<dyn ArchiveContent>>;
 
     fn next(&mut self) -> Option<Self::Item> {

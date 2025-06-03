@@ -96,8 +96,10 @@ pub fn parse_script(
             for builder in scripts::BUILDER.iter() {
                 if typ == builder.script_type() {
                     let encoding = get_encoding(arg, builder);
-                    let data = utils::files::read_file(filename)?;
-                    return Ok((builder.build_script(data, encoding, config)?, builder));
+                    return Ok((
+                        builder.build_script_from_file(filename, encoding, config)?,
+                        builder,
+                    ));
                 }
             }
         }
@@ -121,8 +123,10 @@ pub fn parse_script(
     if exts_builder.len() == 1 {
         let builder = exts_builder.first().unwrap();
         let encoding = get_encoding(arg, builder);
-        let data = utils::files::read_file(filename)?;
-        return Ok((builder.build_script(data, encoding, config)?, builder));
+        return Ok((
+            builder.build_script_from_file(filename, encoding, config)?,
+            builder,
+        ));
     }
     let mut buf = [0u8; 1024];
     let mut size = 0;
@@ -149,8 +153,10 @@ pub fn parse_script(
     if best_builders.len() == 1 {
         let builder = best_builders.first().unwrap();
         let encoding = get_encoding(arg, builder);
-        let data = utils::files::read_file(filename)?;
-        return Ok((builder.build_script(data, encoding, config)?, builder));
+        return Ok((
+            builder.build_script_from_file(filename, encoding, config)?,
+            builder,
+        ));
     }
     if best_builders.len() > 1 {
         eprintln!(
@@ -236,7 +242,7 @@ pub fn export_script(
     is_dir: bool,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Exporting {}", filename);
-    let script = parse_script(filename, arg, config)?.0;
+    let mut script = parse_script(filename, arg, config)?.0;
     if script.is_archive() {
         let odir = match output.as_ref() {
             Some(output) => {
