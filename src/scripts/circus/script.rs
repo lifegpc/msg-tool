@@ -21,6 +21,7 @@ impl ScriptBuilder for CircusMesScriptBuilder {
     fn build_script(
         &self,
         buf: Vec<u8>,
+        _filename: &str,
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,

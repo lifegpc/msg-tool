@@ -1,5 +1,10 @@
 use crate::types::*;
 use anyhow::Result;
+use std::io::{Read, Seek};
+
+pub trait ReadSeek: Read + Seek + std::fmt::Debug {}
+
+impl<T: Read + Seek + std::fmt::Debug> ReadSeek for T {}
 
 pub trait ScriptBuilder: std::fmt::Debug {
     fn default_encoding(&self) -> Encoding;
@@ -15,6 +20,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
     fn build_script(
         &self,
         buf: Vec<u8>,
+        filename: &str,
         encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
@@ -28,7 +34,22 @@ pub trait ScriptBuilder: std::fmt::Debug {
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
         let data = crate::utils::files::read_file(filename)?;
-        self.build_script(data, encoding, archive_encoding, config)
+        self.build_script(data, filename, encoding, archive_encoding, config)
+    }
+
+    fn build_script_from_reader(
+        &self,
+        mut reader: Box<dyn ReadSeek>,
+        filename: &str,
+        encoding: Encoding,
+        archive_encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Script>> {
+        let mut data = Vec::new();
+        reader
+            .read_to_end(&mut data)
+            .map_err(|e| anyhow::anyhow!("Failed to read from reader: {}", e))?;
+        self.build_script(data, filename, encoding, archive_encoding, config)
     }
 
     fn extensions(&self) -> &'static [&'static str];
@@ -52,6 +73,14 @@ pub trait ArchiveContent {
 
 pub trait Script: std::fmt::Debug {
     fn default_output_script_type(&self) -> OutputScriptType;
+
+    fn is_output_supported(&self, output: OutputScriptType) -> bool {
+        !matches!(output, OutputScriptType::Custom)
+    }
+
+    fn custom_output_extension(&self) -> &'static str {
+        ""
+    }
 
     fn default_format_type(&self) -> FormatOptions;
 
@@ -77,6 +106,12 @@ pub trait Script: std::fmt::Debug {
             ));
         }
         Ok(())
+    }
+
+    fn custom_export(&self, _filename: &std::path::Path, _encoding: Encoding) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "This script type does not support custom export."
+        ))
     }
 
     fn is_archive(&self) -> bool {

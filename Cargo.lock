@@ -179,10 +179,19 @@ dependencies = [
  "csv",
  "encoding_rs",
  "lazy_static",
+ "msg_tool_macro",
  "serde",
  "serde_json",
  "unicode-segmentation",
  "windows-sys",
+]
+
+[[package]]
+name = "msg_tool_macro"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]

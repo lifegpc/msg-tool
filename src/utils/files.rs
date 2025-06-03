@@ -65,3 +65,13 @@ pub fn write_file<F: AsRef<Path> + ?Sized>(f: &F) -> io::Result<Box<dyn Write>> 
         Box::new(fs::File::create(f)?)
     })
 }
+
+pub fn make_sure_dir_exists<F: AsRef<Path> + ?Sized>(f: &F) -> io::Result<()> {
+    let path = f.as_ref();
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    Ok(())
+}

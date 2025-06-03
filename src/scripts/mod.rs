@@ -18,6 +18,8 @@ lazy_static::lazy_static! {
         Box::new(escude::archive::EscudeBinArchiveBuilder::new()),
         #[cfg(feature = "escude")]
         Box::new(escude::script::EscudeBinScriptBuilder::new()),
+        #[cfg(feature = "escude")]
+        Box::new(escude::list::EscudeBinListBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

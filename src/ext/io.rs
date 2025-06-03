@@ -1,3 +1,5 @@
+use crate::utils::encoding::decode_to_string;
+use crate::{types::Encoding, utils::struct_pack::StructUnpack};
 use std::{ffi::CString, io::*};
 
 pub trait Peek {
@@ -202,6 +204,20 @@ pub trait Peek {
 
     fn peek_cstring(&mut self) -> Result<CString>;
     fn peek_cstring_at(&mut self, offset: usize) -> Result<CString>;
+
+    fn read_struct<T: StructUnpack>(&mut self, big: bool, encoding: Encoding) -> Result<T>;
+    fn read_struct_vec<T: StructUnpack>(
+        &mut self,
+        count: usize,
+        big: bool,
+        encoding: Encoding,
+    ) -> Result<Vec<T>> {
+        let mut vec = Vec::with_capacity(count);
+        for _ in 0..count {
+            vec.push(self.read_struct(big, encoding)?);
+        }
+        Ok(vec)
+    }
 }
 
 impl<T: Read + Seek> Peek for T {
@@ -265,6 +281,11 @@ impl<T: Read + Seek> Peek for T {
         self.seek(SeekFrom::Start(current_pos))?;
         CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
+
+    fn read_struct<S: StructUnpack>(&mut self, big: bool, encoding: Encoding) -> Result<S> {
+        S::unpack(self, big, encoding)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
 }
 
 pub trait ReadExt {
@@ -288,6 +309,9 @@ pub trait ReadExt {
     fn read_i128_be(&mut self) -> Result<i128>;
 
     fn read_cstring(&mut self) -> Result<CString>;
+    fn read_fstring(&mut self, len: usize, encoding: Encoding, trim: bool) -> Result<String>;
+
+    fn read_exact_vec(&mut self, len: usize) -> Result<Vec<u8>>;
 }
 
 impl<T: Read> ReadExt for T {
@@ -393,6 +417,25 @@ impl<T: Read> ReadExt for T {
             buf.push(byte[0]);
         }
         CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+    fn read_fstring(&mut self, len: usize, encoding: Encoding, trim: bool) -> Result<String> {
+        let mut buf = vec![0u8; len];
+        self.read_exact(&mut buf)?;
+        if trim {
+            let first_zero = buf.iter().position(|&b| b == 0);
+            if let Some(pos) = first_zero {
+                buf.truncate(pos);
+            }
+        }
+        let s = decode_to_string(encoding, &buf)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        Ok(s)
+    }
+
+    fn read_exact_vec(&mut self, len: usize) -> Result<Vec<u8>> {
+        let mut buf = vec![0u8; len];
+        self.read_exact(&mut buf)?;
+        Ok(buf)
     }
 }
 

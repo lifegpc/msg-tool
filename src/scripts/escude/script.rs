@@ -24,6 +24,7 @@ impl ScriptBuilder for EscudeBinScriptBuilder {
     fn build_script(
         &self,
         data: Vec<u8>,
+        _filename: &str,
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,

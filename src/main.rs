@@ -233,7 +233,13 @@ pub fn parse_script_from_archive(
         let encoding = get_encoding(arg, builder);
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script(file.data().to_vec(), encoding, archive_encoding, config)?,
+            builder.build_script(
+                file.data().to_vec(),
+                file.name(),
+                encoding,
+                archive_encoding,
+                config,
+            )?,
             builder,
         ));
     }
@@ -258,7 +264,13 @@ pub fn parse_script_from_archive(
         let encoding = get_encoding(arg, builder);
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script(file.data().to_vec(), encoding, archive_encoding, config)?,
+            builder.build_script(
+                file.data().to_vec(),
+                file.name(),
+                encoding,
+                archive_encoding,
+                config,
+            )?,
             builder,
         ));
     }
@@ -285,18 +297,12 @@ pub fn export_script(
     if script.is_archive() {
         let odir = match output.as_ref() {
             Some(output) => {
-                if is_dir {
-                    let mut pb = std::path::PathBuf::from(output);
-                    let filename = std::path::PathBuf::from(filename);
-                    if let Some(fname) = filename.file_name() {
-                        pb.push(fname);
-                    }
-                    pb.to_string_lossy().into_owned()
-                } else {
-                    return Err(anyhow::anyhow!(
-                        "A directory is required for archive export"
-                    ));
+                let mut pb = std::path::PathBuf::from(output);
+                let filename = std::path::PathBuf::from(filename);
+                if let Some(fname) = filename.file_name() {
+                    pb.push(fname);
                 }
+                pb.to_string_lossy().into_owned()
             }
             None => {
                 let mut pb = std::path::PathBuf::from(filename);
@@ -311,28 +317,51 @@ pub fn export_script(
             let f = f?;
             if f.is_script() {
                 let (script_file, _) = parse_script_from_archive(&f, arg, config)?;
-                let mes = match script_file.extract_messages() {
-                    Ok(mes) => mes,
-                    Err(e) => {
-                        eprintln!("Error extracting messages from {}: {}", f.name(), e);
-                        COUNTER.inc_error();
-                        if arg.backtrace {
-                            eprintln!("Backtrace: {}", e.backtrace());
+                let mut of = match &arg.output_type {
+                    Some(t) => t.clone(),
+                    None => script_file.default_output_script_type(),
+                };
+                if !script_file.is_output_supported(of) {
+                    of = script_file.default_output_script_type();
+                }
+                let mes = if of.is_custom() {
+                    Vec::new()
+                } else {
+                    match script_file.extract_messages() {
+                        Ok(mes) => mes,
+                        Err(e) => {
+                            eprintln!("Error extracting messages from {}: {}", f.name(), e);
+                            COUNTER.inc_error();
+                            if arg.backtrace {
+                                eprintln!("Backtrace: {}", e.backtrace());
+                            }
+                            continue;
                         }
-                        continue;
                     }
                 };
-                if mes.is_empty() {
+                if !of.is_custom() && mes.is_empty() {
                     eprintln!("No messages found in {}", f.name());
                     COUNTER.inc(types::ScriptResult::Ignored);
                     continue;
                 }
-                let of = match &arg.output_type {
-                    Some(t) => t.clone(),
-                    None => script_file.default_output_script_type(),
-                };
                 let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
-                out_path.set_extension(of.as_ref());
+                out_path.set_extension(if of.is_custom() {
+                    script_file.custom_output_extension()
+                } else {
+                    of.as_ref()
+                });
+                match utils::files::make_sure_dir_exists(&out_path) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!(
+                            "Error creating parent directory for {}: {}",
+                            out_path.display(),
+                            e
+                        );
+                        COUNTER.inc_error();
+                        continue;
+                    }
+                }
                 match of {
                     types::OutputScriptType::Json => {
                         let enc = get_output_encoding(arg);
@@ -397,9 +426,29 @@ pub fn export_script(
                             }
                         }
                     }
+                    types::OutputScriptType::Custom => {
+                        let enc = get_output_encoding(arg);
+                        if let Err(e) = script_file.custom_export(&out_path, enc) {
+                            eprintln!("Error exporting custom script: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
                 }
             } else {
                 let out_path = std::path::PathBuf::from(&odir).join(f.name());
+                match utils::files::make_sure_dir_exists(&out_path) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!(
+                            "Error creating parent directory for {}: {}",
+                            out_path.display(),
+                            e
+                        );
+                        COUNTER.inc_error();
+                        continue;
+                    }
+                }
                 match utils::files::write_file(&out_path) {
                     Ok(mut fi) => match fi.write_all(f.data()) {
                         Ok(_) => {}
@@ -420,18 +469,26 @@ pub fn export_script(
         }
         return Ok(types::ScriptResult::Ok);
     }
-    // println!("{:?}", script);
-    let mes = script.extract_messages()?;
-    // for m in mes.iter() {
-    //     println!("{:?}", m);
-    // }
-    if mes.is_empty() {
+    let mut of = match &arg.output_type {
+        Some(t) => t.clone(),
+        None => script.default_output_script_type(),
+    };
+    if !script.is_output_supported(of) {
+        of = script.default_output_script_type();
+    }
+    let mes = if of.is_custom() {
+        Vec::new()
+    } else {
+        script.extract_messages()?
+    };
+    if !of.is_custom() && mes.is_empty() {
         eprintln!("No messages found");
         return Ok(types::ScriptResult::Ignored);
     }
-    let of = match &arg.output_type {
-        Some(t) => t.clone(),
-        None => script.default_output_script_type(),
+    let ext = if of.is_custom() {
+        script.custom_output_extension()
+    } else {
+        of.as_ref()
     };
     let f = if filename == "-" {
         String::from("-")
@@ -444,7 +501,7 @@ pub fn export_script(
                     if let Some(fname) = f.file_name() {
                         pb.push(fname);
                     }
-                    pb.set_extension(of.as_ref());
+                    pb.set_extension(ext);
                     pb.to_string_lossy().into_owned()
                 } else {
                     output.clone()
@@ -452,7 +509,7 @@ pub fn export_script(
             }
             None => {
                 let mut pb = std::path::PathBuf::from(filename);
-                pb.set_extension(of.as_ref());
+                pb.set_extension(ext);
                 pb.to_string_lossy().into_owned()
             }
         }
@@ -471,6 +528,11 @@ pub fn export_script(
             let b = utils::encoding::encode_string(enc, &s, false)?;
             let mut f = utils::files::write_file(&f)?;
             f.write_all(&b)?;
+        }
+        types::OutputScriptType::Custom => {
+            let enc = get_output_encoding(arg);
+            println!("f: {}", f);
+            script.custom_export(f.as_ref(), enc)?;
         }
     }
     Ok(types::ScriptResult::Ok)
@@ -519,6 +581,10 @@ pub fn import_script(
             let s = utils::encoding::decode_to_string(enc, &b)?;
             let mut parser = output_scripts::m3t::M3tParser::new(&s);
             parser.parse()?
+        }
+        _ => {
+            eprintln!("Unsupported output script type for import: {:?}", of);
+            return Ok(types::ScriptResult::Ignored);
         }
     };
     if mes.is_empty() {

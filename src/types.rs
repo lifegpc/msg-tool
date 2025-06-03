@@ -60,6 +60,14 @@ pub enum OutputScriptType {
     M3t,
     /// JSON which can be used for GalTransl
     Json,
+    /// Custom output
+    Custom,
+}
+
+impl OutputScriptType {
+    pub fn is_custom(&self) -> bool {
+        matches!(self, OutputScriptType::Custom)
+    }
 }
 
 impl AsRef<str> for OutputScriptType {
@@ -67,6 +75,7 @@ impl AsRef<str> for OutputScriptType {
         match self {
             OutputScriptType::M3t => "m3t",
             OutputScriptType::Json => "json",
+            OutputScriptType::Custom => "",
         }
     }
 }
@@ -195,6 +204,9 @@ pub enum ScriptType {
     #[cfg(feature = "escude")]
     /// Escude bin script
     Escude,
+    #[cfg(feature = "escude")]
+    /// Escude list script
+    EscudeList,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

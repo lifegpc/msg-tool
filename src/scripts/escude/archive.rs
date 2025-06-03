@@ -27,6 +27,7 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
     fn build_script(
         &self,
         data: Vec<u8>,
+        _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
@@ -61,6 +62,21 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
                 config,
             )?))
         }
+    }
+
+    fn build_script_from_reader(
+        &self,
+        reader: Box<dyn ReadSeek>,
+        _filename: &str,
+        _encoding: Encoding,
+        archive_encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Script>> {
+        Ok(Box::new(EscudeBinArchive::new(
+            reader,
+            archive_encoding,
+            config,
+        )?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -105,7 +121,7 @@ impl ArchiveContent for Entry {
     }
 
     fn is_script(&self) -> bool {
-        self.data.starts_with(b"ESCR1_00")
+        self.data.starts_with(b"ESCR1_00") || self.data.starts_with(b"LIST")
     }
 }
 
