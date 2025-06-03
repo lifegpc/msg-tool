@@ -63,7 +63,8 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 ///
 /// * `skip_pack` attribute can be used to skip fields from packing.
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
-#[proc_macro_derive(StructPack, attributes(skip_pack, fstring))]
+/// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
+#[proc_macro_derive(StructPack, attributes(skip_pack, fstring, fvec))]
 pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
     let a = syn::parse_macro_input!(input as PackStruct);
     match a {
@@ -73,6 +74,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
             let fields = sut.fields.iter().map(|field| {
                 let mut skipped = false;
                 let mut fixed_string: Option<usize> = None;
+                let mut fixed_vec: Option<usize> = None;
                 for attr in &field.attrs {
                     let path = attr.path();
                     if path.is_ident("skip_pack") {
@@ -82,6 +84,14 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                             if let syn::Expr::Lit(lit) = &nv.value {
                                 if let syn::Lit::Int(s) = &lit.lit {
                                     fixed_string = Some(s.base10_parse().unwrap());
+                                }
+                            }
+                        }
+                    } else if path.is_ident("fvec") {
+                        if let syn::Meta::NameValue(nv) = &attr.meta {
+                            if let syn::Expr::Lit(lit) = &nv.value {
+                                if let syn::Lit::Int(s) = &lit.lit {
+                                    fixed_vec = Some(s.base10_parse().unwrap());
                                 }
                             }
                         }
@@ -112,6 +122,20 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                     writer.write_all(&s)?;
                                     for _ in slen..#fixed_string {
                                         writer.write_all(&[0])?;
+                                    }
+                                };
+                            }
+                        }
+                    }
+                    if let Some(segment) = type_path.path.segments.first() {
+                        if segment.ident == "Vec" {
+                            if let Some(fixed_vec) = fixed_vec {
+                                return quote::quote! {
+                                    if self.#field_name.len() != #fixed_vec {
+                                        return Err(anyhow::anyhow!("Vector length was not equal to {}", #fixed_vec));
+                                    }
+                                    for item in &self.#field_name {
+                                        item.pack(writer, big, encoding)?;
                                     }
                                 };
                             }
@@ -151,6 +175,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                 let fields: Vec<_> = variant.fields.iter().enumerate().map(|(idx, field)| {
                     let mut skipped = false;
                     let mut fixed_string: Option<usize> = None;
+                    let mut fixed_vec: Option<usize> = None;
                     for attr in &field.attrs {
                         let path = attr.path();
                         if path.is_ident("skip_pack") {
@@ -160,6 +185,14 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                 if let syn::Expr::Lit(lit) = &nv.value {
                                     if let syn::Lit::Int(s) = &lit.lit {
                                         fixed_string = Some(s.base10_parse().unwrap());
+                                    }
+                                }
+                            }
+                        } else if path.is_ident("fvec") {
+                            if let syn::Meta::NameValue(nv) = &attr.meta {
+                                if let syn::Expr::Lit(lit) = &nv.value {
+                                    if let syn::Lit::Int(s) = &lit.lit {
+                                        fixed_vec = Some(s.base10_parse().unwrap());
                                     }
                                 }
                             }
@@ -191,6 +224,20 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                         writer.write_all(&s)?;
                                         for _ in slen..#fixed_string {
                                             writer.write_all(&[0])?;
+                                        }
+                                    };
+                                }
+                            }
+                        }
+                        if let Some(segment) = type_path.path.segments.first() {
+                            if segment.ident == "Vec" {
+                                if let Some(fixed_vec) = fixed_vec {
+                                    return quote::quote! {
+                                        if #field_name.len() != #fixed_vec {
+                                            return Err(anyhow::anyhow!("Vector length was not equal to {}", #fixed_vec));
+                                        }
+                                        for item in &#field_name {
+                                            item.pack(writer, big, encoding)?;
                                         }
                                     };
                                 }
@@ -231,7 +278,8 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 /// * `skip_unpack` attribute can be used to skip fields from unpacking.
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
 /// * `fstring_no_trim` attribute can be used to disable trimming of fixed strings.
-#[proc_macro_derive(StructUnpack, attributes(skip_unpack, fstring, fstring_no_trim))]
+/// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
+#[proc_macro_derive(StructUnpack, attributes(skip_unpack, fstring, fstring_no_trim, fvec))]
 pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
     let sut = syn::parse_macro_input!(input as syn::ItemStruct);
     let name = sut.ident;
@@ -242,6 +290,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         let mut skipped = false;
         let mut fixed_string: Option<usize> = None;
         let mut fstring_no_trim = false;
+        let mut fixed_vec: Option<usize> = None;
         for attr in &field.attrs {
             let path = attr.path();
             if path.is_ident("skip_unpack") {
@@ -256,6 +305,14 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                 }
             } else if path.is_ident("fstring_no_trim") {
                 fstring_no_trim = true;
+            } else if path.is_ident("fvec") {
+                if let syn::Meta::NameValue(nv) = &attr.meta {
+                    if let syn::Expr::Lit(lit) = &nv.value {
+                        if let syn::Lit::Int(s) = &lit.lit {
+                            fixed_vec = Some(s.base10_parse().unwrap());
+                        }
+                    }
+                }
             }
         }
         let field_name = match &field.ident {
@@ -281,6 +338,15 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                         let trim = syn::LitBool::new(!fstring_no_trim, field.span());
                         return quote::quote! {
                             let #field_name = reader.read_fstring(#fixed_string, encoding, #trim)?;
+                        };
+                    }
+                }
+            }
+            if let Some(segment) = type_path.path.segments.first() {
+                if segment.ident == "Vec" {
+                    if let Some(fixed_vec) = fixed_vec {
+                        return quote::quote! {
+                            let #field_name = reader.read_struct_vec(#fixed_vec, big, encoding)?;
                         };
                     }
                 }

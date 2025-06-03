@@ -148,6 +148,109 @@ impl EscudeBinList {
                         ent.data = data_entry;
                     }
                 }
+            } else if filename == "enum_gfx.bin" {
+                for ent in self.entries.iter_mut() {
+                    let id = ent.id;
+                    if let ListData::Unknown(unk) = &ent.data {
+                        let mut reader = MemReader::new(unk.clone());
+                        let element_size = if id == 0 {
+                            248
+                        } else if id == 1 {
+                            248
+                        } else if id == 2 {
+                            248
+                        } else if id == 3 {
+                            112
+                        } else if id == 4 {
+                            32
+                        } else if id == 9999 {
+                            1
+                        } else {
+                            return Err(anyhow::anyhow!("Unknown enum gfx ID: {}", id));
+                        };
+                        let len = unk.len();
+                        if len % element_size != 0 {
+                            return Err(anyhow::anyhow!(
+                                "Invalid enum gfx length: {} for ID: {}",
+                                len,
+                                id
+                            ));
+                        }
+                        let count = len / element_size;
+                        let data_entry = match id {
+                            0 => ListData::Gfx(EnumGfx::Bgs(
+                                reader.read_struct_vec::<BgT>(count, false, encoding)?,
+                            )),
+                            1 => ListData::Gfx(EnumGfx::Evs(
+                                reader.read_struct_vec::<EvT>(count, false, encoding)?,
+                            )),
+                            2 => ListData::Gfx(EnumGfx::Sts(
+                                reader.read_struct_vec::<StT>(count, false, encoding)?,
+                            )),
+                            3 => ListData::Gfx(EnumGfx::Efxs(
+                                reader.read_struct_vec::<EfxT>(count, false, encoding)?,
+                            )),
+                            4 => ListData::Gfx(EnumGfx::Locs(
+                                reader.read_struct_vec::<LocT>(count, false, encoding)?,
+                            )),
+                            9999 => {
+                                // Special case for unknown enum gfx ID
+                                ListData::Unknown(unk.clone())
+                            }
+                            _ => return Err(anyhow::anyhow!("Unknown enum gfx ID: {}", id)),
+                        };
+                        ent.data = data_entry;
+                    }
+                }
+            } else if filename == "enum_snd.bin" {
+                for ent in self.entries.iter_mut() {
+                    let id = ent.id;
+                    if let ListData::Unknown(unk) = &ent.data {
+                        let mut reader = MemReader::new(unk.clone());
+                        let element_size = if id == 0 {
+                            196
+                        } else if id == 1 {
+                            128
+                        } else if id == 2 {
+                            128
+                        } else if id == 3 {
+                            128
+                        } else if id == 9999 {
+                            1
+                        } else {
+                            return Err(anyhow::anyhow!("Unknown enum sound ID: {}", id));
+                        };
+                        let len = unk.len();
+                        if len % element_size != 0 {
+                            return Err(anyhow::anyhow!(
+                                "Invalid enum sound length: {} for ID: {}",
+                                len,
+                                id
+                            ));
+                        }
+                        let count = len / element_size;
+                        let data_entry = match id {
+                            0 => ListData::Snd(EnumSnd::Bgm(
+                                reader.read_struct_vec::<BgmT>(count, false, encoding)?,
+                            )),
+                            1 => ListData::Snd(EnumSnd::Amb(
+                                reader.read_struct_vec::<AmbT>(count, false, encoding)?,
+                            )),
+                            2 => ListData::Snd(EnumSnd::Se(
+                                reader.read_struct_vec::<SeT>(count, false, encoding)?,
+                            )),
+                            3 => ListData::Snd(EnumSnd::Sfx(
+                                reader.read_struct_vec::<SfxT>(count, false, encoding)?,
+                            )),
+                            9999 => {
+                                // Special case for unknown enum sound ID
+                                ListData::Unknown(unk.clone())
+                            }
+                            _ => return Err(anyhow::anyhow!("Unknown enum sound ID: {}", id)),
+                        };
+                        ent.data = data_entry;
+                    }
+                }
             }
         }
         Ok(())
@@ -238,10 +341,151 @@ enum EnumScr {
     Scenes(Vec<SceneT>),
 }
 
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct BgT {
+    /// Background image name
+    #[fstring = 32]
+    name: String,
+    /// Background image file name
+    #[fstring = 64]
+    file: String,
+    #[fstring = 128]
+    option: String,
+    coverd: u32,
+    color: u32,
+    id: u32,
+    loc: u32,
+    order: i32,
+    link: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct EvT {
+    /// Event image name
+    #[fstring = 32]
+    name: String,
+    /// Event image file name
+    #[fstring = 64]
+    file: String,
+    #[fstring = 128]
+    option: String,
+    coverd: u32,
+    color: u32,
+    id: u32,
+    loc: u32,
+    order: i32,
+    link: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct StT {
+    #[fstring = 32]
+    name: String,
+    #[fstring = 64]
+    file: String,
+    #[fstring = 128]
+    option: String,
+    coverd: u32,
+    color: u32,
+    id: u32,
+    loc: u32,
+    order: i32,
+    link: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct EfxT {
+    /// Effect image name
+    #[fstring = 32]
+    name: String,
+    /// Effect image file name
+    #[fstring = 64]
+    file: String,
+    spot: i32,
+    dx: i32,
+    dy: i32,
+    r#loop: bool,
+    #[fvec = 3]
+    #[serde(skip, default = "exft_padding")]
+    padding: Vec<u8>,
+}
+
+fn exft_padding() -> Vec<u8> {
+    vec![0; 3]
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct Point {
+    x: i16,
+    y: i16,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct LocT {
+    #[fvec = 8]
+    pt: Vec<Point>,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack)]
+#[serde(tag = "type", content = "data")]
+enum EnumGfx {
+    Bgs(Vec<BgT>),
+    Evs(Vec<EvT>),
+    Sts(Vec<StT>),
+    Efxs(Vec<EfxT>),
+    Locs(Vec<LocT>),
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct BgmT {
+    #[fstring = 64]
+    pub name: String,
+    #[fstring = 64]
+    pub file: String,
+    #[fstring = 64]
+    pub title: String,
+    pub order: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct AmbT {
+    #[fstring = 64]
+    pub name: String,
+    #[fstring = 64]
+    pub file: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct SeT {
+    #[fstring = 64]
+    pub name: String,
+    #[fstring = 64]
+    pub file: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+struct SfxT {
+    #[fstring = 64]
+    pub name: String,
+    #[fstring = 64]
+    pub file: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack)]
+#[serde(tag = "type", content = "data")]
+enum EnumSnd {
+    Bgm(Vec<BgmT>),
+    Amb(Vec<AmbT>),
+    Se(Vec<SeT>),
+    Sfx(Vec<SfxT>),
+}
+
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
 enum ListData {
     Scr(EnumScr),
+    Gfx(EnumGfx),
+    Snd(EnumSnd),
     Unknown(Vec<u8>),
 }
 

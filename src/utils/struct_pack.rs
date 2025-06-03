@@ -32,3 +32,18 @@ struct_unpack_impl_for_num!(i64);
 struct_unpack_impl_for_num!(i128);
 struct_unpack_impl_for_num!(f32);
 struct_unpack_impl_for_num!(f64);
+
+impl StructUnpack for bool {
+    fn unpack<R: Read + Seek>(mut reader: R, _big: bool, _encoding: Encoding) -> Result<Self> {
+        let mut buf = [0u8; 1];
+        reader.read_exact(&mut buf)?;
+        Ok(buf[0] != 0)
+    }
+}
+
+impl StructPack for bool {
+    fn pack<W: Write>(&self, writer: &mut W, _big: bool, _encoding: Encoding) -> Result<()> {
+        writer.write_all(&[if *self { 1 } else { 0 }])?;
+        Ok(())
+    }
+}

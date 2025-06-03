@@ -531,7 +531,6 @@ pub fn export_script(
         }
         types::OutputScriptType::Custom => {
             let enc = get_output_encoding(arg);
-            println!("f: {}", f);
             script.custom_export(f.as_ref(), enc)?;
         }
     }
