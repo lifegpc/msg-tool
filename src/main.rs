@@ -39,7 +39,7 @@ fn get_archived_encoding(
     builder: &Box<dyn scripts::ScriptBuilder + Send + Sync>,
     encoding: types::Encoding,
 ) -> types::Encoding {
-    match &arg.encoding {
+    match &arg.archive_encoding {
         Some(enc) => {
             return match enc {
                 &types::TextEncoding::Default => builder.default_encoding(),
@@ -52,7 +52,7 @@ fn get_archived_encoding(
         None => {}
     }
     #[cfg(windows)]
-    match &arg.code_page {
+    match &arg.archive_code_page {
         Some(code_page) => {
             return types::Encoding::CodePage(*code_page);
         }
