@@ -224,7 +224,7 @@ impl Script for CircusMesScript {
     fn import_messages(
         &self,
         messages: Vec<Message>,
-        filename: &str,
+        mut writer: Box<dyn WriteSeek>,
         encoding: Encoding,
         replacement: Option<&ReplacementTable>,
     ) -> Result<()> {
@@ -365,8 +365,7 @@ impl Script for CircusMesScript {
             );
             buffer.extend_from_slice(&self.data[self.asm_bin_offset + token.offset..len]);
         }
-        let mut f = crate::utils::files::write_file(filename)?;
-        f.write_all(&buffer)?;
+        writer.write_all(&buffer)?;
         Ok(())
     }
 }

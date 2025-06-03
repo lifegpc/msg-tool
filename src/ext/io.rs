@@ -458,6 +458,8 @@ pub trait WriteExt {
     fn write_i64_be(&mut self, value: i64) -> Result<()>;
     fn write_i128(&mut self, value: i128) -> Result<()>;
     fn write_i128_be(&mut self, value: i128) -> Result<()>;
+
+    fn write_cstring(&mut self, value: &CString) -> Result<()>;
 }
 
 impl<T: Write> WriteExt for T {
@@ -514,6 +516,10 @@ impl<T: Write> WriteExt for T {
     }
     fn write_i128_be(&mut self, value: i128) -> Result<()> {
         self.write_all(&value.to_be_bytes())
+    }
+
+    fn write_cstring(&mut self, value: &CString) -> Result<()> {
+        self.write_all(value.as_bytes_with_nul())
     }
 }
 

@@ -627,7 +627,7 @@ pub fn import_script(
     }
     format::fmt_message(&mut mes, fmt, *builder.script_type());
 
-    script.import_messages(mes, &patched_f, encoding, repl)?;
+    script.import_messages_filename(mes, &patched_f, encoding, repl)?;
     Ok(types::ScriptResult::Ok)
 }
 

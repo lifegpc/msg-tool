@@ -100,7 +100,7 @@ pub trait Script: std::fmt::Debug {
     fn import_messages(
         &self,
         _messages: Vec<Message>,
-        _filename: &str,
+        _file: Box<dyn WriteSeek>,
         _encoding: Encoding,
         _replacement: Option<&ReplacementTable>,
     ) -> Result<()> {
@@ -110,6 +110,18 @@ pub trait Script: std::fmt::Debug {
             ));
         }
         Ok(())
+    }
+
+    fn import_messages_filename(
+        &self,
+        _messages: Vec<Message>,
+        _filename: &str,
+        _encoding: Encoding,
+        _replacement: Option<&ReplacementTable>,
+    ) -> Result<()> {
+        let f = std::fs::File::create(_filename)?;
+        let f = std::io::BufWriter::new(f);
+        self.import_messages(_messages, Box::new(f), _encoding, _replacement)
     }
 
     fn custom_export(&self, _filename: &std::path::Path, _encoding: Encoding) -> Result<()> {
@@ -138,6 +150,7 @@ pub trait Script: std::fmt::Debug {
         output_encoding: Encoding,
     ) -> Result<()> {
         let f = std::fs::File::create(filename)?;
+        let f = std::io::BufWriter::new(f);
         self.custom_import(custom_filename, Box::new(f), encoding, output_encoding)
     }
 

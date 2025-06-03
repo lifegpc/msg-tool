@@ -144,7 +144,7 @@ impl Script for BGIScript {
     fn import_messages(
         &self,
         _messages: Vec<Message>,
-        _filename: &str,
+        _filename: Box<dyn WriteSeek>,
         _encoding: Encoding,
         _replacement: Option<&ReplacementTable>,
     ) -> Result<()> {

@@ -2,8 +2,10 @@ use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
+use crate::utils::struct_pack::StructPack;
 use anyhow::Result;
 use std::collections::HashMap;
+use std::ffi::CString;
 use std::io::Read;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -50,7 +52,6 @@ impl ScriptBuilder for EscudeBinScriptBuilder {
 
 #[derive(Debug)]
 pub struct EscudeBinScript {
-    offsets: Vec<u32>,
     vms: Vec<u8>,
     unk1: u32,
     strings: Vec<String>,
@@ -91,12 +92,7 @@ impl EscudeBinScript {
                 strings.push(decode_to_string(encoding, s.as_bytes())?);
             }
         }
-        Ok(EscudeBinScript {
-            offsets,
-            vms,
-            unk1,
-            strings,
-        })
+        Ok(EscudeBinScript { vms, unk1, strings })
     }
 }
 
@@ -122,11 +118,35 @@ impl Script for EscudeBinScript {
 
     fn import_messages(
         &self,
-        _messages: Vec<Message>,
-        _filename: &str,
-        _encoding: Encoding,
-        _replacement: Option<&ReplacementTable>,
+        messages: Vec<Message>,
+        mut writer: Box<dyn WriteSeek>,
+        encoding: Encoding,
+        replacement: Option<&ReplacementTable>,
     ) -> Result<()> {
+        writer.write_all(b"ESCR1_00")?;
+        let mut offsets = Vec::with_capacity(messages.len());
+        let mut strs = Vec::with_capacity(messages.len());
+        let mut len = 0;
+        for message in messages {
+            offsets.push(len);
+            let mut s = message.message;
+            if let Some(repl) = replacement {
+                for (from, to) in &repl.map {
+                    s = s.replace(from, to);
+                }
+            }
+            let encoded = encode_string(encoding, &s, true)?;
+            len += encoded.len() as u32 + 1;
+            strs.push(CString::new(encoded)?);
+        }
+        writer.write_u32(offsets.len() as u32)?;
+        offsets.pack(&mut writer, false, encoding)?;
+        writer.write_u32(self.vms.len() as u32)?;
+        writer.write_all(&self.vms)?;
+        writer.write_u32(self.unk1)?;
+        for s in strs {
+            writer.write_all(s.as_bytes_with_nul())?;
+        }
         Ok(())
     }
 
