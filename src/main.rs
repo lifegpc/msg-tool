@@ -42,7 +42,9 @@ fn get_archived_encoding(
     match &arg.archive_encoding {
         Some(enc) => {
             return match enc {
-                &types::TextEncoding::Default => builder.default_encoding(),
+                &types::TextEncoding::Default => builder
+                    .default_archive_encoding()
+                    .unwrap_or_else(|| builder.default_encoding()),
                 &types::TextEncoding::Auto => types::Encoding::Auto,
                 &types::TextEncoding::Cp932 => types::Encoding::Cp932,
                 &types::TextEncoding::Utf8 => types::Encoding::Utf8,
