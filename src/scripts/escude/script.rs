@@ -25,6 +25,7 @@ impl ScriptBuilder for EscudeBinScriptBuilder {
         &self,
         data: Vec<u8>,
         encoding: Encoding,
+        _archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(EscudeBinScript::new(data, encoding, config)?))

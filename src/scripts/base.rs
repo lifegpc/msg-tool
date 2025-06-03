@@ -4,6 +4,10 @@ use anyhow::Result;
 pub trait ScriptBuilder: std::fmt::Debug {
     fn default_encoding(&self) -> Encoding;
 
+    fn default_archive_encoding(&self) -> Option<Encoding> {
+        None
+    }
+
     fn default_patched_encoding(&self) -> Encoding {
         self.default_encoding()
     }
@@ -12,6 +16,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
         &self,
         buf: Vec<u8>,
         encoding: Encoding,
+        archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>>;
 
@@ -19,10 +24,11 @@ pub trait ScriptBuilder: std::fmt::Debug {
         &self,
         filename: &str,
         encoding: Encoding,
+        archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
         let data = crate::utils::files::read_file(filename)?;
-        self.build_script(data, encoding, config)
+        self.build_script(data, encoding, archive_encoding, config)
     }
 
     fn extensions(&self) -> &'static [&'static str];

@@ -22,6 +22,7 @@ impl ScriptBuilder for CircusMesScriptBuilder {
         &self,
         buf: Vec<u8>,
         encoding: Encoding,
+        _archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(CircusMesScript::new(buf, encoding, config)?))

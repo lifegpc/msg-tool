@@ -3,7 +3,7 @@ use clap::{ArgAction, ArgGroup, Parser, Subcommand};
 
 /// Tools for export and import scripts
 #[derive(Parser, Debug)]
-#[clap(group = ArgGroup::new("encodingg").multiple(false), group = ArgGroup::new("output_encodingg").multiple(false))]
+#[clap(group = ArgGroup::new("encodingg").multiple(false), group = ArgGroup::new("output_encodingg").multiple(false), group = ArgGroup::new("archive_encodingg").multiple(false))]
 #[command(version, about, long_about = None)]
 pub struct Arg {
     #[arg(short = 't', long, value_enum, global = true)]
@@ -38,6 +38,25 @@ pub struct Arg {
     )]
     /// Output code page
     pub output_code_page: Option<u32>,
+    #[arg(
+        short = 'a',
+        long,
+        value_enum,
+        global = true,
+        group = "archive_encodingg"
+    )]
+    /// Archive filename encoding
+    pub archive_encoding: Option<TextEncoding>,
+    #[cfg(windows)]
+    #[arg(
+        short = 'A',
+        long,
+        value_enum,
+        global = true,
+        group = "archive_encodingg"
+    )]
+    /// Archive code page
+    pub archive_code_page: Option<u32>,
     #[arg(long, value_enum, global = true)]
     /// Circus Game
     pub circus_mes_type: Option<CircusMesType>,

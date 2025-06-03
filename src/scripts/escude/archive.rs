@@ -1,8 +1,8 @@
 use super::crypto::*;
+use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::decode_to_string;
-use crate::ext::io::*;
 use anyhow::Result;
 use std::io::{Read, Seek, SeekFrom};
 
@@ -20,15 +20,20 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
         Encoding::Cp932
     }
 
+    fn default_archive_encoding(&self) -> Option<Encoding> {
+        Some(Encoding::Cp932)
+    }
+
     fn build_script(
         &self,
         data: Vec<u8>,
-        encoding: Encoding,
+        _encoding: Encoding,
+        archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(EscudeBinArchive::new(
             MemReader::new(data),
-            encoding,
+            archive_encoding,
             config,
         )?))
     }
@@ -36,16 +41,25 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
     fn build_script_from_file(
         &self,
         filename: &str,
-        encoding: Encoding,
+        _encoding: Encoding,
+        archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
-            self.build_script(data, encoding, config)
+            Ok(Box::new(EscudeBinArchive::new(
+                MemReader::new(data),
+                archive_encoding,
+                config,
+            )?))
         } else {
             let f = std::fs::File::open(filename)?;
             let reader = std::io::BufReader::new(f);
-            Ok(Box::new(EscudeBinArchive::new(reader, encoding, config)?))
+            Ok(Box::new(EscudeBinArchive::new(
+                reader,
+                archive_encoding,
+                config,
+            )?))
         }
     }
 
@@ -101,11 +115,11 @@ pub struct EscudeBinArchive<T: Read + Seek + std::fmt::Debug> {
     file_count: u32,
     name_tbl_len: u32,
     entries: Vec<BinEntry>,
-    encoding: Encoding,
+    archive_encoding: Encoding,
 }
 
 impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
-    pub fn new(mut reader: T, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut header = [0u8; 8];
         reader.read_exact(&mut header)?;
         if &header != b"ESC-ARC2" {
@@ -131,7 +145,7 @@ impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
             file_count,
             name_tbl_len,
             entries,
-            encoding,
+            archive_encoding,
         })
     }
 }
@@ -152,12 +166,11 @@ impl<T: Read + Seek + std::fmt::Debug> Script for EscudeBinArchive<T> {
     fn iter_archive<'a>(
         &'a mut self,
     ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        let encoding = self.encoding;
         Ok(Box::new(EscudeBinArchiveIterator {
             entries: self.entries.iter(),
             reader: &mut self.reader,
-            encoding,
             file_count: self.file_count,
+            archive_encoding: self.archive_encoding,
         }))
     }
 }
@@ -165,8 +178,8 @@ impl<T: Read + Seek + std::fmt::Debug> Script for EscudeBinArchive<T> {
 struct EscudeBinArchiveIterator<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> {
     entries: T,
     reader: &'a mut R,
-    encoding: Encoding,
     file_count: u32,
+    archive_encoding: Encoding,
 }
 
 impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
@@ -186,7 +199,7 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
             Ok(name) => name,
             Err(e) => return Some(Err(e.into())),
         };
-        let name = match decode_to_string(self.encoding, name.as_bytes()) {
+        let name = match decode_to_string(self.archive_encoding, name.as_bytes()) {
             Ok(name) => name,
             Err(e) => return Some(Err(e.into())),
         };

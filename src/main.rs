@@ -34,6 +34,33 @@ fn get_encoding(
     builder.default_encoding()
 }
 
+fn get_archived_encoding(
+    arg: &args::Arg,
+    builder: &Box<dyn scripts::ScriptBuilder + Send + Sync>,
+    encoding: types::Encoding,
+) -> types::Encoding {
+    match &arg.encoding {
+        Some(enc) => {
+            return match enc {
+                &types::TextEncoding::Default => builder.default_encoding(),
+                &types::TextEncoding::Auto => types::Encoding::Auto,
+                &types::TextEncoding::Cp932 => types::Encoding::Cp932,
+                &types::TextEncoding::Utf8 => types::Encoding::Utf8,
+                &types::TextEncoding::Gb2312 => types::Encoding::Gb2312,
+            };
+        }
+        None => {}
+    }
+    #[cfg(windows)]
+    match &arg.code_page {
+        Some(code_page) => {
+            return types::Encoding::CodePage(*code_page);
+        }
+        None => {}
+    }
+    builder.default_archive_encoding().unwrap_or(encoding)
+}
+
 fn get_output_encoding(arg: &args::Arg) -> types::Encoding {
     match &arg.output_encoding {
         Some(enc) => {
@@ -96,8 +123,14 @@ pub fn parse_script(
             for builder in scripts::BUILDER.iter() {
                 if typ == builder.script_type() {
                     let encoding = get_encoding(arg, builder);
+                    let archive_encoding = get_archived_encoding(arg, builder, encoding);
                     return Ok((
-                        builder.build_script_from_file(filename, encoding, config)?,
+                        builder.build_script_from_file(
+                            filename,
+                            encoding,
+                            archive_encoding,
+                            config,
+                        )?,
                         builder,
                     ));
                 }
@@ -123,8 +156,9 @@ pub fn parse_script(
     if exts_builder.len() == 1 {
         let builder = exts_builder.first().unwrap();
         let encoding = get_encoding(arg, builder);
+        let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script_from_file(filename, encoding, config)?,
+            builder.build_script_from_file(filename, encoding, archive_encoding, config)?,
             builder,
         ));
     }
@@ -153,8 +187,9 @@ pub fn parse_script(
     if best_builders.len() == 1 {
         let builder = best_builders.first().unwrap();
         let encoding = get_encoding(arg, builder);
+        let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script_from_file(filename, encoding, config)?,
+            builder.build_script_from_file(filename, encoding, archive_encoding, config)?,
             builder,
         ));
     }
@@ -194,8 +229,9 @@ pub fn parse_script_from_archive(
     if exts_builder.len() == 1 {
         let builder = exts_builder.first().unwrap();
         let encoding = get_encoding(arg, builder);
+        let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script(file.data().to_vec(), encoding, config)?,
+            builder.build_script(file.data().to_vec(), encoding, archive_encoding, config)?,
             builder,
         ));
     }
@@ -218,8 +254,9 @@ pub fn parse_script_from_archive(
     if best_builders.len() == 1 {
         let builder = best_builders.first().unwrap();
         let encoding = get_encoding(arg, builder);
+        let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script(file.data().to_vec(), encoding, config)?,
+            builder.build_script(file.data().to_vec(), encoding, archive_encoding, config)?,
             builder,
         ));
     }

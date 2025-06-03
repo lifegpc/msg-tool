@@ -22,6 +22,7 @@ impl ScriptBuilder for BGIScriptBuilder {
         &self,
         buf: Vec<u8>,
         encoding: Encoding,
+        _archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(BGIScript::new(buf, encoding, config)?))
