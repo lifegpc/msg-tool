@@ -199,7 +199,7 @@ pub enum ScriptType {
     #[value(alias("ethornell"))]
     /// Buriko General Interpreter/Ethornell Script
     BGI,
-    #[cfg(feature = "escude")]
+    #[cfg(feature = "escude-arc")]
     /// Escude bin archive
     EscudeArc,
     #[cfg(feature = "escude")]
