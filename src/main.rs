@@ -898,7 +898,7 @@ pub fn import_script(
 
 pub fn pack_archive(
     input: &str,
-    output: &str,
+    output: Option<&str>,
     arg: &args::Arg,
     config: &types::ExtraConfig,
 ) -> anyhow::Result<()> {
@@ -926,11 +926,23 @@ pub fn pack_archive(
         })
         .collect();
     let reff = re_files.iter().map(|s| s.as_str()).collect::<Vec<_>>();
-    let mut archive = scripts::BUILDER
+    let builder = scripts::BUILDER
         .iter()
         .find(|b| b.script_type() == typ)
-        .ok_or_else(|| anyhow::anyhow!("Unsupported script type"))?
-        .create_archive(output, &reff, get_output_encoding(arg), config)?;
+        .ok_or_else(|| anyhow::anyhow!("Unsupported script type"))?;
+    let output = match output {
+        Some(output) => output.to_string(),
+        None => {
+            let mut pb = std::path::PathBuf::from(input);
+            let ext = builder.extensions().first().unwrap_or(&"unk");
+            pb.set_extension(ext);
+            if pb.to_string_lossy() == input {
+                pb.set_extension(format!("{}.{}", ext, ext));
+            }
+            pb.to_string_lossy().into_owned()
+        }
+    };
+    let mut archive = builder.create_archive(&output, &reff, get_output_encoding(arg), config)?;
     for (file, name) in files.iter().zip(reff) {
         let mut f = match std::fs::File::open(file) {
             Ok(f) => f,
@@ -1067,7 +1079,7 @@ fn main() {
             }
         }
         args::Command::Pack { input, output } => {
-            let re = pack_archive(input, output, &arg, &cfg);
+            let re = pack_archive(input, output.as_ref().map(|s| s.as_str()), &arg, &cfg);
             if let Err(e) = re {
                 COUNTER.inc_error();
                 eprintln!("Error packing archive: {}", e);

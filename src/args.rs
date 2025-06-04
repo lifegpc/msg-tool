@@ -130,7 +130,7 @@ pub enum Command {
         /// Input directory
         input: String,
         /// Output archive file
-        output: String,
+        output: Option<String>,
     },
 }
 
