@@ -63,8 +63,9 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 ///
 /// * `skip_pack` attribute can be used to skip fields from packing.
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
+/// * `fstring_pad = <u8>` attribute can be used to specify a padding byte for fixed strings. (Default is 0)
 /// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
-#[proc_macro_derive(StructPack, attributes(skip_pack, fstring, fvec))]
+#[proc_macro_derive(StructPack, attributes(skip_pack, fstring, fstring_pad, fvec))]
 pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
     let a = syn::parse_macro_input!(input as PackStruct);
     match a {
@@ -75,6 +76,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                 let mut skipped = false;
                 let mut fixed_string: Option<usize> = None;
                 let mut fixed_vec: Option<usize> = None;
+                let mut fstring_pad = 0u8; // Default padding byte
                 for attr in &field.attrs {
                     let path = attr.path();
                     if path.is_ident("skip_pack") {
@@ -92,6 +94,14 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                             if let syn::Expr::Lit(lit) = &nv.value {
                                 if let syn::Lit::Int(s) = &lit.lit {
                                     fixed_vec = Some(s.base10_parse().unwrap());
+                                }
+                            }
+                        }
+                    } else if path.is_ident("fstring_pad") {
+                        if let syn::Meta::NameValue(nv) = &attr.meta {
+                            if let syn::Expr::Lit(lit) = &nv.value {
+                                if let syn::Lit::Int(s) = &lit.lit {
+                                    fstring_pad = s.base10_parse().unwrap();
                                 }
                             }
                         }
@@ -115,13 +125,17 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                             if let Some(fixed_string) = fixed_string {
                                 return quote::quote! {
                                     let s = encode_string(encoding, &self.#field_name, true)?;
-                                    let slen = s.len();
+                                    let mut slen = s.len();
                                     if slen > #fixed_string {
                                         return Err(anyhow::anyhow!("String length was too long for field '{}'", stringify!(#field_name)));
                                     }
                                     writer.write_all(&s)?;
-                                    for _ in slen..#fixed_string {
+                                    if slen < #fixed_string {
                                         writer.write_all(&[0])?;
+                                        slen += 1;
+                                    }
+                                    for _ in slen..#fixed_string {
+                                        writer.write_all(&[#fstring_pad])?;
                                     }
                                 };
                             }
@@ -176,6 +190,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                     let mut skipped = false;
                     let mut fixed_string: Option<usize> = None;
                     let mut fixed_vec: Option<usize> = None;
+                    let mut fstring_pad = 0u8; // Default padding byte
                     for attr in &field.attrs {
                         let path = attr.path();
                         if path.is_ident("skip_pack") {
@@ -193,6 +208,14 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                 if let syn::Expr::Lit(lit) = &nv.value {
                                     if let syn::Lit::Int(s) = &lit.lit {
                                         fixed_vec = Some(s.base10_parse().unwrap());
+                                    }
+                                }
+                            }
+                        } else if path.is_ident("fstring_pad") {
+                            if let syn::Meta::NameValue(nv) = &attr.meta {
+                                if let syn::Expr::Lit(lit) = &nv.value {
+                                    if let syn::Lit::Int(s) = &lit.lit {
+                                        fstring_pad = s.base10_parse().unwrap();
                                     }
                                 }
                             }
@@ -217,13 +240,17 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                 if let Some(fixed_string) = fixed_string {
                                     return quote::quote! {
                                         let s = encode_string(encoding, &#field_name, true)?;
-                                        let slen = s.len();
+                                        let mut slen = s.len();
                                         if slen > #fixed_string {
                                             return Err(anyhow::anyhow!("String length was too long for field '{}'", stringify!(#field_name)));
                                         }
                                         writer.write_all(&s)?;
-                                        for _ in slen..#fixed_string {
+                                        if slen < #fixed_string {
                                             writer.write_all(&[0])?;
+                                            slen += 1;
+                                        }
+                                        for _ in slen..#fixed_string {
+                                            writer.write_all(&[#fstring_pad])?;
                                         }
                                     };
                                 }

@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::scripts::ALL_EXTS;
 
-pub fn find_files(path: &String, recursive: bool) -> io::Result<Vec<String>> {
+pub fn find_files(path: &str, recursive: bool, no_ext_filter: bool) -> io::Result<Vec<String>> {
     let mut result = Vec::new();
     let dir_path = Path::new(&path);
 
@@ -15,16 +15,18 @@ pub fn find_files(path: &String, recursive: bool) -> io::Result<Vec<String>> {
             let path = entry.path();
 
             if path.is_file()
-                && path.extension().map_or(true, |ext| {
-                    ALL_EXTS.contains(&ext.to_string_lossy().to_lowercase())
-                })
+                && (no_ext_filter
+                    || path.extension().map_or(true, |ext| {
+                        ALL_EXTS.contains(&ext.to_string_lossy().to_lowercase())
+                    }))
             {
                 if let Some(path_str) = path.to_str() {
                     result.push(path_str.to_string());
                 }
             } else if recursive && path.is_dir() {
                 if let Some(path_str) = path.to_str() {
-                    let mut sub_files = find_files(&path_str.to_string(), recursive)?;
+                    let mut sub_files =
+                        find_files(&path_str.to_string(), recursive, no_ext_filter)?;
                     result.append(&mut sub_files);
                 }
             }
@@ -34,13 +36,17 @@ pub fn find_files(path: &String, recursive: bool) -> io::Result<Vec<String>> {
     Ok(result)
 }
 
-pub fn collect_files(path: &String, recursive: bool) -> io::Result<(Vec<String>, bool)> {
+pub fn collect_files(
+    path: &str,
+    recursive: bool,
+    no_ext_filter: bool,
+) -> io::Result<(Vec<String>, bool)> {
     let pa = Path::new(path);
     if pa.is_dir() {
-        return Ok((find_files(path, recursive)?, true));
+        return Ok((find_files(path, recursive, no_ext_filter)?, true));
     }
     if pa.is_file() {
-        return Ok((vec![path.clone()], false));
+        return Ok((vec![path.to_string()], false));
     }
     Err(io::Error::new(
         io::ErrorKind::NotFound,

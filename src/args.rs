@@ -126,6 +126,12 @@ pub enum Command {
     },
     /// Import to script
     Import(ImportArgs),
+    Pack {
+        /// Input directory
+        input: String,
+        /// Output archive file
+        output: String,
+    },
 }
 
 pub fn parse_args() -> Arg {

@@ -320,21 +320,25 @@ impl Script for EscudeBinList {
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
 struct ScriptT {
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     /// File name
     pub file: String,
     pub source: u32,
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub title: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
 struct NameT {
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     /// Name of the character
     pub text: String,
     /// Text color
     pub color: u32,
     #[fstring = 32]
+    #[fstring_pad = 0x20]
     /// Face image file name
     pub face: String,
 }
@@ -343,6 +347,7 @@ struct NameT {
 struct VarT {
     /// Variable name
     #[fstring = 32]
+    #[fstring_pad = 0x20]
     pub name: String,
     /// Variable value
     pub value: u16,
@@ -356,9 +361,11 @@ struct SceneT {
     pub script: u32,
     /// The scene name
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub name: String,
     /// The scene thumbail image file name
     #[fstring = 32]
+    #[fstring_pad = 0x20]
     pub thumbnail: String,
     /// The scene order in the scene (Extra)
     pub order: i32,
@@ -377,11 +384,14 @@ enum EnumScr {
 struct BgT {
     /// Background image name
     #[fstring = 32]
+    #[fstring_pad = 0x20]
     name: String,
     /// Background image file name
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     file: String,
     #[fstring = 128]
+    #[fstring_pad = 0x20]
     option: String,
     coverd: u32,
     color: u32,
@@ -395,11 +405,14 @@ struct BgT {
 struct EvT {
     /// Event image name
     #[fstring = 32]
+    #[fstring_pad = 0x20]
     name: String,
     /// Event image file name
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     file: String,
     #[fstring = 128]
+    #[fstring_pad = 0x20]
     option: String,
     coverd: u32,
     color: u32,
@@ -412,10 +425,13 @@ struct EvT {
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
 struct StT {
     #[fstring = 32]
+    #[fstring_pad = 0x20]
     name: String,
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     file: String,
     #[fstring = 128]
+    #[fstring_pad = 0x20]
     option: String,
     coverd: u32,
     color: u32,
@@ -429,9 +445,11 @@ struct StT {
 struct EfxT {
     /// Effect image name
     #[fstring = 32]
+    #[fstring_pad = 0x20]
     name: String,
     /// Effect image file name
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     file: String,
     spot: i32,
     dx: i32,
@@ -471,10 +489,13 @@ enum EnumGfx {
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
 struct BgmT {
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub name: String,
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub file: String,
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub title: String,
     pub order: i32,
 }
@@ -482,24 +503,30 @@ struct BgmT {
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
 struct AmbT {
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub name: String,
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub file: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
 struct SeT {
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub name: String,
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub file: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
 struct SfxT {
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub name: String,
     #[fstring = 64]
+    #[fstring_pad = 0x20]
     pub file: String,
 }
 

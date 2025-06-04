@@ -896,6 +896,73 @@ pub fn import_script(
     Ok(types::ScriptResult::Ok)
 }
 
+pub fn pack_archive(
+    input: &str,
+    output: &str,
+    arg: &args::Arg,
+    config: &types::ExtraConfig,
+) -> anyhow::Result<()> {
+    let typ = match &arg.script_type {
+        Some(t) => t,
+        None => {
+            return Err(anyhow::anyhow!("No script type specified"));
+        }
+    };
+    let (files, isdir) = utils::files::collect_files(input, arg.recursive, true)
+        .map_err(|e| anyhow::anyhow!("Error collecting files: {}", e))?;
+    if !isdir {
+        return Err(anyhow::anyhow!("Input must be a directory for packing"));
+    }
+    let re_files: Vec<String> = files
+        .iter()
+        .filter_map(|f| {
+            std::path::PathBuf::from(f)
+                .strip_prefix(input)
+                .ok()
+                .and_then(|p| {
+                    p.to_str()
+                        .map(|s| s.replace("\\", "/").trim_start_matches("/").to_owned())
+                })
+        })
+        .collect();
+    let reff = re_files.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+    let mut archive = scripts::BUILDER
+        .iter()
+        .find(|b| b.script_type() == typ)
+        .ok_or_else(|| anyhow::anyhow!("Unsupported script type"))?
+        .create_archive(output, &reff, get_output_encoding(arg), config)?;
+    for (file, name) in files.iter().zip(reff) {
+        let mut f = match std::fs::File::open(file) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Error opening file {}: {}", file, e);
+                COUNTER.inc_error();
+                continue;
+            }
+        };
+        let mut wf = match archive.new_file(name) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Error creating file {} in archive: {}", name, e);
+                COUNTER.inc_error();
+                continue;
+            }
+        };
+        match std::io::copy(&mut f, &mut wf) {
+            Ok(_) => {
+                COUNTER.inc(types::ScriptResult::Ok);
+            }
+            Err(e) => {
+                eprintln!("Error writing to file {} in archive: {}", name, e);
+                COUNTER.inc_error();
+                continue;
+            }
+        }
+    }
+    archive.write_header()?;
+    Ok(())
+}
+
 lazy_static::lazy_static! {
     static ref COUNTER: utils::counter::Counter = utils::counter::Counter::new();
 }
@@ -911,7 +978,8 @@ fn main() {
     };
     match &arg.command {
         args::Command::Export { input, output } => {
-            let (scripts, is_dir) = utils::files::collect_files(input, arg.recursive).unwrap();
+            let (scripts, is_dir) =
+                utils::files::collect_files(input, arg.recursive, false).unwrap();
             if is_dir {
                 match &output {
                     Some(output) => {
@@ -962,7 +1030,7 @@ fn main() {
                 None => None,
             };
             let (scripts, is_dir) =
-                utils::files::collect_files(&args.input, arg.recursive).unwrap();
+                utils::files::collect_files(&args.input, arg.recursive, false).unwrap();
             if is_dir {
                 let pb = std::path::Path::new(&args.patched);
                 if pb.exists() {
@@ -996,6 +1064,13 @@ fn main() {
                         }
                     }
                 }
+            }
+        }
+        args::Command::Pack { input, output } => {
+            let re = pack_archive(input, output, &arg, &cfg);
+            if let Err(e) = re {
+                COUNTER.inc_error();
+                eprintln!("Error packing archive: {}", e);
             }
         }
     }
