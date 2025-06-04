@@ -16,10 +16,11 @@ serde_json = "1"
 unicode-segmentation = "1.12"
 
 [features]
-default = ["bgi", "circus", "escude"]
+default = ["bgi", "circus", "escude", "escude-arc"]
 bgi = []
 circus = []
-escude = ["rand"]
+escude = []
+escude-arc = ["escude", "rand"]
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0", features = ["Win32_Globalization", "Win32_System_Diagnostics_Debug"] }
