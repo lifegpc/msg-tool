@@ -80,6 +80,7 @@ impl AsRef<str> for OutputScriptType {
     }
 }
 
+#[cfg(feature = "circus")]
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CircusMesType {
     /// fortissimo//Akkord:Bsusvier
@@ -146,6 +147,7 @@ pub enum CircusMesType {
     Nightshade,
 }
 
+#[cfg(feature = "circus")]
 impl AsRef<str> for CircusMesType {
     fn as_ref(&self) -> &str {
         match self {
@@ -185,7 +187,9 @@ impl AsRef<str> for CircusMesType {
 }
 
 pub struct ExtraConfig {
+    #[cfg(feature = "circus")]
     pub circus_mes_type: Option<CircusMesType>,
+    #[cfg(feature = "escude-arc")]
     pub escude_fake_compress: bool,
 }
 

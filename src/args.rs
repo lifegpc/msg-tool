@@ -57,6 +57,7 @@ pub struct Arg {
     )]
     /// Archive code page
     pub archive_code_page: Option<u32>,
+    #[cfg(feature = "circus")]
     #[arg(long, value_enum, global = true)]
     /// Circus Game
     pub circus_mes_type: Option<CircusMesType>,
@@ -66,6 +67,7 @@ pub struct Arg {
     #[arg(global = true, action = ArgAction::SetTrue, short, long)]
     /// Print backtrace on error
     pub backtrace: bool,
+    #[cfg(feature = "escude-arc")]
     #[arg(long, action = ArgAction::SetTrue, global = true)]
     /// Whether to use fake compression for Escude archive
     pub escude_fake_compress: bool,

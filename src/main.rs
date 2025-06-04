@@ -985,7 +985,9 @@ fn main() {
         unsafe { std::env::set_var("RUST_LIB_BACKTRACE", "1") };
     }
     let cfg = types::ExtraConfig {
+        #[cfg(feature = "circus")]
         circus_mes_type: arg.circus_mes_type.clone(),
+        #[cfg(feature = "escude-arc")]
         escude_fake_compress: arg.escude_fake_compress.clone(),
     };
     match &arg.command {
