@@ -359,7 +359,9 @@ impl<T: Write + Seek> Archive for EscudeBinArchiveWriter<T> {
         let file_count = self.headers.len() as u32;
         crypto.write_u32(file_count)?;
         crypto.write_u32(self.name_tbl_len)?;
-        for entry in self.headers.values() {
+        let mut entries: Vec<_> = self.headers.values().collect();
+        entries.sort_by(|a, b| a.name_offset.cmp(&b.name_offset));
+        for entry in entries {
             let name_offset = entry.name_offset - file_count * 12 - 0x14;
             crypto.write_u32(name_offset)?;
             crypto.write_u32(entry.data_offset)?;
@@ -427,9 +429,7 @@ impl<'a, T: Write + Seek> Drop for EscudeBinArchiveFileWithLzw<'a, T> {
             }
         };
         match self.writer.write_all(&data) {
-            Ok(_) => {
-                self.writer.header.length = self.writer.header.length.max(data.len() as u32);
-            }
+            Ok(_) => {}
             Err(e) => {
                 eprintln!("Failed to write LZW data: {}", e);
                 crate::COUNTER.inc_error();
