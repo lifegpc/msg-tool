@@ -174,7 +174,7 @@ impl Script for EscudeBinScript {
             .iter()
             .enumerate()
             .map(|(i, s)| Message {
-                message: s.to_string(),
+                message: s.replace("<r>", "\n"),
                 name: self.names.as_ref().map(|n| n.get(&i).cloned()).flatten(),
             })
             .collect())
@@ -193,7 +193,7 @@ impl Script for EscudeBinScript {
         let mut len = 0;
         for message in messages {
             offsets.push(len);
-            let mut s = message.message;
+            let mut s = message.message.replace("\n", "<r>");
             if let Some(repl) = replacement {
                 for (from, to) in &repl.map {
                     s = s.replace(from, to);
