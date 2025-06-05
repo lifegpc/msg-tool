@@ -122,7 +122,7 @@ impl<'a, T: Write> BitWriter<'a, T> {
         Ok(())
     }
 
-    pub fn put_bits(&mut self, byte: u16, token_width: u8) -> Result<()> {
+    pub fn put_bits(&mut self, byte: u32, token_width: u8) -> Result<()> {
         for i in 0..token_width {
             self.put_bit((byte & (1 << (token_width - 1 - i))) != 0)?;
         }
@@ -163,16 +163,16 @@ impl LZWEncoder {
                 if i > 0 && i % 0x4000 == 0 {
                     writer.put_bits(0x102, 9)?;
                 }
-                writer.put_bits(input[i] as u16, 9)?;
+                writer.put_bits(input[i] as u32, 9)?;
             }
             writer.put_bits(0x100, 9)?; // End of stream
             writer.flush()?;
         } else {
             let mut dict = std::collections::HashMap::new();
             for i in 0..256 {
-                dict.insert(vec![i as u8], i as u16);
+                dict.insert(vec![i as u8], i);
             }
-            let mut next_code = 0x103u16;
+            let mut next_code = 0x103u32;
             let mut token_width = 9;
 
             let mut i = 0;
@@ -209,7 +209,7 @@ impl LZWEncoder {
                         writer.put_bits(0x102, token_width)?; // Clear dictionary
                         dict.clear();
                         for j in 0..256 {
-                            dict.insert(vec![j as u8], j as u16);
+                            dict.insert(vec![j as u8], j);
                         }
                         next_code = 0x103;
                         token_width = 9;
