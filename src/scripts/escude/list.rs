@@ -53,7 +53,7 @@ impl ScriptBuilder for EscudeBinListBuilder {
 
 #[derive(Debug)]
 pub struct EscudeBinList {
-    entries: Vec<ListEntry>,
+    pub entries: Vec<ListEntry>,
 }
 
 impl EscudeBinList {
@@ -318,7 +318,7 @@ impl Script for EscudeBinList {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct ScriptT {
+pub struct ScriptT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
     /// File name
@@ -330,7 +330,7 @@ struct ScriptT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct NameT {
+pub struct NameT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
     /// Name of the character
@@ -344,7 +344,7 @@ struct NameT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct VarT {
+pub struct VarT {
     /// Variable name
     #[fstring = 32]
     #[fstring_pad = 0x20]
@@ -356,7 +356,7 @@ struct VarT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct SceneT {
+pub struct SceneT {
     /// The scene script ID
     pub script: u32,
     /// The scene name
@@ -373,7 +373,7 @@ struct SceneT {
 
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
-enum EnumScr {
+pub enum EnumScr {
     Scripts(Vec<ScriptT>),
     Names(Vec<NameT>),
     Vars(Vec<VarT>),
@@ -381,7 +381,7 @@ enum EnumScr {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct BgT {
+pub struct BgT {
     /// Background image name
     #[fstring = 32]
     #[fstring_pad = 0x20]
@@ -402,7 +402,7 @@ struct BgT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct EvT {
+pub struct EvT {
     /// Event image name
     #[fstring = 32]
     #[fstring_pad = 0x20]
@@ -423,7 +423,7 @@ struct EvT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct StT {
+pub struct StT {
     #[fstring = 32]
     #[fstring_pad = 0x20]
     name: String,
@@ -442,7 +442,7 @@ struct StT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct EfxT {
+pub struct EfxT {
     /// Effect image name
     #[fstring = 32]
     #[fstring_pad = 0x20]
@@ -465,20 +465,20 @@ fn exft_padding() -> Vec<u8> {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct Point {
+pub struct Point {
     x: i16,
     y: i16,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct LocT {
+pub struct LocT {
     #[fvec = 8]
     pt: Vec<Point>,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
-enum EnumGfx {
+pub enum EnumGfx {
     Bgs(Vec<BgT>),
     Evs(Vec<EvT>),
     Sts(Vec<StT>),
@@ -487,7 +487,7 @@ enum EnumGfx {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct BgmT {
+pub struct BgmT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
     pub name: String,
@@ -501,7 +501,7 @@ struct BgmT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct AmbT {
+pub struct AmbT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
     pub name: String,
@@ -511,7 +511,7 @@ struct AmbT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct SeT {
+pub struct SeT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
     pub name: String,
@@ -521,7 +521,7 @@ struct SeT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
-struct SfxT {
+pub struct SfxT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
     pub name: String,
@@ -532,7 +532,7 @@ struct SfxT {
 
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
-enum EnumSnd {
+pub enum EnumSnd {
     Bgm(Vec<BgmT>),
     Amb(Vec<AmbT>),
     Se(Vec<SeT>),
@@ -541,7 +541,7 @@ enum EnumSnd {
 
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
-enum ListData {
+pub enum ListData {
     Scr(EnumScr),
     Gfx(EnumGfx),
     Snd(EnumSnd),
@@ -549,7 +549,7 @@ enum ListData {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ListEntry {
+pub struct ListEntry {
     id: u32,
-    data: ListData,
+    pub data: ListData,
 }

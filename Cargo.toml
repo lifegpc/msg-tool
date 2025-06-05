@@ -8,6 +8,7 @@ anyhow = "1"
 clap = { version = "4.5", features = ["derive"] }
 csv = "1.3"
 encoding_rs = "0.8"
+int-enum = { version = "1.2", optional = true }
 lazy_static = "1.5.0"
 msg_tool_macro = { path = "./msg_tool_macro" }
 rand = { version = "0.9", optional = true }
@@ -19,7 +20,7 @@ unicode-segmentation = "1.12"
 default = ["bgi", "circus", "escude", "escude-arc"]
 bgi = []
 circus = []
-escude = []
+escude = ["int-enum"]
 escude-arc = ["escude", "rand"]
 
 [target.'cfg(windows)'.dependencies]

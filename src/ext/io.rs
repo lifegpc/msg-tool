@@ -542,6 +542,15 @@ impl std::fmt::Debug for MemReader {
     }
 }
 
+impl<'a> std::fmt::Debug for MemReaderRef<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemReaderRef")
+            .field("pos", &self.pos)
+            .field("data_length", &self.data.len())
+            .finish_non_exhaustive()
+    }
+}
+
 impl MemReader {
     pub fn new(data: Vec<u8>) -> Self {
         MemReader { data, pos: 0 }
@@ -553,11 +562,19 @@ impl MemReader {
             pos: self.pos,
         }
     }
+
+    pub fn is_eof(&self) -> bool {
+        self.pos >= self.data.len()
+    }
 }
 
 impl<'a> MemReaderRef<'a> {
     pub fn new(data: &'a [u8]) -> Self {
         MemReaderRef { data, pos: 0 }
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.pos >= self.data.len()
     }
 }
 

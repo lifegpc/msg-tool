@@ -989,6 +989,8 @@ fn main() {
         circus_mes_type: arg.circus_mes_type.clone(),
         #[cfg(feature = "escude-arc")]
         escude_fake_compress: arg.escude_fake_compress.clone(),
+        #[cfg(feature = "escude")]
+        escude_enum_scr: arg.escude_enum_scr.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

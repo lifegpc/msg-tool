@@ -191,6 +191,8 @@ pub struct ExtraConfig {
     pub circus_mes_type: Option<CircusMesType>,
     #[cfg(feature = "escude-arc")]
     pub escude_fake_compress: bool,
+    #[cfg(feature = "escude")]
+    pub escude_enum_scr: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

@@ -71,6 +71,10 @@ pub struct Arg {
     #[arg(long, action = ArgAction::SetTrue, global = true)]
     /// Whether to use fake compression for Escude archive
     pub escude_fake_compress: bool,
+    #[cfg(feature = "escude")]
+    #[arg(long, global = true)]
+    /// The path to the Escude enum script file (enum_scr.bin)
+    pub escude_enum_scr: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,
