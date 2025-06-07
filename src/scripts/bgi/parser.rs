@@ -221,6 +221,12 @@ pub struct BGIString {
     pub typ: BGIStringType,
 }
 
+impl BGIString {
+    pub fn is_internal(&self) -> bool {
+        matches!(self.typ, BGIStringType::Internal)
+    }
+}
+
 pub struct V0Parser<'a> {
     buf: MemReaderRef<'a>,
     largest_code_address_pperand_encountered: usize,

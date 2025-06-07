@@ -1056,9 +1056,11 @@ fn main() {
         #[cfg(feature = "circus")]
         circus_mes_type: arg.circus_mes_type.clone(),
         #[cfg(feature = "escude-arc")]
-        escude_fake_compress: arg.escude_fake_compress.clone(),
+        escude_fake_compress: arg.escude_fake_compress,
         #[cfg(feature = "escude")]
         escude_enum_scr: arg.escude_enum_scr.clone(),
+        #[cfg(feature = "bgi")]
+        bgi_import_duplicate: arg.bgi_import_duplicate,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

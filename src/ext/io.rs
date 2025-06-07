@@ -771,6 +771,88 @@ impl<T: Write> WriteExt for T {
     }
 }
 
+pub trait WriteAt {
+    fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<usize>;
+    fn write_all_at(&mut self, offset: usize, buf: &[u8]) -> Result<()>;
+
+    fn write_u8_at(&mut self, offset: usize, value: u8) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_u16_at(&mut self, offset: usize, value: u16) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_u16_be_at(&mut self, offset: usize, value: u16) -> Result<()> {
+        self.write_all_at(offset, &value.to_be_bytes())
+    }
+    fn write_u32_at(&mut self, offset: usize, value: u32) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_u32_be_at(&mut self, offset: usize, value: u32) -> Result<()> {
+        self.write_all_at(offset, &value.to_be_bytes())
+    }
+    fn write_u64_at(&mut self, offset: usize, value: u64) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_u64_be_at(&mut self, offset: usize, value: u64) -> Result<()> {
+        self.write_all_at(offset, &value.to_be_bytes())
+    }
+    fn write_u128_at(&mut self, offset: usize, value: u128) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_u128_be_at(&mut self, offset: usize, value: u128) -> Result<()> {
+        self.write_all_at(offset, &value.to_be_bytes())
+    }
+    fn write_i8_at(&mut self, offset: usize, value: i8) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_i16_at(&mut self, offset: usize, value: i16) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_i16_be_at(&mut self, offset: usize, value: i16) -> Result<()> {
+        self.write_all_at(offset, &value.to_be_bytes())
+    }
+    fn write_i32_at(&mut self, offset: usize, value: i32) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_i32_be_at(&mut self, offset: usize, value: i32) -> Result<()> {
+        self.write_all_at(offset, &value.to_be_bytes())
+    }
+    fn write_i64_at(&mut self, offset: usize, value: i64) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_i64_be_at(&mut self, offset: usize, value: i64) -> Result<()> {
+        self.write_all_at(offset, &value.to_be_bytes())
+    }
+    fn write_i128_at(&mut self, offset: usize, value: i128) -> Result<()> {
+        self.write_all_at(offset, &value.to_le_bytes())
+    }
+    fn write_i128_be_at(&mut self, offset: usize, value: i128) -> Result<()> {
+        self.write_all_at(offset, &value.to_be_bytes())
+    }
+
+    fn write_cstring_at(&mut self, offset: usize, value: &CString) -> Result<()> {
+        self.write_all_at(offset, value.as_bytes_with_nul())
+    }
+}
+
+impl<T: Write + Seek> WriteAt for T {
+    fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<usize> {
+        let current_pos = self.stream_position()?;
+        self.seek(SeekFrom::Start(offset as u64))?;
+        let bytes_written = self.write(buf)?;
+        self.seek(SeekFrom::Start(current_pos))?;
+        Ok(bytes_written)
+    }
+
+    fn write_all_at(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+        let current_pos = self.stream_position()?;
+        self.seek(SeekFrom::Start(offset as u64))?;
+        self.write_all(buf)?;
+        self.seek(SeekFrom::Start(current_pos))?;
+        Ok(())
+    }
+}
+
 pub struct MemReader {
     pub data: Vec<u8>,
     pub pos: usize,

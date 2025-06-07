@@ -75,6 +75,11 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// The path to the Escude enum script file (enum_scr.bin)
     pub escude_enum_scr: Option<String>,
+    #[cfg(feature = "bgi")]
+    #[arg(long, action = ArgAction::SetTrue, global = true)]
+    /// Duplicate same strings when importing into BGI scripts.
+    /// Enable this will cause BGI scripts to become very large.
+    pub bgi_import_duplicate: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

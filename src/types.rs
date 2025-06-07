@@ -193,6 +193,8 @@ pub struct ExtraConfig {
     pub escude_fake_compress: bool,
     #[cfg(feature = "escude")]
     pub escude_enum_scr: Option<String>,
+    #[cfg(feature = "bgi")]
+    pub bgi_import_duplicate: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
