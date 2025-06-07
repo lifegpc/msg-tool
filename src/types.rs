@@ -195,6 +195,8 @@ pub struct ExtraConfig {
     pub escude_enum_scr: Option<String>,
     #[cfg(feature = "bgi")]
     pub bgi_import_duplicate: bool,
+    #[cfg(feature = "bgi")]
+    pub bgi_disable_append: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

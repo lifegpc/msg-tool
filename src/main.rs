@@ -1061,6 +1061,8 @@ fn main() {
         escude_enum_scr: arg.escude_enum_scr.clone(),
         #[cfg(feature = "bgi")]
         bgi_import_duplicate: arg.bgi_import_duplicate,
+        #[cfg(feature = "bgi")]
+        bgi_disable_append: arg.bgi_disable_append,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

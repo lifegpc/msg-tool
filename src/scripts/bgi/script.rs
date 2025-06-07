@@ -54,6 +54,7 @@ pub struct BGIScript {
     is_v1: bool,
     offset: usize,
     import_duplicate: bool,
+    append: bool,
 }
 
 impl std::fmt::Debug for BGIScript {
@@ -79,6 +80,7 @@ impl BGIScript {
                 is_v1: true,
                 offset,
                 import_duplicate: config.bgi_import_duplicate,
+                append: !config.bgi_disable_append,
             })
         } else {
             let mut parser = V0Parser::new(data.to_ref());
@@ -91,6 +93,7 @@ impl BGIScript {
                 is_v1: false,
                 offset: 0,
                 import_duplicate: config.bgi_import_duplicate,
+                append: !config.bgi_disable_append,
             })
         }
     }
@@ -203,9 +206,13 @@ impl Script for BGIScript {
             let mut old_offset = 0;
             let mut new_offset = 0;
             let mut new_address_map = BTreeMap::new();
+            if self.append {
+                file.write_all(&self.data.data)?;
+                new_offset = self.data.data.len();
+            }
             for (address, nmes) in str_map {
                 let bgi_str_old_offset = address + self.offset;
-                if old_offset < bgi_str_old_offset {
+                if !self.append && old_offset < bgi_str_old_offset {
                     file.write_all(&self.data.data[old_offset..bgi_str_old_offset])?;
                     new_offset += bgi_str_old_offset - old_offset;
                     old_offset = bgi_str_old_offset;
@@ -216,14 +223,26 @@ impl Script for BGIScript {
                     .as_bytes_with_nul()
                     .len();
                 let nmes = encode_string(encoding, &nmes, false)?;
-                file.write_all(&nmes)?;
-                file.write_u8(0)?; // null terminator
-                let new_address = new_offset - self.offset;
+                let write_to_original = self.append && nmes.len() + 1 <= old_str_len;
+                if write_to_original {
+                    file.write_all_at(bgi_str_old_offset, &nmes)?;
+                    file.write_u8_at(bgi_str_old_offset + nmes.len(), 0)?; // null terminator
+                } else {
+                    file.write_all(&nmes)?;
+                    file.write_u8(0)?; // null terminator
+                }
+                let new_address = if write_to_original {
+                    bgi_str_old_offset - self.offset
+                } else {
+                    new_offset - self.offset
+                };
                 new_address_map.insert(address, new_address);
                 old_offset += old_str_len;
-                new_offset += nmes.len() + 1; // +1 for null terminator
+                if !write_to_original {
+                    new_offset += nmes.len() + 1; // +1 for null terminator
+                }
             }
-            if old_offset < self.data.data.len() {
+            if !self.append && old_offset < self.data.data.len() {
                 file.write_all(&self.data.data[old_offset..])?;
             }
             for bgis in self.strings.iter() {
@@ -242,6 +261,10 @@ impl Script for BGIScript {
         let mut cur_str = strs.next();
         let mut old_offset = 0;
         let mut new_offset = 0;
+        if self.append {
+            file.write_all(&self.data.data)?;
+            new_offset = self.data.data.len();
+        }
         while let Some(curs) = cur_str {
             if !curs.is_internal() {
                 if cur_mes.is_none() {
@@ -249,7 +272,7 @@ impl Script for BGIScript {
                 }
             }
             let bgi_str_old_offset = curs.address + self.offset;
-            if old_offset < bgi_str_old_offset {
+            if !self.append && old_offset < bgi_str_old_offset {
                 file.write_all(&self.data.data[old_offset..bgi_str_old_offset])?;
                 new_offset += bgi_str_old_offset - old_offset;
                 old_offset = bgi_str_old_offset;
@@ -314,7 +337,7 @@ impl Script for BGIScript {
         for str in nstrs {
             file.write_u32_at(str.offset, str.address as u32)?;
         }
-        if old_offset < self.data.data.len() {
+        if !self.append && old_offset < self.data.data.len() {
             file.write_all(&self.data.data[old_offset..])?;
         }
         Ok(())

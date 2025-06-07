@@ -4,7 +4,11 @@ use clap::{ArgAction, ArgGroup, Parser, Subcommand};
 /// Tools for export and import scripts
 #[derive(Parser, Debug)]
 #[clap(group = ArgGroup::new("encodingg").multiple(false), group = ArgGroup::new("output_encodingg").multiple(false), group = ArgGroup::new("archive_encodingg").multiple(false))]
-#[command(version, about, long_about = None)]
+#[command(
+    version,
+    about,
+    long_about = "Tools for export and import scripts\nhttps://github.com/lifegpc/msg-tool"
+)]
 pub struct Arg {
     #[arg(short = 't', long, value_enum, global = true)]
     /// Script type
@@ -80,6 +84,11 @@ pub struct Arg {
     /// Duplicate same strings when importing into BGI scripts.
     /// Enable this will cause BGI scripts to become very large.
     pub bgi_import_duplicate: bool,
+    #[cfg(feature = "bgi")]
+    #[arg(long, action = ArgAction::SetTrue, global = true, alias = "bgi-no-append")]
+    /// Disable appending new strings to the end of BGI scripts.
+    /// Disable may cause BGI scripts broken.
+    pub bgi_disable_append: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
