@@ -1043,6 +1043,47 @@ pub fn unpack_archive(
     Ok(types::ScriptResult::Ok)
 }
 
+pub fn create_file(input: &str, output: Option<&str>, arg: &args::Arg) -> anyhow::Result<()> {
+    let typ = match &arg.script_type {
+        Some(t) => t,
+        None => {
+            return Err(anyhow::anyhow!("No script type specified"));
+        }
+    };
+    let builder = scripts::BUILDER
+        .iter()
+        .find(|b| b.script_type() == typ)
+        .ok_or_else(|| anyhow::anyhow!("Unsupported script type"))?;
+
+    if !builder.can_create_file() {
+        return Err(anyhow::anyhow!(
+            "Script type {:?} does not support file creation",
+            typ
+        ));
+    }
+
+    let output = match output {
+        Some(output) => output.to_string(),
+        None => {
+            let mut pb = std::path::PathBuf::from(input);
+            let ext = builder.extensions().first().unwrap_or(&"unk");
+            pb.set_extension(ext);
+            if pb.to_string_lossy() == input {
+                pb.set_extension(format!("{}.{}", ext, ext));
+            }
+            pb.to_string_lossy().into_owned()
+        }
+    };
+
+    builder.create_file_filename(
+        input,
+        &output,
+        get_encoding(arg, builder),
+        get_output_encoding(arg),
+    )?;
+    Ok(())
+}
+
 lazy_static::lazy_static! {
     static ref COUNTER: utils::counter::Counter = utils::counter::Counter::new();
 }
@@ -1192,6 +1233,16 @@ fn main() {
                             eprintln!("Backtrace: {}", e.backtrace());
                         }
                     }
+                }
+            }
+        }
+        args::Command::Create { input, output } => {
+            let re = create_file(input, output.as_ref().map(|s| s.as_str()), &arg);
+            if let Err(e) = re {
+                COUNTER.inc_error();
+                eprintln!("Error creating file: {}", e);
+                if arg.backtrace {
+                    eprintln!("Backtrace: {}", e.backtrace());
                 }
             }
         }

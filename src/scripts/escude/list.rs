@@ -49,6 +49,20 @@ impl ScriptBuilder for EscudeBinListBuilder {
         }
         None
     }
+
+    fn can_create_file(&self) -> bool {
+        true
+    }
+
+    fn create_file<'a>(
+        &'a self,
+        filename: &'a str,
+        writer: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        file_encoding: Encoding,
+    ) -> Result<()> {
+        create_file(filename, writer, encoding, file_encoding)
+    }
 }
 
 #[derive(Debug)]
@@ -257,6 +271,37 @@ impl EscudeBinList {
     }
 }
 
+fn create_file<'a>(
+    custom_filename: &'a str,
+    mut writer: Box<dyn WriteSeek + 'a>,
+    encoding: Encoding,
+    output_encoding: Encoding,
+) -> Result<()> {
+    let input = crate::utils::files::read_file(custom_filename)?;
+    let s = decode_to_string(output_encoding, &input)?;
+    let entries: Vec<ListEntry> = serde_json::from_str(&s)
+        .map_err(|e| anyhow::anyhow!("Failed to read Escude list from JSON: {}", e))?;
+    writer.write_all(b"LIST")?;
+    writer.write_u32(0)?; // Placeholder for size
+    let mut total_size = 0;
+    for entry in entries {
+        let cur_pos = writer.stream_position()?;
+        writer.write_u32(entry.id)?;
+        writer.write_u32(0)?; // Placeholder for size
+        entry.data.pack(&mut writer, false, encoding)?;
+        let end_pos = writer.stream_position()?;
+        let size = (end_pos - cur_pos - 8) as u32; // 8 bytes for id and size
+        writer.seek(std::io::SeekFrom::Start(cur_pos + 4))?; // Seek to size position
+        writer.write_u32(size)?;
+        writer.seek(std::io::SeekFrom::Start(end_pos))?; // Seek to end
+        total_size += size + 8;
+    }
+    writer.seek(std::io::SeekFrom::Start(4))?; // Seek back to size position
+    writer.write_u32(total_size)?;
+    writer.flush()?;
+    Ok(())
+}
+
 impl Script for EscudeBinList {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Custom
@@ -287,33 +332,11 @@ impl Script for EscudeBinList {
     fn custom_import<'a>(
         &'a self,
         custom_filename: &'a str,
-        mut writer: Box<dyn WriteSeek + 'a>,
+        writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         output_encoding: Encoding,
     ) -> Result<()> {
-        let input = crate::utils::files::read_file(custom_filename)?;
-        let s = decode_to_string(output_encoding, &input)?;
-        let entries: Vec<ListEntry> = serde_json::from_str(&s)
-            .map_err(|e| anyhow::anyhow!("Failed to read Escude list from JSON: {}", e))?;
-        writer.write_all(b"LIST")?;
-        writer.write_u32(0)?; // Placeholder for size
-        let mut total_size = 0;
-        for entry in entries {
-            let cur_pos = writer.stream_position()?;
-            writer.write_u32(entry.id)?;
-            writer.write_u32(0)?; // Placeholder for size
-            entry.data.pack(&mut writer, false, encoding)?;
-            let end_pos = writer.stream_position()?;
-            let size = (end_pos - cur_pos - 8) as u32; // 8 bytes for id and size
-            writer.seek(std::io::SeekFrom::Start(cur_pos + 4))?; // Seek to size position
-            writer.write_u32(size)?;
-            writer.seek(std::io::SeekFrom::Start(end_pos))?; // Seek to end
-            total_size += size + 8;
-        }
-        writer.seek(std::io::SeekFrom::Start(4))?; // Seek back to size position
-        writer.write_u32(total_size)?;
-        writer.flush()?;
-        Ok(())
+        create_file(custom_filename, writer, encoding, output_encoding)
     }
 }
 

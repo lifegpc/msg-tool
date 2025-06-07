@@ -79,6 +79,34 @@ pub trait ScriptBuilder: std::fmt::Debug {
             "This script type does not support creating an archive."
         ))
     }
+
+    fn can_create_file(&self) -> bool {
+        false
+    }
+
+    fn create_file<'a>(
+        &'a self,
+        _filename: &'a str,
+        _writer: Box<dyn WriteSeek + 'a>,
+        _encoding: Encoding,
+        _file_encoding: Encoding,
+    ) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "This script type does not support creating directly."
+        ))
+    }
+
+    fn create_file_filename(
+        &self,
+        filename: &str,
+        output_filename: &str,
+        encoding: Encoding,
+        file_encoding: Encoding,
+    ) -> Result<()> {
+        let f = std::fs::File::create(output_filename)?;
+        let f = std::io::BufWriter::new(f);
+        self.create_file(filename, Box::new(f), encoding, file_encoding)
+    }
 }
 
 pub trait ArchiveContent {

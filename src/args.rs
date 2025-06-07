@@ -160,6 +160,13 @@ pub enum Command {
         /// Output directory
         output: Option<String>,
     },
+    /// Create a new script file
+    Create {
+        /// Input script
+        input: String,
+        /// Output script file
+        output: Option<String>,
+    },
 }
 
 pub fn parse_args() -> Arg {
