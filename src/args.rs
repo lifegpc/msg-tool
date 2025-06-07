@@ -132,10 +132,18 @@ pub enum Command {
     },
     /// Import to script
     Import(ImportArgs),
+    /// Pack files to archive
     Pack {
         /// Input directory
         input: String,
         /// Output archive file
+        output: Option<String>,
+    },
+    /// Unpack archive to directory
+    Unpack {
+        /// Input archive file
+        input: String,
+        /// Output directory
         output: Option<String>,
     },
 }

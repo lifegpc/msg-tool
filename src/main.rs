@@ -975,6 +975,73 @@ pub fn pack_archive(
     Ok(())
 }
 
+pub fn unpack_archive(
+    filename: &str,
+    arg: &args::Arg,
+    config: &types::ExtraConfig,
+    output: &Option<String>,
+    is_dir: bool,
+) -> anyhow::Result<types::ScriptResult> {
+    eprintln!("Unpacking {}", filename);
+    let mut script = parse_script(filename, arg, config)?.0;
+    if !script.is_archive() {
+        return Ok(types::ScriptResult::Ignored);
+    }
+    let odir = match output.as_ref() {
+        Some(output) => {
+            let mut pb = std::path::PathBuf::from(output);
+            let filename = std::path::PathBuf::from(filename);
+            if is_dir {
+                if let Some(fname) = filename.file_name() {
+                    pb.push(fname);
+                }
+            }
+            pb.to_string_lossy().into_owned()
+        }
+        None => {
+            let mut pb = std::path::PathBuf::from(filename);
+            pb.set_extension("");
+            pb.to_string_lossy().into_owned()
+        }
+    };
+    if !std::fs::exists(&odir)? {
+        std::fs::create_dir_all(&odir)?;
+    }
+    for f in script.iter_archive_mut()? {
+        let f = f?;
+        let out_path = std::path::PathBuf::from(&odir).join(f.name());
+        match utils::files::make_sure_dir_exists(&out_path) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!(
+                    "Error creating parent directory for {}: {}",
+                    out_path.display(),
+                    e
+                );
+                COUNTER.inc_error();
+                continue;
+            }
+        }
+        match utils::files::write_file(&out_path) {
+            Ok(mut fi) => match fi.write_all(f.data()) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                    COUNTER.inc_error();
+                    continue;
+                }
+            },
+            Err(e) => {
+                eprintln!("Error writing file {}: {}", out_path.display(), e);
+                COUNTER.inc_error();
+                continue;
+            }
+        }
+        COUNTER.inc(types::ScriptResult::Ok);
+    }
+    Ok(types::ScriptResult::Ok)
+}
+
 lazy_static::lazy_static! {
     static ref COUNTER: utils::counter::Counter = utils::counter::Counter::new();
 }
@@ -1087,6 +1154,40 @@ fn main() {
             if let Err(e) = re {
                 COUNTER.inc_error();
                 eprintln!("Error packing archive: {}", e);
+            }
+        }
+        args::Command::Unpack { input, output } => {
+            let (scripts, is_dir) = utils::files::collect_arc_files(input, arg.recursive).unwrap();
+            if is_dir {
+                match &output {
+                    Some(output) => {
+                        let op = std::path::Path::new(output);
+                        if op.exists() {
+                            if !op.is_dir() {
+                                eprintln!("Output path is not a directory");
+                                return;
+                            }
+                        } else {
+                            std::fs::create_dir_all(op).unwrap();
+                        }
+                    }
+                    None => {}
+                }
+            }
+            for script in scripts.iter() {
+                let re = unpack_archive(&script, &arg, &cfg, output, is_dir);
+                match re {
+                    Ok(s) => {
+                        COUNTER.inc(s);
+                    }
+                    Err(e) => {
+                        COUNTER.inc_error();
+                        eprintln!("Error unpacking {}: {}", script, e);
+                        if arg.backtrace {
+                            eprintln!("Backtrace: {}", e.backtrace());
+                        }
+                    }
+                }
             }
         }
     }
