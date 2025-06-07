@@ -524,13 +524,13 @@ impl<T: Write> WriteExt for T {
 }
 
 pub struct MemReader {
-    data: Vec<u8>,
-    pos: usize,
+    pub data: Vec<u8>,
+    pub pos: usize,
 }
 
 pub struct MemReaderRef<'a> {
-    data: &'a [u8],
-    pos: usize,
+    pub data: &'a [u8],
+    pub pos: usize,
 }
 
 impl std::fmt::Debug for MemReader {

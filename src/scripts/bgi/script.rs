@@ -1,4 +1,5 @@
 use super::parser::*;
+use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
@@ -46,7 +47,7 @@ impl ScriptBuilder for BGIScriptBuilder {
 }
 
 pub struct BGIScript {
-    data: Vec<u8>,
+    data: MemReader,
     encoding: Encoding,
     strings: Vec<BGIString>,
     is_v1: bool,
@@ -63,8 +64,9 @@ impl std::fmt::Debug for BGIScript {
 
 impl BGIScript {
     pub fn new(data: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
-        if data.starts_with(b"BurikoCompiledScriptVer1.00\0") {
-            let mut parser = V1Parser::new(&data, encoding)?;
+        let data = MemReader::new(data);
+        if data.data.starts_with(b"BurikoCompiledScriptVer1.00\0") {
+            let mut parser = V1Parser::new(data.to_ref(), encoding)?;
             parser.disassemble()?;
             let strings = parser.strings.clone();
             let offset = parser.offset;
@@ -76,7 +78,7 @@ impl BGIScript {
                 offset,
             })
         } else {
-            let mut parser = V0Parser::new(&data);
+            let mut parser = V0Parser::new(data.to_ref());
             parser.disassemble()?;
             let strings = parser.strings.clone();
             Ok(Self {
@@ -92,13 +94,13 @@ impl BGIScript {
     fn read_string(&self, offset: usize) -> Result<String> {
         let start = self.offset + offset;
         let mut end = start;
-        while self.data[end] != 0 {
+        while self.data.data[end] != 0 {
             end += 1;
-            if end >= self.data.len() {
+            if end >= self.data.data.len() {
                 return Err(anyhow::anyhow!("String not null-terminated"));
             }
         }
-        let string_data = &self.data[start..end];
+        let string_data = &self.data.data[start..end];
         let string = decode_to_string(self.encoding, string_data)?;
         Ok(string)
     }

@@ -1,7 +1,9 @@
+use crate::ext::io::*;
 use crate::types::*;
 use crate::utils::encoding::decode_to_string;
 use anyhow::Result;
 use std::collections::HashMap;
+use std::io::{Seek, SeekFrom};
 
 #[allow(unused)]
 pub enum Inst {
@@ -220,60 +222,22 @@ pub struct BGIString {
 }
 
 pub struct V0Parser<'a> {
-    buf: &'a [u8],
-    pos: usize,
+    buf: MemReaderRef<'a>,
     largest_code_address_pperand_encountered: usize,
     pub strings: Vec<BGIString>,
 }
 
 impl<'a> V0Parser<'a> {
-    pub fn new(buf: &'a [u8]) -> Self {
+    pub fn new(buf: MemReaderRef<'a>) -> Self {
         V0Parser {
             buf,
-            pos: 0,
             largest_code_address_pperand_encountered: 0,
             strings: Vec::new(),
         }
     }
 
-    fn read_u16(&mut self) -> Result<u16> {
-        if self.pos + 2 > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
-        }
-        let val = u16::from_le_bytes(self.buf[self.pos..self.pos + 2].try_into()?);
-        self.pos += 2;
-        Ok(val)
-    }
-
-    fn read_u32(&mut self) -> Result<u32> {
-        if self.pos + 4 > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
-        }
-        let val = u32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into()?);
-        self.pos += 4;
-        Ok(val)
-    }
-
-    fn read_i16(&mut self) -> Result<i16> {
-        if self.pos + 2 > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
-        }
-        let val = i16::from_le_bytes(self.buf[self.pos..self.pos + 2].try_into()?);
-        self.pos += 2;
-        Ok(val)
-    }
-
-    fn read_i32(&mut self) -> Result<i32> {
-        if self.pos + 4 > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
-        }
-        let val = i32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into()?);
-        self.pos += 4;
-        Ok(val)
-    }
-
     fn read_code_address(&mut self) -> Result<()> {
-        let address = self.read_u32()?;
+        let address = self.buf.read_u32()?;
         self.largest_code_address_pperand_encountered = std::cmp::max(
             self.largest_code_address_pperand_encountered,
             address as usize,
@@ -282,8 +246,8 @@ impl<'a> V0Parser<'a> {
     }
 
     fn read_string_address(&mut self, typ: BGIStringType) -> Result<()> {
-        let offset = self.pos;
-        let address = self.read_u32()? as usize;
+        let offset = self.buf.pos;
+        let address = self.buf.read_u32()? as usize;
         self.strings.push(BGIString {
             offset,
             address,
@@ -293,18 +257,12 @@ impl<'a> V0Parser<'a> {
     }
 
     fn skip_inline_string(&mut self) -> Result<()> {
-        while self.buf[self.pos] != 0 {
-            self.pos += 1;
-            if self.pos > self.buf.len() {
-                return Err(anyhow::anyhow!("Buffer overflow"));
-            }
-        }
-        self.pos += 1; // skip null terminator
+        self.buf.read_cstring()?;
         Ok(())
     }
 
     fn read_oper_00a9(&mut self) -> Result<()> {
-        let count = self.read_u32()?;
+        let count = self.buf.read_u32()?;
         for _ in 0..count {
             self.read_code_address()?;
         }
@@ -312,7 +270,7 @@ impl<'a> V0Parser<'a> {
     }
 
     fn read_oper_00b0(&mut self) -> Result<()> {
-        let count = self.read_u32()?;
+        let count = self.buf.read_u32()?;
         for _ in 0..count {
             self.skip_inline_string()?;
         }
@@ -321,7 +279,7 @@ impl<'a> V0Parser<'a> {
 
     fn read_oper_00b4(&mut self) -> Result<()> {
         // untested
-        let count = self.read_u32()?;
+        let count = self.buf.read_u32()?;
         for _ in 0..count {
             self.skip_inline_string()?;
         }
@@ -330,7 +288,7 @@ impl<'a> V0Parser<'a> {
 
     fn read_oper_00fd(&mut self) -> Result<()> {
         // untested
-        let count = self.read_u32()?;
+        let count = self.buf.read_u32()?;
         for _ in 0..count {
             self.skip_inline_string()?;
             self.read_code_address()?;
@@ -342,10 +300,10 @@ impl<'a> V0Parser<'a> {
         for t in templ.iter() {
             match t {
                 H => {
-                    self.read_i16()?;
+                    self.buf.read_i16()?;
                 }
                 I => {
-                    self.read_i32()?;
+                    self.buf.read_i32()?;
                 }
                 C => {
                     self.read_code_address()?;
@@ -366,7 +324,7 @@ impl<'a> V0Parser<'a> {
 
     pub fn disassemble(&mut self) -> Result<()> {
         loop {
-            let opcode = self.read_u16()?;
+            let opcode = self.buf.read_u16()?;
             if opcode == 0x00a9 {
                 self.read_oper_00a9()?;
             } else if opcode == 0x00b0 {
@@ -378,7 +336,7 @@ impl<'a> V0Parser<'a> {
             } else if let Some(templ) = V0_INSTS_MAP.get(&opcode) {
                 self.read_opers(templ)?;
             }
-            if opcode == 0x00c2 && self.largest_code_address_pperand_encountered < self.pos {
+            if opcode == 0x00c2 && self.largest_code_address_pperand_encountered < self.buf.pos {
                 break;
             }
         }
@@ -392,8 +350,7 @@ struct StackItem {
 }
 
 pub struct V1Parser<'a> {
-    buf: &'a [u8],
-    pos: usize,
+    buf: MemReaderRef<'a>,
     largest_code_address_pperand_encountered: usize,
     stacks: Vec<StackItem>,
     encoding: Encoding,
@@ -402,54 +359,27 @@ pub struct V1Parser<'a> {
 }
 
 impl<'a> V1Parser<'a> {
-    pub fn new(buf: &'a [u8], encoding: Encoding) -> Result<Self> {
-        if !buf.starts_with(b"BurikoCompiledScriptVer1.00\0") {
+    pub fn new(mut buf: MemReaderRef<'a>, encoding: Encoding) -> Result<Self> {
+        if !buf.data.starts_with(b"BurikoCompiledScriptVer1.00\0") {
             return Err(anyhow::anyhow!("Invalid BGI script"));
         }
-        if buf.len() < 32 {
+        if buf.data.len() < 32 {
             return Err(anyhow::anyhow!("Buffer too small"));
         }
-        let offset = 28 + u32::from_le_bytes(buf[28..32].try_into()?) as usize;
+        let offset = 28 + buf.peek_u32_at(28)? as u64;
+        buf.seek(SeekFrom::Start(offset))?;
         Ok(V1Parser {
             buf,
-            pos: offset,
             largest_code_address_pperand_encountered: 0,
             stacks: Vec::new(),
             encoding,
-            offset,
+            offset: offset as usize,
             strings: Vec::new(),
         })
     }
 
-    fn read_u32(&mut self) -> Result<u32> {
-        if self.pos + 4 > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
-        }
-        let val = u32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into()?);
-        self.pos += 4;
-        Ok(val)
-    }
-
-    fn read_i16(&mut self) -> Result<i16> {
-        if self.pos + 2 > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
-        }
-        let val = i16::from_le_bytes(self.buf[self.pos..self.pos + 2].try_into()?);
-        self.pos += 2;
-        Ok(val)
-    }
-
-    fn read_i32(&mut self) -> Result<i32> {
-        if self.pos + 4 > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
-        }
-        let val = i32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into()?);
-        self.pos += 4;
-        Ok(val)
-    }
-
     fn read_code_address(&mut self) -> Result<()> {
-        let address = self.read_u32()?;
+        let address = self.buf.read_u32()?;
         self.largest_code_address_pperand_encountered = std::cmp::max(
             self.largest_code_address_pperand_encountered,
             address as usize,
@@ -458,8 +388,8 @@ impl<'a> V1Parser<'a> {
     }
 
     fn read_string_address(&mut self, typ: BGIStringType) -> Result<()> {
-        let offset = self.pos;
-        let address = self.read_u32()? as usize;
+        let offset = self.buf.pos;
+        let address = self.buf.read_u32()? as usize;
         self.strings.push(BGIString {
             offset,
             address,
@@ -469,13 +399,7 @@ impl<'a> V1Parser<'a> {
     }
 
     fn skip_inline_string(&mut self) -> Result<()> {
-        while self.buf[self.pos] != 0 {
-            self.pos += 1;
-            if self.pos > self.buf.len() {
-                return Err(anyhow::anyhow!("Buffer overflow"));
-            }
-        }
-        self.pos += 1; // skip null terminator
+        self.buf.read_cstring()?;
         Ok(())
     }
 
@@ -483,10 +407,10 @@ impl<'a> V1Parser<'a> {
         for t in templ.iter() {
             match t {
                 H => {
-                    self.read_i16()?;
+                    self.buf.read_i16()?;
                 }
                 I => {
-                    self.read_i32()?;
+                    self.buf.read_i32()?;
                 }
                 C => {
                     self.read_code_address()?;
@@ -506,8 +430,8 @@ impl<'a> V1Parser<'a> {
     }
 
     fn read_push_string_address_operand(&mut self) -> Result<()> {
-        let offset = self.pos;
-        let address = self.read_u32()? as usize;
+        let offset = self.buf.pos;
+        let address = self.buf.read_u32()? as usize;
         self.stacks.push(StackItem {
             offset,
             value: address,
@@ -517,26 +441,16 @@ impl<'a> V1Parser<'a> {
 
     pub fn is_empty_string(&self, address: usize) -> Result<bool> {
         let start = self.offset + address;
-        if start > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
+        if start >= self.buf.data.len() {
+            return Err(anyhow::anyhow!("Address out of bounds"));
         }
-        Ok(self.buf[start] == 0)
+        Ok(self.buf.data[start] == 0)
     }
 
     pub fn read_string_at_address(&mut self, address: usize) -> Result<String> {
         let start = self.offset + address;
-        let mut end = start;
-        if end > self.buf.len() {
-            return Err(anyhow::anyhow!("Buffer overflow"));
-        }
-        while self.buf[end] != 0 {
-            end += 1;
-            if end > self.buf.len() {
-                return Err(anyhow::anyhow!("Buffer overflow"));
-            }
-        }
-        let buf = &self.buf[start..end];
-        Ok(decode_to_string(self.encoding, buf)?)
+        let buf = self.buf.peek_cstring_at(start)?;
+        Ok(decode_to_string(self.encoding, buf.as_bytes())?)
     }
 
     pub fn handle_user_function_call(&mut self) -> Result<()> {
@@ -609,7 +523,7 @@ impl<'a> V1Parser<'a> {
 
     pub fn disassemble(&mut self) -> Result<()> {
         loop {
-            let opcode = self.read_u32()?;
+            let opcode = self.buf.read_u32()?;
             if opcode == 0x0003 {
                 self.read_push_string_address_operand()?;
             } else if opcode == 0x001c {
@@ -622,7 +536,7 @@ impl<'a> V1Parser<'a> {
                 self.read_opers(templ)?;
             }
             if (opcode == 0x001b || opcode == 0x00f4)
-                && self.largest_code_address_pperand_encountered < self.pos - self.offset
+                && self.largest_code_address_pperand_encountered < self.buf.pos - self.offset
             {
                 break;
             }
