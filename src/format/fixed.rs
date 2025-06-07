@@ -6,6 +6,7 @@ const SPACE_STR_LIST: [&str; 2] = [" ", "　"];
 pub struct FixedFormatter {
     length: usize,
     keep_original: bool,
+    #[allow(unused)]
     typ: Option<ScriptType>,
 }
 
