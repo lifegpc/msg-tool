@@ -996,6 +996,7 @@ pub fn unpack_archive(
                     pb.push(fname);
                 }
             }
+            pb.set_extension("");
             pb.to_string_lossy().into_owned()
         }
         None => {
