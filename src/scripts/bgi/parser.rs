@@ -441,10 +441,8 @@ impl<'a> V1Parser<'a> {
 
     pub fn is_empty_string(&self, address: usize) -> Result<bool> {
         let start = self.offset + address;
-        if start >= self.buf.data.len() {
-            return Err(anyhow::anyhow!("Address out of bounds"));
-        }
-        Ok(self.buf.data[start] == 0)
+        let data = self.buf.cpeek_u8_at(start)?;
+        Ok(data == 0)
     }
 
     pub fn read_string_at_address(&mut self, address: usize) -> Result<String> {

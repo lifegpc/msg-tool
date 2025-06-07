@@ -1,6 +1,8 @@
 use crate::utils::encoding::decode_to_string;
 use crate::{types::Encoding, utils::struct_pack::StructUnpack};
-use std::{ffi::CString, io::*};
+use std::ffi::CString;
+use std::io::*;
+use std::sync::Mutex;
 
 pub trait Peek {
     fn peek(&mut self, buf: &mut [u8]) -> Result<usize>;
@@ -285,6 +287,252 @@ impl<T: Read + Seek> Peek for T {
     fn read_struct<S: StructUnpack>(&mut self, big: bool, encoding: Encoding) -> Result<S> {
         S::unpack(self, big, encoding)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+}
+
+pub trait CPeek {
+    fn cpeek(&self, buf: &mut [u8]) -> Result<usize>;
+    fn cpeek_extract(&self, buf: &mut [u8]) -> Result<()> {
+        let bytes_read = self.cpeek(buf)?;
+        if bytes_read < buf.len() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "Not enough data to read",
+            ));
+        }
+        Ok(())
+    }
+    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize>;
+    fn cpeek_extract_at(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+        let bytes_read = self.cpeek_at(offset, buf)?;
+        if bytes_read < buf.len() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "Not enough data to read",
+            ));
+        }
+        Ok(())
+    }
+    fn cpeek_at_vec(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
+        let mut buf = vec![0u8; len];
+        let bytes_read = self.cpeek_at(offset, &mut buf)?;
+        if bytes_read < len {
+            buf.truncate(bytes_read);
+        }
+        Ok(buf)
+    }
+    fn cpeek_extract_at_vec(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
+        let mut buf = vec![0u8; len];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(buf)
+    }
+
+    fn cpeek_u8(&self) -> Result<u8> {
+        let mut buf = [0u8; 1];
+        self.cpeek_extract(&mut buf)?;
+        Ok(buf[0])
+    }
+    fn cpeek_u16(&self) -> Result<u16> {
+        let mut buf = [0u8; 2];
+        self.cpeek_extract(&mut buf)?;
+        Ok(u16::from_le_bytes(buf))
+    }
+    fn cpeek_u16_be(&self) -> Result<u16> {
+        let mut buf = [0u8; 2];
+        self.cpeek_extract(&mut buf)?;
+        Ok(u16::from_be_bytes(buf))
+    }
+    fn cpeek_u32(&self) -> Result<u32> {
+        let mut buf = [0u8; 4];
+        self.cpeek_extract(&mut buf)?;
+        Ok(u32::from_le_bytes(buf))
+    }
+    fn cpeek_u32_be(&self) -> Result<u32> {
+        let mut buf = [0u8; 4];
+        self.cpeek_extract(&mut buf)?;
+        Ok(u32::from_be_bytes(buf))
+    }
+    fn cpeek_u64(&self) -> Result<u64> {
+        let mut buf = [0u8; 8];
+        self.cpeek_extract(&mut buf)?;
+        Ok(u64::from_le_bytes(buf))
+    }
+    fn cpeek_u64_be(&self) -> Result<u64> {
+        let mut buf = [0u8; 8];
+        self.cpeek_extract(&mut buf)?;
+        Ok(u64::from_be_bytes(buf))
+    }
+    fn cpeek_u128(&self) -> Result<u128> {
+        let mut buf = [0u8; 16];
+        self.cpeek_extract(&mut buf)?;
+        Ok(u128::from_le_bytes(buf))
+    }
+    fn cpeek_u128_be(&self) -> Result<u128> {
+        let mut buf = [0u8; 16];
+        self.cpeek_extract(&mut buf)?;
+        Ok(u128::from_be_bytes(buf))
+    }
+    fn cpeek_i8(&self) -> Result<i8> {
+        let mut buf = [0u8; 1];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i8::from_le_bytes(buf))
+    }
+    fn cpeek_i16(&self) -> Result<i16> {
+        let mut buf = [0u8; 2];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i16::from_le_bytes(buf))
+    }
+    fn cpeek_i16_be(&self) -> Result<i16> {
+        let mut buf = [0u8; 2];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i16::from_be_bytes(buf))
+    }
+    fn cpeek_i32(&self) -> Result<i32> {
+        let mut buf = [0u8; 4];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i32::from_le_bytes(buf))
+    }
+    fn cpeek_i32_be(&self) -> Result<i32> {
+        let mut buf = [0u8; 4];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i32::from_be_bytes(buf))
+    }
+    fn cpeek_i64(&self) -> Result<i64> {
+        let mut buf = [0u8; 8];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i64::from_le_bytes(buf))
+    }
+    fn cpeek_i64_be(&self) -> Result<i64> {
+        let mut buf = [0u8; 8];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i64::from_be_bytes(buf))
+    }
+    fn cpeek_i128(&self) -> Result<i128> {
+        let mut buf = [0u8; 16];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i128::from_le_bytes(buf))
+    }
+    fn cpeek_i128_be(&self) -> Result<i128> {
+        let mut buf = [0u8; 16];
+        self.cpeek_extract(&mut buf)?;
+        Ok(i128::from_be_bytes(buf))
+    }
+    fn cpeek_u8_at(&self, offset: usize) -> Result<u8> {
+        let mut buf = [0u8; 1];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(buf[0])
+    }
+    fn cpeek_u16_at(&self, offset: usize) -> Result<u16> {
+        let mut buf = [0u8; 2];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(u16::from_le_bytes(buf))
+    }
+    fn cpeek_u16_be_at(&self, offset: usize) -> Result<u16> {
+        let mut buf = [0u8; 2];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(u16::from_be_bytes(buf))
+    }
+    fn cpeek_u32_at(&self, offset: usize) -> Result<u32> {
+        let mut buf = [0u8; 4];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(u32::from_le_bytes(buf))
+    }
+    fn cpeek_u32_be_at(&self, offset: usize) -> Result<u32> {
+        let mut buf = [0u8; 4];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(u32::from_be_bytes(buf))
+    }
+    fn cpeek_u64_at(&self, offset: usize) -> Result<u64> {
+        let mut buf = [0u8; 8];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(u64::from_le_bytes(buf))
+    }
+    fn cpeek_u64_be_at(&self, offset: usize) -> Result<u64> {
+        let mut buf = [0u8; 8];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(u64::from_be_bytes(buf))
+    }
+    fn cpeek_u128_at(&self, offset: usize) -> Result<u128> {
+        let mut buf = [0u8; 16];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(u128::from_le_bytes(buf))
+    }
+    fn cpeek_u128_be_at(&self, offset: usize) -> Result<u128> {
+        let mut buf = [0u8; 16];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(u128::from_be_bytes(buf))
+    }
+    fn cpeek_i8_at(&self, offset: usize) -> Result<i8> {
+        let mut buf = [0u8; 1];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i8::from_le_bytes(buf))
+    }
+    fn cpeek_i16_at(&self, offset: usize) -> Result<i16> {
+        let mut buf = [0u8; 2];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i16::from_le_bytes(buf))
+    }
+    fn cpeek_i16_be_at(&self, offset: usize) -> Result<i16> {
+        let mut buf = [0u8; 2];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i16::from_be_bytes(buf))
+    }
+    fn cpeek_i32_at(&self, offset: usize) -> Result<i32> {
+        let mut buf = [0u8; 4];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i32::from_le_bytes(buf))
+    }
+    fn cpeek_i32_be_at(&self, offset: usize) -> Result<i32> {
+        let mut buf = [0u8; 4];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i32::from_be_bytes(buf))
+    }
+    fn cpeek_i64_at(&self, offset: usize) -> Result<i64> {
+        let mut buf = [0u8; 8];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i64::from_le_bytes(buf))
+    }
+    fn cpeek_i64_be_at(&self, offset: usize) -> Result<i64> {
+        let mut buf = [0u8; 8];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i64::from_be_bytes(buf))
+    }
+    fn cpeek_i128_at(&self, offset: usize) -> Result<i128> {
+        let mut buf = [0u8; 16];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i128::from_le_bytes(buf))
+    }
+    fn cpeek_i128_be_at(&self, offset: usize) -> Result<i128> {
+        let mut buf = [0u8; 16];
+        self.cpeek_extract_at(offset, &mut buf)?;
+        Ok(i128::from_be_bytes(buf))
+    }
+
+    fn cpeek_cstring_at(&self, offset: usize) -> Result<CString> {
+        let mut buf = Vec::new();
+        let mut byte = [0u8; 1];
+        self.cpeek_at(offset, &mut byte)?;
+        while byte[0] != 0 {
+            buf.push(byte[0]);
+            self.cpeek_at(offset + buf.len(), &mut byte)?;
+        }
+        CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+}
+
+impl<T: Peek> CPeek for Mutex<T> {
+    fn cpeek(&self, buf: &mut [u8]) -> Result<usize> {
+        let mut lock = self.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+        })?;
+        lock.peek(buf)
+    }
+
+    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+        let mut lock = self.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+        })?;
+        lock.peek_at(offset, buf)
     }
 }
 
@@ -637,6 +885,16 @@ impl Seek for MemReader {
     }
 }
 
+impl CPeek for MemReader {
+    fn cpeek(&self, buf: &mut [u8]) -> Result<usize> {
+        self.to_ref().cpeek(buf)
+    }
+
+    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+        self.to_ref().cpeek_at(offset, buf)
+    }
+}
+
 impl<'a> Read for MemReaderRef<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if self.pos >= self.data.len() {
@@ -696,6 +954,22 @@ impl<'a> Seek for MemReaderRef<'a> {
     }
 }
 
+impl<'a> CPeek for MemReaderRef<'a> {
+    fn cpeek(&self, buf: &mut [u8]) -> Result<usize> {
+        let len = self.data.len();
+        let bytes_to_read = std::cmp::min(buf.len(), len - self.pos);
+        buf.copy_from_slice(&self.data[self.pos..self.pos + bytes_to_read]);
+        Ok(bytes_to_read)
+    }
+
+    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+        let len = self.data.len();
+        let bytes_to_read = std::cmp::min(buf.len(), len - offset);
+        buf.copy_from_slice(&self.data[offset..offset + bytes_to_read]);
+        Ok(bytes_to_read)
+    }
+}
+
 pub struct MemWriter {
     data: Vec<u8>,
     pos: usize,
@@ -715,6 +989,13 @@ impl MemWriter {
 
     pub fn as_slice(&self) -> &[u8] {
         &self.data
+    }
+
+    pub fn to_ref(&self) -> MemReaderRef {
+        MemReaderRef {
+            data: &self.data,
+            pos: self.pos,
+        }
     }
 }
 
@@ -780,5 +1061,15 @@ impl Seek for MemWriter {
     fn rewind(&mut self) -> Result<()> {
         self.pos = 0;
         Ok(())
+    }
+}
+
+impl CPeek for MemWriter {
+    fn cpeek(&self, buf: &mut [u8]) -> Result<usize> {
+        self.to_ref().cpeek(buf)
+    }
+
+    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+        self.to_ref().cpeek_at(offset, buf)
     }
 }

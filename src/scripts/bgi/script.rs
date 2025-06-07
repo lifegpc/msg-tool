@@ -93,15 +93,8 @@ impl BGIScript {
 
     fn read_string(&self, offset: usize) -> Result<String> {
         let start = self.offset + offset;
-        let mut end = start;
-        while self.data.data[end] != 0 {
-            end += 1;
-            if end >= self.data.data.len() {
-                return Err(anyhow::anyhow!("String not null-terminated"));
-            }
-        }
-        let string_data = &self.data.data[start..end];
-        let string = decode_to_string(self.encoding, string_data)?;
+        let string_data = self.data.cpeek_cstring_at(start)?;
+        let string = decode_to_string(self.encoding, string_data.as_bytes())?;
         Ok(string)
     }
 }
