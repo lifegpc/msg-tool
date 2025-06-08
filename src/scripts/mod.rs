@@ -16,6 +16,8 @@ lazy_static::lazy_static! {
         Box::new(bgi::script::BGIScriptBuilder::new()),
         #[cfg(feature = "bgi")]
         Box::new(bgi::bsi::BGIBsiScriptBuilder::new()),
+        #[cfg(feature = "bgi")]
+        Box::new(bgi::bp::BGIBpScriptBuilder::new()),
         #[cfg(feature = "escude-arc")]
         Box::new(escude::archive::EscudeBinArchiveBuilder::new()),
         #[cfg(feature = "escude")]
