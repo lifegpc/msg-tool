@@ -70,7 +70,8 @@ impl BGIBpScript {
             }
         }
         if last_instr_pos == 0 {
-            return Err(anyhow::anyhow!("No end instruction found in bp script"));
+            // return Err(anyhow::anyhow!("No end instruction found in bp script"));
+            last_instr_pos = reader.data.len();
         }
         reader.seek(SeekFrom::Start(header_size as u64))?;
         let mut strings = Vec::new();
