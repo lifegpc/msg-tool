@@ -226,6 +226,14 @@ pub enum ScriptType {
     #[cfg(feature = "escude")]
     /// Escude list script
     EscudeList,
+    #[cfg(feature = "yaneurao-itufuru")]
+    #[value(alias("itufuru"))]
+    /// Yaneurao Itufuru script
+    YaneuraoItufuru,
+    #[cfg(feature = "yaneurao-itufuru")]
+    #[value(alias("itufuru-arc"))]
+    /// Yaneurao Itufuru script archive
+    YaneuraoItufuruArc,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -242,6 +242,27 @@ pub fn parse_script_from_archive(
     Box<dyn scripts::Script>,
     &'static Box<dyn scripts::ScriptBuilder + Send + Sync>,
 )> {
+    match file.script_type() {
+        Some(typ) => {
+            for builder in scripts::BUILDER.iter() {
+                if typ == builder.script_type() {
+                    let encoding = get_encoding(arg, builder);
+                    let archive_encoding = get_archived_encoding(arg, builder, encoding);
+                    return Ok((
+                        builder.build_script(
+                            file.data().to_vec(),
+                            file.name(),
+                            encoding,
+                            archive_encoding,
+                            config,
+                        )?,
+                        builder,
+                    ));
+                }
+            }
+        }
+        _ => {}
+    }
     let mut exts_builder = Vec::new();
     for builder in scripts::BUILDER.iter() {
         let exts = builder.extensions();

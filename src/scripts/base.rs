@@ -112,7 +112,12 @@ pub trait ScriptBuilder: std::fmt::Debug {
 pub trait ArchiveContent {
     fn name(&self) -> &str;
     fn data(&self) -> &[u8];
-    fn is_script(&self) -> bool;
+    fn is_script(&self) -> bool {
+        self.script_type().is_some()
+    }
+    fn script_type(&self) -> Option<&ScriptType> {
+        None
+    }
 }
 
 pub trait Script: std::fmt::Debug {
