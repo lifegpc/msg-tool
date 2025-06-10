@@ -79,6 +79,10 @@ impl ItufuruScript {
                             reader.pos = len_pos;
                             continue;
                         }
+                        if len < 3 {
+                            reader.pos = len_pos;
+                            continue;
+                        }
                         if instr != 0x2 && instr != 0x1e {
                             continue;
                         }
