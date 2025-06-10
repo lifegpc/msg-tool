@@ -40,6 +40,7 @@ impl ScriptBuilder for ItufuruScriptBuilder {
 
 #[derive(Debug)]
 struct ItufuruString {
+    instr: u16,
     len_pos: usize,
     len: u16,
 }
@@ -81,7 +82,11 @@ impl ItufuruScript {
                         if instr != 0x2 && instr != 0x1e {
                             continue;
                         }
-                        strings.push(ItufuruString { len_pos, len });
+                        strings.push(ItufuruString {
+                            instr,
+                            len_pos,
+                            len,
+                        });
                     }
                     Err(_) => {
                         reader.pos = len_pos;
@@ -146,7 +151,7 @@ impl Script for ItufuruScript {
                     nstr = nstr.replace(from, to);
                 }
             }
-            if !nstr.ends_with('\n') {
+            if old.instr == 0x2 && !nstr.ends_with('\n') {
                 nstr.push('\n');
             }
             let encoded = encode_string(encoding, &nstr, false)?;
