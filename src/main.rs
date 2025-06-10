@@ -650,11 +650,13 @@ pub fn import_script(
                 if !out_path.exists() {
                     out_path = std::path::PathBuf::from(&odir).join(f.name());
                     if !out_path.exists() {
-                        eprintln!(
-                            "Warning: File {} does not exist, using file from original archive.",
-                            out_path.display()
-                        );
-                        COUNTER.inc_warning();
+                        if imp_cfg.warn_when_output_file_not_found {
+                            eprintln!(
+                                "Warning: File {} does not exist, using file from original archive.",
+                                out_path.display()
+                            );
+                            COUNTER.inc_warning();
+                        }
                         match writer.write_all(f.data()) {
                             Ok(_) => {}
                             Err(e) => {

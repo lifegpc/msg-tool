@@ -132,6 +132,8 @@ pub struct ImportArgs {
     #[arg(long)]
     /// Replacement table file
     pub replacement_json: Option<String>,
+    #[arg(long, action = ArgAction::SetTrue)]
+    pub warn_when_output_file_not_found: bool,
 }
 
 #[derive(Subcommand, Debug)]
