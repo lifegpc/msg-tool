@@ -31,6 +31,7 @@ def main():
     
     features = cargo_toml.get("features", {})
     feature_names = list(features.keys())
+    feature_names = [name for name in feature_names if not name.startswith("utils-")]
     
     if not feature_names:
         print("No features defined in Cargo.toml.")

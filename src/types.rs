@@ -217,6 +217,14 @@ pub enum ScriptType {
     #[value(alias("ethornell-bp"))]
     /// Buriko General Interpreter/Ethornell bp script (._bp)
     BGIBp,
+    #[cfg(feature = "bgi-arc")]
+    #[value(alias = "ethornell-arc-v1")]
+    /// Buriko General Interpreter/Ethornell archive v1
+    BGIArcV1,
+    #[cfg(feature = "bgi-arc")]
+    #[value(alias = "ethornell-arc-v2", alias = "bgi-arc", alias = "ethornell-arc")]
+    /// Buriko General Interpreter/Ethornell archive v2
+    BGIArcV2,
     #[cfg(feature = "escude-arc")]
     /// Escude bin archive
     EscudeArc,

@@ -60,6 +60,13 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 }
 
 /// Macro to derive `StructPack` trait for structs.
+/// 
+/// make sure to import the necessary imports:
+/// ```
+/// use crate::ext::io::*;
+/// use crate::utils::struct_pack::*;
+/// use std::io::{Read, Seek, Write};
+/// ```
 ///
 /// * `skip_pack` attribute can be used to skip fields from packing.
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
@@ -302,6 +309,14 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 }
 
 /// Macro to derive `StructUnpack` trait for structs.
+/// 
+/// make sure to import the necessary imports:
+/// ```
+/// use crate::ext::io::*;
+/// use crate::utils::struct_pack::*;
+/// use std::io::{Read, Seek, Write};
+/// ```
+/// 
 /// * `skip_unpack` attribute can be used to skip fields from unpacking.
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
 /// * `fstring_no_trim` attribute can be used to disable trimming of fixed strings.
