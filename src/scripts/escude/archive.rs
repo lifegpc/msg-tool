@@ -123,7 +123,13 @@ struct BinEntry {
 
 struct Entry {
     name: String,
-    data: Vec<u8>,
+    data: MemReader,
+}
+
+impl Read for Entry {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.data.read(buf)
+    }
 }
 
 impl ArchiveContent for Entry {
@@ -131,12 +137,22 @@ impl ArchiveContent for Entry {
         &self.name
     }
 
-    fn data(&self) -> &[u8] {
-        &self.data
+    fn script_type(&self) -> Option<&ScriptType> {
+        if self.data.data.starts_with(b"ESCR1_00") {
+            Some(&ScriptType::Escude)
+        } else if self.data.data.starts_with(b"LIST") {
+            Some(&ScriptType::EscudeList)
+        } else {
+            None
+        }
     }
 
-    fn is_script(&self) -> bool {
-        self.data.starts_with(b"ESCR1_00") || self.data.starts_with(b"LIST")
+    fn data(&mut self) -> Result<Vec<u8>> {
+        Ok(self.data.data.clone())
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(&mut self.data))
     }
 }
 
@@ -288,7 +304,10 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
                 Err(e) => return Some(Err(e)),
             };
         }
-        Some(Ok(Box::new(Entry { name, data })))
+        Some(Ok(Box::new(Entry {
+            name,
+            data: MemReader::new(data),
+        })))
     }
 }
 

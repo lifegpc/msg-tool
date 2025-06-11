@@ -134,7 +134,13 @@ struct CustomHeader {
 
 struct Entry {
     name: String,
-    data: Vec<u8>,
+    data: MemReader,
+}
+
+impl Read for Entry {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.data.read(buf)
+    }
 }
 
 impl ArchiveContent for Entry {
@@ -142,12 +148,16 @@ impl ArchiveContent for Entry {
         &self.name
     }
 
-    fn data(&self) -> &[u8] {
-        &self.data
-    }
-
     fn script_type(&self) -> Option<&ScriptType> {
         Some(&ScriptType::YaneuraoItufuru)
+    }
+
+    fn data(&mut self) -> Result<Vec<u8>> {
+        Ok(self.data.data.clone())
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(&mut self.data))
     }
 }
 
@@ -250,7 +260,10 @@ impl<'a, T: Iterator<Item = &'a CustomHeader>, R: Read + Seek> Iterator
             ) {
                 Ok(data) => {
                     let name = entry.file_name.clone();
-                    Some(Ok(Box::new(Entry { name, data })))
+                    Some(Ok(Box::new(Entry {
+                        name,
+                        data: MemReader::new(data),
+                    })))
                 }
                 Err(e) => Some(Err(anyhow::anyhow!(
                     "Failed to read file {}: {}",

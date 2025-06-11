@@ -1,3 +1,4 @@
+use crate::ext::io::*;
 use crate::types::*;
 use anyhow::Result;
 use std::io::{Read, Seek, Write};
@@ -109,14 +110,21 @@ pub trait ScriptBuilder: std::fmt::Debug {
     }
 }
 
-pub trait ArchiveContent {
+pub trait ArchiveContent: Read {
     fn name(&self) -> &str;
-    fn data(&self) -> &[u8];
     fn is_script(&self) -> bool {
         self.script_type().is_some()
     }
     fn script_type(&self) -> Option<&ScriptType> {
         None
+    }
+    fn data(&mut self) -> Result<Vec<u8>> {
+        let mut data = Vec::new();
+        self.read_to_end(&mut data)?;
+        Ok(data)
+    }
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(MemReader::new(self.data()?)))
     }
 }
 

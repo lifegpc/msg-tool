@@ -235,7 +235,7 @@ pub fn parse_script(
 }
 
 pub fn parse_script_from_archive(
-    file: &Box<dyn ArchiveContent>,
+    file: &mut Box<dyn ArchiveContent>,
     arg: &args::Arg,
     config: &types::ExtraConfig,
 ) -> anyhow::Result<(
@@ -250,7 +250,7 @@ pub fn parse_script_from_archive(
                     let archive_encoding = get_archived_encoding(arg, builder, encoding);
                     return Ok((
                         builder.build_script(
-                            file.data().to_vec(),
+                            file.data()?,
                             file.name(),
                             encoding,
                             archive_encoding,
@@ -284,7 +284,7 @@ pub fn parse_script_from_archive(
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
             builder.build_script(
-                file.data().to_vec(),
+                file.data()?,
                 file.name(),
                 encoding,
                 archive_encoding,
@@ -293,9 +293,10 @@ pub fn parse_script_from_archive(
             builder,
         ));
     }
+    let buf = file.data()?;
     let mut scores = Vec::new();
     for builder in exts_builder.iter() {
-        if let Some(score) = builder.is_this_format(file.name(), file.data(), file.data().len()) {
+        if let Some(score) = builder.is_this_format(file.name(), buf.as_slice(), buf.len()) {
             scores.push((score, builder));
         }
     }
@@ -314,13 +315,7 @@ pub fn parse_script_from_archive(
         let encoding = get_encoding(arg, builder);
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script(
-                file.data().to_vec(),
-                file.name(),
-                encoding,
-                archive_encoding,
-                config,
-            )?,
+            builder.build_script(buf, file.name(), encoding, archive_encoding, config)?,
             builder,
         ));
     }
@@ -366,9 +361,9 @@ pub fn export_script(
             std::fs::create_dir_all(&odir)?;
         }
         for f in script.iter_archive_mut()? {
-            let f = f?;
+            let mut f = f?;
             if f.is_script() {
-                let (script_file, _) = parse_script_from_archive(&f, arg, config)?;
+                let (script_file, _) = parse_script_from_archive(&mut f, arg, config)?;
                 let mut of = match &arg.output_type {
                     Some(t) => t.clone(),
                     None => script_file.default_output_script_type(),
@@ -502,7 +497,7 @@ pub fn export_script(
                     }
                 }
                 match utils::files::write_file(&out_path) {
-                    Ok(mut fi) => match fi.write_all(f.data()) {
+                    Ok(mut fi) => match std::io::copy(&mut f, &mut fi) {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error writing to file {}: {}", out_path.display(), e);
@@ -629,10 +624,10 @@ pub fn import_script(
         let enc = get_patched_archive_encoding(imp_cfg, builder, pencoding);
         let mut arch = builder.create_archive(&patched_f, &files, enc, config)?;
         for f in script.iter_archive_mut()? {
-            let f = f?;
+            let mut f = f?;
             let mut writer = arch.new_file(f.name())?;
             if f.is_script() {
-                let (script_file, _) = parse_script_from_archive(&f, arg, config)?;
+                let (script_file, _) = parse_script_from_archive(&mut f, arg, config)?;
                 let mut of = match &arg.output_type {
                     Some(t) => t.clone(),
                     None => script_file.default_output_script_type(),
@@ -657,7 +652,7 @@ pub fn import_script(
                             );
                             COUNTER.inc_warning();
                         }
-                        match writer.write_all(f.data()) {
+                        match std::io::copy(&mut f, &mut writer) {
                             Ok(_) => {}
                             Err(e) => {
                                 eprintln!("Error writing to file {}: {}", out_path.display(), e);
@@ -821,7 +816,7 @@ pub fn import_script(
                         out_path.display()
                     );
                     COUNTER.inc_warning();
-                    match writer.write_all(f.data()) {
+                    match std::io::copy(&mut f, &mut writer) {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error writing to file {}: {}", out_path.display(), e);
@@ -1032,7 +1027,7 @@ pub fn unpack_archive(
         std::fs::create_dir_all(&odir)?;
     }
     for f in script.iter_archive_mut()? {
-        let f = f?;
+        let mut f = f?;
         let out_path = std::path::PathBuf::from(&odir).join(f.name());
         match utils::files::make_sure_dir_exists(&out_path) {
             Ok(_) => {}
@@ -1047,7 +1042,7 @@ pub fn unpack_archive(
             }
         }
         match utils::files::write_file(&out_path) {
-            Ok(mut fi) => match fi.write_all(f.data()) {
+            Ok(mut fi) => match std::io::copy(&mut f, &mut fi) {
                 Ok(_) => {}
                 Err(e) => {
                     eprintln!("Error writing to file {}: {}", out_path.display(), e);
