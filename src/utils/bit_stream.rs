@@ -2,15 +2,15 @@ use crate::ext::io::*;
 use anyhow::Result;
 use std::io::Write;
 
-pub struct BitStream<'a> {
+pub struct MsbBitStream<'a> {
     m_input: MemReaderRef<'a>,
     m_bits: u32,
     m_cached_bits: u32,
 }
 
-impl<'a> BitStream<'a> {
+impl<'a> MsbBitStream<'a> {
     pub fn new(input: MemReaderRef<'a>) -> Self {
-        BitStream {
+        MsbBitStream {
             m_input: input,
             m_bits: 0,
             m_cached_bits: 0,
@@ -30,15 +30,15 @@ impl<'a> BitStream<'a> {
     }
 }
 
-pub struct BitWriter<'a, T: Write> {
+pub struct MsbBitWriter<'a, T: Write> {
     writer: &'a mut T,
     buffer: u32,
     buffer_size: u32,
 }
 
-impl<'a, T: Write> BitWriter<'a, T> {
+impl<'a, T: Write> MsbBitWriter<'a, T> {
     pub fn new(writer: &'a mut T) -> Self {
-        BitWriter {
+        MsbBitWriter {
             writer,
             buffer: 0,
             buffer_size: 0,

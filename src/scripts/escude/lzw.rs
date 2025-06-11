@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::io::Write;
 
 pub struct LZWDecoder<'a> {
-    m_input: BitStream<'a>,
+    m_input: MsbBitStream<'a>,
     m_output_size: u32,
 }
 
@@ -12,7 +12,7 @@ impl<'a> LZWDecoder<'a> {
     pub fn new(input: &'a [u8]) -> Result<Self> {
         let mut input_reader = MemReaderRef::new(input);
         let size = input_reader.peek_u32_be_at(0x4)?;
-        let m_input = BitStream::new(MemReaderRef::new(&input[0x8..]));
+        let m_input = MsbBitStream::new(MemReaderRef::new(&input[0x8..]));
         Ok(LZWDecoder {
             m_input,
             m_output_size: size,
@@ -85,7 +85,7 @@ impl LZWEncoder {
     pub fn encode(mut self, input: &[u8], fake: bool) -> Result<Vec<u8>> {
         self.buf.write_all(b"acp\0")?;
         self.buf.write_u32_be(input.len() as u32)?;
-        let mut writer = BitWriter::new(&mut self.buf);
+        let mut writer = MsbBitWriter::new(&mut self.buf);
         if fake {
             for i in 0..input.len() {
                 if i > 0 && i % 0x4000 == 0 {
