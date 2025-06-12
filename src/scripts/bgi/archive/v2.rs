@@ -84,7 +84,7 @@ impl ScriptBuilder for BgiArchiveBuilder {
 
     fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
         if buf_len >= 12 && buf.starts_with(b"BURIKO ARC20") {
-            return Some(1);
+            return Some(255);
         }
         None
     }
@@ -111,11 +111,16 @@ struct Entry<T: Read + Seek> {
     reader: Arc<Mutex<T>>,
     pos: usize,
     base_offset: u64,
+    script_type: Option<ScriptType>,
 }
 
 impl<T: Read + Seek> ArchiveContent for Entry<T> {
     fn name(&self) -> &str {
         &self.header.filename
+    }
+
+    fn script_type(&self) -> Option<&ScriptType> {
+        self.script_type.as_ref()
     }
 }
 
@@ -154,6 +159,10 @@ impl Read for MemEntry {
 impl ArchiveContent for MemEntry {
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn script_type(&self) -> Option<&ScriptType> {
+        detect_script_type(&self.data.data, self.data.data.len(), &self.name)
     }
 
     fn data(&mut self) -> Result<Vec<u8>> {
@@ -225,6 +234,19 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for BgiArchive<T> {
     }
 }
 
+fn detect_script_type(buf: &[u8], buf_len: usize, filename: &str) -> Option<&'static ScriptType> {
+    if buf_len >= 28 && buf.starts_with(b"BurikoCompiledScriptVer1.00\0") {
+        return Some(&ScriptType::BGI);
+    }
+    let filename = filename.to_lowercase();
+    if filename.ends_with("._bp") {
+        return Some(&ScriptType::BGIBp);
+    } else if filename.ends_with("._bsi") {
+        return Some(&ScriptType::BGIBsi);
+    }
+    None
+}
+
 struct BgiArchiveIter<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek> {
     entries: T,
     reader: Arc<Mutex<R>>,
@@ -246,8 +268,9 @@ impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterat
             reader: self.reader.clone(),
             pos: 0,
             base_offset: self.base_offset,
+            script_type: None,
         };
-        let mut buf = [0u8; 16];
+        let mut buf = [0u8; 32];
         match entry.read(&mut buf) {
             Ok(_) => {}
             Err(e) => {
@@ -296,6 +319,7 @@ impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterat
                 data: MemReader::new(decoded),
             })));
         }
+        entry.script_type = detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
         Some(Ok(Box::new(entry)))
     }
 }
