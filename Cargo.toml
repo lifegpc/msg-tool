@@ -11,20 +11,24 @@ encoding_rs = "0.8"
 int-enum = { version = "1.2", optional = true }
 lazy_static = "1.5.0"
 msg_tool_macro = { path = "./msg_tool_macro" }
+png = { version = "0.17", optional = true }
 rand = { version = "0.9", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 unicode-segmentation = "1.12"
 
 [features]
-default = ["bgi", "bgi-arc", "circus", "escude", "escude-arc", "yaneurao", "yaneurao-itufuru"]
+default = ["bgi", "bgi-arc", "bgi-img", "circus", "escude", "escude-arc", "yaneurao", "yaneurao-itufuru"]
 bgi = []
 bgi-arc = ["bgi", "utils-bit-stream"]
+bgi-img = ["image"]
 circus = []
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
+# basic feature
+image = ["png"]
 # utils feature
 utils-bit-stream = []
 

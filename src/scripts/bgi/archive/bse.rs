@@ -5,37 +5,22 @@ use anyhow::Result;
 use std::io::{Read, Seek};
 
 pub trait BseGenerator {
-    fn next_key(&mut self) -> u32;
-}
-
-fn rtor(v: u32, count: u8) -> u32 {
-    let count = count & 0x1F;
-    return v >> count | v << (32 - count);
-}
-
-fn rot_byte_r(v: u8, count: u8) -> u8 {
-    let count = count & 0x07;
-    return v >> count | v << (8 - count);
-}
-
-fn rot_byte_l(v: u8, count: u8) -> u8 {
-    let count = count & 0x07;
-    return v << count | v >> (8 - count);
+    fn next_key(&mut self) -> i32;
 }
 
 pub struct BseGenerator100 {
-    key: u32,
+    key: i32,
 }
 
 impl BseGenerator100 {
-    pub fn new(key: u32) -> Self {
+    pub fn new(key: i32) -> Self {
         BseGenerator100 { key }
     }
 }
 
 impl BseGenerator for BseGenerator100 {
-    fn next_key(&mut self) -> u32 {
-        let key = self
+    fn next_key(&mut self) -> i32 {
+        let key = (self
             .key
             .overflowing_mul(257)
             .0
@@ -44,26 +29,26 @@ impl BseGenerator for BseGenerator100 {
             .overflowing_add(self.key.overflowing_mul(97).0)
             .0
             .overflowing_add(23)
-            .0
+            .0) as u32
             ^ 0xA6CD9B75;
-        self.key = rtor(key, 16);
+        self.key = key.rotate_right(16) as i32;
         self.key
     }
 }
 
 pub struct BseGenerator101 {
-    key: u32,
+    key: i32,
 }
 
 impl BseGenerator101 {
-    pub fn new(key: u32) -> Self {
+    pub fn new(key: i32) -> Self {
         BseGenerator101 { key }
     }
 }
 
 impl BseGenerator for BseGenerator101 {
-    fn next_key(&mut self) -> u32 {
-        let key = self
+    fn next_key(&mut self) -> i32 {
+        let key = (self
             .key
             .overflowing_mul(127)
             .0
@@ -72,9 +57,9 @@ impl BseGenerator for BseGenerator101 {
             .overflowing_add(self.key.overflowing_mul(83).0)
             .0
             .overflowing_add(53)
-            .0
+            .0) as u32
             ^ 0xB97A7E5C;
-        self.key = rtor(key, 16);
+        self.key = key.rotate_right(16) as i32;
         self.key
     }
 }
@@ -89,14 +74,15 @@ pub struct BseReader<T: Read + Seek, F: Fn(&[u8], usize, &str) -> Option<&'stati
 
 impl<T: Read + Seek, F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> BseReader<T, F> {
     pub fn new(mut reader: T, detect: F, filename: &str) -> Result<Self> {
-        let version = reader.peek_u16_at(0x8)?;
+        reader.seek(std::io::SeekFrom::Start(8))?;
+        let version = reader.read_u16()?;
         if version != 0x0100 && version != 0x0101 {
             return Err(anyhow::anyhow!("Unsupported BSE version: {}", version));
         }
-        let _checksum = reader.peek_u16_at(0xA)?;
-        let key: u32 = reader.peek_u32_at(0xC)?;
+        let _checksum = reader.read_u16()?;
+        let key = reader.read_i32()?;
         let mut header = [0u8; 0x40];
-        reader.peek_extract_at(0x10, &mut header)?;
+        reader.read_exact(&mut header)?;
         let generator: Box<dyn BseGenerator> = if version == 0x0100 {
             Box::new(BseGenerator100::new(key))
         } else {
@@ -115,17 +101,19 @@ impl<T: Read + Seek, F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> B
     fn decode_header(data: &mut [u8; 0x40], mut generator: Box<dyn BseGenerator>) -> Result<()> {
         let mut decoded = [false; 0x40];
         for _ in 0..0x40 {
-            let mut dst = generator.next_key() as usize & 0x3F;
+            let mut dst = (generator.next_key() & 0x3F) as usize;
             while decoded[dst] {
                 dst = (dst + 1) & 0x3F;
             }
-            let shift = (generator.next_key() & 7) as u8;
-            let right_shift = generator.next_key() & 1 == 0;
-            let symbol = data[dst].overflowing_sub(generator.next_key() as u8).0;
+            let shift = generator.next_key() & 7;
+            let right_shift = (generator.next_key() & 1) == 0;
+            let key_byte = generator.next_key();
+            let symbol = (data[dst] as i32).wrapping_sub(key_byte);
+            let symbol = symbol as u8;
             data[dst] = if right_shift {
-                rot_byte_r(symbol, shift)
+                symbol.rotate_right(shift as u32)
             } else {
-                rot_byte_l(symbol, shift)
+                symbol.rotate_left(shift as u32)
             };
             decoded[dst] = true;
         }

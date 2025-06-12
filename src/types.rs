@@ -299,3 +299,15 @@ pub struct ReplacementTable {
     #[serde(flatten)]
     pub map: HashMap<String, String>,
 }
+
+#[cfg(feature = "image")]
+pub enum ImageColorType {
+    Grayscale,
+    Rgb24,
+    Rgba32,
+}
+
+#[cfg(feature = "image")]
+pub enum ImageOutputType {
+    Png,
+}
