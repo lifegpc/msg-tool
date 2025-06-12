@@ -1,3 +1,4 @@
+use super::bse::*;
 use super::dsc::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -6,7 +7,7 @@ use crate::utils::encoding::encode_string;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
 use msg_tool_macro::*;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -132,7 +133,7 @@ impl<T: Read + Seek> Read for Entry<T> {
                 format!("Failed to lock mutex: {}", e),
             )
         })?;
-        reader.seek(std::io::SeekFrom::Start(
+        reader.seek(SeekFrom::Start(
             self.base_offset + self.header.offset as u64 + self.pos as u64,
         ))?;
         let bytes_read = buf.len().min(self.header.size as usize - self.pos);
@@ -142,6 +143,46 @@ impl<T: Read + Seek> Read for Entry<T> {
         let bytes_read = reader.read(&mut buf[..bytes_read])?;
         self.pos += bytes_read;
         Ok(bytes_read)
+    }
+}
+
+impl<T: Read + Seek> Seek for Entry<T> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset as usize,
+            SeekFrom::End(offset) => {
+                if offset < 0 {
+                    if (-offset) as usize > self.header.size as usize {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek from end exceeds file length",
+                        ));
+                    }
+                    self.header.size as usize - (-offset) as usize
+                } else {
+                    self.header.size as usize + offset as usize
+                }
+            }
+            SeekFrom::Current(offset) => {
+                if offset < 0 {
+                    if (-offset) as usize > self.pos {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek from current exceeds current position",
+                        ));
+                    }
+                    self.pos.saturating_sub((-offset) as usize)
+                } else {
+                    self.pos + offset as usize
+                }
+            }
+        };
+        self.pos = new_pos;
+        Ok(self.pos as u64)
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        Ok(self.pos as u64)
     }
 }
 
@@ -314,10 +355,40 @@ impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterat
                     )));
                 }
             };
+            let reader = MemReader::new(decoded);
+            if reader.data.starts_with(b"BSE 1.") {
+                match BseReader::new(reader, detect_script_type, &entry.header.filename) {
+                    Ok(bse_reader) => {
+                        return Some(Ok(Box::new(bse_reader)));
+                    }
+                    Err(e) => {
+                        return Some(Err(anyhow::anyhow!(
+                            "Failed to create BSE reader for '{}': {}",
+                            entry.header.filename,
+                            e
+                        )));
+                    }
+                };
+            }
             return Some(Ok(Box::new(MemEntry {
                 name: entry.header.filename.clone(),
-                data: MemReader::new(decoded),
+                data: reader,
             })));
+        }
+        if buf.starts_with(b"BSE 1.") {
+            let filename = entry.header.filename.clone();
+            match BseReader::new(entry, detect_script_type, &filename) {
+                Ok(bse_reader) => {
+                    return Some(Ok(Box::new(bse_reader)));
+                }
+                Err(e) => {
+                    return Some(Err(anyhow::anyhow!(
+                        "Failed to create BSE reader for '{}': {}",
+                        &filename,
+                        e
+                    )));
+                }
+            };
         }
         entry.script_type = detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
         Some(Ok(Box::new(entry)))
