@@ -1,3 +1,4 @@
+use super::dsc::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -139,6 +140,31 @@ impl<T: Read + Seek> Read for Entry<T> {
     }
 }
 
+struct MemEntry {
+    name: String,
+    data: MemReader,
+}
+
+impl Read for MemEntry {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.data.read(buf)
+    }
+}
+
+impl ArchiveContent for MemEntry {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn data(&mut self) -> Result<Vec<u8>> {
+        Ok(self.data.data.clone())
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(&mut self.data))
+    }
+}
+
 #[derive(Debug)]
 pub struct BgiArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
@@ -194,7 +220,7 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for BgiArchive<T> {
         Ok(Box::new(BgiArchiveIter {
             entries: self.entries.iter(),
             reader: self.reader.clone(),
-            base_offset: 16 + (self.file_count as u64 * 32),
+            base_offset: 16 + (self.file_count as u64 * 0x80),
         }))
     }
 }
@@ -215,12 +241,61 @@ impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterat
             Some(e) => e,
             None => return None,
         };
-        let entry = Entry {
+        let mut entry = Entry {
             header: entry.clone(),
             reader: self.reader.clone(),
             pos: 0,
             base_offset: self.base_offset,
         };
+        let mut buf = [0u8; 16];
+        match entry.read(&mut buf) {
+            Ok(_) => {}
+            Err(e) => {
+                return Some(Err(anyhow::anyhow!(
+                    "Failed to read entry '{}': {}",
+                    entry.header.filename,
+                    e
+                )));
+            }
+        }
+        entry.pos = 0;
+        if buf.starts_with(b"DSC FORMAT 1.00") {
+            let data = match entry.data() {
+                Ok(data) => data,
+                Err(e) => {
+                    return Some(Err(anyhow::anyhow!(
+                        "Failed to read DSC data for '{}': {}",
+                        entry.header.filename,
+                        e
+                    )));
+                }
+            };
+            entry.pos = 0;
+            let dsc = match DscDecoder::new(&data) {
+                Ok(dsc) => dsc,
+                Err(e) => {
+                    return Some(Err(anyhow::anyhow!(
+                        "Failed to create DSC decoder for '{}': {}",
+                        entry.header.filename,
+                        e
+                    )));
+                }
+            };
+            let decoded = match dsc.unpack() {
+                Ok(decoded) => decoded,
+                Err(e) => {
+                    return Some(Err(anyhow::anyhow!(
+                        "Failed to unpack DSC data for '{}': {}",
+                        entry.header.filename,
+                        e
+                    )));
+                }
+            };
+            return Some(Ok(Box::new(MemEntry {
+                name: entry.header.filename.clone(),
+                data: MemReader::new(decoded),
+            })));
+        }
         Some(Ok(Box::new(entry)))
     }
 }

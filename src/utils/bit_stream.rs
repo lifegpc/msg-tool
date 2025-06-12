@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::io::Write;
 
 pub struct MsbBitStream<'a> {
-    m_input: MemReaderRef<'a>,
+    pub m_input: MemReaderRef<'a>,
     m_bits: u32,
     m_cached_bits: u32,
 }
@@ -27,6 +27,17 @@ impl<'a> MsbBitStream<'a> {
         self.m_cached_bits -= count;
         let result = (self.m_bits >> self.m_cached_bits) & mask;
         Ok(result)
+    }
+
+    pub fn get_next_bit(&mut self) -> Result<bool> {
+        if self.m_cached_bits == 0 {
+            let byte = self.m_input.read_u8()?;
+            self.m_bits = (self.m_bits << 8) | byte as u32;
+            self.m_cached_bits += 8;
+        }
+        self.m_cached_bits -= 1;
+        let bit = (self.m_bits >> self.m_cached_bits) & 1 != 0;
+        Ok(bit)
     }
 }
 
