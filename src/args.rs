@@ -16,6 +16,10 @@ pub struct Arg {
     #[arg(short = 'T', long, value_enum, global = true)]
     /// Output script type
     pub output_type: Option<OutputScriptType>,
+    #[cfg(feature = "image")]
+    #[arg(short = 'i', long, value_enum, global = true)]
+    /// Output image type
+    pub image_type: Option<ImageOutputType>,
     #[arg(short = 'e', long, value_enum, global = true, group = "encodingg")]
     /// Script encoding
     pub encoding: Option<TextEncoding>,

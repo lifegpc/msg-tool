@@ -197,6 +197,8 @@ pub struct ExtraConfig {
     pub bgi_import_duplicate: bool,
     #[cfg(feature = "bgi")]
     pub bgi_disable_append: bool,
+    #[cfg(feature = "image")]
+    pub image_type: Option<ImageOutputType>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -225,6 +227,10 @@ pub enum ScriptType {
     #[value(alias = "ethornell-arc-v2", alias = "bgi-arc", alias = "ethornell-arc")]
     /// Buriko General Interpreter/Ethornell archive v2
     BGIArcV2,
+    #[cfg(feature = "bgi-img")]
+    #[value(alias("ethornell-img"))]
+    /// Buriko General Interpreter/Ethornell image (Image files in sysgrp.arc)
+    BGIImg,
     #[cfg(feature = "escude-arc")]
     /// Escude bin archive
     EscudeArc,
@@ -301,13 +307,49 @@ pub struct ReplacementTable {
 }
 
 #[cfg(feature = "image")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ImageColorType {
     Grayscale,
-    Rgb24,
-    Rgba32,
+    Rgb,
+    Rgba,
+    Bgr,
+    Bgra,
 }
 
 #[cfg(feature = "image")]
+impl ImageColorType {
+    pub fn bbp(&self, depth: u8) -> u16 {
+        match self {
+            ImageColorType::Grayscale => depth as u16,
+            ImageColorType::Rgb => depth as u16 * 3,
+            ImageColorType::Rgba => depth as u16 * 4,
+            ImageColorType::Bgr => depth as u16 * 3,
+            ImageColorType::Bgra => depth as u16 * 4,
+        }
+    }
+}
+
+#[cfg(feature = "image")]
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ImageOutputType {
     Png,
+}
+
+#[cfg(feature = "image")]
+impl AsRef<str> for ImageOutputType {
+    fn as_ref(&self) -> &str {
+        match self {
+            ImageOutputType::Png => "png",
+        }
+    }
+}
+
+#[cfg(feature = "image")]
+#[derive(Clone, Debug)]
+pub struct ImageData {
+    pub width: u32,
+    pub height: u32,
+    pub color_type: ImageColorType,
+    pub depth: u8,
+    pub data: Vec<u8>,
 }

@@ -108,6 +108,34 @@ pub trait ScriptBuilder: std::fmt::Debug {
         let f = std::io::BufWriter::new(f);
         self.create_file(filename, Box::new(f), encoding, file_encoding)
     }
+
+    #[cfg(feature = "image")]
+    fn is_image(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "image")]
+    fn can_create_image_file(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "image")]
+    fn create_image_file<'a>(
+        &'a self,
+        _data: ImageData,
+        _writer: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "This script type does not support creating an image file."
+        ))
+    }
+
+    #[cfg(feature = "image")]
+    fn create_image_file_filename(&self, data: ImageData, filename: &str) -> Result<()> {
+        let f = std::fs::File::create(filename)?;
+        let f = std::io::BufWriter::new(f);
+        self.create_image_file(data, Box::new(f))
+    }
 }
 
 pub trait ArchiveContent: Read {
@@ -221,6 +249,32 @@ pub trait Script: std::fmt::Debug {
         &'a mut self,
     ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
         Ok(Box::new(std::iter::empty()))
+    }
+
+    #[cfg(feature = "image")]
+    fn is_image(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "image")]
+    fn export_image(&self) -> Result<ImageData> {
+        Err(anyhow::anyhow!(
+            "This script type does not support to export image."
+        ))
+    }
+
+    #[cfg(feature = "image")]
+    fn import_image<'a>(&'a self, _data: ImageData, _file: Box<dyn WriteSeek + 'a>) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "This script type does not support to import image."
+        ))
+    }
+
+    #[cfg(feature = "image")]
+    fn import_image_filename(&self, data: ImageData, filename: &str) -> Result<()> {
+        let f = std::fs::File::create(filename)?;
+        let f = std::io::BufWriter::new(f);
+        self.import_image(data, Box::new(f))
     }
 }
 

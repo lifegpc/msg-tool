@@ -1040,14 +1040,14 @@ impl<'a> CPeek for MemReaderRef<'a> {
     fn cpeek(&self, buf: &mut [u8]) -> Result<usize> {
         let len = self.data.len();
         let bytes_to_read = std::cmp::min(buf.len(), len - self.pos);
-        buf.copy_from_slice(&self.data[self.pos..self.pos + bytes_to_read]);
+        buf[..bytes_to_read].copy_from_slice(&self.data[self.pos..self.pos + bytes_to_read]);
         Ok(bytes_to_read)
     }
 
     fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
         let len = self.data.len();
         let bytes_to_read = std::cmp::min(buf.len(), len - offset);
-        buf.copy_from_slice(&self.data[offset..offset + bytes_to_read]);
+        buf[..bytes_to_read].copy_from_slice(&self.data[offset..offset + bytes_to_read]);
         Ok(bytes_to_read)
     }
 }

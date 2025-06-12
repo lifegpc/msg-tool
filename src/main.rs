@@ -516,6 +516,36 @@ pub fn export_script(
         }
         return Ok(types::ScriptResult::Ok);
     }
+    if script.is_image() {
+        let img_data = script.export_image()?;
+        let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
+        let f = if filename == "-" {
+            String::from("-")
+        } else {
+            match output.as_ref() {
+                Some(output) => {
+                    if is_dir {
+                        let f = std::path::PathBuf::from(filename);
+                        let mut pb = std::path::PathBuf::from(output);
+                        if let Some(fname) = f.file_name() {
+                            pb.push(fname);
+                        }
+                        pb.set_extension(out_type.as_ref());
+                        pb.to_string_lossy().into_owned()
+                    } else {
+                        output.clone()
+                    }
+                }
+                None => {
+                    let mut pb = std::path::PathBuf::from(filename);
+                    pb.set_extension(out_type.as_ref());
+                    pb.to_string_lossy().into_owned()
+                }
+            }
+        };
+        utils::img::encode_img(img_data, out_type, &f)?;
+        return Ok(types::ScriptResult::Ok);
+    }
     let mut of = match &arg.output_type {
         Some(t) => t.clone(),
         None => script.default_output_script_type(),
@@ -1122,6 +1152,8 @@ fn main() {
         bgi_import_duplicate: arg.bgi_import_duplicate,
         #[cfg(feature = "bgi")]
         bgi_disable_append: arg.bgi_disable_append,
+        #[cfg(feature = "image")]
+        image_type: arg.image_type.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {
