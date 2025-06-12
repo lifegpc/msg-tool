@@ -516,6 +516,7 @@ pub fn export_script(
         }
         return Ok(types::ScriptResult::Ok);
     }
+    #[cfg(feature = "image")]
     if script.is_image() {
         let img_data = script.export_image()?;
         let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
