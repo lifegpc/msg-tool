@@ -3,6 +3,32 @@ use crate::scripts::base::*;
 use crate::types::*;
 use anyhow::Result;
 
+fn try_parse(buf: &[u8]) -> Result<u8> {
+    let mut reader = MemReaderRef::new(buf);
+    let width = reader.read_u16()?;
+    let height = reader.read_u16()?;
+    let bpp = reader.read_u16()?;
+    let _flag = reader.read_u16()?;
+    let padding = reader.read_u64()?;
+    if padding != 0 {
+        return Err(anyhow::anyhow!("Invalid padding: {}", padding));
+    }
+    if width == 0 || height == 0 {
+        return Err(anyhow::anyhow!("Invalid dimensions: {}x{}", width, height));
+    }
+    if width > 4096 || height > 4096 {
+        return Err(anyhow::anyhow!(
+            "Dimensions too large: {}x{}",
+            width,
+            height
+        ));
+    }
+    if bpp != 8 && bpp != 24 && bpp != 32 {
+        return Err(anyhow::anyhow!("Unsupported BPP: {}", bpp));
+    }
+    Ok(1)
+}
+
 #[derive(Debug)]
 pub struct BgiImageBuilder {}
 
@@ -38,6 +64,13 @@ impl ScriptBuilder for BgiImageBuilder {
 
     fn is_image(&self) -> bool {
         true
+    }
+
+    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+        if buf_len >= 0x10 {
+            return try_parse(&buf[0..0x10]).ok();
+        }
+        None
     }
 }
 

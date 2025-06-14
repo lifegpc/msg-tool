@@ -97,7 +97,7 @@ impl ScriptBuilder for BgiArchiveBuilder {
 
     fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
         if buf_len >= 12 && buf.starts_with(b"PackFile    ") {
-            return Some(1);
+            return Some(10);
         }
         None
     }
