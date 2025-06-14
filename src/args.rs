@@ -93,6 +93,10 @@ pub struct Arg {
     /// Disable appending new strings to the end of BGI scripts.
     /// Disable may cause BGI scripts broken.
     pub bgi_disable_append: bool,
+    #[cfg(all(feature = "bgi-arc", feature = "bgi-img"))]
+    #[arg(long, global = true)]
+    /// Detect all files in BGI archive as SysGrp Images. By default, only files which name is `sysgrp.arc` will enabled this.
+    pub bgi_is_sysgrp_arc: Option<bool>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

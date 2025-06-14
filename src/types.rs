@@ -199,6 +199,8 @@ pub struct ExtraConfig {
     pub bgi_disable_append: bool,
     #[cfg(feature = "image")]
     pub image_type: Option<ImageOutputType>,
+    #[cfg(all(feature = "bgi-arc", feature = "bgi-img"))]
+    pub bgi_is_sysgrp_arc: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

@@ -364,6 +364,45 @@ pub fn export_script(
             let mut f = f?;
             if f.is_script() {
                 let (script_file, _) = parse_script_from_archive(&mut f, arg, config)?;
+                #[cfg(feature = "image")]
+                if script_file.is_image() {
+                    let img_data = match script_file.export_image() {
+                        Ok(data) => data,
+                        Err(e) => {
+                            eprintln!("Error exporting image: {}", e);
+                            COUNTER.inc_error();
+                            if arg.backtrace {
+                                eprintln!("Backtrace: {}", e.backtrace());
+                            }
+                            continue;
+                        }
+                    };
+                    let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
+                    let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                    out_path.set_extension(out_type.as_ref());
+                    match utils::files::make_sure_dir_exists(&out_path) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!(
+                                "Error creating parent directory for {}: {}",
+                                out_path.display(),
+                                e
+                            );
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                    match utils::img::encode_img(img_data, out_type, &out_path.to_string_lossy()) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error encoding image: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                    COUNTER.inc(types::ScriptResult::Ok);
+                    continue;
+                }
                 let mut of = match &arg.output_type {
                     Some(t) => t.clone(),
                     None => script_file.default_output_script_type(),
@@ -1155,6 +1194,8 @@ fn main() {
         bgi_disable_append: arg.bgi_disable_append,
         #[cfg(feature = "image")]
         image_type: arg.image_type.clone(),
+        #[cfg(all(feature = "bgi-arc", feature = "bgi-img"))]
+        bgi_is_sysgrp_arc: arg.bgi_is_sysgrp_arc.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

@@ -31,7 +31,7 @@ impl ScriptBuilder for BgiArchiveBuilder {
     fn build_script(
         &self,
         data: Vec<u8>,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
@@ -40,39 +40,51 @@ impl ScriptBuilder for BgiArchiveBuilder {
             MemReader::new(data),
             archive_encoding,
             config,
+            filename,
         )?))
     }
 
     fn build_script_from_file(
         &self,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
-        if _filename == "-" {
-            let data = crate::utils::files::read_file(_filename)?;
+        if filename == "-" {
+            let data = crate::utils::files::read_file(filename)?;
             Ok(Box::new(BgiArchive::new(
                 MemReader::new(data),
                 archive_encoding,
                 config,
+                filename,
             )?))
         } else {
-            let f = std::fs::File::open(_filename)?;
+            let f = std::fs::File::open(filename)?;
             let reader = std::io::BufReader::new(f);
-            Ok(Box::new(BgiArchive::new(reader, archive_encoding, config)?))
+            Ok(Box::new(BgiArchive::new(
+                reader,
+                archive_encoding,
+                config,
+                filename,
+            )?))
         }
     }
 
     fn build_script_from_reader(
         &self,
         reader: Box<dyn ReadSeek>,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(BgiArchive::new(reader, archive_encoding, config)?))
+        Ok(Box::new(BgiArchive::new(
+            reader,
+            archive_encoding,
+            config,
+            filename,
+        )?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -186,24 +198,25 @@ impl<T: Read + Seek> Seek for Entry<T> {
     }
 }
 
-struct MemEntry {
+struct MemEntry<F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> {
     name: String,
     data: MemReader,
+    detect: F,
 }
 
-impl Read for MemEntry {
+impl<F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> Read for MemEntry<F> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.data.read(buf)
     }
 }
 
-impl ArchiveContent for MemEntry {
+impl<F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> ArchiveContent for MemEntry<F> {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn script_type(&self) -> Option<&ScriptType> {
-        detect_script_type(&self.data.data, self.data.data.len(), &self.name)
+        (self.detect)(&self.data.data, self.data.data.len(), &self.name)
     }
 
     fn data(&mut self) -> Result<Vec<u8>> {
@@ -220,10 +233,17 @@ pub struct BgiArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     file_count: u32,
     entries: Vec<BgiFileHeader>,
+    #[cfg(feature = "bgi-img")]
+    is_sysgrp_arc: bool,
 }
 
 impl<T: Read + Seek + std::fmt::Debug> BgiArchive<T> {
-    pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(
+        mut reader: T,
+        archive_encoding: Encoding,
+        _config: &ExtraConfig,
+        _filename: &str,
+    ) -> Result<Self> {
         let mut header = [0u8; 12];
         reader.read_exact(&mut header)?;
         if !header.starts_with(b"BURIKO ARC20") {
@@ -237,10 +257,20 @@ impl<T: Read + Seek + std::fmt::Debug> BgiArchive<T> {
             entries.push(entry);
         }
 
+        #[cfg(feature = "bgi-img")]
+        let is_sysgrp_arc = _config.bgi_is_sysgrp_arc.unwrap_or_else(|| {
+            std::path::Path::new(&_filename.to_lowercase())
+                .file_name()
+                .map(|f| f == "sysgrp.arc")
+                .unwrap_or(false)
+        });
+
         Ok(BgiArchive {
             reader: Arc::new(Mutex::new(reader)),
             file_count,
             entries,
+            #[cfg(feature = "bgi-img")]
+            is_sysgrp_arc,
         })
     }
 }
@@ -271,6 +301,8 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for BgiArchive<T> {
             entries: self.entries.iter(),
             reader: self.reader.clone(),
             base_offset: 16 + (self.file_count as u64 * 0x80),
+            #[cfg(feature = "bgi-img")]
+            is_sysgrp_arc: self.is_sysgrp_arc,
         }))
     }
 }
@@ -288,10 +320,21 @@ fn detect_script_type(buf: &[u8], buf_len: usize, filename: &str) -> Option<&'st
     None
 }
 
+#[cfg(feature = "bgi-img")]
+fn detect_script_type_sysgrp(
+    _buf: &[u8],
+    _buf_len: usize,
+    _filename: &str,
+) -> Option<&'static ScriptType> {
+    Some(&ScriptType::BGIImg)
+}
+
 struct BgiArchiveIter<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek> {
     entries: T,
     reader: Arc<Mutex<R>>,
     base_offset: u64,
+    #[cfg(feature = "bgi-img")]
+    is_sysgrp_arc: bool,
 }
 
 impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterator
@@ -373,11 +416,27 @@ impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterat
             return Some(Ok(Box::new(MemEntry {
                 name: entry.header.filename.clone(),
                 data: reader,
+                #[cfg(feature = "bgi-img")]
+                detect: if self.is_sysgrp_arc {
+                    detect_script_type_sysgrp
+                } else {
+                    detect_script_type
+                },
+                #[cfg(not(feature = "bgi-img"))]
+                detect: detect_script_type,
             })));
         }
         if buf.starts_with(b"BSE 1.") {
             let filename = entry.header.filename.clone();
-            match BseReader::new(entry, detect_script_type, &filename) {
+            #[cfg(feature = "bgi-img")]
+            let detect = if self.is_sysgrp_arc {
+                detect_script_type_sysgrp
+            } else {
+                detect_script_type
+            };
+            #[cfg(not(feature = "bgi-img"))]
+            let detect = detect_script_type;
+            match BseReader::new(entry, detect, &filename) {
                 Ok(bse_reader) => {
                     return Some(Ok(Box::new(bse_reader)));
                 }
@@ -390,7 +449,18 @@ impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterat
                 }
             };
         }
-        entry.script_type = detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
+        #[cfg(feature = "bgi-img")]
+        if self.is_sysgrp_arc {
+            entry.script_type = Some(ScriptType::BGIImg);
+        } else {
+            entry.script_type =
+                detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
+        }
+        #[cfg(not(feature = "bgi-img"))]
+        {
+            entry.script_type =
+                detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
+        }
         Some(Ok(Box::new(entry)))
     }
 }
