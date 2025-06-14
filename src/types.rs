@@ -201,6 +201,8 @@ pub struct ExtraConfig {
     pub image_type: Option<ImageOutputType>,
     #[cfg(all(feature = "bgi-arc", feature = "bgi-img"))]
     pub bgi_is_sysgrp_arc: Option<bool>,
+    #[cfg(feature = "bgi-img")]
+    pub bgi_img_scramble: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -320,7 +322,7 @@ pub enum ImageColorType {
 
 #[cfg(feature = "image")]
 impl ImageColorType {
-    pub fn bbp(&self, depth: u8) -> u16 {
+    pub fn bpp(&self, depth: u8) -> u16 {
         match self {
             ImageColorType::Grayscale => depth as u16,
             ImageColorType::Rgb => depth as u16 * 3,

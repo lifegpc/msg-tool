@@ -97,6 +97,11 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Detect all files in BGI archive as SysGrp Images. By default, only files which name is `sysgrp.arc` will enabled this.
     pub bgi_is_sysgrp_arc: Option<bool>,
+    #[cfg(feature = "bgi-img")]
+    #[arg(long, global = true)]
+    /// Whether to create scrambled SysGrp images. When in import mode, the default value depends on the original image.
+    /// When in creation mode, it is not enabled by default.
+    pub bgi_img_scramble: Option<bool>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

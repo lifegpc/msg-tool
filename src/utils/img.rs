@@ -52,6 +52,42 @@ pub fn convert_bgra_to_rgba(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+pub fn convert_rgb_to_bgr(data: &mut ImageData) -> Result<()> {
+    if data.color_type != ImageColorType::Rgb {
+        return Err(anyhow::anyhow!("Image is not RGB"));
+    }
+    if data.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "RGB to BGR conversion only supports 8-bit depth"
+        ));
+    }
+    for i in (0..data.data.len()).step_by(3) {
+        let r = data.data[i];
+        data.data[i] = data.data[i + 2];
+        data.data[i + 2] = r;
+    }
+    data.color_type = ImageColorType::Bgr;
+    Ok(())
+}
+
+pub fn convert_rgba_to_bgra(data: &mut ImageData) -> Result<()> {
+    if data.color_type != ImageColorType::Rgba {
+        return Err(anyhow::anyhow!("Image is not RGBA"));
+    }
+    if data.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "RGBA to BGRA conversion only supports 8-bit depth"
+        ));
+    }
+    for i in (0..data.data.len()).step_by(4) {
+        let r = data.data[i];
+        data.data[i] = data.data[i + 2];
+        data.data[i + 2] = r;
+    }
+    data.color_type = ImageColorType::Bgra;
+    Ok(())
+}
+
 pub fn encode_img(mut data: ImageData, typ: ImageOutputType, filename: &str) -> Result<()> {
     match typ {
         ImageOutputType::Png => {

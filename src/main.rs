@@ -901,6 +901,35 @@ pub fn import_script(
         arch.write_header()?;
         return Ok(types::ScriptResult::Ok);
     }
+    #[cfg(feature = "image")]
+    if script.is_image() {
+        let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
+        let out_f = if is_dir {
+            let f = std::path::PathBuf::from(filename);
+            let mut pb = std::path::PathBuf::from(&imp_cfg.output);
+            if let Some(fname) = f.file_name() {
+                pb.push(fname);
+            }
+            pb.set_extension(out_type.as_ref());
+            pb.to_string_lossy().into_owned()
+        } else {
+            imp_cfg.output.clone()
+        };
+        let data = utils::img::decode_img(out_type, &out_f)?;
+        let patched_f = if is_dir {
+            let f = std::path::PathBuf::from(filename);
+            let mut pb = std::path::PathBuf::from(&imp_cfg.patched);
+            if let Some(fname) = f.file_name() {
+                pb.push(fname);
+            }
+            pb.set_extension(builder.extensions().first().unwrap_or(&""));
+            pb.to_string_lossy().into_owned()
+        } else {
+            imp_cfg.patched.clone()
+        };
+        script.import_image_filename(data, &patched_f)?;
+        return Ok(types::ScriptResult::Ok);
+    }
     let mut of = match &arg.output_type {
         Some(t) => t.clone(),
         None => script.default_output_script_type(),
@@ -1131,7 +1160,12 @@ pub fn unpack_archive(
     Ok(types::ScriptResult::Ok)
 }
 
-pub fn create_file(input: &str, output: Option<&str>, arg: &args::Arg) -> anyhow::Result<()> {
+pub fn create_file(
+    input: &str,
+    output: Option<&str>,
+    arg: &args::Arg,
+    _config: &types::ExtraConfig,
+) -> anyhow::Result<()> {
     let typ = match &arg.script_type {
         Some(t) => t,
         None => {
@@ -1142,6 +1176,32 @@ pub fn create_file(input: &str, output: Option<&str>, arg: &args::Arg) -> anyhow
         .iter()
         .find(|b| b.script_type() == typ)
         .ok_or_else(|| anyhow::anyhow!("Unsupported script type"))?;
+
+    #[cfg(feature = "image")]
+    if builder.is_image() {
+        if !builder.can_create_image_file() {
+            return Err(anyhow::anyhow!(
+                "Script type {:?} does not support image file creation",
+                typ
+            ));
+        }
+        let data =
+            utils::img::decode_img(arg.image_type.unwrap_or(types::ImageOutputType::Png), input)?;
+        let output = match output {
+            Some(output) => output.to_string(),
+            None => {
+                let mut pb = std::path::PathBuf::from(input);
+                let ext = builder.extensions().first().unwrap_or(&"unk");
+                pb.set_extension(ext);
+                if pb.to_string_lossy() == input {
+                    pb.set_extension(format!("{}.{}", ext, ext));
+                }
+                pb.to_string_lossy().into_owned()
+            }
+        };
+        builder.create_image_file_filename(data, &output, _config)?;
+        return Ok(());
+    }
 
     if !builder.can_create_file() {
         return Err(anyhow::anyhow!(
@@ -1196,6 +1256,8 @@ fn main() {
         image_type: arg.image_type.clone(),
         #[cfg(all(feature = "bgi-arc", feature = "bgi-img"))]
         bgi_is_sysgrp_arc: arg.bgi_is_sysgrp_arc.clone(),
+        #[cfg(feature = "bgi-img")]
+        bgi_img_scramble: arg.bgi_img_scramble.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {
@@ -1329,7 +1391,7 @@ fn main() {
             }
         }
         args::Command::Create { input, output } => {
-            let re = create_file(input, output.as_ref().map(|s| s.as_str()), &arg);
+            let re = create_file(input, output.as_ref().map(|s| s.as_str()), &arg, &cfg);
             if let Err(e) = re {
                 COUNTER.inc_error();
                 eprintln!("Error creating file: {}", e);

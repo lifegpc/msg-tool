@@ -124,6 +124,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
         &'a self,
         _data: ImageData,
         _writer: Box<dyn WriteSeek + 'a>,
+        _options: &ExtraConfig,
     ) -> Result<()> {
         Err(anyhow::anyhow!(
             "This script type does not support creating an image file."
@@ -131,10 +132,15 @@ pub trait ScriptBuilder: std::fmt::Debug {
     }
 
     #[cfg(feature = "image")]
-    fn create_image_file_filename(&self, data: ImageData, filename: &str) -> Result<()> {
+    fn create_image_file_filename(
+        &self,
+        data: ImageData,
+        filename: &str,
+        options: &ExtraConfig,
+    ) -> Result<()> {
         let f = std::fs::File::create(filename)?;
         let f = std::io::BufWriter::new(f);
-        self.create_image_file(data, Box::new(f))
+        self.create_image_file(data, Box::new(f), options)
     }
 }
 
