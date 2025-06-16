@@ -311,6 +311,10 @@ fn detect_script_type(buf: &[u8], buf_len: usize, filename: &str) -> Option<&'st
     if buf_len >= 28 && buf.starts_with(b"BurikoCompiledScriptVer1.00\0") {
         return Some(&ScriptType::BGI);
     }
+    #[cfg(feature = "bgi-img")]
+    if buf_len >= 16 && buf.starts_with(b"CompressedBG___") {
+        return Some(&ScriptType::BGICbg);
+    }
     let filename = filename.to_lowercase();
     if filename.ends_with("._bp") {
         return Some(&ScriptType::BGIBp);
@@ -437,7 +441,45 @@ impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterat
             #[cfg(not(feature = "bgi-img"))]
             let detect = detect_script_type;
             match BseReader::new(entry, detect, &filename) {
-                Ok(bse_reader) => {
+                Ok(mut bse_reader) => {
+                    if bse_reader.is_dsc() {
+                        let data = match bse_reader.data() {
+                            Ok(data) => data,
+                            Err(e) => {
+                                return Some(Err(anyhow::anyhow!(
+                                    "Failed to read BSE data for '{}': {}",
+                                    &filename,
+                                    e
+                                )));
+                            }
+                        };
+                        let dsc = match DscDecoder::new(&data) {
+                            Ok(dsc) => dsc,
+                            Err(e) => {
+                                return Some(Err(anyhow::anyhow!(
+                                    "Failed to create DSC decoder for '{}': {}",
+                                    &filename,
+                                    e
+                                )));
+                            }
+                        };
+                        let decoded = match dsc.unpack() {
+                            Ok(decoded) => decoded,
+                            Err(e) => {
+                                return Some(Err(anyhow::anyhow!(
+                                    "Failed to unpack DSC data for '{}': {}",
+                                    &filename,
+                                    e
+                                )));
+                            }
+                        };
+                        let reader = MemReader::new(decoded);
+                        return Some(Ok(Box::new(MemEntry {
+                            name: filename,
+                            data: reader,
+                            detect,
+                        })));
+                    }
                     return Some(Ok(Box::new(bse_reader)));
                 }
                 Err(e) => {

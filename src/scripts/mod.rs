@@ -24,6 +24,8 @@ lazy_static::lazy_static! {
         Box::new(bgi::archive::v1::BgiArchiveBuilder::new()),
         #[cfg(feature = "bgi-arc")]
         Box::new(bgi::archive::v2::BgiArchiveBuilder::new()),
+        #[cfg(feature = "bgi-arc")]
+        Box::new(bgi::archive::dsc::DscBuilder::new()),
         #[cfg(feature = "bgi-img")]
         Box::new(bgi::image::img::BgiImageBuilder::new()),
         #[cfg(feature = "bgi-img")]

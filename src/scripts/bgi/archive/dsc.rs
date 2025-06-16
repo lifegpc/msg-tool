@@ -1,7 +1,10 @@
 use crate::ext::io::*;
 use crate::ext::vec::*;
+use crate::scripts::base::*;
+use crate::types::*;
 use crate::utils::bit_stream::*;
 use anyhow::Result;
+use std::io::Write;
 
 #[derive(Debug)]
 struct HuffmanCode {
@@ -202,5 +205,90 @@ impl<'a> DscDecoder<'a> {
         v1 = (v1 + (v0 >> 16)) & 0xffff;
         self.key = (v1 << 16) + (v0 & 0xffff) + 1;
         v1 as u8
+    }
+}
+
+#[derive(Debug)]
+pub struct DscBuilder {}
+
+impl DscBuilder {
+    pub fn new() -> Self {
+        DscBuilder {}
+    }
+}
+
+impl ScriptBuilder for DscBuilder {
+    fn default_encoding(&self) -> Encoding {
+        Encoding::Cp932
+    }
+
+    fn default_archive_encoding(&self) -> Option<Encoding> {
+        Some(Encoding::Cp932)
+    }
+
+    fn build_script(
+        &self,
+        buf: Vec<u8>,
+        _filename: &str,
+        _encoding: Encoding,
+        _archive_encoding: Encoding,
+        _config: &ExtraConfig,
+    ) -> Result<Box<dyn Script>> {
+        Ok(Box::new(Dsc::new(buf)?))
+    }
+
+    fn extensions(&self) -> &'static [&'static str] {
+        &[]
+    }
+
+    fn script_type(&self) -> &'static ScriptType {
+        &ScriptType::BGIDsc
+    }
+
+    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+        if buf_len >= 16 && buf.starts_with(b"DSC FORMAT 1.00\0") {
+            return Some(255);
+        }
+        None
+    }
+}
+
+#[derive(Debug)]
+pub struct Dsc {
+    data: Vec<u8>,
+}
+
+impl Dsc {
+    pub fn new(buf: Vec<u8>) -> Result<Self> {
+        if buf.len() < 16 || !buf.starts_with(b"DSC FORMAT 1.00\0") {
+            return Err(anyhow::anyhow!("Invalid DSC format"));
+        }
+        let decoder = DscDecoder::new(&buf)?;
+        let data = decoder.unpack()?;
+        Ok(Dsc { data })
+    }
+}
+
+impl Script for Dsc {
+    fn default_output_script_type(&self) -> OutputScriptType {
+        OutputScriptType::Custom
+    }
+
+    fn is_output_supported(&self, output: OutputScriptType) -> bool {
+        matches!(output, OutputScriptType::Custom)
+    }
+
+    fn default_format_type(&self) -> FormatOptions {
+        FormatOptions::None
+    }
+
+    fn custom_output_extension(&self) -> &'static str {
+        "unk"
+    }
+
+    fn custom_export(&self, filename: &std::path::Path, _encoding: Encoding) -> Result<()> {
+        let mut f = std::fs::File::create(filename)?;
+        f.write_all(&self.data)?;
+        Ok(())
     }
 }

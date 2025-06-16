@@ -231,6 +231,10 @@ pub enum ScriptType {
     #[value(alias = "ethornell-arc-v2", alias = "bgi-arc", alias = "ethornell-arc")]
     /// Buriko General Interpreter/Ethornell archive v2
     BGIArcV2,
+    #[cfg(feature = "bgi-arc")]
+    #[value(alias("ethornell-dsc"))]
+    /// Buriko General Interpreter/Ethornell compressed file (DSC)
+    BGIDsc,
     #[cfg(feature = "bgi-img")]
     #[value(alias("ethornell-img"))]
     /// Buriko General Interpreter/Ethornell image (Image files in sysgrp.arc)

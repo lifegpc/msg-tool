@@ -119,6 +119,10 @@ impl<T: Read + Seek, F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> B
         }
         Ok(())
     }
+
+    pub fn is_dsc(&self) -> bool {
+        self.header.starts_with(b"DSC FORMAT 1.00")
+    }
 }
 
 impl<T: Read + Seek, F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> Read
@@ -126,8 +130,10 @@ impl<T: Read + Seek, F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> R
 {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.pos < 0x40 {
-            let bytes_to_read = 0x40 - self.pos;
-            buf[..bytes_to_read as usize].copy_from_slice(&self.header[self.pos as usize..]);
+            let bytes_to_read = (0x40 - self.pos).min(buf.len() as u64);
+            buf[..bytes_to_read as usize].copy_from_slice(
+                &self.header[self.pos as usize..self.pos as usize + bytes_to_read as usize],
+            );
             self.pos += bytes_to_read;
             Ok(bytes_to_read as usize)
         } else {
