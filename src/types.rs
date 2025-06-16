@@ -235,6 +235,10 @@ pub enum ScriptType {
     #[value(alias("ethornell-img"))]
     /// Buriko General Interpreter/Ethornell image (Image files in sysgrp.arc)
     BGIImg,
+    #[cfg(feature = "bgi-img")]
+    #[value(alias("ethornell-cbg"))]
+    /// Buriko General Interpreter/Ethornell Compressed Background image (CBG)
+    BGICbg,
     #[cfg(feature = "escude-arc")]
     /// Escude bin archive
     EscudeArc,

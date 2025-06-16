@@ -26,6 +26,8 @@ lazy_static::lazy_static! {
         Box::new(bgi::archive::v2::BgiArchiveBuilder::new()),
         #[cfg(feature = "bgi-img")]
         Box::new(bgi::image::img::BgiImageBuilder::new()),
+        #[cfg(feature = "bgi-img")]
+        Box::new(bgi::image::cbg::BgiCBGBuilder::new()),
         #[cfg(feature = "escude-arc")]
         Box::new(escude::archive::EscudeBinArchiveBuilder::new()),
         #[cfg(feature = "escude")]
