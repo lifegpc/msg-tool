@@ -858,6 +858,7 @@ pub struct MemReader {
     pub pos: usize,
 }
 
+#[derive(Clone)]
 pub struct MemReaderRef<'a> {
     pub data: &'a [u8],
     pub pos: usize,

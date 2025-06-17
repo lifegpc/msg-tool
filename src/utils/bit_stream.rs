@@ -5,7 +5,7 @@ use std::io::Write;
 pub struct MsbBitStream<'a> {
     pub m_input: MemReaderRef<'a>,
     m_bits: u32,
-    m_cached_bits: u32,
+    pub m_cached_bits: u32,
 }
 
 impl<'a> MsbBitStream<'a> {
