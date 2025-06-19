@@ -1,15 +1,15 @@
 use crate::ext::io::*;
 use anyhow::Result;
-use std::io::Write;
+use std::io::{Read, Write};
 
-pub struct MsbBitStream<'a> {
-    pub m_input: MemReaderRef<'a>,
+pub struct MsbBitStream<T: Read> {
+    pub m_input: T,
     m_bits: u32,
     pub m_cached_bits: u32,
 }
 
-impl<'a> MsbBitStream<'a> {
-    pub fn new(input: MemReaderRef<'a>) -> Self {
+impl<T: Read> MsbBitStream<T> {
+    pub fn new(input: T) -> Self {
         MsbBitStream {
             m_input: input,
             m_bits: 0,

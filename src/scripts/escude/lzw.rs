@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::io::Write;
 
 pub struct LZWDecoder<'a> {
-    m_input: MsbBitStream<'a>,
+    m_input: MsbBitStream<MemReaderRef<'a>>,
     m_output_size: u32,
 }
 

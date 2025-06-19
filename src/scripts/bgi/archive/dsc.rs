@@ -51,7 +51,7 @@ struct HuffmanNode {
 }
 
 pub struct DscDecoder<'a> {
-    stream: MsbBitStream<'a>,
+    stream: MsbBitStream<MemReaderRef<'a>>,
     key: u32,
     magic: u32,
     output_size: u32,

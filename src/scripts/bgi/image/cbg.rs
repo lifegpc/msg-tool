@@ -166,7 +166,7 @@ impl Script for BgiCBG {
 }
 
 struct CbgDecoder<'a> {
-    stream: MsbBitStream<'a>,
+    stream: MsbBitStream<MemReaderRef<'a>>,
     info: &'a BgiCBGHeader,
     color_type: CbgColorType,
     key: u32,
@@ -568,7 +568,7 @@ impl HuffmanTree {
         Self { nodes }
     }
 
-    fn decode_token(&self, stream: &mut MsbBitStream<'_>) -> Result<usize> {
+    fn decode_token(&self, stream: &mut MsbBitStream<MemReaderRef<'_>>) -> Result<usize> {
         let mut node_index = self.nodes.len() - 1;
         loop {
             let bit = stream.get_next_bit()?;
