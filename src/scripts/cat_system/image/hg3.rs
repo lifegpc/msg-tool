@@ -149,6 +149,69 @@ impl Script for Hg3Image {
         }
         Ok(img)
     }
+
+    fn is_multi_image(&self) -> bool {
+        self.entries.len() > 1
+    }
+
+    fn export_multi_image<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<ImageDataWithName>> + 'a>> {
+        Ok(Box::new(Hg3ImageIter {
+            iter: self.entries.iter(),
+            index: 0,
+            data: self.data.to_ref(),
+            draw_canvas: self.draw_canvas,
+        }))
+    }
+}
+
+struct Hg3ImageIter<'a, T: Iterator<Item = &'a (Hg3Entry, usize, usize)> + 'a> {
+    iter: T,
+    index: usize,
+    data: MemReaderRef<'a>,
+    draw_canvas: bool,
+}
+
+impl<'a, T: Iterator<Item = &'a (Hg3Entry, usize, usize)> + 'a> Iterator for Hg3ImageIter<'a, T> {
+    type Item = Result<ImageDataWithName>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((entry, offset, size)) = self.iter.next() {
+            let data = &self.data.data[*offset..*offset + *size];
+            let reader = Hg3Reader {
+                m_input: MemReaderRef::new(data),
+                m_info: entry.clone(),
+                m_pixel_size: entry.bpp / 8,
+            };
+            self.index += 1;
+            match reader.unpack() {
+                Ok(mut img) => {
+                    if self.draw_canvas {
+                        if entry.canvas_width > 0 && entry.canvas_height > 0 {
+                            img = match draw_on_canvas(
+                                img,
+                                entry.canvas_width,
+                                entry.canvas_height,
+                                entry.offset_x,
+                                entry.offset_y,
+                            ) {
+                                Ok(canvas_img) => canvas_img,
+                                Err(e) => return Some(Err(e)),
+                            };
+                        }
+                    }
+                    Some(Ok(ImageDataWithName {
+                        name: format!("{:04}", self.index - 1),
+                        data: img,
+                    }))
+                },
+                Err(e) => Some(Err(e)),
+            }
+        } else {
+            None
+        }
+    }
 }
 
 pub struct Hg3Reader<'a> {

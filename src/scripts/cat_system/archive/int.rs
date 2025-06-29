@@ -107,7 +107,11 @@ impl ScriptBuilder for CSIntArcBuilder {
     }
 }
 
-fn detect_script_type(_buf: &[u8], _buf_len: usize, _filename: &str) -> Option<&'static ScriptType> {
+fn detect_script_type(
+    _buf: &[u8],
+    _buf_len: usize,
+    _filename: &str,
+) -> Option<&'static ScriptType> {
     #[cfg(feature = "cat-system-img")]
     if _buf_len >= 4 && _buf.starts_with(b"HG-3") {
         return Some(&ScriptType::CatSystemHg3);

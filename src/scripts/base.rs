@@ -282,6 +282,42 @@ pub trait Script: std::fmt::Debug {
         let f = std::io::BufWriter::new(f);
         self.import_image(data, Box::new(f))
     }
+
+    #[cfg(feature = "image")]
+    fn is_multi_image(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "image")]
+    fn export_multi_image<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<ImageDataWithName>> + 'a>> {
+        Err(anyhow::anyhow!(
+            "This script type does not support to export multi image."
+        ))
+    }
+
+    #[cfg(feature = "image")]
+    fn import_multi_image<'a>(
+        &'a self,
+        _data: Vec<ImageDataWithName>,
+        _file: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "This script type does not support to import multi image."
+        ))
+    }
+
+    #[cfg(feature = "image")]
+    fn import_multi_image_filename(
+        &self,
+        data: Vec<ImageDataWithName>,
+        filename: &str,
+    ) -> Result<()> {
+        let f = std::fs::File::create(filename)?;
+        let f = std::io::BufWriter::new(f);
+        self.import_multi_image(data, Box::new(f))
+    }
 }
 
 pub trait Archive {

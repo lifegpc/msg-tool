@@ -366,6 +366,46 @@ pub fn export_script(
                 let (script_file, _) = parse_script_from_archive(&mut f, arg, config)?;
                 #[cfg(feature = "image")]
                 if script_file.is_image() {
+                    if script_file.is_multi_image() {
+                        for i in script_file.export_multi_image()? {
+                            let img_data = match i {
+                                Ok(data) => data,
+                                Err(e) => {
+                                    eprintln!("Error exporting image: {}", e);
+                                    COUNTER.inc_error();
+                                    if arg.backtrace {
+                                        eprintln!("Backtrace: {}", e.backtrace());
+                                    }
+                                    continue;
+                                }
+                            };
+                            let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
+                            let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                            out_path.set_extension("");
+                            out_path.push(img_data.name);
+                            out_path.set_extension(out_type.as_ref());
+                            match utils::files::make_sure_dir_exists(&out_path) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!(
+                                        "Error creating parent directory for {}: {}",
+                                        out_path.display(),
+                                        e
+                                    );
+                                    COUNTER.inc_error();
+                                    continue;
+                                }
+                            }
+                            utils::img::encode_img(
+                                img_data.data,
+                                out_type,
+                                &out_path.to_string_lossy(),
+                            )?;
+                            COUNTER.inc(types::ScriptResult::Ok);
+                        }
+                        COUNTER.inc(types::ScriptResult::Ok);
+                        continue;
+                    }
                     let img_data = match script_file.export_image() {
                         Ok(data) => data,
                         Err(e) => {
@@ -557,6 +597,60 @@ pub fn export_script(
     }
     #[cfg(feature = "image")]
     if script.is_image() {
+        if script.is_multi_image() {
+            for i in script.export_multi_image()? {
+                let img_data = match i {
+                    Ok(data) => data,
+                    Err(e) => {
+                        eprintln!("Error exporting image: {}", e);
+                        COUNTER.inc_error();
+                        if arg.backtrace {
+                            eprintln!("Backtrace: {}", e.backtrace());
+                        }
+                        continue;
+                    }
+                };
+                let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
+                let f = match output.as_ref() {
+                    Some(output) => {
+                        if is_dir {
+                            let f = std::path::PathBuf::from(filename);
+                            let mut pb = std::path::PathBuf::from(output);
+                            if let Some(fname) = f.file_name() {
+                                pb.push(fname);
+                                pb.set_extension("");
+                            }
+                            pb.push(img_data.name);
+                            pb.set_extension(out_type.as_ref());
+                            pb.to_string_lossy().into_owned()
+                        } else {
+                            let mut pb = std::path::PathBuf::from(output);
+                            pb.push(img_data.name);
+                            pb.set_extension(out_type.as_ref());
+                            pb.to_string_lossy().into_owned()
+                        }
+                    }
+                    None => {
+                        let mut pb = std::path::PathBuf::from(filename);
+                        pb.set_extension("");
+                        pb.push(img_data.name);
+                        pb.set_extension(out_type.as_ref());
+                        pb.to_string_lossy().into_owned()
+                    }
+                };
+                match utils::files::make_sure_dir_exists(&f) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("Error creating parent directory for {}: {}", f, e);
+                        COUNTER.inc_error();
+                        continue;
+                    }
+                }
+                utils::img::encode_img(img_data.data, out_type, &f)?;
+                COUNTER.inc(types::ScriptResult::Ok);
+            }
+            return Ok(types::ScriptResult::Ok);
+        }
         let img_data = script.export_image()?;
         let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
         let f = if filename == "-" {

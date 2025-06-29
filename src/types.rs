@@ -375,3 +375,10 @@ pub struct ImageData {
     pub depth: u8,
     pub data: Vec<u8>,
 }
+
+#[cfg(feature = "image")]
+#[derive(Clone, Debug)]
+pub struct ImageDataWithName {
+    pub name: String,
+    pub data: ImageData,
+}
