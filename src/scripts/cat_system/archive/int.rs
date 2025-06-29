@@ -107,6 +107,14 @@ impl ScriptBuilder for CSIntArcBuilder {
     }
 }
 
+fn detect_script_type(_buf: &[u8], _buf_len: usize, _filename: &str) -> Option<&'static ScriptType> {
+    #[cfg(feature = "cat-system-img")]
+    if _buf_len >= 4 && _buf.starts_with(b"HG-3") {
+        return Some(&ScriptType::CatSystemHg3);
+    }
+    None
+}
+
 #[derive(Clone, Debug)]
 struct CSIntFileHeader {
     name: String,
@@ -118,6 +126,7 @@ struct Entry<T: Read + Seek> {
     header: CSIntFileHeader,
     reader: Arc<Mutex<T>>,
     pos: usize,
+    script_type: Option<ScriptType>,
 }
 
 impl<T: Read + Seek> ArchiveContent for Entry<T> {
@@ -126,7 +135,7 @@ impl<T: Read + Seek> ArchiveContent for Entry<T> {
     }
 
     fn script_type(&self) -> Option<&ScriptType> {
-        None
+        self.script_type.as_ref()
     }
 }
 
@@ -206,7 +215,7 @@ impl ArchiveContent for MemEntry {
     }
 
     fn script_type(&self) -> Option<&ScriptType> {
-        None
+        detect_script_type(&self.data.data, self.data.data.len(), &self.name)
     }
 
     fn data(&mut self) -> Result<Vec<u8>> {
@@ -410,6 +419,7 @@ impl<'a, T: Iterator<Item = &'a CSIntFileHeader>, R: Read + Seek + 'static> Iter
             header: entry.clone(),
             reader: self.reader.clone(),
             pos: 0,
+            script_type: None,
         };
         if let Some(encrypt) = self.encrypt {
             let mut data = match entry.data() {
@@ -436,6 +446,19 @@ impl<'a, T: Iterator<Item = &'a CSIntFileHeader>, R: Read + Seek + 'static> Iter
                 data: MemReader::new(data),
             })));
         }
+        let mut buf = [0u8; 32];
+        let buf_len = match entry.read(&mut buf) {
+            Ok(len) => len,
+            Err(e) => {
+                return Some(Err(anyhow::anyhow!(
+                    "Failed to read entry '{}': {}",
+                    entry.header.name,
+                    e
+                )));
+            }
+        };
+        entry.pos = 0;
+        entry.script_type = detect_script_type(&buf, buf_len, &entry.header.name).copied();
         Some(Ok(Box::new(entry)))
     }
 }
