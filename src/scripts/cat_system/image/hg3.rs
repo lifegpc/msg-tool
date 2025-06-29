@@ -280,7 +280,7 @@ impl<'a> Hg3Reader<'a> {
         self.m_input.pos = self.m_info.header_size as usize;
         let mut image_type = [0; 8];
         self.m_input.read_exact(&mut image_type)?;
-        if &image_type == b"img0000 " {
+        if &image_type == b"img0000\0" {
             return self.unpack_img0000();
         } else {
             return Err(anyhow::anyhow!("Unsupported image type: {:?}", image_type));
