@@ -1260,6 +1260,8 @@ fn main() {
         bgi_img_scramble: arg.bgi_img_scramble.clone(),
         #[cfg(feature = "cat-system-arc")]
         cat_system_int_encrypt_password: arg.cat_system_int_encrypt_password.clone(),
+        #[cfg(feature = "cat-system-img")]
+        cat_system_image_canvas: arg.cat_system_image_canvas,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

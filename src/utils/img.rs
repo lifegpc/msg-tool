@@ -165,7 +165,7 @@ pub fn flip_image(data: &mut ImageData) -> Result<()> {
     if data.height <= 1 {
         return Ok(());
     }
-    let row_size = data.data.len() / data.height as usize;
+    let row_size = data.color_type.bpp(data.depth) as usize * data.width as usize / 8;
     if row_size == 0 {
         return Ok(());
     }

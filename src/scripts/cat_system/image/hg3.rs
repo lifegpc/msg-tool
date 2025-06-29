@@ -67,10 +67,11 @@ struct Hg3Entry {
 pub struct Hg3Image {
     data: MemReader,
     entries: Vec<(Hg3Entry, usize, usize)>,
+    draw_canvas: bool,
 }
 
 impl Hg3Image {
-    pub fn new(buf: Vec<u8>, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(buf);
         let mut magic = [0u8; 4];
         reader.read_exact(&mut magic)?;
@@ -102,6 +103,7 @@ impl Hg3Image {
         Ok(Hg3Image {
             data: reader,
             entries,
+            draw_canvas: config.cat_system_image_canvas,
         })
     }
 }
@@ -133,7 +135,19 @@ impl Script for Hg3Image {
             m_info: entry.clone(),
             m_pixel_size: entry.bpp / 8,
         };
-        Ok(reader.unpack()?)
+        let mut img = reader.unpack()?;
+        if self.draw_canvas {
+            if entry.canvas_width > 0 && entry.canvas_height > 0 {
+                img = draw_on_canvas(
+                    img,
+                    entry.canvas_width,
+                    entry.canvas_height,
+                    entry.offset_x,
+                    entry.offset_y,
+                )?;
+            }
+        }
+        Ok(img)
     }
 }
 
@@ -266,7 +280,7 @@ impl<'a> Hg3Reader<'a> {
         self.m_input.pos = self.m_info.header_size as usize;
         let mut image_type = [0; 8];
         self.m_input.read_exact(&mut image_type)?;
-        if &image_type == b"img0000\0" {
+        if &image_type == b"img0000 " {
             return self.unpack_img0000();
         } else {
             return Err(anyhow::anyhow!("Unsupported image type: {:?}", image_type));
@@ -306,4 +320,40 @@ impl<'a> Hg3Reader<'a> {
         flip_image(&mut img)?;
         Ok(img)
     }
+}
+
+fn draw_on_canvas(
+    img: ImageData,
+    canvas_width: u32,
+    canvas_height: u32,
+    offset_x: u32,
+    offset_y: u32,
+) -> Result<ImageData> {
+    let bytes_per_pixel = img.color_type.bpp(img.depth) as u32 / 8;
+    let mut canvas_data = vec![0u8; (canvas_width * canvas_height * bytes_per_pixel) as usize];
+    let canvas_stride = canvas_width * bytes_per_pixel;
+    let img_stride = img.width * bytes_per_pixel;
+
+    for y in 0..img.height {
+        let canvas_y = y + offset_y;
+        if canvas_y >= canvas_height {
+            continue;
+        }
+        let canvas_start = (canvas_y * canvas_stride + offset_x * bytes_per_pixel) as usize;
+        let img_start = (y * img_stride) as usize;
+        let copy_len = img_stride as usize;
+        if canvas_start + copy_len > canvas_data.len() {
+            continue;
+        }
+        canvas_data[canvas_start..canvas_start + copy_len]
+            .copy_from_slice(&img.data[img_start..img_start + copy_len]);
+    }
+
+    Ok(ImageData {
+        width: canvas_width,
+        height: canvas_height,
+        color_type: img.color_type,
+        depth: img.depth,
+        data: canvas_data,
+    })
 }

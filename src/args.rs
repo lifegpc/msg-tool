@@ -106,6 +106,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// CatSystem2 engine int archive password
     pub cat_system_int_encrypt_password: Option<String>,
+    #[cfg(feature = "cat-system-img")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Draw CatSystem2 image on canvas (if canvas width and height are specified in file)
+    pub cat_system_image_canvas: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

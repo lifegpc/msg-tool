@@ -205,6 +205,8 @@ pub struct ExtraConfig {
     pub bgi_img_scramble: Option<bool>,
     #[cfg(feature = "cat-system-arc")]
     pub cat_system_int_encrypt_password: Option<String>,
+    #[cfg(feature = "cat-system-img")]
+    pub cat_system_image_canvas: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
