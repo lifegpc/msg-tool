@@ -138,9 +138,7 @@ impl<T: Read + Seek> Read for Entry<T> {
                 format!("Failed to lock mutex: {}", e),
             )
         })?;
-        reader.seek(SeekFrom::Start(
-            self.header.offset as u64 + self.pos as u64,
-        ))?;
+        reader.seek(SeekFrom::Start(self.header.offset as u64 + self.pos as u64))?;
         let bytes_read = buf.len().min(self.header.size as usize - self.pos);
         if bytes_read == 0 {
             return Ok(0);
@@ -302,15 +300,15 @@ impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
                 let current_offset = reader.stream_position()?;
                 let offset = reader.read_u32()?;
                 let size = reader.read_u32()?;
-                if offset as u64 <= current_offset || !((offset as u64) < file_size && size as u64 <= file_size && offset as u64 <= file_size as u64 - size as u64) {
+                if offset as u64 <= current_offset
+                    || !((offset as u64) < file_size
+                        && size as u64 <= file_size
+                        && offset as u64 <= file_size as u64 - size as u64)
+                {
                     entries.clear();
                     break;
                 }
-                let entry = CSIntFileHeader {
-                    name,
-                    offset,
-                    size,
-                };
+                let entry = CSIntFileHeader { name, offset, size };
                 entries.push(entry);
             }
             if !entries.is_empty() {
@@ -378,14 +376,12 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for CSIntArc<T> {
     }
 
     fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
-        Ok(Box::new(
-            self.entries.iter().map(|e| Ok(e.name.clone())),
-        ))
+        Ok(Box::new(self.entries.iter().map(|e| Ok(e.name.clone()))))
     }
 
     fn iter_archive_mut<'a>(
-            &'a mut self,
-        ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
+        &'a mut self,
+    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
         Ok(Box::new(CSIntArcIter {
             entries: self.entries.iter(),
             reader: self.reader.clone(),
@@ -423,10 +419,12 @@ impl<'a, T: Iterator<Item = &'a CSIntFileHeader>, R: Read + Seek + 'static> Iter
             entry.pos = 0;
             for i in 0..data.len() / 8 {
                 let j = i * 8;
-                let l = data[j] as u32 | (data[j + 1] as u32) << 8
+                let l = data[j] as u32
+                    | (data[j + 1] as u32) << 8
                     | (data[j + 2] as u32) << 16
                     | (data[j + 3] as u32) << 24;
-                let r = data[j + 4] as u32 | (data[j + 5] as u32) << 8
+                let r = data[j + 4] as u32
+                    | (data[j + 5] as u32) << 8
                     | (data[j + 6] as u32) << 16
                     | (data[j + 7] as u32) << 24;
                 let result = encrypt.decrypt([l, r]);

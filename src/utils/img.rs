@@ -160,3 +160,26 @@ pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
         }
     }
 }
+
+pub fn flip_image(data: &mut ImageData) -> Result<()> {
+    if data.height <= 1 {
+        return Ok(());
+    }
+    let row_size = data.data.len() / data.height as usize;
+    if row_size == 0 {
+        return Ok(());
+    }
+
+    let mut i = 0;
+    let mut j = data.height as usize - 1;
+    while i < j {
+        let (top, bottom) = data.data.split_at_mut(j * row_size);
+        let top_row = &mut top[i * row_size..i * row_size + row_size];
+        let bottom_row = &mut bottom[0..row_size];
+        top_row.swap_with_slice(bottom_row);
+        i += 1;
+        j -= 1;
+    }
+
+    Ok(())
+}

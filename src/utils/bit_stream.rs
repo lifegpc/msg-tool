@@ -85,3 +85,51 @@ impl<'a, T: Write> MsbBitWriter<'a, T> {
         Ok(())
     }
 }
+
+pub struct LsbBitStream<T: Read> {
+    pub m_input: T,
+    m_bits: u32,
+    pub m_cached_bits: u32,
+}
+
+impl<T: Read> LsbBitStream<T> {
+    pub fn new(input: T) -> Self {
+        LsbBitStream {
+            m_input: input,
+            m_bits: 0,
+            m_cached_bits: 0,
+        }
+    }
+
+    pub fn get_bits(&mut self, mut count: u32) -> Result<u32> {
+        if self.m_cached_bits >= count {
+            let mask = (1 << count) - 1;
+            let value = self.m_bits & mask;
+            self.m_bits >>= count;
+            self.m_cached_bits -= count;
+            Ok(value)
+        } else {
+            let mut value = self.m_bits & ((1 << self.m_cached_bits) - 1);
+            count -= self.m_cached_bits;
+            let mut shift = self.m_cached_bits;
+            self.m_cached_bits = 0;
+            while count >= 8 {
+                let b = self.m_input.read_u8()?;
+                value |= (b as u32) << shift;
+                shift += 8;
+                count -= 8;
+            }
+            if count > 0 {
+                let b = self.m_input.read_u8()?;
+                value |= ((b as u32) & ((1 << count) - 1)) << shift;
+                self.m_bits = b as u32 >> count;
+                self.m_cached_bits = 8 - count;
+            }
+            Ok(value)
+        }
+    }
+
+    pub fn get_next_bit(&mut self) -> Result<bool> {
+        Ok(self.get_bits(1)? == 1)
+    }
+}

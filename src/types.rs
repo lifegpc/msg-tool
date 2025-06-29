@@ -245,6 +245,9 @@ pub enum ScriptType {
     #[cfg(feature = "cat-system-arc")]
     /// CatSystem2 engine archive
     CatSystemInt,
+    #[cfg(feature = "cat-system-img")]
+    /// CatSystem2 engine image
+    CatSystemHg3,
     #[cfg(feature = "circus")]
     /// Circus MES script
     Circus,

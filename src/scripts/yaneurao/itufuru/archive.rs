@@ -254,7 +254,7 @@ impl<'a, T: Iterator<Item = &'a CustomHeader>, R: Read + Seek> Iterator
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(entry) = self.entries.next() {
             let file_offset = entry.offset as usize;
-            match self.reader.peek_extract_at_vec(
+            match self.reader.peek_exact_at_vec(
                 file_offset + self.first_file_offset as usize,
                 entry.size as usize,
             ) {

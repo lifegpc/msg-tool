@@ -237,7 +237,7 @@ impl Script for BgiImage {
                 }
             }
         } else {
-            self.data.cpeek_extract_at(0x10, &mut data)?;
+            self.data.cpeek_exact_at(0x10, &mut data)?;
         }
         Ok(ImageData {
             width: self.width,

@@ -319,6 +319,7 @@ dependencies = [
  "clap",
  "csv",
  "encoding_rs",
+ "flate2",
  "int-enum",
  "lazy_static",
  "msg_tool_macro",
