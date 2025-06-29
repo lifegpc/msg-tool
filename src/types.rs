@@ -203,14 +203,13 @@ pub struct ExtraConfig {
     pub bgi_is_sysgrp_arc: Option<bool>,
     #[cfg(feature = "bgi-img")]
     pub bgi_img_scramble: Option<bool>,
+    #[cfg(feature = "cat-system-arc")]
+    pub cat_system_int_encrypt_password: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
 /// Script type
 pub enum ScriptType {
-    #[cfg(feature = "circus")]
-    /// Circus MES script
-    Circus,
     #[cfg(feature = "bgi")]
     #[value(alias("ethornell"))]
     /// Buriko General Interpreter/Ethornell Script
@@ -243,6 +242,12 @@ pub enum ScriptType {
     #[value(alias("ethornell-cbg"))]
     /// Buriko General Interpreter/Ethornell Compressed Background image (CBG)
     BGICbg,
+    #[cfg(feature = "cat-system-arc")]
+    /// CatSystem2 engine archive
+    CatSystemInt,
+    #[cfg(feature = "circus")]
+    /// Circus MES script
+    Circus,
     #[cfg(feature = "escude-arc")]
     /// Escude bin archive
     EscudeArc,

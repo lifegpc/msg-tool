@@ -1,6 +1,8 @@
 pub mod base;
 #[cfg(feature = "bgi")]
 pub mod bgi;
+#[cfg(feature = "cat-system")]
+pub mod cat_system;
 #[cfg(feature = "circus")]
 pub mod circus;
 #[cfg(feature = "escude")]
@@ -40,6 +42,8 @@ lazy_static::lazy_static! {
         Box::new(yaneurao::itufuru::script::ItufuruScriptBuilder::new()),
         #[cfg(feature = "yaneurao-itufuru")]
         Box::new(yaneurao::itufuru::archive::ItufuruArchiveBuilder::new()),
+        #[cfg(feature = "cat-system-arc")]
+        Box::new(cat_system::archive::int::CSIntArcBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

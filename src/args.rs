@@ -102,6 +102,10 @@ pub struct Arg {
     /// Whether to create scrambled SysGrp images. When in import mode, the default value depends on the original image.
     /// When in creation mode, it is not enabled by default.
     pub bgi_img_scramble: Option<bool>,
+    #[cfg(feature = "cat-system-arc")]
+    #[arg(long, global = true)]
+    /// CatSystem2 engine int archive password
+    pub cat_system_int_encrypt_password: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

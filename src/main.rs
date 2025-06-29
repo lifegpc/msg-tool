@@ -1258,6 +1258,8 @@ fn main() {
         bgi_is_sysgrp_arc: arg.bgi_is_sysgrp_arc.clone(),
         #[cfg(feature = "bgi-img")]
         bgi_img_scramble: arg.bgi_img_scramble.clone(),
+        #[cfg(feature = "cat-system-arc")]
+        cat_system_int_encrypt_password: arg.cat_system_int_encrypt_password.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

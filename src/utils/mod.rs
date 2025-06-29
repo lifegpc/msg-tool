@@ -1,6 +1,8 @@
 #[cfg(feature = "utils-bit-stream")]
 pub mod bit_stream;
 pub mod counter;
+#[cfg(feature = "utils-crc32")]
+pub mod crc32;
 pub mod encoding;
 #[cfg(windows)]
 mod encoding_win;
