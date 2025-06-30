@@ -6,6 +6,7 @@ use anyhow::Result;
 use emote_psb::types::PsbValue;
 use emote_psb::{PsbReader, PsbWriter, VirtualPsb};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 
@@ -100,6 +101,8 @@ impl ScriptBuilder for ScnScriptBuilder {
 pub struct ScnScript {
     psb: VirtualPsb,
     language_index: usize,
+    export_comumode: bool,
+    filename: String,
 }
 
 impl ScnScript {
@@ -112,6 +115,8 @@ impl ScnScript {
         Ok(Self {
             psb,
             language_index: config.kirikiri_language_index.unwrap_or(0),
+            export_comumode: config.kirikiri_export_comumode,
+            filename: filename.to_string(),
         })
     }
 }
@@ -173,8 +178,13 @@ impl Script for ScnScript {
             PsbValue::List(list) => list,
             _ => return Err(anyhow::anyhow!("scenes is not a list")),
         };
-        for (i, scene) in scenes.iter().enumerate() {
-            let scene = match scene {
+        let mut comu = if self.export_comumode {
+            Some(ExportComuMes::new())
+        } else {
+            None
+        };
+        for (i, oscene) in scenes.iter().enumerate() {
+            let scene = match oscene {
                 PsbValue::Object(obj) => obj,
                 _ => return Err(anyhow::anyhow!("scene at index {} is not an object", i)),
             };
@@ -304,7 +314,34 @@ impl Script for ScnScript {
                     }
                 }
             }
-            // #TODO: comudata(circus)
+            comu.as_mut().map(|c| c.export(&oscene));
+        }
+        if let Some(comu) = comu {
+            if !comu.messages.is_empty() {
+                let mut pb = std::path::PathBuf::from(&self.filename);
+                let filename = pb
+                    .file_stem()
+                    .map(|s| s.to_string_lossy())
+                    .unwrap_or(std::borrow::Cow::from("comumode"));
+                pb.set_file_name(format!("{}_comumode.json", filename));
+                match std::fs::File::create(&pb) {
+                    Ok(mut f) => {
+                        let messages: Vec<String> = comu.messages.into_iter().collect();
+                        if let Err(e) = serde_json::to_writer_pretty(&mut f, &messages) {
+                            eprintln!("Failed to write COMU messages to {}: {:?}", pb.display(), e);
+                            crate::COUNTER.inc_warning();
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to create COMU messages file {}: {:?}",
+                            pb.display(),
+                            e
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+            }
         }
         Ok(messages)
     }
@@ -350,5 +387,64 @@ impl Script for ScnScript {
             .finish()
             .map_err(|e| anyhow::anyhow!("Failed to write PSB: {:?}", e))?;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct ExportComuMes {
+    pub messages: HashSet<String>,
+}
+
+impl ExportComuMes {
+    pub fn new() -> Self {
+        Self {
+            messages: HashSet::new(),
+        }
+    }
+
+    pub fn export(&mut self, value: &PsbValue) {
+        match value {
+            PsbValue::Object(obj) => {
+                for (k, v) in obj.iter() {
+                    if k == "comumode" {
+                        if let PsbValue::List(list) = v {
+                            for item in list.iter() {
+                                if let PsbValue::Object(obj) = item {
+                                    if let Some(PsbValue::String(s)) = obj.get_value("text".into())
+                                    {
+                                        self.messages.insert(s.string().to_owned());
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        self.export(v);
+                    }
+                }
+            }
+            PsbValue::List(list) => {
+                let list = list.values();
+                if list.len() > 1 {
+                    if let PsbValue::String(s) = &list[0] {
+                        if s.string() == "comumode" {
+                            for i in 1..list.len() {
+                                if let PsbValue::String(s) = &list[i - 1] {
+                                    if s.string() == "text" {
+                                        if let PsbValue::String(text) = &list[i] {
+                                            self.messages.insert(text.string().to_owned());
+                                        }
+                                    }
+                                }
+                            }
+                            return;
+                        }
+                    }
+                }
+                for item in list {
+                    self.export(item);
+                }
+            }
+            _ => {}
+        }
     }
 }

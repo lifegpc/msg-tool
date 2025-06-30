@@ -114,6 +114,11 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Kirikiri language index in script. If not specified, the first language will be used.
     pub kirikiri_language_index: Option<usize>,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Export COMU message to extra json file. (for Kirikiri SCN script.)
+    /// Only CIRCUS's game have COMU message.
+    pub kirikiri_export_comumode: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

@@ -1358,6 +1358,8 @@ fn main() {
         cat_system_image_canvas: arg.cat_system_image_canvas,
         #[cfg(feature = "kirikiri")]
         kirikiri_language_index: arg.kirikiri_language_index.clone(),
+        #[cfg(feature = "kirikiri")]
+        kirikiri_export_comumode: arg.kirikiri_export_comumode,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

@@ -209,6 +209,8 @@ pub struct ExtraConfig {
     pub cat_system_image_canvas: bool,
     #[cfg(feature = "kirikiri")]
     pub kirikiri_language_index: Option<usize>,
+    #[cfg(feature = "kirikiri")]
+    pub kirikiri_export_comumode: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
