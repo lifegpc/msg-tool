@@ -7,6 +7,7 @@ use crate::utils::struct_pack::*;
 use anyhow::Result;
 use flate2::{Decompress, FlushDecompress};
 use msg_tool_macro::*;
+use overf::wrapping;
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug)]
@@ -205,7 +206,7 @@ impl<'a, T: Iterator<Item = &'a (Hg3Entry, usize, usize)> + 'a> Iterator for Hg3
                         name: format!("{:04}", self.index - 1),
                         data: img,
                     }))
-                },
+                }
                 Err(e) => Some(Err(e)),
             }
         } else {
@@ -324,15 +325,20 @@ impl<'a> Hg3Reader<'a> {
         }
         let stride = self.m_info.width * self.m_pixel_size;
         for x in self.m_pixel_size..stride {
-            output[x as usize] =
-                output[x as usize].wrapping_add(output[x as usize - self.m_pixel_size as usize]);
+            let target = x as usize - self.m_pixel_size as usize;
+            wrapping! {
+                output[x as usize] += output[target];
+            }
         }
         let mut prev = 0;
         for _ in 1..self.m_info.height {
             let line = prev + stride;
             for x in 0..stride {
-                output[line as usize + x as usize] = output[line as usize + x as usize]
-                    .wrapping_add(output[prev as usize + x as usize]);
+                let src = line as usize + x as usize;
+                let target = prev as usize + x as usize;
+                wrapping! {
+                    output[src] += output[target];
+                }
             }
             prev = line;
         }
