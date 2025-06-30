@@ -260,7 +260,51 @@ impl Script for ScnScript {
                     }
                 }
             }
-            // #TODO: selects / comudata(circus)
+            if let Some(PsbValue::List(selects)) = scene.get_value("selects".into()) {
+                for select in selects.iter() {
+                    if let PsbValue::Object(select) = select {
+                        let mut text = None;
+                        if let Some(PsbValue::List(language)) = select.get_value("language".into())
+                        {
+                            if language.len() > self.language_index {
+                                let v = &language.values()[self.language_index];
+                                if let PsbValue::Object(v) = v {
+                                    text = match v.get_value("text".into()) {
+                                        Some(PsbValue::String(s)) => Some(s),
+                                        Some(PsbValue::Null) => None,
+                                        None => None,
+                                        _ => {
+                                            return Err(anyhow::anyhow!(
+                                                "select text is not a string or null"
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if text.is_none() {
+                            text = match select.get_value("text".into()) {
+                                Some(PsbValue::String(s)) => Some(s),
+                                Some(PsbValue::Null) => None,
+                                None => None,
+                                _ => {
+                                    return Err(anyhow::anyhow!(
+                                        "select text is not a string or null"
+                                    ));
+                                }
+                            };
+                        }
+                        if let Some(text) = text {
+                            let text = text.string();
+                            messages.push(Message {
+                                name: None,
+                                message: text.replace("\\n", "\n"),
+                            });
+                        }
+                    }
+                }
+            }
+            // #TODO: comudata(circus)
         }
         Ok(messages)
     }
