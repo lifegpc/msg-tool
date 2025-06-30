@@ -110,6 +110,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Draw CatSystem2 image on canvas (if canvas width and height are specified in file)
     pub cat_system_image_canvas: bool,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true)]
+    /// Kirikiri language index in script. If not specified, the first language will be used.
+    pub kirikiri_language_index: Option<usize>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

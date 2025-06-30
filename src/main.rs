@@ -1356,6 +1356,8 @@ fn main() {
         cat_system_int_encrypt_password: arg.cat_system_int_encrypt_password.clone(),
         #[cfg(feature = "cat-system-img")]
         cat_system_image_canvas: arg.cat_system_image_canvas,
+        #[cfg(feature = "kirikiri")]
+        kirikiri_language_index: arg.kirikiri_language_index.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

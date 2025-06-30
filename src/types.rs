@@ -207,6 +207,8 @@ pub struct ExtraConfig {
     pub cat_system_int_encrypt_password: Option<String>,
     #[cfg(feature = "cat-system-img")]
     pub cat_system_image_canvas: bool,
+    #[cfg(feature = "kirikiri")]
+    pub kirikiri_language_index: Option<usize>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -262,6 +264,10 @@ pub enum ScriptType {
     #[cfg(feature = "escude")]
     /// Escude list script
     EscudeList,
+    #[cfg(feature = "kirikiri")]
+    #[value(alias("kr-scn"))]
+    /// Kirikiri SCN script
+    KirikiriScn,
     #[cfg(feature = "yaneurao-itufuru")]
     #[value(alias("itufuru"))]
     /// Yaneurao Itufuru script

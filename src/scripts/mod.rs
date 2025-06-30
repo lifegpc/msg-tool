@@ -7,6 +7,8 @@ pub mod cat_system;
 pub mod circus;
 #[cfg(feature = "escude")]
 pub mod escude;
+#[cfg(feature = "kirikiri")]
+pub mod kirikiri;
 #[cfg(feature = "yaneurao")]
 pub mod yaneurao;
 
@@ -46,6 +48,8 @@ lazy_static::lazy_static! {
         Box::new(cat_system::archive::int::CSIntArcBuilder::new()),
         #[cfg(feature = "cat-system-img")]
         Box::new(cat_system::image::hg3::Hg3ImageBuilder::new()),
+        #[cfg(feature = "kirikiri")]
+        Box::new(kirikiri::scn::ScnScriptBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();
