@@ -20,6 +20,7 @@ rand = { version = "0.9", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 unicode-segmentation = "1.12"
+utf16string = "0.2"
 
 [features]
 default = ["bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "escude", "escude-arc", "kirikiri", "yaneurao", "yaneurao-itufuru"]

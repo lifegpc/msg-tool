@@ -396,3 +396,22 @@ pub struct ImageDataWithName {
     pub name: String,
     pub data: ImageData,
 }
+
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BomType {
+    None,
+    Utf8,
+    Utf16LE,
+    Utf16BE,
+}
+
+impl BomType {
+    pub fn as_bytes(&self) -> &'static [u8] {
+        match self {
+            BomType::None => &[],
+            BomType::Utf8 => b"\xEF\xBB\xBF",
+            BomType::Utf16LE => b"\xFF\xFE",
+            BomType::Utf16BE => b"\xFE\xFF",
+        }
+    }
+}
