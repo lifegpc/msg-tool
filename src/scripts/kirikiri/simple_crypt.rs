@@ -130,7 +130,7 @@ impl SimpleCrypt {
         let mut data = Vec::with_capacity(uncompressed as usize + 2);
         data.push(0xff);
         data.push(0xfe);
-        data.resize(uncompressed as usize, 0);
+        data.resize(uncompressed as usize + 2, 0);
         stream.decompress(
             &reader.data[reader.pos..],
             &mut data[2..],
