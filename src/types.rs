@@ -211,6 +211,8 @@ pub struct ExtraConfig {
     pub kirikiri_language_index: Option<usize>,
     #[cfg(feature = "kirikiri")]
     pub kirikiri_export_comumode: bool,
+    #[cfg(feature = "kirikiri")]
+    pub kirikiri_comumode_json: Option<std::sync::Arc<HashMap<String, String>>>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

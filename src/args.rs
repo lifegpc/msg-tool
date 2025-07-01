@@ -119,6 +119,10 @@ pub struct Arg {
     /// Export COMU message to extra json file. (for Kirikiri SCN script.)
     /// Only CIRCUS's game have COMU message.
     pub kirikiri_export_comumode: bool,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true)]
+    /// Kirikiri COMU message translation file. (Map<String, String>, key is original text, value is translated text.)
+    pub kirikiri_comumode_json: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

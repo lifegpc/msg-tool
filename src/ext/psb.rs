@@ -5,6 +5,7 @@ use emote_psb::types::number::*;
 use emote_psb::types::reference::*;
 use emote_psb::types::string::*;
 use emote_psb::types::*;
+use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
 
@@ -158,7 +159,7 @@ impl IndexMut<usize> for PsbValueFixed {
                     &mut l.values[index]
                 } else {
                     l.values.push(NONE);
-                    &mut l.values[index]
+                    l.values.last_mut().unwrap()
                 }
             }
             _ => {
@@ -246,6 +247,27 @@ impl Clone for PsbValueFixed {
     }
 }
 
+impl PartialEq<String> for PsbValueFixed {
+    fn eq(&self, other: &String) -> bool {
+        self == other.as_str()
+    }
+}
+
+impl PartialEq<str> for PsbValueFixed {
+    fn eq(&self, other: &str) -> bool {
+        match self {
+            PsbValueFixed::String(s) => s.string() == other,
+            _ => false,
+        }
+    }
+}
+
+impl<'a> PartialEq<&'a str> for PsbValueFixed {
+    fn eq(&self, other: &&'a str) -> bool {
+        self == *other
+    }
+}
+
 pub trait PsbValueExt {
     fn to_psb_fixed(self) -> PsbValueFixed;
 }
@@ -303,6 +325,25 @@ impl PsbListFixed {
 
     pub fn len(&self) -> usize {
         self.values.len()
+    }
+}
+
+impl Index<usize> for PsbListFixed {
+    type Output = PsbValueFixed;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.values.get(index).unwrap_or(&NONE)
+    }
+}
+
+impl IndexMut<usize> for PsbListFixed {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        if index < self.values.len() {
+            &mut self.values[index]
+        } else {
+            self.values.push(NONE);
+            self.values.last_mut().unwrap()
+        }
     }
 }
 

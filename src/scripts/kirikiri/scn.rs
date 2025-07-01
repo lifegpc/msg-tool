@@ -4,9 +4,10 @@ use crate::scripts::base::*;
 use crate::types::*;
 use anyhow::Result;
 use emote_psb::{PsbReader, PsbWriter};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek};
 use std::path::Path;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct ScnScriptBuilder {}
@@ -101,6 +102,7 @@ pub struct ScnScript {
     language_index: usize,
     export_comumode: bool,
     filename: String,
+    comumode_json: Option<Arc<HashMap<String, String>>>,
 }
 
 impl ScnScript {
@@ -115,6 +117,7 @@ impl ScnScript {
             language_index: config.kirikiri_language_index.unwrap_or(0),
             export_comumode: config.kirikiri_export_comumode,
             filename: filename.to_string(),
+            comumode_json: config.kirikiri_comumode_json.clone(),
         })
     }
 }
@@ -320,6 +323,10 @@ impl Script for ScnScript {
         if !scenes.is_list() {
             return Err(anyhow::anyhow!("scenes is not an array"));
         }
+        let comu = self
+            .comumode_json
+            .as_ref()
+            .map(|json| ImportComuMes::new(json, replacement));
         for (i, scene) in scenes.members_mut().enumerate() {
             if !scene.is_object() {
                 return Err(anyhow::anyhow!("scene at {} is not an object", i));
@@ -547,7 +554,7 @@ impl Script for ScnScript {
                     }
                 }
             }
-            // #TODO: comumode
+            comu.as_ref().map(|c| c.import(scene));
         }
         if cur_mes.is_some() || mes.next().is_some() {
             return Err(anyhow::anyhow!("Some messages were not processed."));
@@ -613,6 +620,88 @@ impl ExportComuMes {
                 }
                 for item in list {
                     self.export(item);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ImportComuMes<'a> {
+    messages: &'a Arc<HashMap<String, String>>,
+    replacement: Option<&'a ReplacementTable>,
+}
+
+impl<'a> ImportComuMes<'a> {
+    pub fn new(
+        messages: &'a Arc<HashMap<String, String>>,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Self {
+        Self {
+            messages,
+            replacement,
+        }
+    }
+
+    pub fn import(&self, value: &mut PsbValueFixed) {
+        match value {
+            PsbValueFixed::Object(obj) => {
+                for (k, v) in obj.iter_mut() {
+                    if k == "comumode" {
+                        for obj in v.members_mut() {
+                            if let Some(text) = obj["text"].as_str() {
+                                if let Some(replace_text) = self.messages.get(text) {
+                                    let mut text = replace_text.clone();
+                                    if let Some(replacement) = self.replacement {
+                                        for (key, value) in replacement.map.iter() {
+                                            text = text.replace(key, value);
+                                        }
+                                    }
+                                    obj["text"].set_string(text.replace("\n", "\\n"));
+                                } else {
+                                    eprintln!(
+                                        "Warning: COMU message '{}' not found in translation table.",
+                                        text
+                                    );
+                                    crate::COUNTER.inc_warning();
+                                }
+                            }
+                        }
+                    } else {
+                        self.import(v);
+                    }
+                }
+            }
+            PsbValueFixed::List(list) => {
+                if list.len() > 1 {
+                    if list[0] == "comumode" {
+                        for i in 1..list.len() {
+                            if list[i - 1] == "text" {
+                                if let Some(text) = list[i].as_str() {
+                                    if let Some(replace_text) = self.messages.get(text) {
+                                        let mut text = replace_text.clone();
+                                        if let Some(replacement) = self.replacement {
+                                            for (key, value) in replacement.map.iter() {
+                                                text = text.replace(key, value);
+                                            }
+                                        }
+                                        list[i].set_string(text.replace("\n", "\\n"));
+                                    } else {
+                                        eprintln!(
+                                            "Warning: COMU message '{}' not found in translation table.",
+                                            text
+                                        );
+                                        crate::COUNTER.inc_warning();
+                                    }
+                                }
+                            }
+                        }
+                        return;
+                    }
+                }
+                for item in list.iter_mut() {
+                    self.import(item);
                 }
             }
             _ => {}

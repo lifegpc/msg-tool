@@ -1360,6 +1360,11 @@ fn main() {
         kirikiri_language_index: arg.kirikiri_language_index.clone(),
         #[cfg(feature = "kirikiri")]
         kirikiri_export_comumode: arg.kirikiri_export_comumode,
+        #[cfg(feature = "kirikiri")]
+        kirikiri_comumode_json: arg
+            .kirikiri_comumode_json
+            .as_ref()
+            .map(|s| scripts::kirikiri::read_kirikiri_comu_json(s).unwrap()),
     };
     match &arg.command {
         args::Command::Export { input, output } => {
