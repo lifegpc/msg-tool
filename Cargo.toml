@@ -32,7 +32,7 @@ cat-system-img = ["cat-system", "flate2", "image", "utils-bit-stream"]
 circus = []
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
-kirikiri = ["emote-psb"]
+kirikiri = ["emote-psb", "flate2"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
 # basic feature

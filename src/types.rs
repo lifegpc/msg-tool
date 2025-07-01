@@ -272,6 +272,10 @@ pub enum ScriptType {
     #[value(alias("kr-scn"))]
     /// Kirikiri SCN script
     KirikiriScn,
+    #[cfg(feature = "kirikiri")]
+    #[value(alias("kr-simple-crypt"))]
+    /// Kirikiri SimpleCrypt's text file
+    KirikiriSimpleCrypt,
     #[cfg(feature = "yaneurao-itufuru")]
     #[value(alias("itufuru"))]
     /// Yaneurao Itufuru script

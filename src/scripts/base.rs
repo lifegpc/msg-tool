@@ -169,7 +169,7 @@ pub trait Script: std::fmt::Debug {
         !matches!(output, OutputScriptType::Custom)
     }
 
-    fn custom_output_extension(&self) -> &'static str {
+    fn custom_output_extension<'a>(&'a self) -> &'a str {
         ""
     }
 
