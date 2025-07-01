@@ -128,10 +128,6 @@ impl Script for ScnScript {
         FormatOptions::None
     }
 
-    fn is_output_supported(&self, _: OutputScriptType) -> bool {
-        true
-    }
-
     fn extract_messages(&self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let root = self.psb.root();
@@ -507,7 +503,51 @@ impl Script for ScnScript {
                     }
                 }
             }
-            // #TODO: selects and comumode
+            for select in scene["selects"].members_mut() {
+                if select.is_object() {
+                    if cur_mes.is_none() {
+                        cur_mes = mes.next();
+                    }
+                    if select["language"].is_list()
+                        && select["language"].len() > self.language_index
+                        && select["language"][self.language_index].is_object()
+                    {
+                        let lang_obj = &mut select["language"][self.language_index];
+                        if lang_obj["text"].is_string() {
+                            let m = match cur_mes.take() {
+                                Some(m) => m,
+                                None => {
+                                    return Err(anyhow::anyhow!("No enough messages."));
+                                }
+                            };
+                            let mut text = m.message.clone();
+                            if let Some(replacement) = replacement {
+                                for (key, value) in replacement.map.iter() {
+                                    text = text.replace(key, value);
+                                }
+                            }
+                            lang_obj["text"].set_string(text.replace("\n", "\\n"));
+                            continue;
+                        }
+                    }
+                    if select["text"].is_string() {
+                        let m = match cur_mes.take() {
+                            Some(m) => m,
+                            None => {
+                                return Err(anyhow::anyhow!("No enough messages."));
+                            }
+                        };
+                        let mut text = m.message.clone();
+                        if let Some(replacement) = replacement {
+                            for (key, value) in replacement.map.iter() {
+                                text = text.replace(key, value);
+                            }
+                        }
+                        select["text"].set_string(text.replace("\n", "\\n"));
+                    }
+                }
+            }
+            // #TODO: comumode
         }
         if cur_mes.is_some() || mes.next().is_some() {
             return Err(anyhow::anyhow!("Some messages were not processed."));
