@@ -8,10 +8,11 @@ anyhow = "1"
 blowfish = { version = "0.9", optional = true }
 clap = { version = "4.5", features = ["derive"] }
 csv = "1.3"
-emote-psb = { version = "0.5.0", features = ["serde"], optional = true }
+emote-psb = { version = "0.5", features = ["serde"], optional = true }
 encoding_rs = "0.8"
 flate2 = { version = "1.1", optional = true }
 int-enum = { version = "1.2", optional = true }
+json = { version = "0.12", optional = true }
 lazy_static = "1.5.0"
 msg_tool_macro = { path = "./msg_tool_macro" }
 overf = "0.1"
@@ -32,7 +33,7 @@ cat-system-img = ["cat-system", "flate2", "image", "utils-bit-stream"]
 circus = []
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
-kirikiri = ["emote-psb"]
+kirikiri = ["emote-psb", "json"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
 # basic feature

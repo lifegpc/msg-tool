@@ -4,11 +4,23 @@ use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
 use emote_psb::types::PsbValue;
+use emote_psb::types::collection::PsbObject;
 use emote_psb::{PsbReader, PsbWriter, VirtualPsb};
+use json::JsonValue;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::io::{Read, Seek, Write};
 use std::path::Path;
+
+trait JsonExt {
+    fn is_valid_str(&self) -> bool;
+}
+
+impl JsonExt for JsonValue {
+    fn is_valid_str(&self) -> bool {
+        self.is_string() || self.is_null()
+    }
+}
 
 #[derive(Debug)]
 pub struct ScnScriptBuilder {}
@@ -189,7 +201,7 @@ impl Script for ScnScript {
                 _ => return Err(anyhow::anyhow!("scene at index {} is not an object", i)),
             };
             if let Some(PsbValue::List(texts)) = scene.get_value("texts".into()) {
-                for text in texts.iter() {
+                for (j, text) in texts.iter().enumerate() {
                     if let PsbValue::List(text) = text {
                         let values = text.values();
                         if values.len() <= 1 {
@@ -199,6 +211,7 @@ impl Script for ScnScript {
                         let name = match name {
                             PsbValue::String(s) => Some(s),
                             PsbValue::Null => None,
+                            PsbValue::None => None,
                             _ => return Err(anyhow::anyhow!("name is not a string or null")),
                         };
                         let mut display_name;
@@ -213,9 +226,10 @@ impl Script for ScnScript {
                             display_name = match &values[1] {
                                 PsbValue::String(s) => Some(s),
                                 PsbValue::Null => None,
+                                PsbValue::None => None,
                                 _ => {
                                     return Err(anyhow::anyhow!(
-                                        "display name is not a string or null"
+                                        "display name is not a string or null at {i},{j}"
                                     ));
                                 }
                             };
@@ -233,9 +247,10 @@ impl Script for ScnScript {
                                             display_name = match &data[0] {
                                                 PsbValue::String(s) => Some(s),
                                                 PsbValue::Null => None,
+                                                PsbValue::None => None,
                                                 _ => {
                                                     return Err(anyhow::anyhow!(
-                                                        "display name is not a string or null"
+                                                        "display name is not a string or null at {i},{j}"
                                                     ));
                                                 }
                                             };
@@ -282,6 +297,7 @@ impl Script for ScnScript {
                                     text = match v.get_value("text".into()) {
                                         Some(PsbValue::String(s)) => Some(s),
                                         Some(PsbValue::Null) => None,
+                                        Some(PsbValue::None) => None,
                                         None => None,
                                         _ => {
                                             return Err(anyhow::anyhow!(
@@ -296,6 +312,7 @@ impl Script for ScnScript {
                             text = match select.get_value("text".into()) {
                                 Some(PsbValue::String(s)) => Some(s),
                                 Some(PsbValue::Null) => None,
+                                Some(PsbValue::None) => None,
                                 None => None,
                                 _ => {
                                     return Err(anyhow::anyhow!(
@@ -344,6 +361,227 @@ impl Script for ScnScript {
             }
         }
         Ok(messages)
+    }
+
+    fn import_messages<'a>(
+        &'a self,
+        messages: Vec<Message>,
+        file: Box<dyn WriteSeek + 'a>,
+        _encoding: Encoding,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        let mut mes = messages.iter();
+        let mut cur_mes = mes.next();
+        // We use json library to process the PSB data, because emote-psb does not support update data.
+        let t = serde_json::to_string(&self.psb.root())?;
+        let mut root = json::parse(&t)?;
+        let scenes = &mut root["scenes"];
+        if !scenes.is_array() {
+            return Err(anyhow::anyhow!("scenes is not an array"));
+        }
+        for (i, scene) in scenes.members_mut().enumerate() {
+            if !scene.is_object() {
+                return Err(anyhow::anyhow!("scene at {} is not an object", i));
+            }
+            for text in scene["texts"].members_mut() {
+                if text.is_array() {
+                    if text.len() <= 1 {
+                        continue; // Skip if there are not enough values
+                    }
+                    if cur_mes.is_none() {
+                        cur_mes = mes.next();
+                    }
+                    if !text[0].is_valid_str() {
+                        return Err(anyhow::anyhow!("name is not a string or null"));
+                    }
+                    let has_name = text[0].is_string();
+                    let mut has_display_name;
+                    if text[1].is_array() {
+                        if text[1].is_string() {
+                            let m = match cur_mes.take() {
+                                Some(m) => m,
+                                None => {
+                                    return Err(anyhow::anyhow!("No enough messages."));
+                                }
+                            };
+                            if has_name {
+                                if let Some(name) = &m.name {
+                                    let mut name = name.clone();
+                                    if let Some(replacement) = replacement {
+                                        for (key, value) in replacement.map.iter() {
+                                            name = name.replace(key, value);
+                                        }
+                                    }
+                                    text[0] = json::JsonValue::String(name);
+                                } else {
+                                    return Err(anyhow::anyhow!("Name is missing for message."));
+                                }
+                            }
+                            let mut message = m.message.clone();
+                            if let Some(replacement) = replacement {
+                                for (key, value) in replacement.map.iter() {
+                                    message = message.replace(key, value);
+                                }
+                            }
+                            text[1] = json::JsonValue::String(message.replace("\n", "\\n"));
+                        } else if text[1].is_array() {
+                            if text[1].len() > self.language_index
+                                && text[1][self.language_index].is_array()
+                                && text[1][self.language_index].len() >= 2
+                            {
+                                if !text[1][self.language_index][0].is_valid_str() {
+                                    return Err(anyhow::anyhow!(
+                                        "display name is not a string or null"
+                                    ));
+                                }
+                                has_display_name = text[1][self.language_index][0].is_string();
+                                if text[1][self.language_index][1].is_string() {
+                                    let m = match cur_mes.take() {
+                                        Some(m) => m,
+                                        None => {
+                                            return Err(anyhow::anyhow!("No enough messages."));
+                                        }
+                                    };
+                                    if has_name {
+                                        if let Some(name) = &m.name {
+                                            let mut name = name.clone();
+                                            if let Some(replacement) = replacement {
+                                                for (key, value) in replacement.map.iter() {
+                                                    name = name.replace(key, value);
+                                                }
+                                            }
+                                            if has_display_name {
+                                                text[1][self.language_index][0] =
+                                                    json::JsonValue::String(name);
+                                            } else {
+                                                text[0] = json::JsonValue::String(name);
+                                            }
+                                        } else {
+                                            return Err(anyhow::anyhow!(
+                                                "Name is missing for message."
+                                            ));
+                                        }
+                                    }
+                                    let mut message = m.message.clone();
+                                    if let Some(replacement) = replacement {
+                                        for (key, value) in replacement.map.iter() {
+                                            message = message.replace(key, value);
+                                        }
+                                    }
+                                    text[1][self.language_index][1] =
+                                        json::JsonValue::String(message.replace("\n", "\\n"));
+                                }
+                            }
+                        }
+                    } else {
+                        if text.len() <= 2 {
+                            continue; // Skip if there is no message
+                        }
+                        if !text[1].is_valid_str() {
+                            return Err(anyhow::anyhow!("display name is not a string or null"));
+                        }
+                        has_display_name = text[1].is_string();
+                        if text[2].is_string() {
+                            let m = match cur_mes.take() {
+                                Some(m) => m,
+                                None => {
+                                    return Err(anyhow::anyhow!("No enough messages."));
+                                }
+                            };
+                            if has_name {
+                                if let Some(name) = &m.name {
+                                    let mut name = name.clone();
+                                    if let Some(replacement) = replacement {
+                                        for (key, value) in replacement.map.iter() {
+                                            name = name.replace(key, value);
+                                        }
+                                    }
+                                    if has_display_name {
+                                        text[1] = json::JsonValue::String(name);
+                                    } else {
+                                        text[0] = json::JsonValue::String(name);
+                                    }
+                                } else {
+                                    return Err(anyhow::anyhow!("Name is missing for message."));
+                                }
+                            }
+                            let mut message = m.message.clone();
+                            if let Some(replacement) = replacement {
+                                for (key, value) in replacement.map.iter() {
+                                    message = message.replace(key, value);
+                                }
+                            }
+                            text[2] = json::JsonValue::String(message.replace("\n", "\\n"));
+                        } else if text[2].is_array() {
+                            if text[2].len() > self.language_index
+                                && text[2][self.language_index].is_array()
+                                && text[2][self.language_index].len() >= 2
+                            {
+                                if !text[2][self.language_index][0].is_valid_str() {
+                                    return Err(anyhow::anyhow!(
+                                        "display name is not a string or null"
+                                    ));
+                                }
+                                has_display_name = text[2][self.language_index][0].is_string();
+                                if text[2][self.language_index][1].is_string() {
+                                    let m = match cur_mes.take() {
+                                        Some(m) => m,
+                                        None => {
+                                            return Err(anyhow::anyhow!("No enough messages."));
+                                        }
+                                    };
+                                    if has_name {
+                                        if let Some(name) = &m.name {
+                                            let mut name = name.clone();
+                                            if let Some(replacement) = replacement {
+                                                for (key, value) in replacement.map.iter() {
+                                                    name = name.replace(key, value);
+                                                }
+                                            }
+                                            if has_display_name {
+                                                text[2][self.language_index][0] =
+                                                    json::JsonValue::String(name);
+                                            } else {
+                                                text[0] = json::JsonValue::String(name);
+                                            }
+                                        } else {
+                                            return Err(anyhow::anyhow!(
+                                                "Name is missing for message."
+                                            ));
+                                        }
+                                    }
+                                    let mut message = m.message.clone();
+                                    if let Some(replacement) = replacement {
+                                        for (key, value) in replacement.map.iter() {
+                                            message = message.replace(key, value);
+                                        }
+                                    }
+                                    text[2][self.language_index][1] =
+                                        json::JsonValue::String(message.replace("\n", "\\n"));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // #TODO: selects and comumode
+        }
+        if cur_mes.is_some() || mes.next().is_some() {
+            return Err(anyhow::anyhow!("Some messages were not processed."));
+        }
+        let s = json::stringify(root);
+        let obj = serde_json::from_str::<PsbObject>(&s)?;
+        let oheader = self.psb.header();
+        let header = emote_psb::header::PsbHeader {
+            version: oheader.version,
+            encryption: oheader.encryption,
+        };
+        let psb = VirtualPsb::new(header, Vec::new(), Vec::new(), obj);
+        let writer = PsbWriter::new(psb, file);
+        writer
+            .finish()
+            .map_err(|e| anyhow::anyhow!("Failed to write PSB: {:?}", e))?;
+        Ok(())
     }
 
     fn custom_output_extension(&self) -> &'static str {
@@ -412,7 +650,7 @@ impl ExportComuMes {
                                 if let PsbValue::Object(obj) = item {
                                     if let Some(PsbValue::String(s)) = obj.get_value("text".into())
                                     {
-                                        self.messages.insert(s.string().to_owned());
+                                        self.messages.insert(s.string().replace("\\n", "\n"));
                                     }
                                 }
                             }
@@ -431,7 +669,8 @@ impl ExportComuMes {
                                 if let PsbValue::String(s) = &list[i - 1] {
                                     if s.string() == "text" {
                                         if let PsbValue::String(text) = &list[i] {
-                                            self.messages.insert(text.string().to_owned());
+                                            self.messages
+                                                .insert(text.string().replace("\\n", "\n"));
                                         }
                                     }
                                 }
