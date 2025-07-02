@@ -1365,6 +1365,16 @@ fn main() {
             .kirikiri_comumode_json
             .as_ref()
             .map(|s| scripts::kirikiri::read_kirikiri_comu_json(s).unwrap()),
+        #[cfg(feature = "kirikiri")]
+        kirikiri_remove_empty_lines: arg.kirikiri_remove_empty_lines,
+        #[cfg(feature = "kirikiri")]
+        kirikiri_name_commands: std::sync::Arc::new(std::collections::HashSet::from_iter(
+            arg.kirikiri_name_commands.iter().cloned(),
+        )),
+        #[cfg(feature = "kirikiri")]
+        kirikiri_message_commands: std::sync::Arc::new(std::collections::HashSet::from_iter(
+            arg.kirikiri_message_commands.iter().cloned(),
+        )),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

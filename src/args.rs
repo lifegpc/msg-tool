@@ -123,6 +123,28 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Kirikiri COMU message translation file. (Map<String, String>, key is original text, value is translated text.)
     pub kirikiri_comumode_json: Option<String>,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, alias = "kr-no-empty-lines", alias = "kirikiri-no-empty-lines")]
+    /// Remove empty lines in Kirikiri KS script.
+    pub kirikiri_remove_empty_lines: bool,
+    #[cfg(feature = "kirikiri")]
+    #[arg(
+        long,
+        global = true,
+        value_delimiter = ',',
+        default_value = "nm,set_title,speaker,Talk,talk,cn,name,名前"
+    )]
+    /// Kirikiri name commands, used to extract names from ks script.
+    pub kirikiri_name_commands: Vec<String>,
+    #[cfg(feature = "kirikiri")]
+    #[arg(
+        long,
+        global = true,
+        value_delimiter = ',',
+        default_value = "sel01,sel02,sel03,sel04,AddSelect,ruby,exlink,e_xlink"
+    )]
+    /// Kirikiri message commands, used to extract more message from ks script.
+    pub kirikiri_message_commands: Vec<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

@@ -1,3 +1,4 @@
+pub mod ks;
 pub mod scn;
 pub mod simple_crypt;
 use std::collections::HashMap;

@@ -6,6 +6,8 @@ pub mod crc32;
 pub mod encoding;
 #[cfg(windows)]
 mod encoding_win;
+#[cfg(feature = "utils-escape")]
+pub mod escape;
 pub mod files;
 #[cfg(feature = "image")]
 pub mod img;

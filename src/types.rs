@@ -213,6 +213,12 @@ pub struct ExtraConfig {
     pub kirikiri_export_comumode: bool,
     #[cfg(feature = "kirikiri")]
     pub kirikiri_comumode_json: Option<std::sync::Arc<HashMap<String, String>>>,
+    #[cfg(feature = "kirikiri")]
+    pub kirikiri_remove_empty_lines: bool,
+    #[cfg(feature = "kirikiri")]
+    pub kirikiri_name_commands: std::sync::Arc<std::collections::HashSet<String>>,
+    #[cfg(feature = "kirikiri")]
+    pub kirikiri_message_commands: std::sync::Arc<std::collections::HashSet<String>>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -276,6 +282,10 @@ pub enum ScriptType {
     #[value(alias("kr-simple-crypt"))]
     /// Kirikiri SimpleCrypt's text file
     KirikiriSimpleCrypt,
+    #[cfg(feature = "kirikiri")]
+    #[value(alias = "kr", alias = "kr-ks", alias = "kirikiri-ks")]
+    /// Kirikiri script
+    Kirikiri,
     #[cfg(feature = "yaneurao-itufuru")]
     #[value(alias("itufuru"))]
     /// Yaneurao Itufuru script
