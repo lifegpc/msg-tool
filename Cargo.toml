@@ -14,6 +14,7 @@ fancy-regex = { version = "0.14", optional = true }
 flate2 = { version = "1.1", optional = true }
 int-enum = { version = "1.2", optional = true }
 lazy_static = "1.5.0"
+libtlg-rs = { version = "0.1", optional = true }
 msg_tool_macro = { path = "./msg_tool_macro" }
 overf = "0.1"
 png = { version = "0.17", optional = true }
@@ -24,7 +25,7 @@ unicode-segmentation = "1.12"
 utf16string = "0.2"
 
 [features]
-default = ["bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "escude", "escude-arc", "kirikiri", "yaneurao", "yaneurao-itufuru"]
+default = ["bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "escude", "escude-arc", "kirikiri", "kirikiri-img", "yaneurao", "yaneurao-itufuru"]
 bgi = []
 bgi-arc = ["bgi", "utils-bit-stream"]
 bgi-img = ["bgi", "image", "utils-bit-stream"]
@@ -35,6 +36,7 @@ circus = []
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "utils-escape"]
+kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
 # basic feature

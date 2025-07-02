@@ -428,6 +428,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
 
 [[package]]
+name = "libtlg-rs"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c989df59ab8323731b26e3592f0ce760c852f47a327e198c89d9d7601226e485"
+dependencies = [
+ "overf",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -457,6 +466,7 @@ dependencies = [
  "flate2",
  "int-enum",
  "lazy_static",
+ "libtlg-rs",
  "msg_tool_macro",
  "overf",
  "png",

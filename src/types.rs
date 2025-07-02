@@ -286,6 +286,10 @@ pub enum ScriptType {
     #[value(alias = "kr", alias = "kr-ks", alias = "kirikiri-ks")]
     /// Kirikiri script
     Kirikiri,
+    #[cfg(feature = "kirikiri-img")]
+    #[value(alias("kr-tlg"))]
+    /// Kirikiri TLG image
+    KirikiriTlg,
     #[cfg(feature = "yaneurao-itufuru")]
     #[value(alias("itufuru"))]
     /// Yaneurao Itufuru script
