@@ -7,7 +7,7 @@ use anyhow::Result;
 use fancy_regex::Regex;
 use std::collections::HashSet;
 use std::io::Write;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -287,13 +287,36 @@ impl Node for ParsedScriptNode {
 #[derive(Clone, Debug)]
 struct ParsedScript(Vec<ParsedScriptNode>);
 
-impl ParsedScript {
-    fn iter(&self) -> impl Iterator<Item = &ParsedScriptNode> {
-        self.0.iter()
-    }
+impl Deref for ParsedScript {
+    type Target = Vec<ParsedScriptNode>;
 
-    fn iter_mut(&mut self) -> impl Iterator<Item = &mut ParsedScriptNode> {
-        self.0.iter_mut()
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for ParsedScript {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Index<usize> for ParsedScript {
+    type Output = ParsedScriptNode;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl IndexMut<usize> for ParsedScript {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        if index < self.0.len() {
+            &mut self.0[index]
+        } else {
+            self.0.push(ParsedScriptNode::EmptyLine(EmptyLineNode));
+            self.0.last_mut().unwrap()
+        }
     }
 }
 
@@ -502,7 +525,7 @@ impl Script for KsScript {
                     if !message.is_empty() {
                         messages.push(Message {
                             name: name.clone(),
-                            message: message.clone(),
+                            message: message.trim_end_matches("<np>").to_owned(),
                         });
                         message.clear();
                         name = None;
