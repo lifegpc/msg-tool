@@ -531,7 +531,11 @@ impl Script for KsScript {
                         name = None;
                     }
                 }
-                ParsedScriptNode::Line(line) => message.push_str(&line.to_xml()),
+                ParsedScriptNode::Line(line) => {
+                    if !message.ends_with("<np>") {
+                        message.push_str(&line.to_xml())
+                    }
+                }
                 ParsedScriptNode::Command(cmd) => {
                     if self.name_commands.contains(&cmd.name) {
                         for attr in &cmd.attributes {
@@ -560,7 +564,10 @@ impl Script for KsScript {
             }
         }
         if !message.is_empty() {
-            messages.push(Message { name, message });
+            messages.push(Message {
+                name,
+                message: message.trim_end_matches("<np>").to_owned(),
+            });
         }
         Ok(messages)
     }
