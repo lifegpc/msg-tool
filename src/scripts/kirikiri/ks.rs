@@ -36,7 +36,7 @@ impl ScriptBuilder for KsBuilder {
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["ks"]
+        &["ks", "soc"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
