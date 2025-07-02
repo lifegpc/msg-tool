@@ -1,3 +1,4 @@
+use crate::ext::fancy_regex::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
@@ -308,7 +309,7 @@ impl Node for ParsedScript {
 
 lazy_static::lazy_static! {
     static ref LINE_SPLIT_RE: Regex = Regex::new(r"(\[.*?\])").unwrap();
-    static ref ATTR_RE: Regex = Regex::new("([a-zA-Z0-9_]+)(?:=(\"[^\"]*\" |'[^']*' |[^\\s\\]]+))?").unwrap();
+    static ref ATTR_RE: Regex = Regex::new("([a-zA-Z0-9_]+)(?:=(\"[^\"]*\"|'[^']*'|[^\\s\\]]+))?").unwrap();
 }
 
 struct Parser {
@@ -333,7 +334,7 @@ impl Parser {
             let value = cap
                 .get(2)
                 .map(|v| {
-                    let mut s = v.as_str().to_string();
+                    let mut s = v.as_str().trim().to_string();
                     if s.starts_with("\"") && s.ends_with("\"") {
                         s = s[1..s.len() - 1].to_string();
                     } else if s.starts_with("'") && s.ends_with("'") {
@@ -430,8 +431,8 @@ impl Parser {
                 }
             }
             let mut parsed_line_nodes = Vec::new();
-            for part in LINE_SPLIT_RE.split(&full_line) {
-                let part = part?;
+            for part in LINE_SPLIT_RE.py_split(&full_line)? {
+                let part = part.trim();
                 if part.is_empty() {
                     continue;
                 }
@@ -448,6 +449,8 @@ impl Parser {
                             &part[1..part.len() - 1],
                         )?));
                     }
+                } else {
+                    parsed_line_nodes.push(ParsedLineNode::Text(TextNode(part.to_string())));
                 }
             }
             if !parsed_line_nodes.is_empty() {
@@ -492,12 +495,20 @@ impl Script for KsScript {
     fn extract_messages(&self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let mut name = None;
+        let mut message = String::new();
         for obj in self.tree.iter() {
             match obj {
-                ParsedScriptNode::Line(line) => messages.push(Message {
-                    name: name.take(),
-                    message: line.to_xml(),
-                }),
+                ParsedScriptNode::Label(_) => {
+                    if !message.is_empty() {
+                        messages.push(Message {
+                            name: name.clone(),
+                            message: message.clone(),
+                        });
+                        message.clear();
+                        name = None;
+                    }
+                }
+                ParsedScriptNode::Line(line) => message.push_str(&line.to_xml()),
                 ParsedScriptNode::Command(cmd) => {
                     if self.name_commands.contains(&cmd.name) {
                         for attr in &cmd.attributes {
@@ -513,7 +524,7 @@ impl Script for KsScript {
                             if let TagAttr::Str(value) = &attr.1 {
                                 if !value.is_empty() && !value.is_ascii() {
                                     messages.push(Message {
-                                        name: name.take(),
+                                        name: None,
                                         message: value.clone(),
                                     });
                                     break; // Only take the first message found
@@ -524,6 +535,9 @@ impl Script for KsScript {
                 }
                 _ => {}
             }
+        }
+        if !message.is_empty() {
+            messages.push(Message { name, message });
         }
         Ok(messages)
     }
