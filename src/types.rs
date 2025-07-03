@@ -294,6 +294,10 @@ pub enum ScriptType {
     #[value(alias("kr-pimg"))]
     /// Kirikiri PIMG image
     KirikiriPimg,
+    #[cfg(feature = "kirikiri-img")]
+    #[value(alias("kr-dref"))]
+    /// Kirikiri DREF(DPAK-referenced) image
+    KirikiriDref,
     #[cfg(feature = "yaneurao-itufuru")]
     #[value(alias("itufuru"))]
     /// Yaneurao Itufuru script

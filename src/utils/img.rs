@@ -52,6 +52,27 @@ pub fn convert_bgra_to_rgba(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+pub fn convert_rgb_to_rgba(data: &mut ImageData) -> Result<()> {
+    if data.color_type != ImageColorType::Rgb {
+        return Err(anyhow::anyhow!("Image is not RGB"));
+    }
+    if data.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "RGB to RGBA conversion only supports 8-bit depth"
+        ));
+    }
+    let mut new_data = Vec::with_capacity(data.data.len() / 3 * 4);
+    for chunk in data.data.chunks_exact(3) {
+        new_data.push(chunk[0]); // R
+        new_data.push(chunk[1]); // G
+        new_data.push(chunk[2]); // B
+        new_data.push(255); // A
+    }
+    data.data = new_data;
+    data.color_type = ImageColorType::Rgba;
+    Ok(())
+}
+
 pub fn convert_rgb_to_bgr(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Rgb {
         return Err(anyhow::anyhow!("Image is not RGB"));
@@ -124,39 +145,44 @@ pub fn encode_img(mut data: ImageData, typ: ImageOutputType, filename: &str) -> 
     }
 }
 
+pub fn load_png<R: std::io::Read>(data: R) -> Result<ImageData> {
+    let decoder = png::Decoder::new(data);
+    let mut reader = decoder.read_info()?;
+    let bit_depth = match reader.info().bit_depth {
+        png::BitDepth::One => 1,
+        png::BitDepth::Two => 2,
+        png::BitDepth::Four => 4,
+        png::BitDepth::Eight => 8,
+        png::BitDepth::Sixteen => 16,
+    };
+    let color_type = match reader.info().color_type {
+        png::ColorType::Grayscale => ImageColorType::Grayscale,
+        png::ColorType::Rgb => ImageColorType::Rgb,
+        png::ColorType::Rgba => ImageColorType::Rgba,
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Unsupported color type: {:?}",
+                reader.info().color_type
+            ));
+        }
+    };
+    let stride = reader.info().width as usize * color_type.bpp(bit_depth) as usize / 8;
+    let mut data = vec![0; stride * reader.info().height as usize];
+    reader.next_frame(&mut data)?;
+    Ok(ImageData {
+        width: reader.info().width,
+        height: reader.info().height,
+        depth: bit_depth,
+        color_type,
+        data,
+    })
+}
+
 pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
     match typ {
         ImageOutputType::Png => {
             let file = crate::utils::files::read_file(filename)?;
-            let decoder = png::Decoder::new(&file[..]);
-            let mut reader = decoder.read_info()?;
-            let bit_depth = match reader.info().bit_depth {
-                png::BitDepth::One => 1,
-                png::BitDepth::Two => 2,
-                png::BitDepth::Four => 4,
-                png::BitDepth::Eight => 8,
-                png::BitDepth::Sixteen => 16,
-            };
-            let color_type = match reader.info().color_type {
-                png::ColorType::Grayscale => ImageColorType::Grayscale,
-                png::ColorType::Rgb => ImageColorType::Rgb,
-                png::ColorType::Rgba => ImageColorType::Rgba,
-                _ => {
-                    return Err(anyhow::anyhow!(
-                        "Unsupported color type: {:?}",
-                        reader.info().color_type
-                    ));
-                }
-            };
-            let mut data = vec![0; reader.info().raw_bytes()];
-            reader.next_frame(&mut data)?;
-            Ok(ImageData {
-                width: reader.info().width,
-                height: reader.info().height,
-                depth: bit_depth,
-                color_type,
-                data,
-            })
+            load_png(&file[..])
         }
     }
 }

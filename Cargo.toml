@@ -22,6 +22,7 @@ rand = { version = "0.9", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 unicode-segmentation = "1.12"
+url = { version = "2.5", optional = true }
 utf16string = "0.2"
 
 [features]
@@ -36,7 +37,7 @@ circus = []
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "utils-escape"]
-kirikiri-img = ["kirikiri", "emote-psb", "image", "libtlg-rs"]
+kirikiri-img = ["kirikiri", "emote-psb", "image", "libtlg-rs", "url"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
 # basic feature
