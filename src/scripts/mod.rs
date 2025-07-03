@@ -56,6 +56,8 @@ lazy_static::lazy_static! {
         Box::new(kirikiri::ks::KsBuilder::new()),
         #[cfg(feature = "kirikiri-img")]
         Box::new(kirikiri::image::tlg::TlgImageBuilder::new()),
+        #[cfg(feature = "kirikiri-img")]
+        Box::new(kirikiri::image::pimg::PImgBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

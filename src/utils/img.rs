@@ -161,6 +161,42 @@ pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
     }
 }
 
+pub fn draw_on_canvas(
+    img: ImageData,
+    canvas_width: u32,
+    canvas_height: u32,
+    offset_x: u32,
+    offset_y: u32,
+) -> Result<ImageData> {
+    let bytes_per_pixel = img.color_type.bpp(img.depth) as u32 / 8;
+    let mut canvas_data = vec![0u8; (canvas_width * canvas_height * bytes_per_pixel) as usize];
+    let canvas_stride = canvas_width * bytes_per_pixel;
+    let img_stride = img.width * bytes_per_pixel;
+
+    for y in 0..img.height {
+        let canvas_y = y + offset_y;
+        if canvas_y >= canvas_height {
+            continue;
+        }
+        let canvas_start = (canvas_y * canvas_stride + offset_x * bytes_per_pixel) as usize;
+        let img_start = (y * img_stride) as usize;
+        let copy_len = img_stride as usize;
+        if canvas_start + copy_len > canvas_data.len() {
+            continue;
+        }
+        canvas_data[canvas_start..canvas_start + copy_len]
+            .copy_from_slice(&img.data[img_start..img_start + copy_len]);
+    }
+
+    Ok(ImageData {
+        width: canvas_width,
+        height: canvas_height,
+        color_type: img.color_type,
+        depth: img.depth,
+        data: canvas_data,
+    })
+}
+
 pub fn flip_image(data: &mut ImageData) -> Result<()> {
     if data.height <= 1 {
         return Ok(());
@@ -179,6 +215,96 @@ pub fn flip_image(data: &mut ImageData) -> Result<()> {
         top_row.swap_with_slice(bottom_row);
         i += 1;
         j -= 1;
+    }
+
+    Ok(())
+}
+
+pub fn apply_opacity(img: &mut ImageData, opacity: u8) -> Result<()> {
+    if img.color_type != ImageColorType::Rgba && img.color_type != ImageColorType::Bgra {
+        return Err(anyhow::anyhow!("Image is not RGBA or BGRA"));
+    }
+    if img.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "Opacity application only supports 8-bit depth"
+        ));
+    }
+    for i in (0..img.data.len()).step_by(4) {
+        img.data[i + 3] = (img.data[i + 3] as u16 * opacity as u16 / 255) as u8;
+    }
+    Ok(())
+}
+
+pub fn draw_on_img_with_opacity(
+    base: &mut ImageData,
+    diff: &ImageData,
+    left: u32,
+    top: u32,
+    opacity: u8,
+) -> Result<()> {
+    if base.color_type != diff.color_type {
+        return Err(anyhow::anyhow!("Image color types do not match"));
+    }
+    if base.color_type != ImageColorType::Rgba && base.color_type != ImageColorType::Bgra {
+        return Err(anyhow::anyhow!("Images are not RGBA or BGRA"));
+    }
+    if base.depth != 8 || diff.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "Image drawing with opacity only supports 8-bit depth"
+        ));
+    }
+
+    let bpp = 4;
+    let base_stride = base.width as usize * bpp;
+    let diff_stride = diff.width as usize * bpp;
+
+    for y in 0..diff.height {
+        let base_y = top + y;
+        if base_y >= base.height {
+            continue;
+        }
+
+        for x in 0..diff.width {
+            let base_x = left + x;
+            if base_x >= base.width {
+                continue;
+            }
+
+            let diff_idx = (y as usize * diff_stride) + (x as usize * bpp);
+            let base_idx = (base_y as usize * base_stride) + (base_x as usize * bpp);
+
+            let diff_pixel = &diff.data[diff_idx..diff_idx + bpp];
+            let base_pixel_orig = base.data[base_idx..base_idx + bpp].to_vec();
+
+            let src_alpha_u16 = (diff_pixel[3] as u16 * opacity as u16) / 255;
+
+            if src_alpha_u16 == 0 {
+                continue;
+            }
+
+            let dst_alpha_u16 = base_pixel_orig[3] as u16;
+
+            // out_alpha = src_alpha + dst_alpha * (1 - src_alpha)
+            let out_alpha_u16 = src_alpha_u16 + (dst_alpha_u16 * (255 - src_alpha_u16)) / 255;
+
+            if out_alpha_u16 == 0 {
+                for i in 0..4 {
+                    base.data[base_idx + i] = 0;
+                }
+                continue;
+            }
+
+            // out_color = (src_color * src_alpha + dst_color * dst_alpha * (1 - src_alpha)) / out_alpha
+            for i in 0..3 {
+                let src_comp = diff_pixel[i] as u16;
+                let dst_comp = base_pixel_orig[i] as u16;
+
+                let numerator = src_comp * src_alpha_u16
+                    + (dst_comp * dst_alpha_u16 * (255 - src_alpha_u16)) / 255;
+                base.data[base_idx + i] = (numerator / out_alpha_u16) as u8;
+            }
+            base.data[base_idx + 3] = out_alpha_u16 as u8;
+        }
     }
 
     Ok(())

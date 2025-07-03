@@ -96,6 +96,24 @@ impl PsbValueFixed {
         self.set_str(&value);
     }
 
+    pub fn as_u8(&self) -> Option<u8> {
+        self.as_i64().map(|n| n.try_into().ok()).flatten()
+    }
+
+    pub fn as_u32(&self) -> Option<u32> {
+        self.as_i64().map(|n| n as u32)
+    }
+
+    pub fn as_i64(&self) -> Option<i64> {
+        match self {
+            PsbValueFixed::Number(n) => match n {
+                PsbNumber::Integer(n) => Some(*n),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub fn as_str(&self) -> Option<&str> {
         match self {
             PsbValueFixed::String(s) => Some(s.string()),
@@ -136,6 +154,13 @@ impl PsbValueFixed {
         match self {
             PsbValueFixed::List(l) => l.iter_mut(),
             _ => ListIterMut::empty(),
+        }
+    }
+
+    pub fn resource_id(&self) -> Option<u64> {
+        match self {
+            PsbValueFixed::Resource(r) => Some(r.resource_ref),
+            _ => None,
         }
     }
 }

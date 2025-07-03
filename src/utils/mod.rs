@@ -11,5 +11,6 @@ pub mod escape;
 pub mod files;
 #[cfg(feature = "image")]
 pub mod img;
+pub mod macros;
 pub mod name_replacement;
 pub mod struct_pack;

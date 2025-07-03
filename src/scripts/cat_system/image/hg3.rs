@@ -390,39 +390,3 @@ impl<'a> Hg3Reader<'a> {
         Ok(img)
     }
 }
-
-fn draw_on_canvas(
-    img: ImageData,
-    canvas_width: u32,
-    canvas_height: u32,
-    offset_x: u32,
-    offset_y: u32,
-) -> Result<ImageData> {
-    let bytes_per_pixel = img.color_type.bpp(img.depth) as u32 / 8;
-    let mut canvas_data = vec![0u8; (canvas_width * canvas_height * bytes_per_pixel) as usize];
-    let canvas_stride = canvas_width * bytes_per_pixel;
-    let img_stride = img.width * bytes_per_pixel;
-
-    for y in 0..img.height {
-        let canvas_y = y + offset_y;
-        if canvas_y >= canvas_height {
-            continue;
-        }
-        let canvas_start = (canvas_y * canvas_stride + offset_x * bytes_per_pixel) as usize;
-        let img_start = (y * img_stride) as usize;
-        let copy_len = img_stride as usize;
-        if canvas_start + copy_len > canvas_data.len() {
-            continue;
-        }
-        canvas_data[canvas_start..canvas_start + copy_len]
-            .copy_from_slice(&img.data[img_start..img_start + copy_len]);
-    }
-
-    Ok(ImageData {
-        width: canvas_width,
-        height: canvas_height,
-        color_type: img.color_type,
-        depth: img.depth,
-        data: canvas_data,
-    })
-}

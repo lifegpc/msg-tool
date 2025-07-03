@@ -36,7 +36,7 @@ circus = []
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "utils-escape"]
-kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
+kirikiri-img = ["kirikiri", "emote-psb", "image", "libtlg-rs"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
 # basic feature
