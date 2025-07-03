@@ -145,6 +145,10 @@ pub struct Arg {
     )]
     /// Kirikiri message commands, used to extract more message from ks script.
     pub kirikiri_message_commands: Vec<String>,
+    #[cfg(feature = "image")]
+    #[arg(short = 'f', long, global = true)]
+    /// Output multiple image as <basename>_<name>.<ext> instead of <basename>/<name>.<ext>
+    pub image_output_flat: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

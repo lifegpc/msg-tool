@@ -380,9 +380,19 @@ pub fn export_script(
                                 }
                             };
                             let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
-                            let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
-                            out_path.set_extension("");
-                            out_path.push(img_data.name);
+                            let mut out_path = std::path::PathBuf::from(&odir);
+                            if !arg.image_output_flat {
+                                out_path.push(f.name());
+                                out_path.set_extension("");
+                                out_path.push(img_data.name);
+                            } else {
+                                let name = std::path::Path::new(f.name());
+                                out_path.push(format!(
+                                    "{}_{}",
+                                    name.file_stem().unwrap_or_default().to_string_lossy(),
+                                    img_data.name
+                                ));
+                            }
                             out_path.set_extension(out_type.as_ref());
                             match utils::files::make_sure_dir_exists(&out_path) {
                                 Ok(_) => {}
@@ -616,24 +626,50 @@ pub fn export_script(
                         if is_dir {
                             let f = std::path::PathBuf::from(filename);
                             let mut pb = std::path::PathBuf::from(output);
-                            if let Some(fname) = f.file_name() {
-                                pb.push(fname);
-                                pb.set_extension("");
+                            if !arg.image_output_flat {
+                                if let Some(fname) = f.file_name() {
+                                    pb.push(fname);
+                                    pb.set_extension("");
+                                }
+                                pb.push(img_data.name);
+                            } else {
+                                pb.push(format!(
+                                    "{}_{}",
+                                    f.file_stem().unwrap_or_default().to_string_lossy(),
+                                    img_data.name
+                                ));
                             }
-                            pb.push(img_data.name);
                             pb.set_extension(out_type.as_ref());
                             pb.to_string_lossy().into_owned()
                         } else {
                             let mut pb = std::path::PathBuf::from(output);
-                            pb.push(img_data.name);
+                            if arg.image_output_flat {
+                                let f = std::path::PathBuf::from(filename);
+                                pb.push(format!(
+                                    "{}_{}",
+                                    f.file_stem().unwrap_or_default().to_string_lossy(),
+                                    img_data.name
+                                ));
+                            } else {
+                                pb.push(img_data.name);
+                            }
                             pb.set_extension(out_type.as_ref());
                             pb.to_string_lossy().into_owned()
                         }
                     }
                     None => {
                         let mut pb = std::path::PathBuf::from(filename);
-                        pb.set_extension("");
-                        pb.push(img_data.name);
+                        if arg.image_output_flat {
+                            let f = std::path::PathBuf::from(filename);
+                            pb.set_file_name(format!(
+                                "{}_{}",
+                                f.file_stem().unwrap_or_default().to_string_lossy(),
+                                img_data.name
+                            ));
+                        } else {
+                            pb.set_extension("");
+                            pb.push(img_data.name);
+                        }
                         pb.set_extension(out_type.as_ref());
                         pb.to_string_lossy().into_owned()
                     }
