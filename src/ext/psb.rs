@@ -5,6 +5,8 @@ use emote_psb::types::number::*;
 use emote_psb::types::reference::*;
 use emote_psb::types::string::*;
 use emote_psb::types::*;
+#[cfg(feature = "json")]
+use json::JsonValue;
 use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
@@ -161,6 +163,89 @@ impl PsbValueFixed {
         match self {
             PsbValueFixed::Resource(r) => Some(r.resource_ref),
             _ => None,
+        }
+    }
+
+    #[cfg(feature = "json")]
+    pub fn to_json(&self) -> Option<JsonValue> {
+        match self {
+            PsbValueFixed::Null => Some(JsonValue::Null),
+            PsbValueFixed::Bool(b) => Some(JsonValue::Boolean(*b)),
+            PsbValueFixed::Number(n) => match n {
+                PsbNumber::Integer(i) => Some(JsonValue::Number((*i).into())),
+                PsbNumber::Float(f) => Some(JsonValue::Number((*f).into())),
+                PsbNumber::Double(d) => Some(JsonValue::Number((*d).into())),
+            },
+            PsbValueFixed::String(s) => Some(JsonValue::String(s.string().to_owned())),
+            PsbValueFixed::Resource(s) => {
+                Some(JsonValue::String(format!("resource#{}", s.resource_ref)))
+            }
+            PsbValueFixed::ExtraResource(s) => Some(JsonValue::String(format!(
+                "extra_resource#{}",
+                s.extra_resource_ref
+            ))),
+            PsbValueFixed::IntArray(arr) => Some(JsonValue::Array(
+                arr.iter().map(|n| JsonValue::Number((*n).into())).collect(),
+            )),
+            PsbValueFixed::List(l) => Some(l.to_json()),
+            PsbValueFixed::Object(o) => Some(o.to_json()),
+            _ => None,
+        }
+    }
+
+    #[cfg(feature = "json")]
+    pub fn from_json(obj: &JsonValue) -> Self {
+        match obj {
+            JsonValue::Null => PsbValueFixed::Null,
+            JsonValue::Boolean(b) => PsbValueFixed::Bool(*b),
+            JsonValue::Number(n) => {
+                let data: f64 = (*n).into();
+                if data.fract() == 0.0 {
+                    PsbValueFixed::Number(PsbNumber::Integer(data as i64))
+                } else {
+                    PsbValueFixed::Number(PsbNumber::Float(data as f32))
+                }
+            }
+            JsonValue::String(s) => {
+                if s.starts_with("resource#") {
+                    if let Ok(id) = s[9..].parse::<u64>() {
+                        return PsbValueFixed::Resource(PsbResourceRef { resource_ref: id });
+                    }
+                } else if s.starts_with("extra_resource#") {
+                    if let Ok(id) = s[16..].parse::<u64>() {
+                        return PsbValueFixed::ExtraResource(PsbExtraRef {
+                            extra_resource_ref: id,
+                        });
+                    }
+                }
+                PsbValueFixed::String(PsbString::from(s.clone()))
+            }
+            JsonValue::Array(arr) => {
+                let values: Vec<PsbValueFixed> = arr.iter().map(PsbValueFixed::from_json).collect();
+                PsbValueFixed::List(PsbListFixed { values })
+            }
+            JsonValue::Object(obj) => {
+                let mut values = HashMap::new();
+                for (key, value) in obj.iter() {
+                    values.insert(key.to_owned(), PsbValueFixed::from_json(value));
+                }
+                PsbValueFixed::Object(PsbObjectFixed { values })
+            }
+            JsonValue::Short(n) => {
+                let s = n.as_str();
+                if s.starts_with("resource#") {
+                    if let Ok(id) = s[9..].parse::<u64>() {
+                        return PsbValueFixed::Resource(PsbResourceRef { resource_ref: id });
+                    }
+                } else if s.starts_with("extra_resource#") {
+                    if let Ok(id) = s[16..].parse::<u64>() {
+                        return PsbValueFixed::ExtraResource(PsbExtraRef {
+                            extra_resource_ref: id,
+                        });
+                    }
+                }
+                PsbValueFixed::String(PsbString::from(s.to_owned()))
+            }
         }
     }
 }
@@ -351,6 +436,12 @@ impl PsbListFixed {
     pub fn len(&self) -> usize {
         self.values.len()
     }
+
+    #[cfg(feature = "json")]
+    pub fn to_json(&self) -> JsonValue {
+        let data: Vec<_> = self.values.iter().filter_map(|v| v.to_json()).collect();
+        JsonValue::Array(data)
+    }
 }
 
 impl Index<usize> for PsbListFixed {
@@ -483,6 +574,26 @@ impl PsbObjectFixed {
         ObjectIterMut {
             inner: self.values.iter_mut(),
         }
+    }
+
+    #[cfg(feature = "json")]
+    pub fn to_json(&self) -> JsonValue {
+        let mut obj = json::object::Object::new();
+        for (key, value) in &self.values {
+            if let Some(json_value) = value.to_json() {
+                obj.insert(key, json_value);
+            }
+        }
+        JsonValue::Object(obj)
+    }
+
+    #[cfg(feature = "json")]
+    pub fn from_json(obj: &JsonValue) -> Self {
+        let mut values = HashMap::new();
+        for (key, value) in obj.entries() {
+            values.insert(key.to_owned(), PsbValueFixed::from_json(value));
+        }
+        PsbObjectFixed { values }
     }
 }
 
@@ -657,6 +768,29 @@ impl VirtualPsbFixed {
     pub fn to_psb(self) -> VirtualPsb {
         let (header, resources, extra, root) = self.unwrap();
         VirtualPsb::new(header, resources, extra, root.to_psb())
+    }
+
+    #[cfg(feature = "json")]
+    pub fn from_json(&mut self, obj: &JsonValue) -> Result<(), anyhow::Error> {
+        let version = obj["version"]
+            .as_u16()
+            .ok_or_else(|| anyhow::anyhow!("Invalid PSB version"))?;
+        let encryption = obj["encryption"]
+            .as_u16()
+            .ok_or_else(|| anyhow::anyhow!("Invalid PSB encryption"))?;
+        self.header.version = version;
+        self.header.encryption = encryption;
+        self.root = PsbObjectFixed::from_json(&obj["data"]);
+        Ok(())
+    }
+
+    #[cfg(feature = "json")]
+    pub fn to_json(&self) -> JsonValue {
+        json::object! {
+            "version": self.header.version,
+            "encryption": self.header.encryption,
+            "data": self.root.to_json(),
+        }
     }
 }
 

@@ -13,6 +13,7 @@ encoding_rs = "0.8"
 fancy-regex = { version = "0.14", optional = true }
 flate2 = { version = "1.1", optional = true }
 int-enum = { version = "1.2", optional = true }
+json = { version = "0.12", optional = true }
 lazy_static = "1.5.0"
 libtlg-rs = { version = "0.1", optional = true }
 msg_tool_macro = { path = "./msg_tool_macro" }
@@ -36,7 +37,7 @@ cat-system-img = ["cat-system", "flate2", "image", "utils-bit-stream"]
 circus = []
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
-kirikiri = ["emote-psb", "fancy-regex", "flate2", "utils-escape"]
+kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "utils-escape"]
 kirikiri-img = ["kirikiri", "emote-psb", "image", "libtlg-rs", "url"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]

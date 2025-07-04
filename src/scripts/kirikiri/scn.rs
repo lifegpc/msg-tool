@@ -2,6 +2,7 @@ use crate::ext::io::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
 use crate::types::*;
+use crate::utils::encoding::*;
 use anyhow::Result;
 use emote_psb::{PsbReader, PsbWriter};
 use std::collections::{HashMap, HashSet};
@@ -129,6 +130,10 @@ impl Script for ScnScript {
 
     fn default_format_type(&self) -> FormatOptions {
         FormatOptions::None
+    }
+
+    fn is_output_supported(&self, _: OutputScriptType) -> bool {
+        true
     }
 
     fn extract_messages(&self) -> Result<Vec<Message>> {
@@ -559,6 +564,34 @@ impl Script for ScnScript {
         if cur_mes.is_some() || mes.next().is_some() {
             return Err(anyhow::anyhow!("Some messages were not processed."));
         }
+        let psb = psb.to_psb();
+        let writer = PsbWriter::new(psb, file);
+        writer.finish().map_err(|e| {
+            anyhow::anyhow!("Failed to write PSB to file {}: {:?}", self.filename, e)
+        })?;
+        Ok(())
+    }
+
+    fn custom_export(&self, filename: &Path, encoding: Encoding) -> Result<()> {
+        let s = json::stringify_pretty(self.psb.to_json(), 2);
+        let mut f = crate::utils::files::write_file(filename)?;
+        let b = encode_string(encoding, &s, false)?;
+        f.write_all(&b)?;
+        Ok(())
+    }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        file: Box<dyn WriteSeek + 'a>,
+        _encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        let data = crate::utils::files::read_file(custom_filename)?;
+        let s = decode_to_string(output_encoding, &data)?;
+        let json = json::parse(&s)?;
+        let mut psb = self.psb.clone();
+        psb.from_json(&json)?;
         let psb = psb.to_psb();
         let writer = PsbWriter::new(psb, file);
         writer.finish().map_err(|e| {
