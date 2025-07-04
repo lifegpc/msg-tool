@@ -350,34 +350,72 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
         // LZSS compression
         let mut ops = vec![];
         let mut pos = 0;
+
+        const MIN_LEN: usize = 2;
+        const MAX_LEN: usize = 257;
+        const WINDOW_SIZE: usize = 4097;
+
+        let mut head: Vec<i32> = vec![-1; 1 << 16];
+        let mut prev: Vec<i32> = vec![-1; data.len()];
+
         while pos < data.len() {
+            let max_len = (data.len() - pos).min(MAX_LEN);
             let mut best_len = 0;
             let mut best_offset = 0;
-            let max_len = (data.len() - pos).min(257);
 
-            if max_len >= 2 {
-                let search_start = if pos > 4097 { pos - 4097 } else { 0 };
-                let lookbehind = &data[search_start..pos];
-                for len in (2..=max_len).rev() {
-                    if let Some(found_idx) = lookbehind.rfind(&data[pos..pos + len]) {
-                        let offset = lookbehind.len() - found_idx;
-                        if offset >= 2 {
-                            best_len = len;
-                            best_offset = offset;
-                            break;
+            if max_len >= MIN_LEN {
+                let limit = pos.saturating_sub(WINDOW_SIZE);
+                let key = (data[pos] as u16) << 8 | data[pos + 1] as u16;
+                let mut match_pos_i32 = head[key as usize];
+
+                while match_pos_i32 != -1 {
+                    let match_pos = match_pos_i32 as usize;
+                    if match_pos < limit {
+                        break;
+                    }
+
+                    if data.get(match_pos + best_len) == data.get(pos + best_len) {
+                        let mut current_len = 0;
+                        for i in 0..max_len {
+                            if data.get(pos + i) != data.get(match_pos + i) {
+                                break;
+                            }
+                            current_len += 1;
+                        }
+
+                        if current_len > best_len {
+                            best_len = current_len;
+                            best_offset = pos - match_pos;
+                            if best_len >= max_len {
+                                break;
+                            }
                         }
                     }
+                    match_pos_i32 = prev[match_pos];
                 }
             }
 
-            if best_len >= 2 {
+            if best_len >= MIN_LEN && best_offset >= 2 {
                 ops.push(LzssOp::Match {
                     len: best_len as u16,
                     offset: best_offset as u16,
                 });
+                for i in 0..best_len {
+                    if pos + i + 1 < data.len() {
+                        let key = (data[pos + i] as u16) << 8 | data[pos + i + 1] as u16;
+                        let current_pos = pos + i;
+                        prev[current_pos] = head[key as usize];
+                        head[key as usize] = current_pos as i32;
+                    }
+                }
                 pos += best_len;
             } else {
                 ops.push(LzssOp::Literal(data[pos]));
+                if pos + 1 < data.len() {
+                    let key = (data[pos] as u16) << 8 | data[pos + 1] as u16;
+                    prev[pos] = head[key as usize];
+                    head[key as usize] = pos as i32;
+                }
                 pos += 1;
             }
         }
