@@ -24,3 +24,21 @@ impl<T: Copy> VecExt<T> for Vec<T> {
         }
     }
 }
+
+pub trait SliceExt<T> {
+    fn rfind(&self, pattern: &[T]) -> Option<usize>;
+}
+
+impl<T: PartialEq> SliceExt<T> for [T] {
+    fn rfind(&self, pattern: &[T]) -> Option<usize> {
+        if pattern.is_empty() || self.len() < pattern.len() {
+            return None;
+        }
+        for i in (0..=self.len() - pattern.len()).rev() {
+            if &self[i..i + pattern.len()] == pattern {
+                return Some(i);
+            }
+        }
+        None
+    }
+}

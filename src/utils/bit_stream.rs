@@ -42,7 +42,7 @@ impl<T: Read> MsbBitStream<T> {
 }
 
 pub struct MsbBitWriter<'a, T: Write> {
-    writer: &'a mut T,
+    pub writer: &'a mut T,
     buffer: u32,
     buffer_size: u32,
 }
@@ -58,7 +58,8 @@ impl<'a, T: Write> MsbBitWriter<'a, T> {
 
     pub fn flush(&mut self) -> Result<()> {
         if self.buffer_size > 0 {
-            self.writer.write_u8((self.buffer & 0xFF) as u8)?;
+            self.writer
+                .write_u8(((self.buffer << (8 - self.buffer_size)) & 0xFF) as u8)?;
             self.buffer = 0;
             self.buffer_size = 0;
         }

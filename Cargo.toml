@@ -29,7 +29,7 @@ utf16string = "0.2"
 [features]
 default = ["bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "escude", "escude-arc", "kirikiri", "kirikiri-img", "yaneurao", "yaneurao-itufuru"]
 bgi = []
-bgi-arc = ["bgi", "utils-bit-stream"]
+bgi-arc = ["bgi", "rand", "utils-bit-stream"]
 bgi-img = ["bgi", "image", "utils-bit-stream"]
 cat-system = []
 cat-system-arc = ["cat-system", "blowfish", "utils-crc32"]
