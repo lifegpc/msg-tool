@@ -136,6 +136,10 @@ impl Script for ScnScript {
         true
     }
 
+    fn custom_output_extension<'a>(&'a self) -> &'a str {
+        "json"
+    }
+
     fn extract_messages(&self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let root = self.psb.root();
