@@ -1411,6 +1411,8 @@ fn main() {
         kirikiri_message_commands: std::sync::Arc::new(std::collections::HashSet::from_iter(
             arg.kirikiri_message_commands.iter().cloned(),
         )),
+        #[cfg(feature = "bgi-arc")]
+        bgi_compress_file: arg.bgi_compress_file,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

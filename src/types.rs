@@ -219,6 +219,8 @@ pub struct ExtraConfig {
     pub kirikiri_name_commands: std::sync::Arc<std::collections::HashSet<String>>,
     #[cfg(feature = "kirikiri")]
     pub kirikiri_message_commands: std::sync::Arc<std::collections::HashSet<String>>,
+    #[cfg(feature = "bgi-arc")]
+    pub bgi_compress_file: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

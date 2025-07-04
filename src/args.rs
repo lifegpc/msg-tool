@@ -149,6 +149,10 @@ pub struct Arg {
     #[arg(short = 'f', long, global = true)]
     /// Output multiple image as <basename>_<name>.<ext> instead of <basename>/<name>.<ext>
     pub image_output_flat: bool,
+    #[cfg(feature = "bgi-arc")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Whether to compress files in BGI archive when packing BGI archive.
+    pub bgi_compress_file: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
