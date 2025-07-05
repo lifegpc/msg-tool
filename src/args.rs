@@ -147,7 +147,7 @@ pub struct Arg {
     pub kirikiri_message_commands: Vec<String>,
     #[cfg(feature = "image")]
     #[arg(short = 'f', long, global = true)]
-    /// Output multiple image as <basename>_<name>.<ext> instead of <basename>/<name>.<ext>
+    /// Output multiple image as `<basename>_<name>.<ext>` instead of `<basename>/<name>.<ext>`
     pub image_output_flat: bool,
     #[cfg(feature = "bgi-arc")]
     #[arg(long, global = true, action = ArgAction::SetTrue)]
