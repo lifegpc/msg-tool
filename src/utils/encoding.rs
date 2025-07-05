@@ -29,7 +29,13 @@ pub fn decode_with_bom_detect(
     #[cfg(feature = "kirikiri")]
     {
         use crate::ext::io::*;
+        use crate::scripts::kirikiri::mdf::Mdf;
         use crate::scripts::kirikiri::simple_crypt::SimpleCrypt;
+        if data.len() >= 8 && data.starts_with(b"mdf\0") {
+            let reader = MemReaderRef::new(&data[4..]);
+            let decoded = Mdf::unpack(reader)?;
+            return decode_with_bom_detect(encoding, &decoded);
+        }
         if data.len() >= 5
             && data[0] == 0xFE
             && data[1] == 0xFE

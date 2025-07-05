@@ -1,6 +1,7 @@
 #[cfg(feature = "kirikiri-img")]
 pub mod image;
 pub mod ks;
+pub mod mdf;
 pub mod scn;
 pub mod simple_crypt;
 use std::collections::HashMap;

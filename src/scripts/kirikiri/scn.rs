@@ -1,3 +1,4 @@
+use super::mdf::Mdf;
 use crate::ext::io::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
@@ -107,7 +108,20 @@ pub struct ScnScript {
 }
 
 impl ScnScript {
-    pub fn new<R: Read + Seek>(reader: R, filename: &str, config: &ExtraConfig) -> Result<Self> {
+    pub fn new<R: Read + Seek>(
+        mut reader: R,
+        filename: &str,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
+        let mut header = [0u8; 4];
+        reader.read_exact(&mut header)?;
+        if &header == b"mdf\0" {
+            let mut data = Vec::new();
+            reader.read_to_end(&mut data)?;
+            let decoded = Mdf::unpack(MemReaderRef::new(&data))?;
+            return Self::new(MemReader::new(decoded), filename, config);
+        }
+        reader.rewind()?;
         let mut psb = PsbReader::open_psb(reader)
             .map_err(|e| anyhow::anyhow!("Failed to open PSB from {}: {:?}", filename, e))?;
         let psb = psb

@@ -300,6 +300,10 @@ pub enum ScriptType {
     #[value(alias("kr-dref"))]
     /// Kirikiri DREF(DPAK-referenced) image
     KirikiriDref,
+    #[cfg(feature = "kirikiri")]
+    #[value(alias("kr-mdf"))]
+    /// Kirikiri MDF (zlib compressed) file
+    KirikiriMdf,
     #[cfg(feature = "yaneurao-itufuru")]
     #[value(alias("itufuru"))]
     /// Yaneurao Itufuru script
