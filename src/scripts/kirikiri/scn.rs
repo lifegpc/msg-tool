@@ -354,7 +354,7 @@ impl Script for ScnScript {
             if !scene.is_object() {
                 return Err(anyhow::anyhow!("scene at {} is not an object", i));
             }
-            for text in scene["texts"].members_mut() {
+            for (j, text) in scene["texts"].members_mut().enumerate() {
                 if text.is_list() {
                     if text.len() <= 1 {
                         continue; // Skip if there are not enough values
@@ -372,7 +372,9 @@ impl Script for ScnScript {
                             let m = match cur_mes.take() {
                                 Some(m) => m,
                                 None => {
-                                    return Err(anyhow::anyhow!("No enough messages."));
+                                    return Err(anyhow::anyhow!(
+                                        "No enough messages. (text {j} at scene {i})"
+                                    ));
                                 }
                             };
                             if has_name {
@@ -385,7 +387,9 @@ impl Script for ScnScript {
                                     }
                                     text[0].set_string(name);
                                 } else {
-                                    return Err(anyhow::anyhow!("Name is missing for message."));
+                                    return Err(anyhow::anyhow!(
+                                        "Name is missing for message. (text {j} at scene {i})"
+                                    ));
                                 }
                             }
                             let mut message = m.message.clone();
@@ -410,7 +414,9 @@ impl Script for ScnScript {
                                     let m = match cur_mes.take() {
                                         Some(m) => m,
                                         None => {
-                                            return Err(anyhow::anyhow!("No enough messages."));
+                                            return Err(anyhow::anyhow!(
+                                                "No enough messages. (text {j} at scene {i})"
+                                            ));
                                         }
                                     };
                                     if has_name {
@@ -428,7 +434,7 @@ impl Script for ScnScript {
                                             }
                                         } else {
                                             return Err(anyhow::anyhow!(
-                                                "Name is missing for message."
+                                                "Name is missing for message. (text {j} at scene {i})"
                                             ));
                                         }
                                     }
@@ -455,7 +461,9 @@ impl Script for ScnScript {
                             let m = match cur_mes.take() {
                                 Some(m) => m,
                                 None => {
-                                    return Err(anyhow::anyhow!("No enough messages."));
+                                    return Err(anyhow::anyhow!(
+                                        "No enough messages.(text {j} at scene {i})"
+                                    ));
                                 }
                             };
                             if has_name {
@@ -472,7 +480,9 @@ impl Script for ScnScript {
                                         text[0].set_string(name);
                                     }
                                 } else {
-                                    return Err(anyhow::anyhow!("Name is missing for message."));
+                                    return Err(anyhow::anyhow!(
+                                        "Name is missing for message.(text {j} at scene {i})"
+                                    ));
                                 }
                             }
                             let mut message = m.message.clone();
@@ -497,7 +507,9 @@ impl Script for ScnScript {
                                     let m = match cur_mes.take() {
                                         Some(m) => m,
                                         None => {
-                                            return Err(anyhow::anyhow!("No enough messages."));
+                                            return Err(anyhow::anyhow!(
+                                                "No enough messages.(text {j} at scene {i})"
+                                            ));
                                         }
                                     };
                                     if has_name {
@@ -515,7 +527,7 @@ impl Script for ScnScript {
                                             }
                                         } else {
                                             return Err(anyhow::anyhow!(
-                                                "Name is missing for message."
+                                                "Name is missing for message.(text {j} at scene {i})"
                                             ));
                                         }
                                     }
