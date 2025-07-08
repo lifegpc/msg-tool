@@ -164,7 +164,7 @@ impl Dref {
         filename: &str,
         _config: &ExtraConfig,
     ) -> Result<Self> {
-        let text = decode_with_bom_detect(encoding, &buf)?.0;
+        let text = decode_with_bom_detect(encoding, &buf, true)?.0;
         let mut urls = Vec::new();
         for text in text.lines() {
             let text = text.trim();

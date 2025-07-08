@@ -116,7 +116,7 @@ impl Script for BGIBpScript {
             let text_address = i.offset_pos + i.text_offset as usize - 1;
             // println!("offset: {}, text address: {}, text_offset: {}", i.offset_pos, text_address, i.text_offset);
             let str = self.data.cpeek_cstring_at(text_address)?;
-            let str = decode_to_string(self.encoding, str.as_bytes())?;
+            let str = decode_to_string(self.encoding, str.as_bytes(), true)?;
             messages.push(Message {
                 name: None,
                 message: str,

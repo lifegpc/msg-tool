@@ -278,7 +278,7 @@ fn create_file<'a>(
     output_encoding: Encoding,
 ) -> Result<()> {
     let input = crate::utils::files::read_file(custom_filename)?;
-    let s = decode_to_string(output_encoding, &input)?;
+    let s = decode_to_string(output_encoding, &input, true)?;
     let entries: Vec<ListEntry> = serde_json::from_str(&s)
         .map_err(|e| anyhow::anyhow!("Failed to read Escude list from JSON: {}", e))?;
     writer.write_all(b"LIST")?;

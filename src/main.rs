@@ -895,7 +895,7 @@ pub fn import_script(
                                 continue;
                             }
                         };
-                        let s = match utils::encoding::decode_to_string(enc, &b) {
+                        let s = match utils::encoding::decode_to_string(enc, &b, true) {
                             Ok(s) => s,
                             Err(e) => {
                                 eprintln!("Error decoding string: {}", e);
@@ -922,7 +922,7 @@ pub fn import_script(
                                 continue;
                             }
                         };
-                        let s = match utils::encoding::decode_to_string(enc, &b) {
+                        let s = match utils::encoding::decode_to_string(enc, &b, true) {
                             Ok(s) => s,
                             Err(e) => {
                                 eprintln!("Error decoding string: {}", e);
@@ -1086,13 +1086,13 @@ pub fn import_script(
         types::OutputScriptType::Json => {
             let enc = get_output_encoding(arg);
             let b = utils::files::read_file(&out_f)?;
-            let s = utils::encoding::decode_to_string(enc, &b)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
             serde_json::from_str::<Vec<types::Message>>(&s)?
         }
         types::OutputScriptType::M3t => {
             let enc = get_output_encoding(arg);
             let b = utils::files::read_file(&out_f)?;
-            let s = utils::encoding::decode_to_string(enc, &b)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
             let mut parser = output_scripts::m3t::M3tParser::new(&s);
             parser.parse()?
         }

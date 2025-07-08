@@ -3,6 +3,7 @@ use crate::types::*;
 pub fn decode_with_bom_detect(
     encoding: Encoding,
     data: &[u8],
+    check: bool,
 ) -> Result<(String, BomType), anyhow::Error> {
     if data.len() >= 2 {
         if data[0] == 0xFE && data[1] == 0xFF {
@@ -34,7 +35,7 @@ pub fn decode_with_bom_detect(
         if data.len() >= 8 && data.starts_with(b"mdf\0") {
             let reader = MemReaderRef::new(&data[4..]);
             let decoded = Mdf::unpack(reader)?;
-            return decode_with_bom_detect(encoding, &decoded);
+            return decode_with_bom_detect(encoding, &decoded, check);
         }
         if data.len() >= 5
             && data[0] == 0xFE
@@ -46,38 +47,54 @@ pub fn decode_with_bom_detect(
             let crypt = data[2];
             let reader = MemReaderRef::new(data);
             let decoded = SimpleCrypt::unpack(crypt, reader)?;
-            return decode_with_bom_detect(encoding, &decoded);
+            return decode_with_bom_detect(encoding, &decoded, check);
         }
     }
-    decode_to_string(encoding, data).map(|s| (s, BomType::None))
+    decode_to_string(encoding, data, check).map(|s| (s, BomType::None))
 }
 
-pub fn decode_to_string(encoding: Encoding, data: &[u8]) -> Result<String, anyhow::Error> {
+pub fn decode_to_string(
+    encoding: Encoding,
+    data: &[u8],
+    check: bool,
+) -> Result<String, anyhow::Error> {
     match encoding {
-        Encoding::Auto => decode_to_string(Encoding::Utf8, data)
-            .or_else(|_| decode_to_string(Encoding::Cp932, data))
-            .or_else(|_| decode_to_string(Encoding::Gb2312, data)),
+        Encoding::Auto => decode_to_string(Encoding::Utf8, data, check)
+            .or_else(|_| decode_to_string(Encoding::Cp932, data, check))
+            .or_else(|_| decode_to_string(Encoding::Gb2312, data, check)),
         Encoding::Utf8 => Ok(String::from_utf8(data.to_vec())?),
         Encoding::Cp932 => {
             let result = encoding_rs::SHIFT_JIS.decode(data);
             if result.2 {
-                Err(anyhow::anyhow!("Failed to decode Shift-JIS"))
-            } else {
-                Ok(result.0.to_string())
+                if check {
+                    return Err(anyhow::anyhow!("Failed to decode Shift-JIS"));
+                }
+                eprintln!(
+                    "Warning: Some characters could not be decoded in Shift-JIS: {:?}",
+                    data
+                );
+                crate::COUNTER.inc_warning();
             }
+            Ok(result.0.to_string())
         }
         Encoding::Gb2312 => {
             let result = encoding_rs::GBK.decode(data);
             if result.2 {
-                Err(anyhow::anyhow!("Failed to decode GB2312"))
-            } else {
-                Ok(result.0.to_string())
+                if check {
+                    return Err(anyhow::anyhow!("Failed to decode GB2312"));
+                }
+                eprintln!(
+                    "Warning: Some characters could not be decoded in GB2312: {:?}",
+                    data
+                );
+                crate::COUNTER.inc_warning();
             }
+            Ok(result.0.to_string())
         }
         #[cfg(windows)]
-        Encoding::CodePage(code_page) => {
-            Ok(super::encoding_win::decode_to_string(code_page, data)?)
-        }
+        Encoding::CodePage(code_page) => Ok(super::encoding_win::decode_to_string(
+            code_page, data, check,
+        )?),
     }
 }
 
@@ -157,7 +174,8 @@ fn test_decode_to_string() {
     assert_eq!(
         decode_to_string(
             Encoding::Utf8,
-            &[228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149]
+            &[228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149],
+            true
         )
         .unwrap(),
         "中文测试".to_string()
@@ -167,19 +185,21 @@ fn test_decode_to_string() {
             Encoding::Cp932,
             &[
                 130, 171, 130, 225, 130, 215, 130, 194, 130, 187, 130, 211, 130, 198
-            ]
+            ],
+            true
         )
         .unwrap(),
         "きゃべつそふと".to_string()
     );
     assert_eq!(
-        decode_to_string(Encoding::Gb2312, &[214, 208, 206, 196]).unwrap(),
+        decode_to_string(Encoding::Gb2312, &[214, 208, 206, 196], true).unwrap(),
         "中文".to_string()
     );
     assert_eq!(
         decode_to_string(
             Encoding::Auto,
-            &[228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149]
+            &[228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149],
+            true
         )
         .unwrap(),
         "中文测试".to_string()
@@ -189,14 +209,15 @@ fn test_decode_to_string() {
             Encoding::Auto,
             &[
                 130, 171, 130, 225, 130, 215, 130, 194, 130, 187, 130, 211, 130, 198
-            ]
+            ],
+            true
         )
         .unwrap(),
         "きゃべつそふと".to_string()
     );
     #[cfg(windows)]
     assert_eq!(
-        decode_to_string(Encoding::CodePage(936), &[214, 208, 206, 196]).unwrap(),
+        decode_to_string(Encoding::CodePage(936), &[214, 208, 206, 196], true).unwrap(),
         "中文".to_string()
     );
 }
@@ -227,21 +248,23 @@ fn test_encode_string() {
 #[test]
 fn test_decode_with_bom_detect() {
     let utf8_data = vec![0xEF, 0xBB, 0xBF, 0xE4, 0xB8, 0xAD, 0xE6, 0x96, 0x87];
-    let (decoded_utf8, bom_type) = decode_with_bom_detect(Encoding::Auto, &utf8_data).unwrap();
+    let (decoded_utf8, bom_type) =
+        decode_with_bom_detect(Encoding::Auto, &utf8_data, true).unwrap();
     assert_eq!(decoded_utf8, "中文");
     assert_eq!(bom_type, BomType::Utf8);
     let utf16le_data = vec![0xFF, 0xFE, 0x2D, 0x4E, 0x87, 0x65];
     let (decoded_utf16le, bom_type) =
-        decode_with_bom_detect(Encoding::Auto, &utf16le_data).unwrap();
+        decode_with_bom_detect(Encoding::Auto, &utf16le_data, true).unwrap();
     assert_eq!(decoded_utf16le, "中文");
     assert_eq!(bom_type, BomType::Utf16LE);
     let utf16be_data = vec![0xFE, 0xFF, 0x4E, 0x2D, 0x65, 0x87];
     let (decoded_utf16be, bom_type) =
-        decode_with_bom_detect(Encoding::Auto, &utf16be_data).unwrap();
+        decode_with_bom_detect(Encoding::Auto, &utf16be_data, true).unwrap();
     assert_eq!(decoded_utf16be, "中文");
     assert_eq!(bom_type, BomType::Utf16BE);
     let no_bom_data = vec![0xE4, 0xB8, 0xAD, 0xE6, 0x96, 0x87];
-    let (decoded_no_bom, bom_type) = decode_with_bom_detect(Encoding::Auto, &no_bom_data).unwrap();
+    let (decoded_no_bom, bom_type) =
+        decode_with_bom_detect(Encoding::Auto, &no_bom_data, true).unwrap();
     assert_eq!(decoded_no_bom, "中文");
     assert_eq!(bom_type, BomType::None);
     #[cfg(feature = "kirikiri")]
@@ -251,7 +274,7 @@ fn test_decode_with_bom_detect() {
             0x11, 0x00, 0x34, 0x00, 0x36, 0x00, 0x3a, 0x00, 0x11, 0x00, 0x0e, 0x00, 0x05, 0x00,
         ];
         let (decoded_simple_crypt, bom_type) =
-            decode_with_bom_detect(Encoding::Auto, &simple_crypt_data).unwrap();
+            decode_with_bom_detect(Encoding::Auto, &simple_crypt_data, true).unwrap();
         assert_eq!(decoded_simple_crypt, "\"895\"\r\n");
         assert_eq!(bom_type, BomType::Utf16LE);
     }

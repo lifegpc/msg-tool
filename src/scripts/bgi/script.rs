@@ -17,7 +17,11 @@ impl BGIScriptBuilder {
 
 impl ScriptBuilder for BGIScriptBuilder {
     fn default_encoding(&self) -> Encoding {
-        Encoding::Cp932
+        #[cfg(not(windows))]
+        return Encoding::Cp932;
+        #[cfg(windows)]
+        // Use Windows API first, because encoding-rs does not support PRIVATE USE AREA characters
+        return Encoding::CodePage(932);
     }
 
     fn build_script(
@@ -101,7 +105,8 @@ impl BGIScript {
     fn read_string(&self, offset: usize) -> Result<String> {
         let start = self.offset + offset;
         let string_data = self.data.cpeek_cstring_at(start)?;
-        let string = decode_to_string(self.encoding, string_data.as_bytes())?;
+        // sometimes string has private use area characters, so we disable strict checking
+        let string = decode_to_string(self.encoding, string_data.as_bytes(), false)?;
         Ok(string)
     }
 }

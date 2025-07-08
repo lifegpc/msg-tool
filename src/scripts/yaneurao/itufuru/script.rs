@@ -122,7 +122,7 @@ impl Script for ItufuruScript {
         for i in self.strings.iter() {
             let str_pos = i.len_pos + 2; // Skip the length bytes
             let s = self.data.cpeek_cstring_at(str_pos)?;
-            let decoded = decode_to_string(self.encoding, s.as_bytes())?;
+            let decoded = decode_to_string(self.encoding, s.as_bytes(), true)?;
             messages.push(Message {
                 name: None,
                 message: decoded,

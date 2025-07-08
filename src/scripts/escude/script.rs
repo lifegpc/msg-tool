@@ -109,12 +109,12 @@ impl EscudeBinScript {
             for _ in 0..string_count {
                 let s = reader.read_cstring()?;
                 let s = replaces.replace(s.as_bytes())?;
-                strings.push(decode_to_string(encoding, &s)?);
+                strings.push(decode_to_string(encoding, &s, true)?);
             }
         } else {
             for _ in 0..string_count {
                 let s = reader.read_cstring()?;
-                strings.push(decode_to_string(encoding, s.as_bytes())?);
+                strings.push(decode_to_string(encoding, s.as_bytes(), true)?);
             }
         }
         let names = match &config.escude_enum_scr {

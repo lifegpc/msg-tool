@@ -251,7 +251,7 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
             Ok(name) => name,
             Err(e) => return Some(Err(e.into())),
         };
-        let name = match decode_to_string(self.archive_encoding, name.as_bytes()) {
+        let name = match decode_to_string(self.archive_encoding, name.as_bytes(), true) {
             Ok(name) => name,
             Err(e) => return Some(Err(e.into())),
         };
@@ -283,7 +283,7 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
             Ok(name) => name,
             Err(e) => return Some(Err(e.into())),
         };
-        let name = match decode_to_string(self.archive_encoding, name.as_bytes()) {
+        let name = match decode_to_string(self.archive_encoding, name.as_bytes(), true) {
             Ok(name) => name,
             Err(e) => return Some(Err(e.into())),
         };

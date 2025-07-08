@@ -723,7 +723,7 @@ impl<T: Read> ReadExt for T {
                 buf.truncate(pos);
             }
         }
-        let s = decode_to_string(encoding, &buf)
+        let s = decode_to_string(encoding, &buf, true)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         Ok(s)
     }

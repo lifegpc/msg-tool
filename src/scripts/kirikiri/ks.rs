@@ -666,7 +666,7 @@ pub struct KsScript {
 
 impl KsScript {
     pub fn new(reader: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
-        let (text, bom) = decode_with_bom_detect(encoding, &reader)?;
+        let (text, bom) = decode_with_bom_detect(encoding, &reader, true)?;
         let parser = Parser::new(&text);
         let tree = parser.parse(!config.kirikiri_remove_empty_lines)?;
         Ok(Self {

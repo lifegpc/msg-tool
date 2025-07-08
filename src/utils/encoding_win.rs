@@ -1,4 +1,4 @@
-use windows_sys::Win32::Foundation::GetLastError;
+use windows_sys::Win32::Foundation::{ERROR_NO_UNICODE_TRANSLATION, GetLastError};
 use windows_sys::Win32::Globalization::{
     CP_UTF7, CP_UTF8, MB_ERR_INVALID_CHARS, MultiByteToWideChar, WideCharToMultiByte,
 };
@@ -47,14 +47,15 @@ impl std::fmt::Display for WinError {
     }
 }
 
-pub fn decode_to_string(cp: u32, data: &[u8]) -> Result<String, WinError> {
+pub fn decode_to_string(cp: u32, data: &[u8], check: bool) -> Result<String, WinError> {
     if data.is_empty() {
         return Ok(String::new());
     }
+    let dwflags = if check { MB_ERR_INVALID_CHARS } else { 0 };
     let needed_len = unsafe {
         MultiByteToWideChar(
             cp,
-            MB_ERR_INVALID_CHARS,
+            dwflags,
             data.as_ptr() as _,
             data.len() as i32,
             std::ptr::null_mut(),
@@ -64,12 +65,24 @@ pub fn decode_to_string(cp: u32, data: &[u8]) -> Result<String, WinError> {
     if needed_len == 0 {
         return Err(WinError::from_last_error());
     }
+    let last_error = unsafe { GetLastError() };
+    if last_error == ERROR_NO_UNICODE_TRANSLATION {
+        if check {
+            return Err(WinError::new(last_error));
+        } else {
+            eprintln!(
+                "Warning: Some characters could not be decoded in code page {}: {:?}",
+                cp, data
+            );
+            crate::COUNTER.inc_warning();
+        }
+    }
     let mut wc = Vec::with_capacity(needed_len as usize);
     wc.resize(needed_len as usize, 0);
     let result = unsafe {
         MultiByteToWideChar(
             cp,
-            MB_ERR_INVALID_CHARS,
+            dwflags,
             data.as_ptr() as _,
             data.len() as i32,
             wc.as_mut_ptr(),
@@ -143,7 +156,8 @@ fn test_decode_to_string() {
     assert_eq!(
         decode_to_string(
             65001,
-            &[228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149]
+            &[228, 184, 173, 230, 150, 135, 230, 181, 139, 232, 175, 149],
+            true
         )
         .unwrap(),
         "中文测试".to_string()
@@ -153,13 +167,14 @@ fn test_decode_to_string() {
             932,
             &[
                 130, 171, 130, 225, 130, 215, 130, 194, 130, 187, 130, 211, 130, 198
-            ]
+            ],
+            true
         )
         .unwrap(),
         "きゃべつそふと".to_string()
     );
     assert_eq!(
-        decode_to_string(936, &[214, 208, 206, 196]).unwrap(),
+        decode_to_string(936, &[214, 208, 206, 196], true).unwrap(),
         "中文".to_string()
     );
 }

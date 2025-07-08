@@ -362,7 +362,7 @@ impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
             k += 1;
             i += 1;
         }
-        decode_to_string(encoding, &name[..i])
+        decode_to_string(encoding, &name[..i], true)
     }
 
     fn get_key(password: &str) -> Result<u32> {

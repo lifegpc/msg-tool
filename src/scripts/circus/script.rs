@@ -198,12 +198,12 @@ impl Script for CircusMesScript {
                 for t in text.iter_mut() {
                     *t = (*t).overflowing_add(self.info.deckey).0;
                 }
-                t = Some(decode_to_string(self.encoding, &text)?);
+                t = Some(decode_to_string(self.encoding, &text, true)?);
                 // println!("Token(enc): {:?}, {}", token, t.as_ref().unwrap());
             } else if token.value == self.info.optunenc {
                 let text = &self.data[self.asm_bin_offset + token.offset + 1
                     ..self.asm_bin_offset + token.offset + token.length - 1];
-                t = Some(decode_to_string(self.encoding, text)?);
+                t = Some(decode_to_string(self.encoding, text, true)?);
                 // println!("Token: {:?}, {}", token, t.as_ref().unwrap());
             }
             match t {
@@ -236,7 +236,7 @@ impl Script for CircusMesScript {
                 encoding: Encoding,
             ) -> Result<()> {
                 let jis = encode_string(Encoding::Cp932, s, true)?;
-                let out = decode_to_string(encoding, &jis)?;
+                let out = decode_to_string(encoding, &jis, true)?;
                 repls.push((s.to_string(), out));
                 Ok(())
             }

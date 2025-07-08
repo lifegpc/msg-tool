@@ -454,7 +454,8 @@ impl<'a> V1Parser<'a> {
     pub fn read_string_at_address(&mut self, address: usize) -> Result<String> {
         let start = self.offset + address;
         let buf = self.buf.peek_cstring_at(start)?;
-        Ok(decode_to_string(self.encoding, buf.as_bytes())?)
+        // Sometimes string has private use area characters, so we disable strict checking
+        Ok(decode_to_string(self.encoding, buf.as_bytes(), false)?)
     }
 
     pub fn handle_user_function_call(&mut self) -> Result<()> {

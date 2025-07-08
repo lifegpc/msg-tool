@@ -66,14 +66,14 @@ impl BGIBsiScript {
         let section_count = reader.read_u32()?;
         for _ in 0..section_count {
             let section_name = reader.read_cstring()?;
-            let section_name = decode_to_string(encoding, section_name.as_bytes())?;
+            let section_name = decode_to_string(encoding, section_name.as_bytes(), true)?;
             let mut section_data = BTreeMap::new();
             let entry_count = reader.read_u32()?;
             for _ in 0..entry_count {
                 let key = reader.read_cstring()?;
-                let key = decode_to_string(encoding, key.as_bytes())?;
+                let key = decode_to_string(encoding, key.as_bytes(), true)?;
                 let value = reader.read_cstring()?;
-                let value = decode_to_string(encoding, value.as_bytes())?;
+                let value = decode_to_string(encoding, value.as_bytes(), true)?;
                 section_data.insert(key, value);
             }
             data.insert(section_name, section_data);
@@ -134,7 +134,7 @@ fn create_file<'a>(
     output_encoding: Encoding,
 ) -> Result<()> {
     let input = crate::utils::files::read_file(custom_filename)?;
-    let s = decode_to_string(output_encoding, &input)?;
+    let s = decode_to_string(output_encoding, &input, true)?;
     let data: BTreeMap<String, BTreeMap<String, String>> = serde_json::from_str(&s)
         .map_err(|e| anyhow::anyhow!("Failed to read BSI Map data from JSON: {}", e))?;
     writer.write_u32(data.len() as u32)?;

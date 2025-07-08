@@ -618,7 +618,7 @@ impl Script for ScnScript {
         output_encoding: Encoding,
     ) -> Result<()> {
         let data = crate::utils::files::read_file(custom_filename)?;
-        let s = decode_to_string(output_encoding, &data)?;
+        let s = decode_to_string(output_encoding, &data, true)?;
         let json = json::parse(&s)?;
         let mut psb = self.psb.clone();
         psb.from_json(&json)?;
