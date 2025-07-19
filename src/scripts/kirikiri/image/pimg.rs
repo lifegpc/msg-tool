@@ -93,17 +93,21 @@ impl ScriptBuilder for PImgBuilder {
 #[derive(Debug)]
 pub struct PImg {
     psb: VirtualPsbFixed,
+    overlay: Option<bool>,
 }
 
 impl PImg {
-    pub fn new<R: Read + Seek>(reader: R, filename: &str, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new<R: Read + Seek>(reader: R, filename: &str, config: &ExtraConfig) -> Result<Self> {
         let mut psb = PsbReader::open_psb(reader)
             .map_err(|e| anyhow::anyhow!("Failed to open PSB from {}: {:?}", filename, e))?;
         let psb = psb
             .load()
             .map_err(|e| anyhow::anyhow!("Failed to load PSB from {}: {:?}", filename, e))?
             .to_psb_fixed();
-        Ok(Self { psb })
+        Ok(Self {
+            psb,
+            overlay: config.kirikiri_pimg_overlay,
+        })
     }
 
     fn load_img(&self, layer_id: i64) -> Result<Tlg> {
@@ -145,6 +149,17 @@ impl Script for PImg {
         &'a self,
     ) -> Result<Box<dyn Iterator<Item = Result<ImageDataWithName>> + 'a>> {
         let psb = self.psb.root();
+        let overlay = self.overlay.unwrap_or_else(|| {
+            psb["layers"]
+                .members()
+                .all(|layer| layer["group_layer_id"].is_none())
+        });
+        if !overlay {
+            return Ok(Box::new(PImgIter2 {
+                pimg: self,
+                layers: psb.iter(),
+            }));
+        }
         let width = psb["width"]
             .as_u32()
             .ok_or(anyhow::anyhow!("missing width"))?;
@@ -327,6 +342,54 @@ impl<'a> Iterator for PImgIter<'a> {
                         data: base_img,
                     }))
                 }
+            }
+            None => None,
+        }
+    }
+}
+
+struct PImgIter2<'a> {
+    pimg: &'a PImg,
+    layers: ObjectIter<'a>,
+}
+
+impl<'a> Iterator for PImgIter2<'a> {
+    type Item = Result<ImageDataWithName>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.layers.next() {
+            Some((k, v)) => {
+                if !k.ends_with(".tlg") {
+                    return self.next();
+                }
+                let resource_id = try_option!(
+                    v.resource_id()
+                        .ok_or_else(|| anyhow::anyhow!("Layer {} does not have a resource ID", k))
+                ) as usize;
+                let name = k.trim_end_matches(".tlg").to_string();
+                if resource_id >= self.pimg.psb.resources().len() {
+                    return Some(Err(anyhow::anyhow!(
+                        "Resource ID {} for layer {} is out of bounds",
+                        resource_id,
+                        k
+                    )));
+                }
+                let resource = &self.pimg.psb.resources()[resource_id];
+                let tlg = try_option!(load_tlg(MemReaderRef::new(&resource)));
+                Some(Ok(ImageDataWithName {
+                    name,
+                    data: ImageData {
+                        width: tlg.width,
+                        height: tlg.height,
+                        color_type: match tlg.color {
+                            TlgColorType::Bgr24 => ImageColorType::Bgr,
+                            TlgColorType::Bgra32 => ImageColorType::Bgra,
+                            TlgColorType::Grayscale8 => ImageColorType::Grayscale,
+                        },
+                        depth: 8,
+                        data: tlg.data.clone(),
+                    },
+                }))
             }
             None => None,
         }

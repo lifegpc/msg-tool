@@ -153,6 +153,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Whether to compress files in BGI archive when packing BGI archive.
     pub bgi_compress_file: bool,
+    #[cfg(feature = "kirikiri-img")]
+    #[arg(long, global = true)]
+    /// Whether to overlay PIMG images. (By default, true if all layers are not group layers.)
+    pub kirikiri_pimg_overlay: Option<bool>,
     #[command(subcommand)]
     /// Command
     pub command: Command,
