@@ -947,7 +947,7 @@ impl MemReader {
         MemReader { data, pos: 0 }
     }
 
-    pub fn to_ref(&self) -> MemReaderRef {
+    pub fn to_ref<'a>(&'a self) -> MemReaderRef<'a> {
         MemReaderRef {
             data: &self.data,
             pos: self.pos,
@@ -1137,7 +1137,7 @@ impl MemWriter {
         &self.data
     }
 
-    pub fn to_ref(&self) -> MemReaderRef {
+    pub fn to_ref<'a>(&'a self) -> MemReaderRef<'a> {
         MemReaderRef {
             data: &self.data,
             pos: self.pos,
