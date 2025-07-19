@@ -50,9 +50,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-      - name: Setup latest rust compiler (Nightly)
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
       - name: Document
         run: |
           cargo doc -vv || exit 1
