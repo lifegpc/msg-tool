@@ -362,13 +362,33 @@ impl<'a> Hg3Reader<'a> {
         let data_size = self.m_input.read_u32()?;
         let ctl_packed_size = self.m_input.read_u32()?;
         let ctl_size = self.m_input.read_u32()?;
-        let data = self.unpack_stream(
+        let mut data = self.unpack_stream(
             self.m_info.header_size as usize + 0x28,
             packed_data_size as usize,
             data_size as usize,
             ctl_packed_size as usize,
             ctl_size as usize,
         )?;
+        let expected_size =
+            self.m_info.width as usize * self.m_info.height as usize * self.m_pixel_size as usize;
+        let data_len = data.len();
+        if data_len < expected_size {
+            return Err(anyhow::anyhow!(
+                "Unpacked data size {} is less than expected size {}",
+                data.len(),
+                expected_size
+            ));
+        }
+        if data_len > expected_size {
+            if data.iter().skip(expected_size).any(|&x| x != 0) {
+                eprintln!(
+                    "WARN: Unpacked data size {} is greater than expected size {} and contains non zero data, truncating excess data.",
+                    data_len, expected_size
+                );
+                crate::COUNTER.inc_warning();
+            }
+            data.truncate(expected_size);
+        }
         let fmt = match self.m_info.bpp {
             24 => ImageColorType::Bgr,
             32 => ImageColorType::Bgra,
