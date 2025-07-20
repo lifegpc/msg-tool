@@ -524,7 +524,6 @@ impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterat
 
 pub struct BgiArchiveWriter<T: Write + Seek> {
     writer: T,
-    file_count: u32,
     headers: HashMap<String, BgiFileHeader>,
     compress_file: bool,
     encoding: Encoding,
@@ -554,7 +553,6 @@ impl<T: Write + Seek> BgiArchiveWriter<T> {
         }
         Ok(BgiArchiveWriter {
             writer,
-            file_count: file_count as u32,
             headers,
             compress_file: config.bgi_compress_file,
             encoding,
@@ -577,7 +575,6 @@ impl<T: Write + Seek> Archive for BgiArchiveWriter<T> {
             header: entry,
             writer: &mut self.writer,
             pos: 0,
-            base_offset: 16 + (self.file_count as u64 * 0x80),
         };
         Ok(if self.compress_file {
             Box::new(BgiArchiveFileWithDsc::new(file))
@@ -601,14 +598,12 @@ pub struct BgiArchiveFile<'a, T: Write + Seek> {
     header: &'a mut BgiFileHeader,
     writer: &'a mut T,
     pos: usize,
-    base_offset: u64,
 }
 
 impl<'a, T: Write + Seek> Write for BgiArchiveFile<'a, T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.writer.seek(SeekFrom::Start(
-            self.base_offset + self.header.offset as u64 + self.pos as u64,
-        ))?;
+        self.writer
+            .seek(SeekFrom::Start(self.header.offset as u64 + self.pos as u64))?;
         let bytes_written = self.writer.write(buf)?;
         self.pos += bytes_written;
         self.header.size = self.header.size.max(self.pos as u32);
