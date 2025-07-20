@@ -585,9 +585,11 @@ impl<T: Write + Seek> Archive for BgiArchiveWriter<T> {
 
     fn write_header(&mut self) -> Result<()> {
         self.writer.seek(SeekFrom::Start(0x10))?;
-        let mut files = self.headers.iter().map(|(_, d)| d).collect::<Vec<_>>();
+        let base_offset = self.headers.len() as u32 * 0x80 + 16;
+        let mut files = self.headers.iter_mut().map(|(_, d)| d).collect::<Vec<_>>();
         files.sort_by_key(|f| f.offset);
         for file in files {
+            file.offset -= base_offset;
             file.pack(&mut self.writer, false, self.encoding)?;
         }
         Ok(())
