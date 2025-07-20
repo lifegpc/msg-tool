@@ -38,6 +38,7 @@ def main():
         sys.exit(0)
     
     failed_features = []
+    test_failed_features = []
     
     print(f"Testing {len(feature_names)} features...")
     for idx, feature in enumerate(feature_names, 1):
@@ -50,11 +51,25 @@ def main():
             print(f"❌ Feature '{feature}' failed to compile")
         else:
             print(f"✅ Feature '{feature}' compiled successfully")
+        
+        cmd = ["cargo", "test", "--no-default-features", "--features", feature, '--target-dir', 'target/features_check']
+        try:
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError:
+            test_failed_features.append(feature)
+            print(f"❌ Tests for feature '{feature}' failed")
+        else:
+            print(f"✅ Tests for feature '{feature}' passed")
     
-    if failed_features:
-        print("\nFailed features:")
-        for f in failed_features:
-            print(f"  - {f}")
+    if failed_features or test_failed_features:
+        if failed_features:
+            print("\nFailed features:")
+            for f in failed_features:
+                print(f"  - {f}")
+        if test_failed_features:
+            print("\nFailed tests for features:")
+            for f in test_failed_features:
+                print(f"  - {f}")
         sys.exit(1)
     else:
         print("\nAll features compiled successfully!")

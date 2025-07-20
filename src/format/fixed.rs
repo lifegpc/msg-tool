@@ -114,19 +114,22 @@ fn test_format() {
         fommater2.format("● Th\n is is a te st."),
         "● Th\nis is a te\nst."
     );
-    let circus_formatter = FixedFormatter::new(10, false, Some(ScriptType::Circus));
-    assert_eq!(
-        circus_formatter.format("● @cmd1@cmd2@cmd3中文字数是一\n　二三　四五六七八九十"),
-        "● @cmd1@cmd2@cmd3中文字数是一二三\n四五六七八九十"
-    );
-    assert_eq!(
-        circus_formatter
-            .format("● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一\n　二三　四五六七八九十"),
-        "● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一二三\n四五六七八九十"
-    );
-    let circus_formatter2 = FixedFormatter::new(32, false, Some(ScriptType::Circus));
-    assert_eq!(
-        circus_formatter2.format("@re1@re2@b1@t30@w1「当然现在我很幸福哦？\n　因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？\n　因为有敦也君在身边」"),
-        "@re1@re2@b1@t30@w1「当然现在我很幸福哦？因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？因为有敦也君在身边」"
-    );
+    #[cfg(feature = "circus")]
+    {
+        let circus_formatter = FixedFormatter::new(10, false, Some(ScriptType::Circus));
+        assert_eq!(
+            circus_formatter.format("● @cmd1@cmd2@cmd3中文字数是一\n　二三　四五六七八九十"),
+            "● @cmd1@cmd2@cmd3中文字数是一二三\n四五六七八九十"
+        );
+        assert_eq!(
+            circus_formatter
+                .format("● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一\n　二三　四五六七八九十"),
+            "● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一二三\n四五六七八九十"
+        );
+        let circus_formatter2 = FixedFormatter::new(32, false, Some(ScriptType::Circus));
+        assert_eq!(
+            circus_formatter2.format("@re1@re2@b1@t30@w1「当然现在我很幸福哦？\n　因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？\n　因为有敦也君在身边」"),
+            "@re1@re2@b1@t30@w1「当然现在我很幸福哦？因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？因为有敦也君在身边」"
+        );
+    }
 }
