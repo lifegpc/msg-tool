@@ -1145,8 +1145,8 @@ impl<'a> CPeek for MemReaderRef<'a> {
 }
 
 pub struct MemWriter {
-    data: Vec<u8>,
-    pos: usize,
+    pub data: Vec<u8>,
+    pub pos: usize,
 }
 
 impl MemWriter {
