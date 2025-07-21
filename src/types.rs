@@ -314,6 +314,9 @@ pub enum ScriptType {
     #[value(alias("itufuru-arc"))]
     /// Yaneurao Itufuru script archive
     YaneuraoItufuruArc,
+    #[cfg(feature = "will-plus")]
+    /// WillPlus ws2 script
+    WillPlusWs2,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

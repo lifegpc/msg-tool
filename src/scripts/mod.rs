@@ -9,6 +9,8 @@ pub mod circus;
 pub mod escude;
 #[cfg(feature = "kirikiri")]
 pub mod kirikiri;
+#[cfg(feature = "will-plus")]
+pub mod will_plus;
 #[cfg(feature = "yaneurao")]
 pub mod yaneurao;
 
@@ -62,6 +64,8 @@ lazy_static::lazy_static! {
         Box::new(kirikiri::image::dref::DrefBuilder::new()),
         #[cfg(feature = "kirikiri")]
         Box::new(kirikiri::mdf::MdfBuilder::new()),
+        #[cfg(feature = "will-plus")]
+        Box::new(will_plus::ws2::Ws2ScriptBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

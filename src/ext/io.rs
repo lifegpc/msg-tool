@@ -531,6 +531,8 @@ pub trait CPeek {
         Ok(i128::from_be_bytes(buf))
     }
 
+    fn cpeek_cstring(&self) -> Result<CString>;
+
     fn cpeek_cstring_at(&self, offset: usize) -> Result<CString> {
         let mut buf = Vec::new();
         let mut byte = [0u8; 1];
@@ -579,6 +581,13 @@ impl<T: Peek> CPeek for Mutex<T> {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
         })?;
         lock.peek_at(offset, buf)
+    }
+
+    fn cpeek_cstring(&self) -> Result<CString> {
+        let mut lock = self.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+        })?;
+        lock.peek_cstring()
     }
 }
 
@@ -957,6 +966,10 @@ impl MemReader {
     pub fn is_eof(&self) -> bool {
         self.pos >= self.data.len()
     }
+
+    pub fn inner(self) -> Vec<u8> {
+        self.data
+    }
 }
 
 impl<'a> MemReaderRef<'a> {
@@ -1036,6 +1049,10 @@ impl CPeek for MemReader {
     fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
         self.to_ref().cpeek_at(offset, buf)
     }
+
+    fn cpeek_cstring(&self) -> Result<CString> {
+        self.to_ref().cpeek_cstring()
+    }
 }
 
 impl<'a> Read for MemReaderRef<'a> {
@@ -1114,6 +1131,17 @@ impl<'a> CPeek for MemReaderRef<'a> {
         buf[..bytes_to_read].copy_from_slice(&self.data[offset..offset + bytes_to_read]);
         Ok(bytes_to_read)
     }
+
+    fn cpeek_cstring(&self) -> Result<CString> {
+        let mut buf = Vec::new();
+        for &byte in &self.data[self.pos..] {
+            if byte == 0 {
+                break;
+            }
+            buf.push(byte);
+        }
+        CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
 }
 
 pub struct MemWriter {
@@ -1127,6 +1155,10 @@ impl MemWriter {
             data: Vec::new(),
             pos: 0,
         }
+    }
+
+    pub fn from_vec(data: Vec<u8>) -> Self {
+        MemWriter { data, pos: 0 }
     }
 
     pub fn into_inner(self) -> Vec<u8> {
@@ -1217,5 +1249,9 @@ impl CPeek for MemWriter {
 
     fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
         self.to_ref().cpeek_at(offset, buf)
+    }
+
+    fn cpeek_cstring(&self) -> Result<CString> {
+        self.to_ref().cpeek_cstring()
     }
 }
