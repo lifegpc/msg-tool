@@ -260,6 +260,9 @@ pub enum ScriptType {
     #[value(alias("ethornell-cbg"))]
     /// Buriko General Interpreter/Ethornell Compressed Background image (CBG)
     BGICbg,
+    #[cfg(feature = "cat-system")]
+    /// CatSystem2 engine scene script
+    CatSystem,
     #[cfg(feature = "cat-system-arc")]
     /// CatSystem2 engine archive
     CatSystemInt,
@@ -306,6 +309,9 @@ pub enum ScriptType {
     #[value(alias("kr-mdf"))]
     /// Kirikiri MDF (zlib compressed) file
     KirikiriMdf,
+    #[cfg(feature = "will-plus")]
+    /// WillPlus ws2 script
+    WillPlusWs2,
     #[cfg(feature = "yaneurao-itufuru")]
     #[value(alias("itufuru"))]
     /// Yaneurao Itufuru script
@@ -314,9 +320,6 @@ pub enum ScriptType {
     #[value(alias("itufuru-arc"))]
     /// Yaneurao Itufuru script archive
     YaneuraoItufuruArc,
-    #[cfg(feature = "will-plus")]
-    /// WillPlus ws2 script
-    WillPlusWs2,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
