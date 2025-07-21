@@ -300,6 +300,9 @@ impl Script for Ws2Script {
             file.write_all_at(str.pos, &encoded)?;
             m = mes.next();
         }
+        if m.is_some() || mes.next().is_some() {
+            return Err(anyhow::anyhow!("Too many messages provided."));
+        }
         Ok(())
     }
 }
