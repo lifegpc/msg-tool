@@ -73,7 +73,7 @@ impl ScriptBuilder for ScnScriptBuilder {
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["scn"]
+        &["ks.scn"]
     }
 
     fn script_type(&self) -> &'static ScriptType {

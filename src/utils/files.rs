@@ -15,8 +15,16 @@ pub fn find_files(path: &str, recursive: bool, no_ext_filter: bool) -> io::Resul
 
             if path.is_file()
                 && (no_ext_filter
-                    || path.extension().map_or(true, |ext| {
-                        ALL_EXTS.contains(&ext.to_string_lossy().to_lowercase())
+                    || path.file_name().map_or(false, |file| {
+                        path.extension().map_or(true, |_| {
+                            let file = file.to_string_lossy().to_lowercase();
+                            for ext in ALL_EXTS.iter() {
+                                if file.ends_with(&format!(".{}", ext)) {
+                                    return true;
+                                }
+                            }
+                            false
+                        })
                     }))
             {
                 if let Some(path_str) = path.to_str() {
@@ -45,8 +53,16 @@ pub fn find_arc_files(path: &str, recursive: bool) -> io::Result<Vec<String>> {
             let path = entry.path();
 
             if path.is_file()
-                && path.extension().map_or(false, |ext| {
-                    ARCHIVE_EXTS.contains(&ext.to_string_lossy().to_lowercase())
+                && path.file_name().map_or(false, |file| {
+                    path.extension().map_or(true, |_| {
+                        let file = file.to_string_lossy().to_lowercase();
+                        for ext in ARCHIVE_EXTS.iter() {
+                            if file.ends_with(&format!(".{}", ext)) {
+                                return true;
+                            }
+                        }
+                        false
+                    })
                 })
             {
                 if let Some(path_str) = path.to_str() {
