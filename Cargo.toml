@@ -22,12 +22,15 @@ png = { version = "0.17", optional = true }
 rand = { version = "0.9", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha1 = { version = "0.10", optional = true }
 unicode-segmentation = "1.12"
 url = { version = "2.5", optional = true }
 utf16string = "0.2"
 
 [features]
-default = ["bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "escude", "escude-arc", "kirikiri", "kirikiri-img", "will-plus", "yaneurao", "yaneurao-itufuru"]
+default = ["artemis", "artemis-arc", "bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "escude", "escude-arc", "kirikiri", "kirikiri-img", "will-plus", "yaneurao", "yaneurao-itufuru"]
+artemis = []
+artemis-arc = ["artemis", "msg_tool_macro/artemis-arc", "sha1"]
 bgi = []
 bgi-arc = ["bgi", "rand", "utils-bit-stream"]
 bgi-img = ["bgi", "image", "utils-bit-stream"]

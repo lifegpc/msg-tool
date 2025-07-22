@@ -1,3 +1,5 @@
+#[cfg(feature = "artemis")]
+pub mod artemis;
 pub mod base;
 #[cfg(feature = "bgi")]
 pub mod bgi;
@@ -68,6 +70,8 @@ lazy_static::lazy_static! {
         Box::new(will_plus::ws2::Ws2ScriptBuilder::new()),
         #[cfg(feature = "cat-system")]
         Box::new(cat_system::cst::CstScriptBuilder::new()),
+        #[cfg(feature = "artemis-arc")]
+        Box::new(artemis::archive::pfs::ArtemisArcBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

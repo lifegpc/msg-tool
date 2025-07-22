@@ -228,6 +228,10 @@ pub struct ExtraConfig {
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
 /// Script type
 pub enum ScriptType {
+    #[cfg(feature = "artemis-arc")]
+    #[value(alias("pfs"))]
+    /// Artemis archive (pfs)
+    ArtemisArc,
     #[cfg(feature = "bgi")]
     #[value(alias("ethornell"))]
     /// Buriko General Interpreter/Ethornell Script

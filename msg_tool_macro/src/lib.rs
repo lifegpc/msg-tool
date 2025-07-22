@@ -72,7 +72,9 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
 /// * `fstring_pad = <u8>` attribute can be used to specify a padding byte for fixed strings. (Default is 0)
 /// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
-#[proc_macro_derive(StructPack, attributes(skip_pack, fstring, fstring_pad, fvec))]
+/// * `pstring(<len_type>)` attribute can be used to specify a packed string length for String fields, where `<len_type>` can be `u8`, `u16`, `u32`, or `u64`.
+/// Length is read as a prefix before the string data.
+#[proc_macro_derive(StructPack, attributes(skip_pack, fstring, fstring_pad, fvec, pstring))]
 pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
     let a = syn::parse_macro_input!(input as PackStruct);
     match a {
@@ -84,6 +86,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                 let mut fixed_string: Option<usize> = None;
                 let mut fixed_vec: Option<usize> = None;
                 let mut fstring_pad = 0u8; // Default padding byte
+                let mut pstring_type: Option<syn::Ident> = None;
                 for attr in &field.attrs {
                     let path = attr.path();
                     if path.is_ident("skip_pack") {
@@ -111,6 +114,23 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                     fstring_pad = s.base10_parse().unwrap();
                                 }
                             }
+                        }
+                    } else if path.is_ident("pstring") {
+                        if let syn::Meta::List(list) = &attr.meta {
+                            list.parse_nested_meta(|meta| {
+                                if meta.path.is_ident("u8") {
+                                    pstring_type = Some(syn::Ident::new("u8", meta.path.span()));
+                                } else if meta.path.is_ident("u16") {
+                                    pstring_type = Some(syn::Ident::new("u16", meta.path.span()));
+                                } else if meta.path.is_ident("u32") {
+                                    pstring_type = Some(syn::Ident::new("u32", meta.path.span()));
+                                } else if meta.path.is_ident("u64") {
+                                    pstring_type = Some(syn::Ident::new("u64", meta.path.span()));
+                                } else {
+                                    return Err(meta.error("Expected u8, u16, or u32 for pstring"));
+                                }
+                                Ok(())
+                            }).unwrap();
                         }
                     }
                 }
@@ -144,6 +164,14 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                     for _ in slen..#fixed_string {
                                         writer.write_all(&[#fstring_pad])?;
                                     }
+                                };
+                            }
+                            if let Some(pstring_type) = pstring_type {
+                                let write_fn = syn::Ident::new(format!("write_{}", pstring_type).as_str(), pstring_type.span());
+                                return quote::quote! {
+                                    let encoded = crate::utils::encoding::encode_string(encoding, &self.#field_name, true)?;
+                                    writer.#write_fn(encoded.len() as #pstring_type)?;
+                                    writer.write_all(&encoded)?;
                                 };
                             }
                         }
@@ -321,7 +349,9 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
 /// * `fstring_no_trim` attribute can be used to disable trimming of fixed strings.
 /// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
-#[proc_macro_derive(StructUnpack, attributes(skip_unpack, fstring, fstring_no_trim, fvec))]
+/// * `pstring(<number_type>)` attribute can be used to specify a packed string length for String fields, where `<number_type>` can be `u8`, `u16`, `u32` or `u64`.
+/// length is read as a prefix before the string data.
+#[proc_macro_derive(StructUnpack, attributes(skip_unpack, fstring, fstring_no_trim, fvec, pstring))]
 pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
     let sut = syn::parse_macro_input!(input as syn::ItemStruct);
     let name = sut.ident;
@@ -333,6 +363,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         let mut fixed_string: Option<usize> = None;
         let mut fstring_no_trim = false;
         let mut fixed_vec: Option<usize> = None;
+        let mut pstring_type: Option<syn::Ident> = None;
         for attr in &field.attrs {
             let path = attr.path();
             if path.is_ident("skip_unpack") {
@@ -354,6 +385,23 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                             fixed_vec = Some(s.base10_parse().unwrap());
                         }
                     }
+                }
+            } else if path.is_ident("pstring") {
+                if let syn::Meta::List(list) = &attr.meta {
+                    list.parse_nested_meta(|meta| {
+                        if meta.path.is_ident("u8") {
+                            pstring_type = Some(syn::Ident::new("u8", meta.path.span()));
+                        } else if meta.path.is_ident("u16") {
+                            pstring_type = Some(syn::Ident::new("u16", meta.path.span()));
+                        } else if meta.path.is_ident("u32") {
+                            pstring_type = Some(syn::Ident::new("u32", meta.path.span()));
+                        } else if meta.path.is_ident("u64") {
+                            pstring_type = Some(syn::Ident::new("u64", meta.path.span()));
+                        } else {
+                            return Err(meta.error("Expected u8, u16, or u32 for pstring"));
+                        }
+                        Ok(())
+                    }).unwrap();
                 }
             }
         }
@@ -381,6 +429,14 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                         return quote::quote! {
                             let #field_name = reader.read_fstring(#fixed_string, encoding, #trim)?;
                         };
+                    }
+                    if let Some(pstring_type) = pstring_type {
+                        let read_fn = syn::Ident::new(format!("read_{}", pstring_type).as_str(), pstring_type.span());
+                        return quote::quote! {
+                            let len = reader.#read_fn()? as usize;
+                            let #field_name = reader.read_exact_vec(len)?;
+                            let #field_name = crate::utils::encoding::decode_to_string(encoding, &#field_name, true)?;
+                        }
                     }
                 }
             }
@@ -410,6 +466,23 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                 Ok(Self #fields)
             }
         }
+    };
+    output.into()
+}
+
+#[cfg(feature = "artemis-arc")]
+#[proc_macro]
+pub fn gen_artemis_arc_ext(_: TokenStream) -> TokenStream {
+    let mut exts = Vec::new();
+    exts.push(quote::quote! { "pfs" });
+    for i in 0..=999 {
+        let ext = format!("pfs.{:03}", i);
+        exts.push(quote::quote! { #ext });
+    }
+    let output = quote::quote! {
+        &[
+            #(#exts),*
+        ]
     };
     output.into()
 }
