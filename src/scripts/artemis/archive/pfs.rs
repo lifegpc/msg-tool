@@ -29,7 +29,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
     fn build_script(
         &self,
         buf: Vec<u8>,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
@@ -38,6 +38,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
             MemReader::new(buf),
             archive_encoding,
             config,
+            filename,
         )?))
     }
 
@@ -50,18 +51,28 @@ impl ScriptBuilder for ArtemisArcBuilder {
     ) -> Result<Box<dyn Script>> {
         let f = std::fs::File::open(filename)?;
         let f = std::io::BufReader::new(f);
-        Ok(Box::new(ArtemisArc::new(f, archive_encoding, config)?))
+        Ok(Box::new(ArtemisArc::new(
+            f,
+            archive_encoding,
+            config,
+            filename,
+        )?))
     }
 
     fn build_script_from_reader(
         &self,
         reader: Box<dyn ReadSeek>,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(ArtemisArc::new(reader, archive_encoding, config)?))
+        Ok(Box::new(ArtemisArc::new(
+            reader,
+            archive_encoding,
+            config,
+            filename,
+        )?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -91,10 +102,16 @@ pub struct ArtemisArc<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     entries: Vec<PfsEntryHeader>,
     xor_key: Option<[u8; 20]>,
+    output_ext: Option<String>,
 }
 
 impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
-    pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(
+        mut reader: T,
+        archive_encoding: Encoding,
+        _config: &ExtraConfig,
+        filename: &str,
+    ) -> Result<Self> {
         let mut magic = [0; 2];
         reader.read_exact(&mut magic)?;
         if &magic != b"pf" {
@@ -131,10 +148,15 @@ impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
         } else {
             None
         };
+        let output_ext = std::path::Path::new(filename)
+            .extension()
+            .filter(|s| *s != "pfs")
+            .map(|s| s.to_string_lossy().to_string());
         Ok(ArtemisArc {
             reader: Arc::new(Mutex::new(reader)),
             entries,
             xor_key,
+            output_ext,
         })
     }
 }
@@ -166,6 +188,10 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for ArtemisArc<T> {
             reader: self.reader.clone(),
             xor_key: self.xor_key.clone(),
         }))
+    }
+
+    fn archive_output_ext<'a>(&'a self) -> Option<&'a str> {
+        self.output_ext.as_ref().map(|s| s.as_str())
     }
 }
 

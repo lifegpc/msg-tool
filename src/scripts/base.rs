@@ -257,6 +257,11 @@ pub trait Script: std::fmt::Debug {
         Ok(Box::new(std::iter::empty()))
     }
 
+    /// Returns output extension for archive output folder.
+    fn archive_output_ext<'a>(&'a self) -> Option<&'a str> {
+        None
+    }
+
     #[cfg(feature = "image")]
     fn is_image(&self) -> bool {
         false

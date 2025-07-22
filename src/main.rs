@@ -349,11 +349,18 @@ pub fn export_script(
                         pb.push(fname);
                     }
                 }
+                pb.set_extension("");
+                if let Some(ext) = script.archive_output_ext() {
+                    pb.set_extension(ext);
+                }
                 pb.to_string_lossy().into_owned()
             }
             None => {
                 let mut pb = std::path::PathBuf::from(filename);
                 pb.set_extension("");
+                if let Some(ext) = script.archive_output_ext() {
+                    pb.set_extension(ext);
+                }
                 pb.to_string_lossy().into_owned()
             }
         };
@@ -804,6 +811,10 @@ pub fn import_script(
                     pb.push(fname);
                 }
             }
+            pb.set_extension("");
+            if let Some(ext) = script.archive_output_ext() {
+                pb.set_extension(ext);
+            }
             pb.to_string_lossy().into_owned()
         };
         let files: Vec<_> = script.iter_archive()?.collect();
@@ -1244,11 +1255,17 @@ pub fn unpack_archive(
                 }
             }
             pb.set_extension("");
+            if let Some(ext) = script.archive_output_ext() {
+                pb.set_extension(ext);
+            }
             pb.to_string_lossy().into_owned()
         }
         None => {
             let mut pb = std::path::PathBuf::from(filename);
             pb.set_extension("");
+            if let Some(ext) = script.archive_output_ext() {
+                pb.set_extension(ext);
+            }
             pb.to_string_lossy().into_owned()
         }
     };
