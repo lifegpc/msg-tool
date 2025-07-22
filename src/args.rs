@@ -157,6 +157,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Whether to overlay PIMG images. (By default, true if all layers are not group layers.)
     pub kirikiri_pimg_overlay: Option<bool>,
+    #[cfg(feature = "artemis-arc")]
+    #[arg(long, global = true)]
+    /// Disable Artemis archive (.pfs) XOR encryption when packing.
+    pub artemis_arc_disable_xor: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

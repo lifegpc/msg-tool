@@ -5,6 +5,7 @@ use crate::utils::struct_pack::*;
 use anyhow::Result;
 use msg_tool_macro::*;
 use sha1::Digest;
+use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
@@ -86,6 +87,29 @@ impl ScriptBuilder for ArtemisArcBuilder {
     fn script_type(&self) -> &'static ScriptType {
         &ScriptType::ArtemisArc
     }
+
+    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+        if buf_len >= 3 && (buf.starts_with(b"pf6") || buf.starts_with(b"pf8")) {
+            return Some(10);
+        }
+        None
+    }
+
+    fn create_archive(
+        &self,
+        filename: &str,
+        files: &[&str],
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Archive>> {
+        let f = std::fs::File::options()
+            .write(true)
+            .read(true)
+            .create(true)
+            .truncate(true)
+            .open(filename)?;
+        Ok(Box::new(ArtemisArcWriter::new(f, files, encoding, config)?))
+    }
 }
 
 #[derive(Debug, Clone, StructPack, StructUnpack)]
@@ -121,7 +145,7 @@ impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
             ));
         }
         let version = reader.read_u8()?;
-        if version != b'2' && version != b'6' && version != b'8' {
+        if version != b'6' && version != b'8' {
             return Err(anyhow::anyhow!(
                 "Unsupported Artemis archive version: {}",
                 version
@@ -302,5 +326,175 @@ impl<'a, T: Iterator<Item = &'a PfsEntryHeader>, R: Read + Seek + 'static> Itera
         } else {
             None
         }
+    }
+}
+
+pub struct ArtemisArcWriter<T: Write + Seek + Read> {
+    writer: T,
+    headers: HashMap<String, PfsEntryHeader>,
+    encoding: Encoding,
+    disable_xor: bool,
+    index_size: u32,
+}
+
+impl<T: Write + Seek + Read> ArtemisArcWriter<T> {
+    pub fn new(
+        mut writer: T,
+        files: &[&str],
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
+        writer.write_all(if config.artemis_arc_disable_xor {
+            b"pf6"
+        } else {
+            b"pf8"
+        })?;
+        writer.write_u32(0)?; // Placeholder for index size
+        writer.write_u32(files.len() as u32)?;
+        let mut headers = HashMap::new();
+        for file in files {
+            let header = PfsEntryHeader {
+                name: file.to_string(),
+                _unk: 0,
+                offset: 0,
+                size: 0,
+            };
+            header.pack(&mut writer, false, encoding)?;
+            headers.insert(file.to_string(), header);
+        }
+        let size = writer.stream_position()?;
+        let index_size = size as u32 - 7;
+        writer.write_u32_at(3, index_size)?;
+        Ok(ArtemisArcWriter {
+            writer,
+            headers,
+            encoding,
+            disable_xor: config.artemis_arc_disable_xor,
+            index_size,
+        })
+    }
+}
+
+impl<T: Write + Seek + Read> Archive for ArtemisArcWriter<T> {
+    fn new_file<'a>(&'a mut self, name: &str) -> Result<Box<dyn WriteSeek + 'a>> {
+        let entry = self
+            .headers
+            .get_mut(name)
+            .ok_or_else(|| anyhow::anyhow!("File '{}' not found in archive", name))?;
+        if entry.offset != 0 || entry.size != 0 {
+            return Err(anyhow::anyhow!("File '{}' already exists in archive", name));
+        }
+        self.writer.seek(SeekFrom::End(0))?;
+        entry.offset = self.writer.stream_position()? as u32;
+        let file = ArtemisArcFile {
+            header: entry,
+            writer: &mut self.writer,
+            pos: 0,
+        };
+        Ok(Box::new(file))
+    }
+
+    fn write_header(&mut self) -> Result<()> {
+        self.writer.seek(SeekFrom::Start(11))?;
+        let mut files = self.headers.values().collect::<Vec<_>>();
+        files.sort_by_key(|d| d.offset);
+        for file in files.iter() {
+            file.pack(&mut self.writer, false, self.encoding)?;
+        }
+        if !self.disable_xor {
+            self.writer.seek(SeekFrom::Start(7))?;
+            let mut sha = sha1::Sha1::default();
+            let w = &mut self.writer;
+            let mut header = w.take(self.index_size as u64);
+            std::io::copy(&mut header, &mut sha)?;
+            sha.flush()?;
+            let result = sha.finalize();
+            let mut xor_key = [0u8; 20];
+            xor_key.copy_from_slice(&result);
+            let mut buf = [0u8; 1024];
+            for file in files.iter() {
+                self.writer.seek(SeekFrom::Start(file.offset as u64))?;
+                let mut pos = 0u32;
+                while pos < file.size {
+                    let bytes_to_read = (file.size - pos).min(1024) as usize;
+                    let bytes_read = self.writer.read(&mut buf[..bytes_to_read])?;
+                    if bytes_read == 0 {
+                        return Err(anyhow::anyhow!(
+                            "Unexpected end of file while reading '{}'",
+                            file.name
+                        ));
+                    }
+                    for i in 0..bytes_read {
+                        let l = (pos as u64 + i as u64) % 20;
+                        buf[i] ^= xor_key[l as usize];
+                    }
+                    self.writer.seek_relative(-(bytes_read as i64))?;
+                    self.writer.write_all(&buf[..bytes_read])?;
+                    pos += bytes_read as u32;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct ArtemisArcFile<'a, T: Write + Seek> {
+    header: &'a mut PfsEntryHeader,
+    writer: &'a mut T,
+    pos: u64,
+}
+
+impl<'a, T: Write + Seek> Write for ArtemisArcFile<'a, T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.writer
+            .seek(SeekFrom::Start(self.header.offset as u64 + self.pos))?;
+        let bytes_written = self.writer.write(buf)?;
+        self.pos += bytes_written as u64;
+        self.header.size = self.header.size.max(self.pos as u32);
+        Ok(bytes_written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.flush()
+    }
+}
+
+impl<'a, T: Write + Seek> Seek for ArtemisArcFile<'a, T> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset,
+            SeekFrom::End(offset) => {
+                if offset < 0 {
+                    if (-offset) as u64 > self.header.size as u64 {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek from end exceeds file length",
+                        ));
+                    }
+                    self.header.size as u64 - (-offset) as u64
+                } else {
+                    self.header.size as u64 + offset as u64
+                }
+            }
+            SeekFrom::Current(offset) => {
+                if offset < 0 {
+                    if (-offset) as u64 > self.pos {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek from current exceeds current position",
+                        ));
+                    }
+                    self.pos.saturating_sub((-offset) as u64)
+                } else {
+                    self.pos + offset as u64
+                }
+            }
+        };
+        self.pos = new_pos;
+        Ok(self.pos)
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        Ok(self.pos)
     }
 }

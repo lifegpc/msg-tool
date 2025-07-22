@@ -1432,6 +1432,8 @@ fn main() {
         bgi_compress_file: arg.bgi_compress_file,
         #[cfg(feature = "kirikiri-img")]
         kirikiri_pimg_overlay: arg.kirikiri_pimg_overlay,
+        #[cfg(feature = "artemis-arc")]
+        artemis_arc_disable_xor: arg.artemis_arc_disable_xor,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

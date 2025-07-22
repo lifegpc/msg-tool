@@ -223,6 +223,8 @@ pub struct ExtraConfig {
     pub bgi_compress_file: bool,
     #[cfg(feature = "kirikiri-img")]
     pub kirikiri_pimg_overlay: Option<bool>,
+    #[cfg(feature = "artemis-arc")]
+    pub artemis_arc_disable_xor: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
