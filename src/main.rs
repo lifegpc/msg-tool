@@ -1434,6 +1434,12 @@ fn main() {
         kirikiri_pimg_overlay: arg.kirikiri_pimg_overlay,
         #[cfg(feature = "artemis-arc")]
         artemis_arc_disable_xor: arg.artemis_arc_disable_xor,
+        #[cfg(feature = "artemis")]
+        artemis_indent: arg.artemis_indent,
+        #[cfg(feature = "artemis")]
+        artemis_no_indent: arg.artemis_no_indent,
+        #[cfg(feature = "artemis")]
+        artemis_max_line_width: arg.artemis_max_line_width,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

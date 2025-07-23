@@ -29,7 +29,7 @@ utf16string = "0.2"
 
 [features]
 default = ["artemis", "artemis-arc", "bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "escude", "escude-arc", "kirikiri", "kirikiri-img", "will-plus", "yaneurao", "yaneurao-itufuru"]
-artemis = []
+artemis = ["utils-escape"]
 artemis-arc = ["artemis", "msg_tool_macro/artemis-arc", "sha1"]
 bgi = []
 bgi-arc = ["bgi", "rand", "utils-bit-stream"]

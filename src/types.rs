@@ -225,11 +225,20 @@ pub struct ExtraConfig {
     pub kirikiri_pimg_overlay: Option<bool>,
     #[cfg(feature = "artemis-arc")]
     pub artemis_arc_disable_xor: bool,
+    #[cfg(feature = "artemis")]
+    pub artemis_indent: Option<usize>,
+    #[cfg(feature = "artemis")]
+    pub artemis_no_indent: bool,
+    #[cfg(feature = "artemis")]
+    pub artemis_max_line_width: usize,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
 /// Script type
 pub enum ScriptType {
+    #[cfg(feature = "artemis")]
+    /// Artemis Engine AST script
+    Artemis,
     #[cfg(feature = "artemis-arc")]
     #[value(alias("pfs"))]
     /// Artemis archive (pfs)

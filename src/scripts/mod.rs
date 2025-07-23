@@ -72,6 +72,8 @@ lazy_static::lazy_static! {
         Box::new(cat_system::cst::CstScriptBuilder::new()),
         #[cfg(feature = "artemis-arc")]
         Box::new(artemis::archive::pfs::ArtemisArcBuilder::new()),
+        #[cfg(feature = "artemis")]
+        Box::new(artemis::ast::AstScriptBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

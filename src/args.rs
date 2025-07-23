@@ -3,7 +3,7 @@ use clap::{ArgAction, ArgGroup, Parser, Subcommand};
 
 /// Tools for export and import scripts
 #[derive(Parser, Debug)]
-#[clap(group = ArgGroup::new("encodingg").multiple(false), group = ArgGroup::new("output_encodingg").multiple(false), group = ArgGroup::new("archive_encodingg").multiple(false))]
+#[clap(group = ArgGroup::new("encodingg").multiple(false), group = ArgGroup::new("output_encodingg").multiple(false), group = ArgGroup::new("archive_encodingg").multiple(false), group = ArgGroup::new("artemis_indentg").multiple(false))]
 #[command(
     version,
     about,
@@ -161,6 +161,19 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Disable Artemis archive (.pfs) XOR encryption when packing.
     pub artemis_arc_disable_xor: bool,
+    #[cfg(feature = "artemis")]
+    #[arg(long, global = true, group = "artemis_indentg")]
+    /// Artemis script indent size, used to format Artemis script.
+    /// Default is 4 spaces.
+    pub artemis_indent: Option<usize>,
+    #[cfg(feature = "artemis")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, group = "artemis_indentg")]
+    /// Disable Artemis script indent, used to format Artemis script.
+    pub artemis_no_indent: bool,
+    #[cfg(feature = "artemis")]
+    #[arg(long, global = true, default_value_t = 100)]
+    /// Max line width in Artemis script, used to format Artemis script.
+    pub artemis_max_line_width: usize,
     #[command(subcommand)]
     /// Command
     pub command: Command,

@@ -1,0 +1,284 @@
+use super::types::*;
+use crate::types::*;
+use crate::utils::encoding::*;
+use anyhow::Result;
+
+pub struct Parser<'a> {
+    str: &'a [u8],
+    pos: usize,
+    len: usize,
+    line: usize,
+    line_index: usize,
+    encoding: Encoding,
+}
+
+impl<'a> Parser<'a> {
+    pub fn new<S: AsRef<[u8]>>(str: &'a S, encoding: Encoding) -> Self {
+        let str = str.as_ref();
+        Parser {
+            str,
+            pos: 0,
+            len: str.len(),
+            line: 1,
+            line_index: 1,
+            encoding,
+        }
+    }
+
+    pub fn parse(mut self) -> Result<AstFile> {
+        self.erase_whitespace();
+        self.parse_indent(b"astver")?;
+        self.parse_equal()?;
+        let astver = self.parse_f64()?;
+        self.erase_whitespace();
+        let mut astname = None;
+        if self.is_indent(b"astname") {
+            self.parse_indent(b"astname")?;
+            self.parse_equal()?;
+            astname = Some(self.parse_str()?.to_string());
+            self.erase_whitespace();
+        }
+        self.parse_indent(b"ast")?;
+        self.parse_equal()?;
+        let ast = self.parse_value()?;
+        Ok(AstFile {
+            astver,
+            astname,
+            ast,
+        })
+    }
+
+    fn parse_equal(&mut self) -> Result<()> {
+        self.erase_whitespace();
+        match self.next() {
+            Some(b'=') => Ok(()),
+            _ => self.error("expected '='"),
+        }
+    }
+
+    fn parse_value(&mut self) -> Result<Value> {
+        self.erase_whitespace();
+        match self.peek() {
+            Some(t) => match t {
+                b'"' => return self.parse_str().map(|x| Value::Str(x.to_string())),
+                b'-' | b'.' | b'0'..=b'9' => return self.parse_any_number(),
+                b'n' => {
+                    if self.is_indent(b"nil") {
+                        self.pos += 3; // Skip "nil"
+                        Ok(Value::Null)
+                    } else {
+                        self.parse_key_val()
+                    }
+                }
+                b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'[' | b']' => return self.parse_key_val(),
+                b'{' => return self.parse_array(),
+                _ => return self.error(format!("unexpected token: {}", t)),
+            },
+            None => return self.error("unexpected eof"),
+        }
+    }
+
+    fn parse_array(&mut self) -> Result<Value> {
+        self.erase_whitespace();
+        self.parse_indent(b"{")?;
+        let mut array = Vec::new();
+        loop {
+            self.erase_whitespace();
+            match self.peek() {
+                Some(b'}') => {
+                    self.eat_char();
+                    break;
+                }
+                Some(_) => {
+                    let val = self.parse_value()?;
+                    array.push(val);
+                    match self.peek() {
+                        Some(b',') => {
+                            self.eat_char();
+                        }
+                        _ => {}
+                    }
+                }
+                None => return self.error("unexpected eof"),
+            }
+        }
+        Ok(Value::Array(array))
+    }
+
+    fn parse_any_number(&mut self) -> Result<Value> {
+        self.erase_whitespace();
+        let start = self.pos;
+        while let Some(c) = self.peek() {
+            if c == b'.' || c == b'-' || c.is_ascii_digit() {
+                self.eat_char();
+            } else {
+                break;
+            }
+        }
+        let s = std::str::from_utf8(&self.str[start..self.pos])?;
+        if s.contains('.') {
+            s.parse()
+                .map(Value::Float)
+                .map_err(|e| self.error2(format!("failed to parse f64: {}", e)))
+        } else {
+            s.parse()
+                .map(Value::Int)
+                .map_err(|e| self.error2(format!("failed to parse i64: {}", e)))
+        }
+    }
+
+    fn parse_f64(&mut self) -> Result<f64> {
+        self.erase_whitespace();
+        let start = self.pos;
+        while let Some(c) = self.peek() {
+            if c == b'.' || c == b'-' || c.is_ascii_digit() {
+                self.eat_char();
+            } else {
+                break;
+            }
+        }
+        let s = std::str::from_utf8(&self.str[start..self.pos])?;
+        s.parse()
+            .map_err(|e| self.error2(format!("failed to parse f64: {}", e)))
+    }
+
+    fn parse_str(&mut self) -> Result<String> {
+        self.erase_whitespace();
+        self.parse_indent(b"\"")?;
+        let start = self.pos;
+        let end = loop {
+            match self.next() {
+                Some(c) => {
+                    if c == b'"' {
+                        break self.pos - 1;
+                    }
+                }
+                None => return self.error("unexpected eof"),
+            }
+        };
+        decode_to_string(self.encoding, &self.str[start..end], true).map_err(|e| self.error2(e))
+    }
+
+    fn erase_whitespace(&mut self) {
+        while let Some(c) = self.peek() {
+            if c == b' ' || c == b'\t' || c == b'\n' || c == b'\r' {
+                if c == b'\n' {
+                    self.line += 1;
+                    self.line_index = 1;
+                } else {
+                    self.line_index += 1;
+                }
+                self.eat_char();
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn next(&mut self) -> Option<u8> {
+        if self.pos < self.len {
+            let c = self.str[self.pos];
+            self.pos += 1;
+            if c == b'\n' {
+                self.line += 1;
+                self.line_index = 1;
+            } else {
+                self.line_index += 1;
+            }
+            Some(c)
+        } else {
+            None
+        }
+    }
+
+    fn peek(&self) -> Option<u8> {
+        if self.pos < self.len {
+            Some(self.str[self.pos])
+        } else {
+            None
+        }
+    }
+
+    fn parse_key_val(&mut self) -> Result<Value> {
+        let key = self.get_indent()?;
+        self.parse_equal()?;
+        let val = self.parse_value()?;
+        Ok(Value::KeyVal((key.to_string(), Box::new(val))))
+    }
+
+    fn get_indent(&mut self) -> Result<String> {
+        self.erase_whitespace();
+        let start = self.pos;
+        let mut is_first = true;
+        let end = loop {
+            match self.peek() {
+                Some(t) => match t {
+                    b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'[' | b']' => self.eat_char(),
+                    b'0'..=b'9' => {
+                        if is_first {
+                            return self.error("unexpected digit");
+                        }
+                        self.eat_char();
+                    }
+                    b' ' | b'\t' | b'=' | b'\n' | b'\r' => break self.pos,
+                    _ => return self.error("unexpected token"),
+                },
+                None => return self.error("unexpected eof"),
+            }
+            is_first = false;
+        };
+        decode_to_string(self.encoding, &self.str[start..end], true).map_err(|e| self.error2(e))
+    }
+
+    fn is_indent(&self, indent: &[u8]) -> bool {
+        if self.pos + indent.len() > self.len {
+            return false;
+        }
+        for (i, c) in indent.iter().enumerate() {
+            if self.str[self.pos + i] != *c {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn parse_indent(&mut self, indent: &[u8]) -> Result<()> {
+        for c in indent {
+            match self.next() {
+                Some(x) => {
+                    if x != *c {
+                        return self.error("unexpected indent");
+                    }
+                }
+                None => return self.error("unexpected eof"),
+            }
+        }
+        Ok(())
+    }
+
+    fn eat_char(&mut self) {
+        if self.pos < self.len {
+            self.pos += 1;
+        }
+    }
+
+    fn error2<T>(&self, msg: T) -> anyhow::Error
+    where
+        T: std::fmt::Display,
+    {
+        anyhow::Error::msg(format!(
+            "Failed to parse at position line {} column {} (byte {}): {}",
+            self.line, self.line_index, self.pos, msg
+        ))
+    }
+
+    fn error<T, A>(&self, msg: T) -> Result<A>
+    where
+        T: std::fmt::Display,
+    {
+        Err(anyhow::Error::msg(format!(
+            "Failed to parse at position line {} column {} (byte {}): {}",
+            self.line, self.line_index, self.pos, msg
+        )))
+    }
+}
