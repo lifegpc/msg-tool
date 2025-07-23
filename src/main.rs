@@ -1200,7 +1200,12 @@ pub fn pack_archive(
             pb.to_string_lossy().into_owned()
         }
     };
-    let mut archive = builder.create_archive(&output, &reff, get_output_encoding(arg), config)?;
+    let mut archive = builder.create_archive(
+        &output,
+        &reff,
+        get_archived_encoding(arg, builder, get_encoding(arg, builder)),
+        config,
+    )?;
     for (file, name) in files.iter().zip(reff) {
         let mut f = match std::fs::File::open(file) {
             Ok(f) => f,
