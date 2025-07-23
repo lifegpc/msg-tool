@@ -75,6 +75,10 @@ impl Value {
         matches!(self, Value::KeyVal(_))
     }
 
+    pub fn is_null(&self) -> bool {
+        matches!(self, Value::Null)
+    }
+
     pub fn kv_key(&self) -> Option<&str> {
         if let Value::KeyVal((k, _)) = self {
             Some(k)

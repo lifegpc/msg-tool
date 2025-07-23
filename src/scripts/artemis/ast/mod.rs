@@ -114,16 +114,32 @@ impl Script for AstScript {
                         for l in text.kv_keys() {
                             if l != "vo" {
                                 lang = Some(l);
+                                break;
                             }
                         }
                         match lang {
                             Some(l) => l,
                             // No text found, continue to next block
-                            None => continue,
+                            None => {
+                                block_name = match block["linknext"].as_str() {
+                                    Some(name) => name,
+                                    None => break,
+                                };
+                                block = &ast[block_name];
+                                continue;
+                            }
                         }
                     }
                 };
-                let tex = &text[lan];
+                let mut tex = &text[lan];
+                if tex.is_null() {
+                    for l in text.kv_keys() {
+                        if l != "vo" {
+                            tex = &text[l];
+                            break;
+                        }
+                    }
+                }
                 for item in tex.members() {
                     let name = item["name"].last_member().as_string();
                     let message = text::TextGenerator::new().generate(item)?;
@@ -137,7 +153,49 @@ impl Script for AstScript {
                     });
                 }
             }
-            // #TODO: SELECTS
+            let select = &block["select"];
+            if select.is_array() {
+                let lan = match lang {
+                    Some(l) => l,
+                    None => {
+                        for l in select.kv_keys() {
+                            if l != "vo" {
+                                lang = Some(l);
+                                break;
+                            }
+                        }
+                        match lang {
+                            Some(l) => l,
+                            // No select text found, continue to next block
+                            None => {
+                                block_name = match block["linknext"].as_str() {
+                                    Some(name) => name,
+                                    None => break,
+                                };
+                                block = &ast[block_name];
+                                continue;
+                            }
+                        }
+                    }
+                };
+                let mut select_text = &select[lan];
+                if select_text.is_null() {
+                    for l in select.kv_keys() {
+                        if l != "vo" {
+                            select_text = &select[l];
+                            break;
+                        }
+                    }
+                }
+                for item in select_text.members() {
+                    if let Some(select) = item.as_str() {
+                        messages.push(Message {
+                            name: None,
+                            message: select.to_string(),
+                        });
+                    }
+                }
+            }
             block_name = match block["linknext"].as_str() {
                 Some(name) => name,
                 None => break,
