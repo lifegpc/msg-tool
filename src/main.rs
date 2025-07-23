@@ -1440,6 +1440,8 @@ fn main() {
         artemis_no_indent: arg.artemis_no_indent,
         #[cfg(feature = "artemis")]
         artemis_max_line_width: arg.artemis_max_line_width,
+        #[cfg(feature = "artemis")]
+        artemis_ast_lang: arg.artemis_ast_lang.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

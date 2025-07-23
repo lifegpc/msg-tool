@@ -50,6 +50,7 @@ pub struct AstScript {
     indent: Option<usize>,
     max_line_width: usize,
     no_indent: bool,
+    lang: Option<String>,
 }
 
 impl AstScript {
@@ -61,6 +62,7 @@ impl AstScript {
             indent: config.artemis_indent,
             max_line_width: config.artemis_max_line_width,
             no_indent: config.artemis_no_indent,
+            lang: config.artemis_ast_lang.clone(),
         })
     }
 }
@@ -81,13 +83,28 @@ impl Script for AstScript {
             .as_str()
             .ok_or(anyhow::anyhow!("Missing top block name"))?;
         let mut block = &ast[block_name];
-        let mut lang = None;
+        let mut lang: Option<&str> = self.lang.as_ref().map(|s| s.as_str());
         loop {
-            if let Some(save_title) = block[Key("savetitle")]["text"].as_str() {
-                messages.push(Message {
-                    name: None,
-                    message: save_title.to_string(),
-                });
+            let savetitle = &block[Key("savetitle")];
+            if savetitle.is_array() {
+                if let Some(lang) = lang {
+                    if let Some(title) = savetitle[lang].as_str() {
+                        messages.push(Message {
+                            name: None,
+                            message: title.to_string(),
+                        });
+                    } else if let Some(title) = savetitle["text"].as_str() {
+                        messages.push(Message {
+                            name: None,
+                            message: title.to_string(),
+                        });
+                    }
+                } else if let Some(title) = savetitle["text"].as_str() {
+                    messages.push(Message {
+                        name: None,
+                        message: title.to_string(),
+                    });
+                }
             }
             let text = &block["text"];
             if text.is_array() {

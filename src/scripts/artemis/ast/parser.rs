@@ -1,6 +1,7 @@
 use super::types::*;
 use crate::types::*;
 use crate::utils::encoding::*;
+use crate::utils::escape::unescape_lua_str;
 use anyhow::Result;
 
 pub struct Parser<'a> {
@@ -61,6 +62,19 @@ impl<'a> Parser<'a> {
         match self.peek() {
             Some(t) => match t {
                 b'"' => return self.parse_str().map(|x| Value::Str(x.to_string())),
+                b'[' => {
+                    self.eat_char();
+                    match self.peek().ok_or(self.error2("unexpected eof"))? {
+                        b'[' => {
+                            self.pos -= 1; // Rewind to the first '['
+                            self.parse_raw_str().map(|x| Value::Str(x))
+                        }
+                        _ => {
+                            self.pos -= 1;
+                            self.parse_key_val()
+                        }
+                    }
+                }
                 b'-' | b'.' | b'0'..=b'9' => return self.parse_any_number(),
                 b'n' => {
                     if self.is_indent(b"nil") {
@@ -70,7 +84,7 @@ impl<'a> Parser<'a> {
                         self.parse_key_val()
                     }
                 }
-                b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'[' | b']' => return self.parse_key_val(),
+                b'_' | b'a'..=b'z' | b'A'..=b'Z' | b']' => return self.parse_key_val(),
                 b'{' => return self.parse_array(),
                 _ => return self.error(format!("unexpected token: {}", t)),
             },
@@ -146,12 +160,40 @@ impl<'a> Parser<'a> {
         self.erase_whitespace();
         self.parse_indent(b"\"")?;
         let start = self.pos;
+        let mut pc = None;
         let end = loop {
             match self.next() {
                 Some(c) => {
                     if c == b'"' {
-                        break self.pos - 1;
+                        if pc.is_none_or(|x| x != b'\\') {
+                            break self.pos - 1;
+                        }
                     }
+                    pc = Some(c);
+                }
+                None => return self.error("unexpected eof"),
+            }
+        };
+        Ok(unescape_lua_str(
+            &decode_to_string(self.encoding, &self.str[start..end], true)
+                .map_err(|e| self.error2(e))?,
+        ))
+    }
+
+    fn parse_raw_str(&mut self) -> Result<String> {
+        self.erase_whitespace();
+        self.parse_indent(b"[[")?;
+        let start = self.pos;
+        let mut pc = None;
+        let end = loop {
+            match self.next() {
+                Some(c) => {
+                    if c == b']' {
+                        if pc.is_some_and(|x| x == b']') {
+                            break self.pos - 2;
+                        }
+                    }
+                    pc = Some(c);
                 }
                 None => return self.error("unexpected eof"),
             }
@@ -213,7 +255,7 @@ impl<'a> Parser<'a> {
         let end = loop {
             match self.peek() {
                 Some(t) => match t {
-                    b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'[' | b']' => self.eat_char(),
+                    b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'[' | b']' | b'"' => self.eat_char(),
                     b'0'..=b'9' => {
                         if is_first {
                             return self.error("unexpected digit");
@@ -227,7 +269,11 @@ impl<'a> Parser<'a> {
             }
             is_first = false;
         };
-        decode_to_string(self.encoding, &self.str[start..end], true).map_err(|e| self.error2(e))
+        let mut data = &self.str[start..end];
+        if data.starts_with(b"[\"") && data.ends_with(b"\"]") {
+            data = &data[2..data.len() - 2];
+        }
+        decode_to_string(self.encoding, data, true).map_err(|e| self.error2(e))
     }
 
     fn is_indent(&self, indent: &[u8]) -> bool {

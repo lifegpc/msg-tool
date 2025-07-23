@@ -174,6 +174,11 @@ pub struct Arg {
     #[arg(long, global = true, default_value_t = 100)]
     /// Max line width in Artemis script, used to format Artemis script.
     pub artemis_max_line_width: usize,
+    #[cfg(feature = "artemis")]
+    #[arg(long, global = true)]
+    /// Specify the language of Artemis AST script.
+    /// If not specified, the first language will be used.
+    pub artemis_ast_lang: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

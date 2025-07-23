@@ -231,6 +231,8 @@ pub struct ExtraConfig {
     pub artemis_no_indent: bool,
     #[cfg(feature = "artemis")]
     pub artemis_max_line_width: usize,
+    #[cfg(feature = "artemis")]
+    pub artemis_ast_lang: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

@@ -1,4 +1,5 @@
 use super::types::*;
+use crate::utils::escape::*;
 use std::io::Write;
 
 struct LenChecker {
@@ -24,9 +25,21 @@ impl LenChecker {
                 }
             }
             Value::Int(i) => self.current_len += format!("{}", i).len(),
-            Value::Str(s) => self.current_len += s.len() + 2,
+            Value::Str(s) => {
+                self.current_len += s.len()
+                    + if lua_str_contains_need_escape(s) {
+                        4
+                    } else {
+                        2
+                    }
+            }
             Value::KeyVal((k, v)) => {
-                self.current_len += k.as_bytes().len() + 3;
+                self.current_len += k.as_bytes().len()
+                    + if lua_key_contains_need_escape(k) {
+                        7
+                    } else {
+                        3
+                    };
                 if !self.check(v) {
                     return false;
                 }
@@ -96,19 +109,35 @@ impl<'a> Dumper<'a> {
             self.writer.write(b"astver=")?;
             self.dump_f64(&ast.astver)?;
             if let Some(astname) = &ast.astname {
-                self.writer.write(b"\nastname = \"")?;
-                self.writer.write(astname.as_bytes())?;
+                self.writer.write(b"\nastname = ")?;
+                if lua_str_contains_need_escape(astname) {
+                    self.writer.write(b"[[")?;
+                    self.writer.write(astname.as_bytes())?;
+                    self.writer.write(b"]]")?;
+                } else {
+                    self.writer.write(b"\"")?;
+                    self.writer.write(astname.as_bytes())?;
+                    self.writer.write(b"\"")?;
+                }
             };
-            self.writer.write(b"\"\nast=")?;
+            self.writer.write(b"\nast=")?;
             self.dump_value(&ast.ast)?;
         } else {
             self.writer.write(b"astver = ")?;
             self.dump_f64(&ast.astver)?;
             if let Some(astname) = &ast.astname {
-                self.writer.write(b"\nastname = \"")?;
-                self.writer.write(astname.as_bytes())?;
+                self.writer.write(b"\nastname = ")?;
+                if lua_str_contains_need_escape(&astname) {
+                    self.writer.write(b"[[")?;
+                    self.writer.write(astname.as_bytes())?;
+                    self.writer.write(b"]]")?;
+                } else {
+                    self.writer.write(b"\"")?;
+                    self.writer.write(astname.as_bytes())?;
+                    self.writer.write(b"\"")?;
+                }
             };
-            self.writer.write(b"\"\nast = ")?;
+            self.writer.write(b"\nast = ")?;
             self.current_line_width = 6;
             self.dump_value(&ast.ast)?;
         }
@@ -122,13 +151,25 @@ impl<'a> Dumper<'a> {
                 Value::Float(f) => self.dump_f64(f)?,
                 Value::Int(i) => write!(self.writer, "{}", i)?,
                 Value::Str(s) => {
-                    self.writer.write(b"\"")?;
-                    self.writer.write(s.as_bytes())?;
-                    self.writer.write(b"\"")?;
+                    if lua_str_contains_need_escape(s) {
+                        self.writer.write(b"[[")?;
+                        self.writer.write(s.as_bytes())?;
+                        self.writer.write(b"]]")?;
+                    } else {
+                        self.writer.write(b"\"")?;
+                        self.writer.write(s.as_bytes())?;
+                        self.writer.write(b"\"")?;
+                    }
                 }
                 Value::KeyVal((k, v)) => {
-                    self.writer.write(k.as_bytes())?;
-                    self.writer.write(b"=")?;
+                    if lua_key_contains_need_escape(k) {
+                        self.writer.write(b"[\"")?;
+                        self.writer.write(k.as_bytes())?;
+                        self.writer.write(b"\"]=")?;
+                    } else {
+                        self.writer.write(k.as_bytes())?;
+                        self.writer.write(b"=")?;
+                    }
                     self.dump_value(v)?;
                 }
                 Value::Array(arr) => {
@@ -150,15 +191,28 @@ impl<'a> Dumper<'a> {
                 Value::Float(f) => self.dump_f64(f)?,
                 Value::Int(i) => write!(self.writer, "{}", i)?,
                 Value::Str(s) => {
-                    self.writer.write(b"\"")?;
-                    self.writer.write(s.as_bytes())?;
-                    self.writer.write(b"\"")?;
+                    if lua_str_contains_need_escape(s) {
+                        self.writer.write(b"[[")?;
+                        self.writer.write(s.as_bytes())?;
+                        self.writer.write(b"]]")?;
+                    } else {
+                        self.writer.write(b"\"")?;
+                        self.writer.write(s.as_bytes())?;
+                        self.writer.write(b"\"")?;
+                    }
                 }
                 Value::KeyVal((k, v)) => {
                     let bytes = k.as_bytes();
-                    self.writer.write(bytes)?;
-                    self.writer.write(b" = ")?;
-                    self.current_line_width += bytes.len() + 3;
+                    if lua_key_contains_need_escape(k) {
+                        self.writer.write(b"[\"")?;
+                        self.writer.write(bytes)?;
+                        self.writer.write(b"\"] = ")?;
+                        self.current_line_width += bytes.len() + 7;
+                    } else {
+                        self.writer.write(bytes)?;
+                        self.writer.write(b" = ")?;
+                        self.current_line_width += bytes.len() + 3;
+                    }
                     if v.is_array() {
                         let tlen = self.current_line_width + self.current_indent;
                         if tlen < self.max_line_width {
@@ -215,14 +269,25 @@ impl<'a> Dumper<'a> {
             Value::Float(f) => self.dump_f64(f)?,
             Value::Int(i) => write!(self.writer, "{}", i)?,
             Value::Str(s) => {
-                self.writer.write(b"\"")?;
-                self.writer.write(s.as_bytes())?;
-                self.writer.write(b"\"")?;
+                if lua_str_contains_need_escape(s) {
+                    self.writer.write(b"[[")?;
+                    self.writer.write(s.as_bytes())?;
+                    self.writer.write(b"]]")?;
+                } else {
+                    self.writer.write(b"\"")?;
+                    self.writer.write(s.as_bytes())?;
+                    self.writer.write(b"\"")?;
+                }
             }
             Value::KeyVal((k, v)) => {
-                let bytes = k.as_bytes();
-                self.writer.write(bytes)?;
-                self.writer.write(b"=")?;
+                if lua_key_contains_need_escape(k) {
+                    self.writer.write(b"[\"")?;
+                    self.writer.write(k.as_bytes())?;
+                    self.writer.write(b"\"]=")?;
+                } else {
+                    self.writer.write(k.as_bytes())?;
+                    self.writer.write(b"=")?;
+                }
                 self.dump_value_in_one(v)?;
             }
             Value::Array(arr) => {
