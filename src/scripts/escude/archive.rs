@@ -332,7 +332,7 @@ impl<T: Write + Seek> EscudeBinArchiveWriter<T> {
         let mut headers = HashMap::new();
         for file in files {
             let f = file.to_string();
-            let encoded = encode_string(encoding, file, true)?;
+            let encoded = encode_string(encoding, file, false)?;
             let encoded = CString::new(encoded)?;
             let name_offset = writer.stream_position()? as u32;
             writer.write_all(encoded.as_bytes_with_nul())?;
