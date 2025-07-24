@@ -14,7 +14,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new<S: AsRef<[u8]>>(str: &'a S, encoding: Encoding) -> Self {
+    pub fn new<S: AsRef<[u8]> + ?Sized>(str: &'a S, encoding: Encoding) -> Self {
         let str = str.as_ref();
         Parser {
             str,
@@ -24,6 +24,14 @@ impl<'a> Parser<'a> {
             line_index: 1,
             encoding,
         }
+    }
+
+    pub fn try_parse_header(mut self) -> Result<()> {
+        self.erase_whitespace();
+        self.parse_indent(b"astver")?;
+        self.parse_equal()?;
+        self.parse_f64()?;
+        Ok(())
     }
 
     pub fn parse(mut self) -> Result<AstFile> {
@@ -36,7 +44,7 @@ impl<'a> Parser<'a> {
         if self.is_indent(b"astname") {
             self.parse_indent(b"astname")?;
             self.parse_equal()?;
-            astname = Some(self.parse_str()?.to_string());
+            astname = Some(self.parse_any_str()?.to_string());
             self.erase_whitespace();
         }
         self.parse_indent(b"ast")?;
@@ -138,6 +146,15 @@ impl<'a> Parser<'a> {
             s.parse()
                 .map(Value::Int)
                 .map_err(|e| self.error2(format!("failed to parse i64: {}", e)))
+        }
+    }
+
+    fn parse_any_str(&mut self) -> Result<String> {
+        self.erase_whitespace();
+        match self.peek().ok_or(self.error2("unexpected eof"))? {
+            b'"' => self.parse_str(),
+            b'[' => self.parse_raw_str(),
+            _ => self.error("expected string or raw string"),
         }
     }
 

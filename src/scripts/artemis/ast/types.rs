@@ -1,4 +1,5 @@
 use std::cmp::{PartialEq, PartialOrd};
+use std::convert::From;
 use std::ops::{Deref, Index, IndexMut};
 
 #[derive(Clone, Debug)]
@@ -9,6 +10,12 @@ pub enum Value {
     KeyVal((String, Box<Value>)),
     Array(Vec<Value>),
     Null,
+}
+
+impl From<String> for Value {
+    fn from(s: String) -> Self {
+        Value::Str(s)
+    }
 }
 
 /// Reprsents a key in nested arrays.
@@ -67,6 +74,24 @@ impl Value {
         }
     }
 
+    pub fn find_array_mut(&mut self, key: &str) -> &mut Value {
+        match &self {
+            Value::Array(arr) => {
+                for (i, item) in arr.iter().enumerate() {
+                    if &item[0] == key {
+                        return &mut self[i];
+                    }
+                }
+                self.push_member(Value::Array(vec![Value::Str(key.to_string())]));
+                self.last_member_mut()
+            }
+            _ => {
+                *self = Value::Array(vec![Value::Str(key.to_string())]);
+                self.last_member_mut()
+            }
+        }
+    }
+
     pub fn is_array(&self) -> bool {
         matches!(self, Value::Array(_))
     }
@@ -95,6 +120,50 @@ impl Value {
         }
     }
 
+    pub fn last_member(&self) -> &Value {
+        match self {
+            Value::Array(arr) => arr.last().unwrap_or(&NULL),
+            _ => &NULL,
+        }
+    }
+
+    pub fn last_member_mut(&mut self) -> &mut Value {
+        match self {
+            Value::Array(arr) => {
+                if arr.is_empty() {
+                    arr.push(NULL);
+                }
+                arr.last_mut().unwrap()
+            }
+            _ => {
+                *self = Value::Array(vec![NULL]);
+                self.last_member_mut()
+            }
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Value::Array(arr) => arr.len(),
+            _ => 0,
+        }
+    }
+
+    pub fn insert_member(&mut self, index: usize, value: Value) {
+        match self {
+            Value::Array(arr) => {
+                if index < arr.len() {
+                    arr.insert(index, value);
+                } else {
+                    arr.push(value);
+                }
+            }
+            _ => {
+                *self = Value::Array(vec![value]);
+            }
+        }
+    }
+
     pub fn members<'a>(&'a self) -> Iter<'a> {
         match self {
             Value::Array(arr) => Iter { iter: arr.iter() },
@@ -111,11 +180,29 @@ impl Value {
         }
     }
 
-    pub fn last_member(&self) -> &Value {
+    pub fn new_array() -> Self {
+        Value::Array(Vec::new())
+    }
+
+    pub fn new_kv<S: Into<String>>(key: S, value: Value) -> Self {
+        Value::KeyVal((key.into(), Box::new(value)))
+    }
+
+    pub fn push_member(&mut self, value: Value) {
         match self {
-            Value::Array(arr) => arr.last().unwrap_or(&NULL),
-            _ => &NULL,
+            Value::Array(arr) => arr.push(value),
+            _ => {
+                *self = Value::Array(vec![value]);
+            }
         }
+    }
+
+    pub fn set_str<S: AsRef<str> + ?Sized>(&mut self, value: &S) {
+        *self = Value::Str(value.as_ref().to_string());
+    }
+
+    pub fn set_string<S: Into<String>>(&mut self, value: S) {
+        *self = Value::Str(value.into());
     }
 }
 
@@ -267,12 +354,26 @@ impl<'a, 'b> Index<&'b Key<'a>> for Value {
     }
 }
 
+impl<'a, 'b> IndexMut<&'b Key<'a>> for Value {
+    #[inline(always)]
+    fn index_mut(&mut self, key: &'b Key<'a>) -> &mut Self::Output {
+        self.find_array_mut(&key.0)
+    }
+}
+
 impl<'a> Index<Key<'a>> for Value {
     type Output = Value;
 
     #[inline(always)]
     fn index(&self, key: Key<'a>) -> &Self::Output {
         self.find_array(&key.0)
+    }
+}
+
+impl<'a> IndexMut<Key<'a>> for Value {
+    #[inline(always)]
+    fn index_mut(&mut self, key: Key<'a>) -> &mut Self::Output {
+        self.find_array_mut(&key.0)
     }
 }
 

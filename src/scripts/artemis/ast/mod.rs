@@ -42,6 +42,15 @@ impl ScriptBuilder for AstScriptBuilder {
     fn script_type(&self) -> &'static ScriptType {
         &ScriptType::Artemis
     }
+
+    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+        let parser = parser::Parser::new(&buf[..buf_len], Encoding::Utf8);
+        if parser.try_parse_header().is_ok() {
+            Some(15)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -207,12 +216,174 @@ impl Script for AstScript {
 
     fn import_messages<'a>(
         &'a self,
-        _messages: Vec<Message>,
+        messages: Vec<Message>,
         mut file: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
-        _replacement: Option<&'a ReplacementTable>,
+        replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
-        let ast = self.ast.clone();
+        let mut ast = self.ast.clone();
+        let root = &mut ast.ast;
+        let mut block_name = root["label"]["top"]["block"]
+            .as_string()
+            .ok_or(anyhow::anyhow!("Missing top block name"))?;
+        let mut block = &mut root[block_name];
+        let mut mess = messages.iter();
+        let mut mes = mess.next();
+        let mut lang = self.lang.as_ref().map(|s| s.to_string());
+        loop {
+            if block[Key("savetitle")].is_array() {
+                let lan = lang.as_ref().map(|s| s.as_str()).unwrap_or("text");
+                let m = match mes {
+                    Some(m) => m,
+                    None => return Err(anyhow::anyhow!("Not enough messages.")),
+                };
+                let mut title = m.message.clone();
+                if let Some(repl) = replacement {
+                    for (k, v) in &repl.map {
+                        title = title.replace(k, v);
+                    }
+                }
+                block[Key("savetitle")][lan].set_string(title);
+                mes = mess.next();
+            }
+            if block["text"].is_array() {
+                let lan = match &lang {
+                    Some(l) => l.as_str(),
+                    None => {
+                        for l in block["text"].kv_keys() {
+                            if l != "vo" {
+                                lang = Some(l.to_string());
+                                break;
+                            }
+                        }
+                        match lang {
+                            Some(ref l) => l.as_str(),
+                            // No text found, continue to next block
+                            None => {
+                                block_name = match block["linknext"].as_string() {
+                                    Some(name) => name,
+                                    None => break,
+                                };
+                                block = &mut root[block_name];
+                                continue;
+                            }
+                        }
+                    }
+                };
+                let origin_names: Vec<_> = {
+                    let mut tex = &block["text"][lan];
+                    if tex.is_null() {
+                        for l in block["text"].kv_keys() {
+                            if l != "vo" {
+                                tex = &block["text"][l];
+                                break;
+                            }
+                        }
+                    }
+                    tex.members().map(|m| m["name"].clone()).collect()
+                };
+                let mut arr = Value::new_array();
+                for name in origin_names {
+                    let m = match mes {
+                        Some(m) => m,
+                        None => return Err(anyhow::anyhow!("Not enough messages.")),
+                    };
+                    let mut text = m.message.clone();
+                    if let Some(repl) = replacement {
+                        for (k, v) in &repl.map {
+                            text = text.replace(k, v);
+                        }
+                    }
+                    if !text.ends_with("\n") {
+                        text.push('\n');
+                    }
+                    let mut v = text::TextParser::new(&text.replace("\n", "<rt2>")).parse()?;
+                    if name.is_array() {
+                        let mut n = match &m.name {
+                            Some(n) => n.to_string(),
+                            None => return Err(anyhow::anyhow!("Message name is missing.")),
+                        };
+                        if let Some(repl) = replacement {
+                            for (k, v) in &repl.map {
+                                n = n.replace(k, v);
+                            }
+                        }
+                        v.insert_member(0, Value::new_kv("name", name));
+                        if v["name"].len() <= 1 {
+                            if v["name"][0] != n {
+                                v["name"].push_member(Value::Str(n));
+                            }
+                        } else {
+                            v["name"].last_member_mut().set_string(n);
+                        }
+                    }
+                    arr.push_member(v);
+                    mes = mess.next();
+                }
+                block["text"][lan] = arr;
+            }
+            if block["select"].is_array() {
+                let lan = match &lang {
+                    Some(l) => l.as_str(),
+                    None => {
+                        for l in block["select"].kv_keys() {
+                            if l != "vo" {
+                                lang = Some(l.to_string());
+                                break;
+                            }
+                        }
+                        match lang {
+                            Some(ref l) => l.as_str(),
+                            // No text found, continue to next block
+                            None => {
+                                block_name = match block["linknext"].as_string() {
+                                    Some(name) => name,
+                                    None => break,
+                                };
+                                block = &mut root[block_name];
+                                continue;
+                            }
+                        }
+                    }
+                };
+                let select_count = {
+                    let mut select = &block["select"][lan];
+                    if select.is_null() {
+                        for l in block["select"].kv_keys() {
+                            if l != "vo" {
+                                select = &block["select"][l];
+                                break;
+                            }
+                        }
+                    }
+                    select.len()
+                };
+                let mut new_select = Value::new_array();
+                for _ in 0..select_count {
+                    let m = match mes {
+                        Some(m) => m,
+                        None => return Err(anyhow::anyhow!("Not enough messages.")),
+                    };
+                    let mut select_text = m.message.clone();
+                    if let Some(repl) = replacement {
+                        for (k, v) in &repl.map {
+                            select_text = select_text.replace(k, v);
+                        }
+                    }
+                    new_select.push_member(Value::Str(select_text));
+                    mes = mess.next();
+                }
+                block["select"][lan] = new_select;
+            }
+            block_name = match block["linknext"].as_string() {
+                Some(name) => name,
+                None => break,
+            };
+            block = &mut root[block_name];
+        }
+        if mes.is_some() || mess.next().is_some() {
+            return Err(anyhow::anyhow!("Not all messages were used."));
+        }
         let mut writer = Vec::new();
         let mut dumper = dump::Dumper::new(&mut writer);
         if self.no_indent {
