@@ -241,6 +241,9 @@ pub enum ScriptType {
     #[cfg(feature = "artemis")]
     /// Artemis Engine AST script
     Artemis,
+    #[cfg(feature = "artemis")]
+    /// Artemis Engine ASB script
+    ArtemisAsb,
     #[cfg(feature = "artemis-arc")]
     #[value(alias("pfs"))]
     /// Artemis archive (pfs)
