@@ -2,7 +2,7 @@ use std::cmp::{PartialEq, PartialOrd};
 use std::convert::From;
 use std::ops::{Deref, Index, IndexMut};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Float(f64),
     Int(i64),

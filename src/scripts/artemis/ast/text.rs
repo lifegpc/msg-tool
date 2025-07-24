@@ -195,7 +195,13 @@ impl<'a> TextParser<'a> {
                     let key = self.parse_key()?;
                     let v = if self.is_indent("=") {
                         self.parse_indent("=")?;
-                        Value::KeyVal((key, Box::new(self.parse_str()?)))
+                        let v = match self.peek().ok_or(self.error2("Unexpected eof"))? {
+                            "\"" => self.parse_str()?,
+                            "-" | "." | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8"
+                            | "9" => self.parse_any_number()?,
+                            _ => return self.error("Expected value after key"),
+                        };
+                        Value::KeyVal((key, Box::new(v)))
                     } else {
                         Value::Str(key)
                     };
@@ -352,4 +358,48 @@ impl<'a> TextParser<'a> {
             msg
         ))
     }
+}
+
+#[test]
+fn test_gen() {
+    let v = Value::Array(vec![
+        Value::Str("\"Hello<Dat>".to_string()),
+        Value::Array(vec![
+            Value::Str("title".to_string()),
+            Value::Int(1),
+            Value::Float(2.0),
+            Value::KeyVal((
+                "name".to_string(),
+                Box::new(Value::Str("World".to_string())),
+            )),
+            Value::KeyVal(("int".to_string(), Box::new(Value::Int(42)))),
+            Value::KeyVal(("float".to_string(), Box::new(Value::Float(3.0)))),
+        ]),
+        Value::Str(">World".to_string()),
+    ]);
+    assert_eq!(
+        TextGenerator::new().generate(&v).unwrap(),
+        "\"Hello&lt;Dat><title 1 2.0 name=\"World\" int=42 float=3.0>>World"
+    );
+}
+
+#[test]
+fn test_parse() {
+    let text = "\"Hello&lt;Dat><title 1 2.0 name=\"World\" int=42 float=3.0>>World";
+    let v = Value::Array(vec![
+        Value::Str("\"Hello<Dat>".to_string()),
+        Value::Array(vec![
+            Value::Str("title".to_string()),
+            Value::Int(1),
+            Value::Float(2.0),
+            Value::KeyVal((
+                "name".to_string(),
+                Box::new(Value::Str("World".to_string())),
+            )),
+            Value::KeyVal(("int".to_string(), Box::new(Value::Int(42)))),
+            Value::KeyVal(("float".to_string(), Box::new(Value::Float(3.0)))),
+        ]),
+        Value::Str(">World".to_string()),
+    ]);
+    assert_eq!(TextParser::new(text).parse().unwrap(), v);
 }
