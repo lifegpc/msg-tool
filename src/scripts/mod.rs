@@ -9,6 +9,8 @@ pub mod cat_system;
 pub mod circus;
 #[cfg(feature = "escude")]
 pub mod escude;
+#[cfg(feature = "hexen-haus")]
+pub mod hexen_haus;
 #[cfg(feature = "kirikiri")]
 pub mod kirikiri;
 #[cfg(feature = "will-plus")]
@@ -76,6 +78,8 @@ lazy_static::lazy_static! {
         Box::new(artemis::ast::AstScriptBuilder::new()),
         #[cfg(feature = "artemis")]
         Box::new(artemis::asb::ArtemisAsbBuilder::new()),
+        #[cfg(feature = "hexen-haus")]
+        Box::new(hexen_haus::bin::BinScriptBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

@@ -301,6 +301,9 @@ pub enum ScriptType {
     #[cfg(feature = "escude")]
     /// Escude list script
     EscudeList,
+    #[cfg(feature = "hexen-haus")]
+    /// HexenHaus bin script
+    HexenHaus,
     #[cfg(feature = "kirikiri")]
     #[value(alias("kr-scn"))]
     /// Kirikiri SCN script
