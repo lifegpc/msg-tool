@@ -160,8 +160,8 @@ impl Script for BinScript {
                 }
             } else {
                 Message {
-                name: None,
-                message: str.str.clone(),
+                    name: None,
+                    message: str.str.clone(),
                 }
             };
             messages.push(message);
@@ -170,12 +170,12 @@ impl Script for BinScript {
     }
 
     fn import_messages<'a>(
-            &'a self,
-            mut messages: Vec<Message>,
-            mut file: Box<dyn WriteSeek + 'a>,
-            encoding: Encoding,
-            replacement: Option<&'a ReplacementTable>,
-        ) -> Result<()> {
+        &'a self,
+        mut messages: Vec<Message>,
+        mut file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
         let mut data = MemWriter::from_vec(self.data.data.clone());
         let mut i = 0;
         for str in self.strs.iter() {

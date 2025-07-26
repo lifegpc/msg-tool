@@ -7,6 +7,7 @@ use anyhow::Result;
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::ops::Index;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
 pub struct ArtemisAsbBuilder {}
@@ -49,7 +50,19 @@ impl ScriptBuilder for ArtemisAsbBuilder {
     }
 }
 
-#[derive(Clone, Debug)]
+fn escape_text(s: &str) -> String {
+    let mut escaped = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            _ => escaped.push(c),
+        }
+    }
+    escaped
+}
+
+#[derive(Clone, Debug, PartialEq)]
 struct Command {
     pub name: String,
     pub line_number: u32,
@@ -96,10 +109,24 @@ impl Index<String> for Command {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum Item {
     Command(Command),
     Label(String),
+}
+
+impl Item {
+    pub fn is_command(&self) -> bool {
+        matches!(self, Item::Command(_))
+    }
+
+    pub fn is_command_name(&self, name: &str) -> bool {
+        if let Item::Command(cmd) = self {
+            cmd.name == name
+        } else {
+            false
+        }
+    }
 }
 
 trait CustomReadFn {
@@ -179,6 +206,185 @@ impl<T: Write> CustomWriteFn for T {
     }
 }
 
+struct TextParser<'a> {
+    items: Vec<Item>,
+    text: Vec<&'a str>,
+    pos: usize,
+    len: usize,
+}
+
+impl<'a> TextParser<'a> {
+    pub fn new(str: &'a str) -> Self {
+        let text: Vec<&'a str> = UnicodeSegmentation::graphemes(str, true).collect();
+        let len = text.len();
+        TextParser {
+            items: Vec::new(),
+            text,
+            pos: 0,
+            len,
+        }
+    }
+
+    pub fn parse(mut self) -> Result<Vec<Item>> {
+        while let Some(c) = self.peek() {
+            match c {
+                "<" => {
+                    self.parse_tag()?;
+                }
+                _ => {
+                    let mut text = String::new();
+                    self.eat_char();
+                    text.push_str(c);
+                    while let Some(b) = self.peek() {
+                        if b == "<" {
+                            break;
+                        }
+                        text.push_str(b);
+                        self.eat_char();
+                    }
+                    if !text.is_empty() {
+                        self.items.push(Item::Command(Command {
+                            name: "print".to_string(),
+                            line_number: 0,
+                            attributes: [("data".to_string(), unescape_xml(&text))].into(),
+                        }))
+                    }
+                }
+            }
+        }
+        self.items
+            .push(Item::Command(Command::new("hcls".to_string(), 0)));
+        Ok(self.items)
+    }
+
+    fn parse_tag(&mut self) -> Result<()> {
+        self.parse_indent("<")?;
+        let key = self.parse_key()?;
+        self.erase_whitespace();
+        let mut cmd = Command::new(key, 0);
+        loop {
+            let c = self.peek().ok_or(self.error2("Unexpected eof"))?;
+            match c {
+                ">" => {
+                    self.eat_char();
+                    break;
+                }
+                " " => {
+                    self.eat_char();
+                    continue;
+                }
+                _ => {
+                    let key = self.parse_key()?;
+                    self.parse_indent("=")?;
+                    let value = self.parse_str()?;
+                    cmd.attributes.insert(key, value);
+                }
+            }
+        }
+        self.items.push(Item::Command(cmd));
+        Ok(())
+    }
+
+    fn parse_key(&mut self) -> Result<String> {
+        self.erase_whitespace();
+        let mut key = String::new();
+        while let Some(c) = self.peek() {
+            if c == "=" || c == " " || c == ">" {
+                break;
+            }
+            key.push_str(c);
+            self.eat_char();
+        }
+        if key.is_empty() {
+            return self.error("Expected key, but found nothing");
+        }
+        Ok(key)
+    }
+
+    fn parse_str(&mut self) -> Result<String> {
+        self.erase_whitespace();
+        self.parse_indent("\"")?;
+        let mut text = String::new();
+        loop {
+            match self.next().ok_or(self.error2("Unexpected eof"))? {
+                "\"" => {
+                    break;
+                }
+                t => {
+                    text.push_str(t);
+                }
+            }
+        }
+        Ok(unescape_xml(&text))
+    }
+
+    fn erase_whitespace(&mut self) {
+        while let Some(c) = self.peek() {
+            if c == " " {
+                self.eat_char();
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn parse_indent(&mut self, indent: &str) -> Result<()> {
+        for ident in indent.graphemes(true) {
+            match self.next() {
+                Some(c) => {
+                    if c != ident {
+                        return self.error("Unexpected indent");
+                    }
+                }
+                None => return self.error("Unexpected eof"),
+            }
+        }
+        Ok(())
+    }
+
+    fn eat_char(&mut self) {
+        if self.pos < self.len {
+            self.pos += 1;
+        }
+    }
+
+    fn next(&mut self) -> Option<&'a str> {
+        if self.pos < self.len {
+            let item = self.text[self.pos];
+            self.pos += 1;
+            Some(item)
+        } else {
+            None
+        }
+    }
+
+    fn peek(&self) -> Option<&'a str> {
+        if self.pos < self.len {
+            Some(self.text[self.pos])
+        } else {
+            None
+        }
+    }
+
+    fn error2<T>(&self, msg: T) -> anyhow::Error
+    where
+        T: std::fmt::Display,
+    {
+        anyhow::anyhow!("Failed to parse at position {}: {}", self.pos, msg)
+    }
+
+    fn error<T, A>(&self, msg: T) -> Result<A>
+    where
+        T: std::fmt::Display,
+    {
+        Err(anyhow::anyhow!(
+            "Failed to parse at position {}: {}",
+            self.pos,
+            msg
+        ))
+    }
+}
+
 #[derive(Debug)]
 pub struct Asb {
     items: Vec<Item>,
@@ -228,7 +434,7 @@ impl Script for Asb {
                             cur_mes = String::new();
                         }
                         "print" => {
-                            cur_mes.push_str(&cmd["data"]);
+                            cur_mes.push_str(&escape_text(&cmd["data"]));
                         }
                         "rt" => {
                             cur_mes.push('\n');
@@ -243,7 +449,7 @@ impl Script for Asb {
             if let Item::Command(cmd) = item {
                 match cmd.name.as_str() {
                     "print" => {
-                        cur_mes.push_str(&cmd["data"]);
+                        cur_mes.push_str(&escape_text(&cmd["data"]));
                         in_print = true;
                     }
                     "name" => {
@@ -283,13 +489,112 @@ impl Script for Asb {
 
     fn import_messages<'a>(
         &'a self,
-        _messages: Vec<Message>,
+        messages: Vec<Message>,
         mut file: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
-        _replacement: Option<&'a ReplacementTable>,
+        replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
         file.write_all(b"ASB\0\0")?;
-        let items = self.items.clone();
+        let mut items = self.items.clone();
+        let mut name_index = None;
+        let mut mes_index = 0;
+        let mut item_index = 0;
+        let mut print_index = None;
+        while item_index < items.len() {
+            if let Some(print_ind) = print_index.clone() {
+                if items[item_index].is_command_name("hcls") {
+                    let message = messages
+                        .get(mes_index)
+                        .ok_or(anyhow::anyhow!("Not enough messages."))?;
+                    if let Some(name_index) = name_index.take() {
+                        let mut name = match &message.name {
+                            Some(name) => name.to_owned(),
+                            None => return Err(anyhow::anyhow!("Message without name.")),
+                        };
+                        if let Some(replacement) = replacement {
+                            for (k, v) in &replacement.map {
+                                name = name.replace(k, v);
+                            }
+                        }
+                        if let Item::Command(cmd) = &mut items[name_index] {
+                            if cmd.attributes.len() > 1 {
+                                cmd.attributes
+                                    .insert(format!("{}", cmd.attributes.len() - 1), name);
+                            } else {
+                                let oname = cmd
+                                    .attributes
+                                    .get("0")
+                                    .ok_or(anyhow::anyhow!("No name attribute found."))?;
+                                if oname != &name {
+                                    cmd.attributes.insert("1".to_string(), name);
+                                }
+                            }
+                        }
+                    }
+                    let mut m = message.message.clone();
+                    if let Some(replacement) = replacement {
+                        for (k, v) in &replacement.map {
+                            m = m.replace(k, v);
+                        }
+                    }
+                    let new_cmds = TextParser::new(&m.replace("\n", "<rt>")).parse()?;
+                    let new_cmds_len = new_cmds.len();
+                    items.splice(print_ind..=item_index, new_cmds);
+                    print_index = None;
+                    item_index = print_ind + new_cmds_len;
+                    mes_index += 1;
+                    continue;
+                } else if items[item_index].is_command() {
+                    item_index += 1;
+                    continue;
+                }
+            }
+            if let Item::Command(cmd) = &mut items[item_index] {
+                match cmd.name.as_str() {
+                    "print" => {
+                        print_index = Some(item_index);
+                    }
+                    "name" => {
+                        name_index = Some(item_index);
+                    }
+                    "sel_text" => {
+                        let message = messages
+                            .get(mes_index)
+                            .ok_or(anyhow::anyhow!("Not enough messages."))?;
+                        let mut m = message.message.clone();
+                        if let Some(replacement) = replacement {
+                            for (k, v) in &replacement.map {
+                                m = m.replace(k, v);
+                            }
+                        }
+                        cmd.attributes.insert("text".to_string(), m);
+                        mes_index += 1;
+                    }
+                    "RegisterTextToHistory" => {
+                        let message = messages
+                            .get(mes_index)
+                            .ok_or(anyhow::anyhow!("Not enough messages."))?;
+                        let mut m = message.message.clone();
+                        if let Some(replacement) = replacement {
+                            for (k, v) in &replacement.map {
+                                m = m.replace(k, v);
+                            }
+                        }
+                        cmd.attributes.insert("1".to_string(), m);
+                        mes_index += 1;
+                    }
+                    _ => {}
+                }
+            }
+            item_index += 1;
+        }
+        if mes_index != messages.len() {
+            return Err(anyhow::anyhow!(
+                "Not all messages were processed, expected {}, got {}",
+                messages.len(),
+                mes_index
+            ));
+        }
         file.write_u32(items.len() as u32)?;
         for item in items {
             file.write_item(&item, encoding)?;
@@ -297,4 +602,46 @@ impl Script for Asb {
         file.flush()?;
         Ok(())
     }
+}
+
+#[test]
+fn test_parse() {
+    let text = "Hello &lt; &amp; World!<tag><tags x=\"123\"><name 0=\"Ok\">Test";
+    let parser = TextParser::new(text);
+    let items = parser.parse().unwrap();
+    assert_eq!(
+        items,
+        vec![
+            Item::Command(Command {
+                name: "print".to_string(),
+                line_number: 0,
+                attributes: [("data".to_string(), "Hello < & World!".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "tag".to_string(),
+                line_number: 0,
+                attributes: BTreeMap::new(),
+            }),
+            Item::Command(Command {
+                name: "tags".to_string(),
+                line_number: 0,
+                attributes: [("x".to_string(), "123".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "name".to_string(),
+                line_number: 0,
+                attributes: [("0".to_string(), "Ok".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "print".to_string(),
+                line_number: 0,
+                attributes: [("data".to_string(), "Test".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "hcls".to_string(),
+                line_number: 0,
+                attributes: BTreeMap::new(),
+            }),
+        ]
+    )
 }
