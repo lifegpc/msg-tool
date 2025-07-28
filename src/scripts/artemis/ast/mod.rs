@@ -400,3 +400,8 @@ impl Script for AstScript {
         Ok(())
     }
 }
+
+pub fn is_this_format(_filename: &str, buf: &[u8], buf_len: usize) -> bool {
+    let parser = parser::Parser::new(&buf[..buf_len], Encoding::Utf8);
+    parser.try_parse_header().is_ok()
+}

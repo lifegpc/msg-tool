@@ -1,5 +1,6 @@
 use crate::ext::io::*;
 use crate::scripts::base::*;
+use crate::try_option;
 use crate::types::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
@@ -302,6 +303,16 @@ impl<T: Read + Seek> Seek for Entry<T> {
     }
 }
 
+fn detect_script_type(buf: &[u8], buf_len: usize, filename: &str) -> Option<ScriptType> {
+    if buf_len >= 5 && buf.starts_with(b"ASB\0\0") {
+        return Some(ScriptType::ArtemisAsb);
+    }
+    if super::super::ast::is_this_format(filename, buf, buf_len) {
+        return Some(ScriptType::Artemis);
+    }
+    None
+}
+
 struct ArtemisArcIter<'a, T: Iterator<Item = &'a PfsEntryHeader>, R: Read + Seek + 'static> {
     entries: T,
     reader: Arc<Mutex<R>>,
@@ -315,13 +326,17 @@ impl<'a, T: Iterator<Item = &'a PfsEntryHeader>, R: Read + Seek + 'static> Itera
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(header) = self.entries.next() {
-            let entry = Entry {
+            let mut entry = Entry {
                 header: header.clone(),
                 reader: self.reader.clone(),
                 pos: 0,
                 script_type: None,
                 xor_key: self.xor_key.clone(),
             };
+            let mut header = [0; 0x20];
+            let readed = try_option!(entry.read(&mut header));
+            entry.pos = 0;
+            entry.script_type = detect_script_type(&header, readed, &entry.header.name);
             Some(Ok(Box::new(entry)))
         } else {
             None
