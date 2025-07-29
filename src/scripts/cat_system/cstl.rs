@@ -1,8 +1,9 @@
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
+use crate::utils::encoding::*;
 use anyhow::Result;
-use std::io::Read;
+use std::io::{Read, Write};
 
 #[derive(Debug)]
 pub struct CstlScriptBuilder {}
@@ -60,6 +61,24 @@ impl<T: Read> CustomFn for T {
             }
         }
         Ok(size)
+    }
+}
+
+trait CustomWriteFn {
+    fn write_size(&mut self, size: usize) -> Result<()>;
+}
+
+impl<T: Write> CustomWriteFn for T {
+    fn write_size(&mut self, mut size: usize) -> Result<()> {
+        loop {
+            let len = if size > 0xFF { 0xFF } else { size as u8 };
+            self.write_u8(len)?;
+            size -= len as usize;
+            if len != 0xFF {
+                break;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -158,5 +177,72 @@ impl Script for CstlScript {
             return Err(anyhow::anyhow!("CSTL script has no languages or data"));
         }
         Ok(self.data[self.lang_index.unwrap_or(0)].clone())
+    }
+
+    fn import_messages<'a>(
+        &'a self,
+        messages: Vec<Message>,
+        mut file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        let mut data = self.data.clone();
+        let index = self.lang_index.unwrap_or(0);
+        if data[index].len() != messages.len() {
+            return Err(anyhow::anyhow!(
+                "CSTL script language '{}' message count mismatch: expected {}, got {}",
+                self.langs[index],
+                data[index].len(),
+                messages.len()
+            ));
+        }
+        for (i, m) in data[index].iter_mut().enumerate() {
+            if let Some(n) = &mut m.name {
+                let mut name = match &messages[i].name {
+                    Some(name) => name.clone(),
+                    None => return Err(anyhow::anyhow!("Message {i} name is missing.")),
+                };
+                if let Some(replacement) = replacement {
+                    for (k, v) in &replacement.map {
+                        name = name.replace(k, v);
+                    }
+                }
+                *n = name;
+            }
+            let mut mes = messages[i].message.clone();
+            if let Some(replacement) = replacement {
+                for (k, v) in &replacement.map {
+                    mes = mes.replace(k, v);
+                }
+            }
+            m.message = mes;
+        }
+        file.write_all(b"CSTL")?;
+        file.write_u32(0)?; // unk
+        let lang_count = self.langs.len();
+        file.write_size(lang_count)?;
+        for lang in &self.langs {
+            let encoded = encode_string(encoding, &lang, false)?;
+            file.write_size(encoded.len())?;
+            file.write_all(&encoded)?;
+        }
+        let count = data[index].len();
+        file.write_size(count)?;
+        for i in 0..count {
+            for j in 0..lang_count {
+                let m = &data[j][i];
+                if let Some(name) = &m.name {
+                    let encoded_name = encode_string(encoding, name, false)?;
+                    file.write_size(encoded_name.len())?;
+                    file.write_all(&encoded_name)?;
+                } else {
+                    file.write_size(0)?;
+                }
+                let encoded_mes = encode_string(encoding, &m.message, false)?;
+                file.write_size(encoded_mes.len())?;
+                file.write_all(&encoded_mes)?;
+            }
+        }
+        Ok(())
     }
 }
