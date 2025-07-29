@@ -203,6 +203,9 @@ pub struct Arg {
     #[arg(short = 'z', long, global = true, value_name = "LEVEL", value_parser = parse_compression_level)]
     /// Zlib compression level. Default is 6. 0 means no compression, 9 means best compression.
     pub zlib_compression_level: Option<u32>,
+    #[cfg(feature = "image")]
+    #[arg(short = 'g', long, global = true, value_enum, default_value_t = PngCompressionLevel::Fast)]
+    pub png_compression_level: PngCompressionLevel,
     #[command(subcommand)]
     /// Command
     pub command: Command,

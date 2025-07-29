@@ -237,6 +237,8 @@ pub struct ExtraConfig {
     pub cat_system_cstl_lang: Option<String>,
     #[cfg(feature = "flate2")]
     pub zlib_compression_level: Option<u32>,
+    #[cfg(feature = "image")]
+    pub png_compression_level: PngCompressionLevel,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -481,6 +483,35 @@ impl BomType {
             BomType::Utf8 => b"\xEF\xBB\xBF",
             BomType::Utf16LE => b"\xFF\xFE",
             BomType::Utf16BE => b"\xFE\xFF",
+        }
+    }
+}
+
+#[cfg(feature = "image")]
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PngCompressionLevel {
+    #[value(alias = "d")]
+    /// Default level
+    Default,
+    #[value(alias = "f")]
+    /// Fast minimal compression
+    Fast,
+    #[value(alias = "b")]
+    /// Higher compression level
+    ///
+    /// Best in this context isn't actually the highest possible level
+    /// the encoder can do, but is meant to emulate the `Best` setting in the `Flate2`
+    /// library.
+    Best,
+}
+
+#[cfg(feature = "image")]
+impl PngCompressionLevel {
+    pub fn to_compression(&self) -> png::Compression {
+        match self {
+            PngCompressionLevel::Default => png::Compression::Default,
+            PngCompressionLevel::Fast => png::Compression::Fast,
+            PngCompressionLevel::Best => png::Compression::Best,
         }
     }
 }

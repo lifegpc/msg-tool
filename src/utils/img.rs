@@ -109,7 +109,12 @@ pub fn convert_rgba_to_bgra(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
-pub fn encode_img(mut data: ImageData, typ: ImageOutputType, filename: &str) -> Result<()> {
+pub fn encode_img(
+    mut data: ImageData,
+    typ: ImageOutputType,
+    filename: &str,
+    config: &ExtraConfig,
+) -> Result<()> {
     match typ {
         ImageOutputType::Png => {
             let mut file = crate::utils::files::write_file(filename)?;
@@ -137,6 +142,7 @@ pub fn encode_img(mut data: ImageData, typ: ImageOutputType, filename: &str) -> 
             let mut encoder = png::Encoder::new(&mut file, data.width, data.height);
             encoder.set_color(color_type);
             encoder.set_depth(bit_depth);
+            encoder.set_compression(config.png_compression_level.to_compression());
             let mut writer = encoder.write_header()?;
             writer.write_image_data(&data.data)?;
             writer.finish()?;

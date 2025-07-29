@@ -417,6 +417,7 @@ pub fn export_script(
                                 img_data.data,
                                 out_type,
                                 &out_path.to_string_lossy(),
+                                config,
                             )?;
                             COUNTER.inc(types::ScriptResult::Ok);
                         }
@@ -449,7 +450,12 @@ pub fn export_script(
                             continue;
                         }
                     }
-                    match utils::img::encode_img(img_data, out_type, &out_path.to_string_lossy()) {
+                    match utils::img::encode_img(
+                        img_data,
+                        out_type,
+                        &out_path.to_string_lossy(),
+                        config,
+                    ) {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error encoding image: {}", e);
@@ -689,7 +695,7 @@ pub fn export_script(
                         continue;
                     }
                 }
-                utils::img::encode_img(img_data.data, out_type, &f)?;
+                utils::img::encode_img(img_data.data, out_type, &f, config)?;
                 COUNTER.inc(types::ScriptResult::Ok);
             }
             return Ok(types::ScriptResult::Ok);
@@ -720,7 +726,7 @@ pub fn export_script(
                 }
             }
         };
-        utils::img::encode_img(img_data, out_type, &f)?;
+        utils::img::encode_img(img_data, out_type, &f, config)?;
         return Ok(types::ScriptResult::Ok);
     }
     let mut of = match &arg.output_type {
@@ -1451,6 +1457,8 @@ fn main() {
         cat_system_cstl_lang: arg.cat_system_cstl_lang.clone(),
         #[cfg(feature = "flate2")]
         zlib_compression_level: arg.zlib_compression_level,
+        #[cfg(feature = "image")]
+        png_compression_level: arg.png_compression_level,
     };
     match &arg.command {
         args::Command::Export { input, output } => {
