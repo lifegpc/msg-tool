@@ -922,6 +922,19 @@ impl<T: Write + Seek> WriteAt for T {
     }
 }
 
+pub trait SeekExt {
+    fn stream_length(&mut self) -> Result<u64>;
+}
+
+impl<T: Seek> SeekExt for T{
+    fn stream_length(&mut self) -> Result<u64> {
+        let current_pos = self.stream_position()?;
+        let length = self.seek(SeekFrom::End(0))?;
+        self.seek(SeekFrom::Start(current_pos))?;
+        Ok(length)
+    }
+}
+
 pub struct MemReader {
     pub data: Vec<u8>,
     pub pos: usize,

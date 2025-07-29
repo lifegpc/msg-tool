@@ -74,7 +74,10 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 /// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
 /// * `pstring(<len_type>)` attribute can be used to specify a packed string length for String fields, where `<len_type>` can be `u8`, `u16`, `u32`, or `u64`.
 /// Length is read as a prefix before the string data.
-#[proc_macro_derive(StructPack, attributes(skip_pack, fstring, fstring_pad, fvec, pstring))]
+/// * `pvec(<len_type>)` attribute can be used to specify a packed vector length for Vec<_> fields, where `<len_type>` can be `u8`, `u16`, `u32`, or `u64`.
+/// Length is read as a prefix before the vector data.
+/// * `skip_pack_if(<expr>)` attribute can be used to skip packing a field if the expression evaluates to true. The expression must be a valid Rust expression that evaluates to a boolean.
+#[proc_macro_derive(StructPack, attributes(skip_pack, fstring, fstring_pad, fvec, pstring, pvec, skip_pack_if))]
 pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
     let a = syn::parse_macro_input!(input as PackStruct);
     match a {
@@ -87,6 +90,9 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                 let mut fixed_vec: Option<usize> = None;
                 let mut fstring_pad = 0u8; // Default padding byte
                 let mut pstring_type: Option<syn::Ident> = None;
+                let mut pvec_type: Option<syn::Ident> = None;
+                let mut cur = None;
+                let mut skip_if = None;
                 for attr in &field.attrs {
                     let path = attr.path();
                     if path.is_ident("skip_pack") {
@@ -132,6 +138,27 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                 Ok(())
                             }).unwrap();
                         }
+                    } else if path.is_ident("pvec") {
+                        if let syn::Meta::List(list) = &attr.meta {
+                            list.parse_nested_meta(|meta| {
+                                if meta.path.is_ident("u8") {
+                                    pvec_type = Some(syn::Ident::new("u8", meta.path.span()));
+                                } else if meta.path.is_ident("u16") {
+                                    pvec_type = Some(syn::Ident::new("u16", meta.path.span()));
+                                } else if meta.path.is_ident("u32") {
+                                    pvec_type = Some(syn::Ident::new("u32", meta.path.span()));
+                                } else if meta.path.is_ident("u64") {
+                                    pvec_type = Some(syn::Ident::new("u64", meta.path.span()));
+                                } else {
+                                    return Err(meta.error("Expected u8, u16, or u32 for pvec"));
+                                }
+                                Ok(())
+                            }).unwrap();
+                        }
+                    } else if path.is_ident("skip_pack_if") {
+                        if let syn::Meta::List(list) = &attr.meta {
+                            skip_if = Some(list.parse_args::<syn::Expr>().unwrap());
+                        }
                     }
                 }
                 if skipped {
@@ -150,7 +177,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                     if let Some(segment) = type_path.path.segments.last() {
                         if segment.ident == "String" {
                             if let Some(fixed_string) = fixed_string {
-                                return quote::quote! {
+                                cur = Some(quote::quote! {
                                     let s = encode_string(encoding, &self.#field_name, true)?;
                                     let mut slen = s.len();
                                     if slen > #fixed_string {
@@ -164,35 +191,54 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                     for _ in slen..#fixed_string {
                                         writer.write_all(&[#fstring_pad])?;
                                     }
-                                };
-                            }
-                            if let Some(pstring_type) = pstring_type {
+                                });
+                            } else if let Some(pstring_type) = pstring_type {
                                 let write_fn = syn::Ident::new(format!("write_{}", pstring_type).as_str(), pstring_type.span());
-                                return quote::quote! {
+                                cur = Some(quote::quote! {
                                     let encoded = crate::utils::encoding::encode_string(encoding, &self.#field_name, true)?;
                                     writer.#write_fn(encoded.len() as #pstring_type)?;
                                     writer.write_all(&encoded)?;
-                                };
+                                });
                             }
                         }
                     }
                     if let Some(segment) = type_path.path.segments.first() {
                         if segment.ident == "Vec" {
                             if let Some(fixed_vec) = fixed_vec {
-                                return quote::quote! {
+                                cur = Some(quote::quote! {
                                     if self.#field_name.len() != #fixed_vec {
                                         return Err(anyhow::anyhow!("Vector length was not equal to {}", #fixed_vec));
                                     }
                                     for item in &self.#field_name {
                                         item.pack(writer, big, encoding)?;
                                     }
-                                };
+                                });
+                            } else if let Some(pvec_type) = pvec_type {
+                                let write_fn = syn::Ident::new(format!("write_{}", pvec_type).as_str(), pvec_type.span());
+                                cur = Some(quote::quote! {
+                                    let len = self.#field_name.len() as #pvec_type;
+                                    writer.#write_fn(len)?;
+                                    for item in &self.#field_name {
+                                        item.pack(writer, big, encoding)?;
+                                    }
+                                });
                             }
                         }
                     }
                 }
-                quote::quote! {
-                    self.#field_name.pack(writer, big, encoding)?;
+                let p = cur.unwrap_or_else(|| {
+                    quote::quote! {
+                        self.#field_name.pack(writer, big, encoding)?;
+                    }
+                });
+                if let Some(skip_if) = skip_if {
+                    quote::quote! {
+                        if !(#skip_if) {
+                            #p
+                        }
+                    }
+                } else {
+                    p
                 }
             });
             let output = quote::quote! {
@@ -226,6 +272,10 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                     let mut fixed_string: Option<usize> = None;
                     let mut fixed_vec: Option<usize> = None;
                     let mut fstring_pad = 0u8; // Default padding byte
+                    let mut pstring_type: Option<syn::Ident> = None;
+                    let mut pvec_type: Option<syn::Ident> = None;
+                    let mut cur = None;
+                    let mut skip_if = None;
                     for attr in &field.attrs {
                         let path = attr.path();
                         if path.is_ident("skip_pack") {
@@ -254,6 +304,44 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                     }
                                 }
                             }
+                        } else if path.is_ident("pstring") {
+                            if let syn::Meta::List(list) = &attr.meta {
+                                list.parse_nested_meta(|meta| {
+                                    if meta.path.is_ident("u8") {
+                                        pstring_type = Some(syn::Ident::new("u8", meta.path.span()));
+                                    } else if meta.path.is_ident("u16") {
+                                        pstring_type = Some(syn::Ident::new("u16", meta.path.span()));
+                                    } else if meta.path.is_ident("u32") {
+                                        pstring_type = Some(syn::Ident::new("u32", meta.path.span()));
+                                    } else if meta.path.is_ident("u64") {
+                                        pstring_type = Some(syn::Ident::new("u64", meta.path.span()));
+                                    } else {
+                                        return Err(meta.error("Expected u8, u16, or u32 for pstring"));
+                                    }
+                                    Ok(())
+                                }).unwrap();
+                            }
+                        } else if path.is_ident("pvec") {
+                            if let syn::Meta::List(list) = &attr.meta {
+                                list.parse_nested_meta(|meta| {
+                                    if meta.path.is_ident("u8") {
+                                        pvec_type = Some(syn::Ident::new("u8", meta.path.span()));
+                                    } else if meta.path.is_ident("u16") {
+                                        pvec_type = Some(syn::Ident::new("u16", meta.path.span()));
+                                    } else if meta.path.is_ident("u32") {
+                                        pvec_type = Some(syn::Ident::new("u32", meta.path.span()));
+                                    } else if meta.path.is_ident("u64") {
+                                        pvec_type = Some(syn::Ident::new("u64", meta.path.span()));
+                                    } else {
+                                        return Err(meta.error("Expected u8, u16, or u32 for pvec"));
+                                    }
+                                    Ok(())
+                                }).unwrap();
+                            }
+                        } else if path.is_ident("skip_pack_if") {
+                            if let syn::Meta::List(list) = &attr.meta {
+                                skip_if = Some(list.parse_args::<syn::Expr>().unwrap());
+                            }
                         }
                     }
                     if skipped {
@@ -273,7 +361,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                         if let Some(segment) = type_path.path.segments.last() {
                             if segment.ident == "String" {
                                 if let Some(fixed_string) = fixed_string {
-                                    return quote::quote! {
+                                    cur = Some(quote::quote! {
                                         let s = encode_string(encoding, &#field_name, true)?;
                                         let mut slen = s.len();
                                         if slen > #fixed_string {
@@ -287,27 +375,54 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                         for _ in slen..#fixed_string {
                                             writer.write_all(&[#fstring_pad])?;
                                         }
-                                    };
+                                    });
+                                } else if let Some(pstring_type) = pstring_type {
+                                    let write_fn = syn::Ident::new(format!("write_{}", pstring_type).as_str(), pstring_type.span());
+                                    cur = Some(quote::quote! {
+                                        let encoded = crate::utils::encoding::encode_string(encoding, &#field_name, true)?;
+                                        writer.#write_fn(encoded.len() as #pstring_type)?;
+                                        writer.write_all(&encoded)?;
+                                    });
                                 }
                             }
                         }
                         if let Some(segment) = type_path.path.segments.first() {
                             if segment.ident == "Vec" {
                                 if let Some(fixed_vec) = fixed_vec {
-                                    return quote::quote! {
+                                    cur = Some(quote::quote! {
                                         if #field_name.len() != #fixed_vec {
                                             return Err(anyhow::anyhow!("Vector length was not equal to {}", #fixed_vec));
                                         }
                                         for item in &#field_name {
                                             item.pack(writer, big, encoding)?;
                                         }
-                                    };
+                                    });
+                                } else if let Some(pvec_type) = pvec_type {
+                                    let write_fn = syn::Ident::new(format!("write_{}", pvec_type).as_str(), pvec_type.span());
+                                    cur = Some(quote::quote! {
+                                        let len = #field_name.len() as #pvec_type;
+                                        writer.#write_fn(len)?;
+                                        for item in &#field_name {
+                                            item.pack(writer, big, encoding)?;
+                                        }
+                                    });
                                 }
                             }
                         }
                     }
-                    quote::quote! {
-                        #field_name.pack(writer, big, encoding)?;
+                    let p = cur.unwrap_or_else(|| {
+                        quote::quote! {
+                            #field_name.pack(writer, big, encoding)?;
+                        }
+                    });
+                    if let Some(skip_if) = skip_if {
+                        quote::quote! {
+                            if !(#skip_if) {
+                                #p
+                            }
+                        }
+                    } else {
+                        p
                     }
                 }).collect();
                 let idents = if is_struct_like {
@@ -351,7 +466,10 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 /// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
 /// * `pstring(<number_type>)` attribute can be used to specify a packed string length for String fields, where `<number_type>` can be `u8`, `u16`, `u32` or `u64`.
 /// length is read as a prefix before the string data.
-#[proc_macro_derive(StructUnpack, attributes(skip_unpack, fstring, fstring_no_trim, fvec, pstring))]
+/// * `pvec(<number_type>)` attribute can be used to specify a packed vector length for Vec<_> fields, where `<number_type>` can be `u8`, `u16`, `u32` or `u64`.
+/// length is read as a prefix before the vector data.
+/// * `skip_unpack_if(<expr>)` attribute can be used to skip unpacking a field if the expression evaluates to true. The expression must be a valid Rust expression that evaluates to a boolean.
+#[proc_macro_derive(StructUnpack, attributes(skip_unpack, fstring, fstring_no_trim, fvec, pstring, pvec, skip_unpack_if))]
 pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
     let sut = syn::parse_macro_input!(input as syn::ItemStruct);
     let name = sut.ident;
@@ -364,6 +482,9 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         let mut fstring_no_trim = false;
         let mut fixed_vec: Option<usize> = None;
         let mut pstring_type: Option<syn::Ident> = None;
+        let mut pvec_type: Option<syn::Ident> = None;
+        let mut cur = None;
+        let mut skip_if: Option<syn::Expr> = None;
         for attr in &field.attrs {
             let path = attr.path();
             if path.is_ident("skip_unpack") {
@@ -403,6 +524,27 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                         Ok(())
                     }).unwrap();
                 }
+            } else if path.is_ident("pvec") {
+                if let syn::Meta::List(list) = &attr.meta {
+                    list.parse_nested_meta(|meta| {
+                        if meta.path.is_ident("u8") {
+                            pvec_type = Some(syn::Ident::new("u8", meta.path.span()));
+                        } else if meta.path.is_ident("u16") {
+                            pvec_type = Some(syn::Ident::new("u16", meta.path.span()));
+                        } else if meta.path.is_ident("u32") {
+                            pvec_type = Some(syn::Ident::new("u32", meta.path.span()));
+                        } else if meta.path.is_ident("u64") {
+                            pvec_type = Some(syn::Ident::new("u64", meta.path.span()));
+                        } else {
+                            return Err(meta.error("Expected u8, u16, or u32 for pvec"));
+                        }
+                        Ok(())
+                    }).unwrap();
+                }
+            } else if path.is_ident("skip_unpack_if") {
+                if let syn::Meta::List(list) = &attr.meta {
+                    skip_if = Some(list.parse_args::<syn::Expr>().unwrap());
+                }
             }
         }
         let field_name = match &field.ident {
@@ -426,32 +568,51 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                 if segment.ident == "String" {
                     if let Some(fixed_string) = fixed_string {
                         let trim = syn::LitBool::new(!fstring_no_trim, field.span());
-                        return quote::quote! {
+                        cur = Some(quote::quote! {
                             let #field_name = reader.read_fstring(#fixed_string, encoding, #trim)?;
-                        };
-                    }
-                    if let Some(pstring_type) = pstring_type {
+                        });
+                    } else if let Some(pstring_type) = pstring_type {
                         let read_fn = syn::Ident::new(format!("read_{}", pstring_type).as_str(), pstring_type.span());
-                        return quote::quote! {
+                        cur = Some(quote::quote! {
                             let len = reader.#read_fn()? as usize;
                             let #field_name = reader.read_exact_vec(len)?;
                             let #field_name = crate::utils::encoding::decode_to_string(encoding, &#field_name, true)?;
-                        }
+                        });
                     }
                 }
             }
             if let Some(segment) = type_path.path.segments.first() {
                 if segment.ident == "Vec" {
                     if let Some(fixed_vec) = fixed_vec {
-                        return quote::quote! {
+                        cur = Some(quote::quote! {
                             let #field_name = reader.read_struct_vec(#fixed_vec, big, encoding)?;
-                        };
+                        });
+                    } else if let Some(pvec_type) = pvec_type {
+                        let read_fn = syn::Ident::new(format!("read_{}", pvec_type).as_str(), pvec_type.span());
+                        cur = Some(quote::quote! {
+                            let len = reader.#read_fn()? as usize;
+                            let #field_name = reader.read_struct_vec(len, big, encoding)?;
+                        });
                     }
                 }
             }
         }
-        quote::quote! {
-            let #field_name = #field_type::unpack(&mut reader, big, encoding)?;
+        let p = cur.unwrap_or_else(|| {
+            quote::quote! {
+                let #field_name = #field_type::unpack(&mut reader, big, encoding)?;
+            }
+        });
+        if let Some(skip_if) = skip_if {
+            quote::quote! {
+                let #field_name = if !(#skip_if) {
+                    #p
+                    #field_name
+                } else {
+                    Default::default()
+                };
+            }
+        } else {
+            p
         }
     }).collect();
     let fields = if is_tuple_struct {
