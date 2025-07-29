@@ -169,7 +169,7 @@ impl CstScript {
             data: file,
             compressed: compressed_size != 0,
             strings,
-            compress_level: config.zlib_compression_level.unwrap_or(6),
+            compress_level: config.zlib_compression_level,
         })
     }
 }

@@ -16,6 +16,17 @@ fn parse_compression_level(level: &str) -> Result<u32, String> {
     clap_num::number_range(level, 0, 9)
 }
 
+#[cfg(feature = "zstd")]
+fn parse_zstd_compression_level(level: &str) -> Result<i32, String> {
+    let lower = level.to_ascii_lowercase();
+    if lower == "default" {
+        return Ok(3);
+    } else if lower == "best" {
+        return Ok(22);
+    }
+    clap_num::number_range(level, 0, 22)
+}
+
 /// Tools for export and import scripts
 #[derive(Parser, Debug)]
 #[clap(group = ArgGroup::new("encodingg").multiple(false), group = ArgGroup::new("output_encodingg").multiple(false), group = ArgGroup::new("archive_encodingg").multiple(false), group = ArgGroup::new("artemis_indentg").multiple(false))]
@@ -200,12 +211,24 @@ pub struct Arg {
     /// If not specified, the first language will be used.
     pub cat_system_cstl_lang: Option<String>,
     #[cfg(feature = "flate2")]
-    #[arg(short = 'z', long, global = true, value_name = "LEVEL", value_parser = parse_compression_level)]
-    /// Zlib compression level. Default is 6. 0 means no compression, 9 means best compression.
-    pub zlib_compression_level: Option<u32>,
+    #[arg(short = 'z', long, global = true, value_name = "LEVEL", value_parser = parse_compression_level, default_value_t = 6)]
+    /// Zlib compression level. 0 means no compression, 9 means best compression.
+    pub zlib_compression_level: u32,
     #[cfg(feature = "image")]
     #[arg(short = 'g', long, global = true, value_enum, default_value_t = PngCompressionLevel::Fast)]
     pub png_compression_level: PngCompressionLevel,
+    #[cfg(feature = "circus-img")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Keep original BPP when importing Circus CRX images.
+    pub circus_crx_keep_original_bpp: bool,
+    #[cfg(feature = "circus-img")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Use zstd compression for Circus CRX images. (CIRCUS Engine don't support this. Hook is required.)
+    pub circus_crx_zstd: bool,
+    #[cfg(feature = "zstd")]
+    #[arg(short = 'Z', long, global = true, value_name = "LEVEL", value_parser = parse_zstd_compression_level, default_value_t = 3)]
+    /// Zstd compression level. 0 means default compression level (3), 22 means best compression.
+    pub zstd_compression_level: i32,
     #[command(subcommand)]
     /// Command
     pub command: Command,

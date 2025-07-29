@@ -16,6 +16,27 @@ pub fn reverse_alpha_values(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+pub fn convert_bgr_to_bgra(data: &mut ImageData) -> Result<()> {
+    if data.color_type != ImageColorType::Bgr {
+        return Err(anyhow::anyhow!("Image is not BGR"));
+    }
+    if data.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "BGR to BGRA conversion only supports 8-bit depth"
+        ));
+    }
+    let mut new_data = Vec::with_capacity(data.data.len() / 3 * 4);
+    for chunk in data.data.chunks_exact(3) {
+        new_data.push(chunk[0]); // B
+        new_data.push(chunk[1]); // G
+        new_data.push(chunk[2]); // R
+        new_data.push(255); // A
+    }
+    data.data = new_data;
+    data.color_type = ImageColorType::Bgra;
+    Ok(())
+}
+
 pub fn convert_bgr_to_rgb(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Bgr {
         return Err(anyhow::anyhow!("Image is not BGR"));
@@ -31,6 +52,26 @@ pub fn convert_bgr_to_rgb(data: &mut ImageData) -> Result<()> {
         data.data[i + 2] = b;
     }
     data.color_type = ImageColorType::Rgb;
+    Ok(())
+}
+
+pub fn convert_bgra_to_bgr(data: &mut ImageData) -> Result<()> {
+    if data.color_type != ImageColorType::Bgra {
+        return Err(anyhow::anyhow!("Image is not BGRA"));
+    }
+    if data.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "BGRA to BGR conversion only supports 8-bit depth"
+        ));
+    }
+    let mut new_data = Vec::with_capacity(data.data.len() / 4 * 3);
+    for chunk in data.data.chunks_exact(4) {
+        new_data.push(chunk[0]); // B
+        new_data.push(chunk[1]); // G
+        new_data.push(chunk[2]); // R
+    }
+    data.data = new_data;
+    data.color_type = ImageColorType::Bgr;
     Ok(())
 }
 

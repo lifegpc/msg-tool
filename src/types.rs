@@ -236,9 +236,15 @@ pub struct ExtraConfig {
     #[cfg(feature = "cat-system")]
     pub cat_system_cstl_lang: Option<String>,
     #[cfg(feature = "flate2")]
-    pub zlib_compression_level: Option<u32>,
+    pub zlib_compression_level: u32,
     #[cfg(feature = "image")]
     pub png_compression_level: PngCompressionLevel,
+    #[cfg(feature = "circus-img")]
+    pub circus_crx_keep_original_bpp: bool,
+    #[cfg(feature = "circus-img")]
+    pub circus_crx_zstd: bool,
+    #[cfg(feature = "zstd")]
+    pub zstd_compression_level: i32,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

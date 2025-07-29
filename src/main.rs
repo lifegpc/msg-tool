@@ -1459,6 +1459,12 @@ fn main() {
         zlib_compression_level: arg.zlib_compression_level,
         #[cfg(feature = "image")]
         png_compression_level: arg.png_compression_level,
+        #[cfg(feature = "circus-img")]
+        circus_crx_keep_original_bpp: arg.circus_crx_keep_original_bpp,
+        #[cfg(feature = "circus-img")]
+        circus_crx_zstd: arg.circus_crx_zstd,
+        #[cfg(feature = "zstd")]
+        zstd_compression_level: arg.zstd_compression_level,
     };
     match &arg.command {
         args::Command::Export { input, output } => {
