@@ -926,7 +926,7 @@ pub trait SeekExt {
     fn stream_length(&mut self) -> Result<u64>;
 }
 
-impl<T: Seek> SeekExt for T{
+impl<T: Seek> SeekExt for T {
     fn stream_length(&mut self) -> Result<u64> {
         let current_pos = self.stream_position()?;
         let length = self.seek(SeekFrom::End(0))?;

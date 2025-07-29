@@ -141,7 +141,7 @@ impl CrxImage {
         })
     }
 
-     fn decode_row0(
+    fn decode_row0(
         dst: &mut Vec<u8>,
         mut dst_p: usize,
         src: &[u8],
@@ -352,7 +352,9 @@ impl Script for CrxImage {
     }
 
     fn export_image(&self) -> Result<ImageData> {
-        let data_size = self.color_type.bpp(1) as usize * self.header.width as usize * self.header.height as usize;
+        let data_size = self.color_type.bpp(1) as usize
+            * self.header.width as usize
+            * self.header.height as usize;
         let mut data = vec![0; data_size];
         let mut encode_type = Vec::new();
         Self::decode_image(
@@ -364,11 +366,7 @@ impl Script for CrxImage {
             &mut encode_type,
         )?;
         if self.color_type.bpp(1) == 4 && self.header.mode != 1 {
-            let alpha_flip = if self.header.mode == 2 {
-                0
-            } else {
-                0xFF
-            };
+            let alpha_flip = if self.header.mode == 2 { 0 } else { 0xFF };
             for i in (0..data_size).step_by(4) {
                 let a = data[i];
                 let b = data[i + 1];

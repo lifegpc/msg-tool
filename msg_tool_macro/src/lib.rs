@@ -60,7 +60,7 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 }
 
 /// Macro to derive `StructPack` trait for structs.
-/// 
+///
 /// make sure to import the necessary imports:
 /// ```
 /// use crate::ext::io::*;
@@ -77,7 +77,10 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 /// * `pvec(<len_type>)` attribute can be used to specify a packed vector length for Vec<_> fields, where `<len_type>` can be `u8`, `u16`, `u32`, or `u64`.
 /// Length is read as a prefix before the vector data.
 /// * `skip_pack_if(<expr>)` attribute can be used to skip packing a field if the expression evaluates to true. The expression must be a valid Rust expression that evaluates to a boolean.
-#[proc_macro_derive(StructPack, attributes(skip_pack, fstring, fstring_pad, fvec, pstring, pvec, skip_pack_if))]
+#[proc_macro_derive(
+    StructPack,
+    attributes(skip_pack, fstring, fstring_pad, fvec, pstring, pvec, skip_pack_if)
+)]
 pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
     let a = syn::parse_macro_input!(input as PackStruct);
     match a {
@@ -452,14 +455,14 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 }
 
 /// Macro to derive `StructUnpack` trait for structs.
-/// 
+///
 /// make sure to import the necessary imports:
 /// ```
 /// use crate::ext::io::*;
 /// use crate::utils::struct_pack::*;
 /// use std::io::{Read, Seek, Write};
 /// ```
-/// 
+///
 /// * `skip_unpack` attribute can be used to skip fields from unpacking.
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
 /// * `fstring_no_trim` attribute can be used to disable trimming of fixed strings.
@@ -469,7 +472,18 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 /// * `pvec(<number_type>)` attribute can be used to specify a packed vector length for Vec<_> fields, where `<number_type>` can be `u8`, `u16`, `u32` or `u64`.
 /// length is read as a prefix before the vector data.
 /// * `skip_unpack_if(<expr>)` attribute can be used to skip unpacking a field if the expression evaluates to true. The expression must be a valid Rust expression that evaluates to a boolean.
-#[proc_macro_derive(StructUnpack, attributes(skip_unpack, fstring, fstring_no_trim, fvec, pstring, pvec, skip_unpack_if))]
+#[proc_macro_derive(
+    StructUnpack,
+    attributes(
+        skip_unpack,
+        fstring,
+        fstring_no_trim,
+        fvec,
+        pstring,
+        pvec,
+        skip_unpack_if
+    )
+)]
 pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
     let sut = syn::parse_macro_input!(input as syn::ItemStruct);
     let name = sut.ident;
