@@ -45,6 +45,24 @@ impl ScriptBuilder for CstlScriptBuilder {
     }
 }
 
+trait CustomFn {
+    fn read_size(&mut self) -> Result<usize>;
+}
+
+impl<T: Read> CustomFn for T {
+    fn read_size(&mut self) -> Result<usize> {
+        let mut size = 0;
+        loop {
+            let len = self.read_u8()?;
+            size += len as usize;
+            if len != 0xFF {
+                break;
+            }
+        }
+        Ok(size)
+    }
+}
+
 #[derive(Debug)]
 struct CstlScript {
     langs: Vec<String>,
@@ -66,50 +84,28 @@ impl CstlScript {
         if unk != 0 {
             return Err(anyhow::anyhow!("Unknown CSTL unk value: {}", unk));
         }
-        let lang_count = reader.read_u8()? as usize;
+        let lang_count = reader.read_size()?;
         for _ in 0..lang_count {
-            let len = reader.read_u8()? as usize;
+            let len = reader.read_size()?;
             let s = reader.read_fstring(len, encoding, false)?;
             langs.push(s);
             data.push(Vec::new());
         }
-        let mut count = 0;
-        loop {
-            let len = reader.read_u8()?;
-            if len == 0 {
-                break; // End of data
-            }
-            count += len as usize;
-        }
+        let count = reader.read_size()?;
         let mut i = 0;
-        let mut name = None;
         loop {
-            let len = reader.read_u8()?;
-            let s = reader.read_fstring(len as usize, encoding, false)?;
-            if reader.is_eof() {
-                data[i % lang_count].push(Message {
-                    name: name.take(),
-                    message: s,
-                });
-                i += 1;
-                break;
+            let name_len = reader.read_size()?;
+            let name = if name_len > 0 {
+                Some(reader.read_fstring(name_len, encoding, false)?)
             } else {
-                let e = reader.read_u8()?;
-                if e != 0 {
-                    data[i % lang_count].push(Message {
-                        name: name.take(),
-                        message: s,
-                    });
-                    let s = reader.read_fstring(e as usize, encoding, false)?;
-                    name = Some(s);
-                    i += 1;
-                } else {
-                    data[i % lang_count].push(Message {
-                        name: name.take(),
-                        message: s,
-                    });
-                    i += 1;
-                }
+                None
+            };
+            let mes_len = reader.read_size()?;
+            let message = reader.read_fstring(mes_len, encoding, false)?;
+            data[i % lang_count].push(Message { name, message });
+            i += 1;
+            if reader.is_eof() {
+                break;
             }
         }
         if i != count * lang_count {
