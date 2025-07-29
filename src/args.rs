@@ -179,6 +179,11 @@ pub struct Arg {
     /// Specify the language of Artemis AST script.
     /// If not specified, the first language will be used.
     pub artemis_ast_lang: Option<String>,
+    #[cfg(feature = "cat-system")]
+    #[arg(long, global = true)]
+    /// CatSystem2 CSTL script language, used to extract messages from CSTL script.
+    /// If not specified, the first language will be used.
+    pub cat_system_cstl_lang: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

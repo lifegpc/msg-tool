@@ -233,6 +233,8 @@ pub struct ExtraConfig {
     pub artemis_max_line_width: usize,
     #[cfg(feature = "artemis")]
     pub artemis_ast_lang: Option<String>,
+    #[cfg(feature = "cat-system")]
+    pub cat_system_cstl_lang: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -283,6 +285,9 @@ pub enum ScriptType {
     #[cfg(feature = "cat-system")]
     /// CatSystem2 engine scene script
     CatSystem,
+    #[cfg(feature = "cat-system")]
+    /// CatSystem2 engine CSTL script
+    CatSystemCstl,
     #[cfg(feature = "cat-system-arc")]
     /// CatSystem2 engine archive
     CatSystemInt,
@@ -348,7 +353,7 @@ pub enum ScriptType {
     YaneuraoItufuruArc,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,

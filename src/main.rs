@@ -1447,6 +1447,8 @@ fn main() {
         artemis_max_line_width: arg.artemis_max_line_width,
         #[cfg(feature = "artemis")]
         artemis_ast_lang: arg.artemis_ast_lang.clone(),
+        #[cfg(feature = "cat-system")]
+        cat_system_cstl_lang: arg.cat_system_cstl_lang.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {
