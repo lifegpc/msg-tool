@@ -176,7 +176,13 @@ impl Script for CstlScript {
         if self.langs.is_empty() || self.data.is_empty() {
             return Err(anyhow::anyhow!("CSTL script has no languages or data"));
         }
-        Ok(self.data[self.lang_index.unwrap_or(0)].clone())
+        Ok(self.data[self.lang_index.unwrap_or(0)]
+            .iter()
+            .map(|m| Message {
+                name: m.name.clone(),
+                message: m.message.replace("\\n", "\n"),
+            })
+            .collect())
     }
 
     fn import_messages<'a>(
@@ -215,7 +221,7 @@ impl Script for CstlScript {
                     mes = mes.replace(k, v);
                 }
             }
-            m.message = mes;
+            m.message = mes.replace("\n", "\\n");
         }
         file.write_all(b"CSTL")?;
         file.write_u32(0)?; // unk

@@ -115,6 +115,9 @@ fn detect_script_type(buf: &[u8], buf_len: usize, _filename: &str) -> Option<&'s
     if buf_len >= 8 && buf.starts_with(b"CatScene") {
         return Some(&ScriptType::CatSystem);
     }
+    if buf_len >= 4 && buf.starts_with(b"CSTL") {
+        return Some(&ScriptType::CatSystemCstl);
+    }
     None
 }
 
