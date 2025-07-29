@@ -590,9 +590,9 @@ checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
 
 [[package]]
 name = "libtlg-rs"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0470969cf9a2a23ee06224c36e23c77896b5aa9b34314a864082cdac4668a126"
+checksum = "be080c5fe779454ef960a60f614b3a38f8da3c6541bad3a90fa87083aa449245"
 dependencies = [
  "lazy_static",
  "overf",
