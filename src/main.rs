@@ -1449,6 +1449,8 @@ fn main() {
         artemis_ast_lang: arg.artemis_ast_lang.clone(),
         #[cfg(feature = "cat-system")]
         cat_system_cstl_lang: arg.cat_system_cstl_lang.clone(),
+        #[cfg(feature = "flate2")]
+        zlib_compression_level: arg.zlib_compression_level,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

@@ -99,10 +99,11 @@ pub struct CstScript {
     data: MemReader,
     compressed: bool,
     strings: Vec<CstString>,
+    compress_level: u32,
 }
 
 impl CstScript {
-    pub fn new(buf: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(buf: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(buf);
         let mut magic = [0; 8];
         reader.read_exact(&mut magic)?;
@@ -168,6 +169,7 @@ impl CstScript {
             data: file,
             compressed: compressed_size != 0,
             strings,
+            compress_level: config.zlib_compression_level.unwrap_or(6),
         })
     }
 }
@@ -326,8 +328,10 @@ impl Script for CstScript {
         file.write_u32(0)?; // Compressed size
         file.write_u32(data.len() as u32)?; // Uncompressed size
         if self.compressed {
-            let mut encoder =
-                flate2::write::ZlibEncoder::new(&mut file, flate2::Compression::default());
+            let mut encoder = flate2::write::ZlibEncoder::new(
+                &mut file,
+                flate2::Compression::new(self.compress_level),
+            );
             encoder.write_all(&data)?;
             encoder.finish()?;
             let file_len = file.stream_position()?;

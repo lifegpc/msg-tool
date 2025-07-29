@@ -235,6 +235,8 @@ pub struct ExtraConfig {
     pub artemis_ast_lang: Option<String>,
     #[cfg(feature = "cat-system")]
     pub cat_system_cstl_lang: Option<String>,
+    #[cfg(feature = "flate2")]
+    pub zlib_compression_level: Option<u32>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

@@ -1,6 +1,21 @@
 use crate::types::*;
 use clap::{ArgAction, ArgGroup, Parser, Subcommand};
 
+#[cfg(feature = "flate2")]
+fn parse_compression_level(level: &str) -> Result<u32, String> {
+    let lower = level.to_ascii_lowercase();
+    if lower == "none" {
+        return Ok(0);
+    } else if lower == "best" {
+        return Ok(9);
+    } else if lower == "default" {
+        return Ok(6);
+    } else if lower == "fast" {
+        return Ok(1);
+    }
+    clap_num::number_range(level, 0, 9)
+}
+
 /// Tools for export and import scripts
 #[derive(Parser, Debug)]
 #[clap(group = ArgGroup::new("encodingg").multiple(false), group = ArgGroup::new("output_encodingg").multiple(false), group = ArgGroup::new("archive_encodingg").multiple(false), group = ArgGroup::new("artemis_indentg").multiple(false))]
@@ -184,6 +199,10 @@ pub struct Arg {
     /// CatSystem2 CSTL script language, used to extract messages from CSTL script.
     /// If not specified, the first language will be used.
     pub cat_system_cstl_lang: Option<String>,
+    #[cfg(feature = "flate2")]
+    #[arg(short = 'z', long, global = true, value_name = "LEVEL", value_parser = parse_compression_level)]
+    /// Zlib compression level. Default is 6. 0 means no compression, 9 means best compression.
+    pub zlib_compression_level: Option<u32>,
     #[command(subcommand)]
     /// Command
     pub command: Command,
