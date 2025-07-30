@@ -1465,6 +1465,8 @@ fn main() {
         circus_crx_zstd: arg.circus_crx_zstd,
         #[cfg(feature = "zstd")]
         zstd_compression_level: arg.zstd_compression_level,
+        #[cfg(feature = "circus-img")]
+        circus_crx_mode: arg.circus_crx_mode,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

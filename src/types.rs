@@ -245,6 +245,8 @@ pub struct ExtraConfig {
     pub circus_crx_zstd: bool,
     #[cfg(feature = "zstd")]
     pub zstd_compression_level: i32,
+    #[cfg(feature = "circus-img")]
+    pub circus_crx_mode: crate::scripts::circus::image::crx::CircusCrxMode,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

@@ -229,6 +229,10 @@ pub struct Arg {
     #[arg(short = 'Z', long, global = true, value_name = "LEVEL", value_parser = parse_zstd_compression_level, default_value_t = 3)]
     /// Zstd compression level. 0 means default compression level (3), 22 means best compression.
     pub zstd_compression_level: i32,
+    #[cfg(feature = "circus-img")]
+    #[arg(long, global = true, value_enum, default_value_t = crate::scripts::circus::image::crx::CircusCrxMode::Auto)]
+    /// Circus CRX image row type mode
+    pub circus_crx_mode: crate::scripts::circus::image::crx::CircusCrxMode,
     #[command(subcommand)]
     /// Command
     pub command: Command,

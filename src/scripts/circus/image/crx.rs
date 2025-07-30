@@ -4,8 +4,74 @@ use crate::types::*;
 use crate::utils::img::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
+use clap::ValueEnum;
+use clap::builder::PossibleValue;
 use msg_tool_macro::*;
 use std::io::{Read, Seek, Write};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CircusCrxMode {
+    Fixed(u8),
+    Auto,
+    Origin,
+    Best,
+}
+
+impl CircusCrxMode {
+    pub fn for_importing(&self) -> Self {
+        match self {
+            CircusCrxMode::Auto => CircusCrxMode::Origin,
+            _ => *self,
+        }
+    }
+
+    pub fn for_creating(&self) -> Self {
+        match self {
+            CircusCrxMode::Auto => CircusCrxMode::Best,
+            CircusCrxMode::Origin => CircusCrxMode::Best,
+            _ => *self,
+        }
+    }
+
+    pub fn is_best(&self) -> bool {
+        matches!(self, CircusCrxMode::Best)
+    }
+
+    pub fn is_origin(&self) -> bool {
+        matches!(self, CircusCrxMode::Origin)
+    }
+}
+
+impl ValueEnum for CircusCrxMode {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[
+            CircusCrxMode::Fixed(0),
+            CircusCrxMode::Fixed(1),
+            CircusCrxMode::Fixed(2),
+            CircusCrxMode::Fixed(3),
+            CircusCrxMode::Fixed(4),
+            CircusCrxMode::Auto,
+            CircusCrxMode::Origin,
+            CircusCrxMode::Best,
+        ]
+    }
+
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(match self {
+            CircusCrxMode::Fixed(0) => PossibleValue::new("0").help("Row type 0"),
+            CircusCrxMode::Fixed(1) => PossibleValue::new("1").help("Row type 1"),
+            CircusCrxMode::Fixed(2) => PossibleValue::new("2").help("Row type 2"),
+            CircusCrxMode::Fixed(3) => PossibleValue::new("3").help("Row type 3"),
+            CircusCrxMode::Fixed(4) => PossibleValue::new("4").help("Row type 4"),
+            CircusCrxMode::Auto => PossibleValue::new("auto")
+                .help("When importing, use origin mode, otherwise use best mode."),
+            CircusCrxMode::Origin => PossibleValue::new("origin")
+                .help("Use origin mode for importing. When creating, fallback to best mode."),
+            CircusCrxMode::Best => PossibleValue::new("best").help("Try to use the best mode."),
+            _ => return None,
+        })
+    }
+}
 
 #[derive(Debug)]
 pub struct CrxImageBuilder {}
@@ -87,6 +153,7 @@ pub struct CrxImage {
     keep_original_bpp: bool,
     zstd: bool,
     zstd_compression_level: i32,
+    row_type: CircusCrxMode,
 }
 
 impl std::fmt::Debug for CrxImage {
@@ -147,6 +214,7 @@ impl CrxImage {
             keep_original_bpp: config.circus_crx_keep_original_bpp,
             zstd: config.circus_crx_zstd,
             zstd_compression_level: config.zstd_compression_level,
+            row_type: config.circus_crx_mode.for_importing(),
         })
     }
 
@@ -512,6 +580,96 @@ impl CrxImage {
         Ok(dst_p)
     }
 
+    fn encode_row_best(
+        dst: &mut Vec<u8>,
+        mut dst_p: usize,
+        src: &[u8],
+        width: u16,
+        pixel_size: u8,
+        y: u16,
+    ) -> Result<usize> {
+        let mut buf = vec![0; width as usize * pixel_size as usize];
+        Self::encode_row0(&mut buf, 0, src, width, pixel_size, y)?;
+        let mut compressed_len = {
+            let mut encoder =
+                flate2::write::ZlibEncoder::new(MemWriter::new(), flate2::Compression::fast());
+            encoder.write_all(&buf)?;
+            let compressed_data = encoder.finish()?;
+            compressed_data.into_inner().len()
+        };
+        let mut buf_row_type = 0;
+        for row_type in 1..5u8 {
+            if y == 0 && row_type < 4 {
+                continue;
+            }
+            let mut newbuf = vec![0; width as usize * pixel_size as usize];
+            match row_type {
+                1 => Self::encode_row1(&mut newbuf, 0, src, width, pixel_size, y)?,
+                2 => Self::encode_row2(&mut newbuf, 0, src, width, pixel_size, y)?,
+                3 => Self::encode_row3(&mut newbuf, 0, src, width, pixel_size, y)?,
+                4 => Self::encode_row4(&mut newbuf, 0, src, width, pixel_size, y)?,
+                _ => return Err(anyhow::anyhow!("Invalid row type: {}", row_type)),
+            };
+            let new_compressed_len = {
+                let mut encoder =
+                    flate2::write::ZlibEncoder::new(MemWriter::new(), flate2::Compression::fast());
+                encoder.write_all(&newbuf)?;
+                let compressed_data = encoder.finish()?;
+                compressed_data.into_inner().len()
+            };
+            if new_compressed_len < compressed_len {
+                compressed_len = new_compressed_len;
+                buf = newbuf;
+                buf_row_type = row_type;
+            }
+        }
+        dst[dst_p] = buf_row_type;
+        dst_p += 1;
+        dst[dst_p..dst_p + buf.len()].copy_from_slice(&buf);
+        dst_p += buf.len();
+        Ok(dst_p)
+    }
+
+    fn encode_image_best(src: &[u8], width: u16, height: u16, pixel_size: u8) -> Result<Vec<u8>> {
+        let size = width as usize * height as usize * pixel_size as usize + height as usize;
+        let mut dst = vec![0; size];
+        let mut dst_p = 0;
+        for y in 0..height {
+            dst_p = Self::encode_row_best(&mut dst, dst_p, src, width, pixel_size, y)?;
+        }
+        Ok(dst)
+    }
+
+    fn encode_image_fixed(
+        src: &[u8],
+        width: u16,
+        height: u16,
+        pixel_size: u8,
+        row_type: u8,
+    ) -> Result<Vec<u8>> {
+        let size = width as usize * height as usize * pixel_size as usize + height as usize;
+        let mut dst = vec![0; size];
+        let mut dst_p = 0;
+        for y in 0..height {
+            let row_type = if y == 0 && row_type != 0 && row_type != 4 {
+                0
+            } else {
+                row_type
+            };
+            dst[dst_p] = row_type;
+            dst_p += 1;
+            match row_type {
+                0 => dst_p = Self::encode_row0(&mut dst, dst_p, src, width, pixel_size, y)?,
+                1 => dst_p = Self::encode_row1(&mut dst, dst_p, src, width, pixel_size, y)?,
+                2 => dst_p = Self::encode_row2(&mut dst, dst_p, src, width, pixel_size, y)?,
+                3 => dst_p = Self::encode_row3(&mut dst, dst_p, src, width, pixel_size, y)?,
+                4 => dst_p = Self::encode_row4(&mut dst, dst_p, src, width, pixel_size, y)?,
+                _ => return Err(anyhow::anyhow!("Invalid row type: {}", row_type)),
+            };
+        }
+        Ok(dst)
+    }
+
     fn encode_image_origin(
         src: &[u8],
         width: u16,
@@ -665,28 +823,37 @@ impl Script for CrxImage {
                 data.data[i + 3] = r;
             }
         }
-        let mut row_type = Vec::with_capacity(self.header.height as usize);
-        let mut dst = vec![
-            0;
-            self.header.width as usize
-                * self.header.height as usize
-                * self.color_type.bpp(1) as usize
-        ];
-        Self::decode_image(
-            &mut dst,
-            &self.data,
-            self.header.width,
-            self.header.height,
-            self.color_type.bpp(1) as u8,
-            &mut row_type,
-        )?;
-        let encoded = Self::encode_image_origin(
-            &data.data,
-            new_header.width,
-            new_header.height,
-            pixel_size,
-            &row_type,
-        )?;
+        let encoded = if self.row_type.is_origin() {
+            let mut row_type = Vec::with_capacity(self.header.height as usize);
+            let row_len = self.header.width as usize * self.color_type.bpp(1) as usize + 1;
+            let mut cur_pos = 0;
+            for _ in 0..self.header.height {
+                row_type.push(self.data[cur_pos]);
+                cur_pos += row_len;
+            }
+            Self::encode_image_origin(
+                &data.data,
+                new_header.width,
+                new_header.height,
+                pixel_size,
+                &row_type,
+            )?
+        } else if self.row_type.is_best() {
+            Self::encode_image_best(&data.data, new_header.width, new_header.height, pixel_size)?
+        } else if let CircusCrxMode::Fixed(mode) = self.row_type {
+            Self::encode_image_fixed(
+                &data.data,
+                new_header.width,
+                new_header.height,
+                pixel_size,
+                mode,
+            )?
+        } else {
+            return Err(anyhow::anyhow!(
+                "Unsupported row type for import: {:?}",
+                self.row_type
+            ));
+        };
         let compressed = if self.zstd {
             let mut encoder = zstd::Encoder::new(MemWriter::new(), self.zstd_compression_level)?;
             encoder.write_all(&encoded)?;
