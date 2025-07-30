@@ -616,13 +616,14 @@ impl CrxImage {
                 continue;
             }
             let mut newbuf = vec![0; width as usize * pixel_size as usize];
-            match row_type {
+            let dst_len = match row_type {
                 1 => Self::encode_row1(&mut newbuf, 0, src, width, pixel_size, y)?,
                 2 => Self::encode_row2(&mut newbuf, 0, src, width, pixel_size, y)?,
                 3 => Self::encode_row3(&mut newbuf, 0, src, width, pixel_size, y)?,
                 4 => Self::encode_row4(&mut newbuf, 0, src, width, pixel_size, y)?,
                 _ => return Err(anyhow::anyhow!("Invalid row type: {}", row_type)),
             };
+            newbuf.truncate(dst_len);
             let new_compressed_len = {
                 let mut encoder =
                     flate2::write::ZlibEncoder::new(MemWriter::new(), flate2::Compression::fast());
@@ -650,6 +651,7 @@ impl CrxImage {
         for y in 0..height {
             dst_p = Self::encode_row_best(&mut dst, dst_p, src, width, pixel_size, y)?;
         }
+        dst.truncate(dst_p);
         Ok(dst)
     }
 
@@ -680,6 +682,7 @@ impl CrxImage {
                 _ => return Err(anyhow::anyhow!("Invalid row type: {}", row_type)),
             };
         }
+        dst.truncate(dst_p);
         Ok(dst)
     }
 
@@ -709,6 +712,7 @@ impl CrxImage {
                 _ => return Err(anyhow::anyhow!("Invalid row type: {}", data)),
             };
         }
+        dst.truncate(dst_p);
         Ok(dst)
     }
 
