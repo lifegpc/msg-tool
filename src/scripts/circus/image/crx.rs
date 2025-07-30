@@ -116,6 +116,19 @@ impl ScriptBuilder for CrxImageBuilder {
         }
         None
     }
+
+    fn can_create_image_file(&self) -> bool {
+        true
+    }
+
+    fn create_image_file<'a>(
+        &'a self,
+        data: ImageData,
+        writer: Box<dyn WriteSeek + 'a>,
+        options: &ExtraConfig,
+    ) -> Result<()> {
+        CrxImage::create_image(data, writer, options)
+    }
 }
 
 #[derive(Clone, Debug, StructPack, StructUnpack)]
@@ -697,6 +710,85 @@ impl CrxImage {
             };
         }
         Ok(dst)
+    }
+
+    pub fn create_image<T: Write + Seek>(
+        mut data: ImageData,
+        mut writer: T,
+        config: &ExtraConfig,
+    ) -> Result<()> {
+        let header = Header {
+            inner_x: 0,
+            inner_y: 0,
+            width: data.width as u16,
+            height: data.height as u16,
+            version: 2,
+            flags: 0x10, // Force add compressed data length
+            bpp: match data.color_type {
+                ImageColorType::Bgr => 0,
+                ImageColorType::Bgra => 1,
+                ImageColorType::Rgb => {
+                    convert_rgb_to_bgr(&mut data)?;
+                    0
+                }
+                ImageColorType::Rgba => {
+                    convert_rgba_to_bgra(&mut data)?;
+                    1
+                }
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "Unsupported color type: {:?}",
+                        data.color_type
+                    ));
+                }
+            },
+            mode: 0,
+            clips: Vec::new(),
+        };
+        let pixel_size = data.color_type.bpp(1) as u8;
+        if data.color_type == ImageColorType::Bgra && header.mode != 1 {
+            let alpha_flip = if header.mode == 2 { 0 } else { 0xFF };
+            for i in (0..data.data.len()).step_by(4) {
+                let b = data.data[i];
+                let g = data.data[i + 1];
+                let r = data.data[i + 2];
+                let a = data.data[i + 3];
+                data.data[i] = a ^ alpha_flip;
+                data.data[i + 1] = b;
+                data.data[i + 2] = g;
+                data.data[i + 3] = r;
+            }
+        }
+        let mode = config.circus_crx_mode.for_creating();
+        let encoded = if mode.is_best() {
+            Self::encode_image_best(&data.data, header.width, header.height, pixel_size)?
+        } else if let CircusCrxMode::Fixed(mode) = mode {
+            Self::encode_image_fixed(&data.data, header.width, header.height, pixel_size, mode)?
+        } else {
+            return Err(anyhow::anyhow!(
+                "Unsupported row type for creating: {:?}",
+                mode
+            ));
+        };
+        let compressed = if config.circus_crx_zstd {
+            let mut encoder = zstd::Encoder::new(MemWriter::new(), config.zstd_compression_level)?;
+            encoder.write_all(&encoded)?;
+            let compressed_data = encoder.finish()?;
+            compressed_data.into_inner()
+        } else {
+            let mut encoder = flate2::write::ZlibEncoder::new(
+                MemWriter::new(),
+                flate2::Compression::new(config.zlib_compression_level),
+            );
+            encoder.write_all(&encoded)?;
+            let compressed_data = encoder.finish()?;
+            compressed_data.into_inner()
+        };
+        writer.write_all(b"CRXG")?;
+        header.pack(&mut writer, false, Encoding::Utf8)?;
+        writer.write_u32(compressed.len() as u32)?;
+        writer.write_all(&compressed)?;
+        Ok(())
     }
 }
 
