@@ -84,6 +84,8 @@ lazy_static::lazy_static! {
         Box::new(circus::image::crx::CrxImageBuilder::new()),
         #[cfg(feature = "cat-system")]
         Box::new(cat_system::cstl::CstlScriptBuilder::new()),
+        #[cfg(feature = "circus-arc")]
+        Box::new(circus::archive::pck::PckArchiveBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

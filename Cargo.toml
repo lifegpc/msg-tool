@@ -31,7 +31,7 @@ utf16string = "0.2"
 zstd = { version = "0.13", optional = true }
 
 [features]
-default = ["artemis", "artemis-arc", "bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "circus-img", "escude", "escude-arc", "hexen-haus", "kirikiri", "kirikiri-img", "will-plus", "yaneurao", "yaneurao-itufuru"]
+default = ["artemis", "artemis-arc", "bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "circus-arc", "circus-img", "escude", "escude-arc", "hexen-haus", "kirikiri", "kirikiri-img", "will-plus", "yaneurao", "yaneurao-itufuru"]
 artemis = ["utils-escape"]
 artemis-arc = ["artemis", "msg_tool_macro/artemis-arc", "sha1"]
 bgi = []
@@ -41,6 +41,7 @@ cat-system = ["fancy-regex", "flate2", "int-enum"]
 cat-system-arc = ["cat-system", "blowfish", "utils-crc32"]
 cat-system-img = ["cat-system", "flate2", "image", "utils-bit-stream"]
 circus = []
+circus-arc = ["circus"]
 circus-img = ["circus", "image", "flate2", "zstd"]
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
