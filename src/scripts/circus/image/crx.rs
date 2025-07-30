@@ -427,115 +427,69 @@ impl CrxImage {
         Ok(())
     }
 
-    fn encode_row0(
-        dst: &mut Vec<u8>,
-        mut dst_p: usize,
-        src: &[u8],
-        width: u16,
-        pixel_size: u8,
-        y: u16,
-    ) -> Result<usize> {
+    fn encode_row0(dst: &mut Vec<u8>, src: &[u8], width: u16, pixel_size: u8, y: u16) {
         let pixel_size = pixel_size as usize;
         let mut src_p = y as usize * width as usize * pixel_size;
         for _ in 0..pixel_size {
-            dst[dst_p] = src[src_p];
-            dst_p += 1;
+            dst.push(src[src_p]);
             src_p += 1;
         }
         for _ in 1..width {
             for _ in 0..pixel_size {
-                dst[dst_p] = src[src_p].wrapping_sub(src[src_p - pixel_size]);
-                dst_p += 1;
+                dst.push(src[src_p].wrapping_sub(src[src_p - pixel_size]));
                 src_p += 1;
             }
         }
-        Ok(dst_p)
     }
 
-    fn encode_row1(
-        dst: &mut Vec<u8>,
-        mut dst_p: usize,
-        src: &[u8],
-        width: u16,
-        pixel_size: u8,
-        y: u16,
-    ) -> Result<usize> {
+    fn encode_row1(dst: &mut Vec<u8>, src: &[u8], width: u16, pixel_size: u8, y: u16) {
         let pixel_size = pixel_size as usize;
         let mut src_p = y as usize * width as usize * pixel_size;
         let mut prev_row_p = (y as usize - 1) * width as usize * pixel_size;
         for _ in 0..width {
             for _ in 0..pixel_size {
-                dst[dst_p] = src[src_p].wrapping_sub(src[prev_row_p]);
-                dst_p += 1;
+                dst.push(src[src_p].wrapping_sub(src[prev_row_p]));
                 src_p += 1;
                 prev_row_p += 1;
             }
         }
-        Ok(dst_p)
     }
 
-    fn encode_row2(
-        dst: &mut Vec<u8>,
-        mut dst_p: usize,
-        src: &[u8],
-        width: u16,
-        pixel_size: u8,
-        y: u16,
-    ) -> Result<usize> {
+    fn encode_row2(dst: &mut Vec<u8>, src: &[u8], width: u16, pixel_size: u8, y: u16) {
         let pixel_size = pixel_size as usize;
         let mut src_p = y as usize * width as usize * pixel_size;
         let mut prev_row_p = (y as usize - 1) * width as usize * pixel_size;
         for _ in 0..pixel_size {
-            dst[dst_p] = src[src_p];
-            dst_p += 1;
+            dst.push(src[src_p]);
             src_p += 1;
         }
         for _ in 1..width {
             for _ in 0..pixel_size {
-                dst[dst_p] = src[src_p].wrapping_sub(src[prev_row_p]);
-                dst_p += 1;
+                dst.push(src[src_p].wrapping_sub(src[prev_row_p]));
                 src_p += 1;
                 prev_row_p += 1;
             }
         }
-        Ok(dst_p)
     }
 
-    fn encode_row3(
-        dst: &mut Vec<u8>,
-        mut dst_p: usize,
-        src: &[u8],
-        width: u16,
-        pixel_size: u8,
-        y: u16,
-    ) -> Result<usize> {
+    fn encode_row3(dst: &mut Vec<u8>, src: &[u8], width: u16, pixel_size: u8, y: u16) {
         let pixel_size = pixel_size as usize;
         let mut src_p = y as usize * width as usize * pixel_size;
         let mut prev_row_p = (y as usize - 1) * width as usize * pixel_size + pixel_size;
         for _ in 0..width - 1 {
             for _ in 0..pixel_size {
-                dst[dst_p] = src[src_p].wrapping_sub(src[prev_row_p]);
-                dst_p += 1;
+                dst.push(src[src_p].wrapping_sub(src[prev_row_p]));
                 src_p += 1;
                 prev_row_p += 1;
             }
         }
         for _ in 0..pixel_size {
-            dst[dst_p] = src[src_p];
-            dst_p += 1;
+            dst.push(src[src_p]);
             src_p += 1;
         }
-        Ok(dst_p)
     }
 
-    fn encode_row4(
-        dst: &mut Vec<u8>,
-        mut dst_p: usize,
-        src: &[u8],
-        width: u16,
-        pixel_size: u8,
-        y: u16,
-    ) -> Result<usize> {
+    fn encode_row4(dst: &mut Vec<u8>, src: &[u8], width: u16, pixel_size: u8, y: u16) {
         let pixel_size = pixel_size as usize;
         let src_p = y as usize * width as usize * pixel_size;
         for offset in 0..pixel_size {
@@ -543,8 +497,7 @@ impl CrxImage {
             let mut remaining = width;
             let value = src[src_c];
             src_c += pixel_size;
-            dst[dst_p] = value;
-            dst_p += 1;
+            dst.push(value);
             remaining -= 1;
             if remaining == 0 {
                 continue;
@@ -558,17 +511,14 @@ impl CrxImage {
                 count += 1;
             }
             if count > 0 {
-                dst[dst_p] = value;
-                dst_p += 1;
-                dst[dst_p] = count;
-                dst_p += 1;
+                dst.push(value);
+                dst.push(count);
                 remaining -= count as u16;
             }
             while remaining > 0 {
                 let value = src[src_c];
                 src_c += pixel_size;
-                dst[dst_p] = value;
-                dst_p += 1;
+                dst.push(value);
                 remaining -= 1;
                 if remaining == 0 {
                     break;
@@ -582,27 +532,23 @@ impl CrxImage {
                     count += 1;
                 }
                 if count > 0 {
-                    dst[dst_p] = value;
-                    dst_p += 1;
-                    dst[dst_p] = count;
-                    dst_p += 1;
+                    dst.push(value);
+                    dst.push(count);
                     remaining -= count as u16;
                 }
             }
         }
-        Ok(dst_p)
     }
 
     fn encode_row_best(
         dst: &mut Vec<u8>,
-        mut dst_p: usize,
         src: &[u8],
         width: u16,
         pixel_size: u8,
         y: u16,
-    ) -> Result<usize> {
-        let mut buf = vec![0; width as usize * pixel_size as usize];
-        Self::encode_row0(&mut buf, 0, src, width, pixel_size, y)?;
+    ) -> Result<()> {
+        let mut buf = Vec::with_capacity(width as usize * pixel_size as usize);
+        Self::encode_row0(&mut buf, src, width, pixel_size, y);
         let mut compressed_len = {
             let mut encoder =
                 flate2::write::ZlibEncoder::new(MemWriter::new(), flate2::Compression::fast());
@@ -615,15 +561,14 @@ impl CrxImage {
             if y == 0 && row_type < 4 {
                 continue;
             }
-            let mut newbuf = vec![0; width as usize * pixel_size as usize];
-            let dst_len = match row_type {
-                1 => Self::encode_row1(&mut newbuf, 0, src, width, pixel_size, y)?,
-                2 => Self::encode_row2(&mut newbuf, 0, src, width, pixel_size, y)?,
-                3 => Self::encode_row3(&mut newbuf, 0, src, width, pixel_size, y)?,
-                4 => Self::encode_row4(&mut newbuf, 0, src, width, pixel_size, y)?,
+            let mut newbuf = Vec::with_capacity(width as usize * pixel_size as usize);
+            match row_type {
+                1 => Self::encode_row1(&mut newbuf, src, width, pixel_size, y),
+                2 => Self::encode_row2(&mut newbuf, src, width, pixel_size, y),
+                3 => Self::encode_row3(&mut newbuf, src, width, pixel_size, y),
+                4 => Self::encode_row4(&mut newbuf, src, width, pixel_size, y),
                 _ => return Err(anyhow::anyhow!("Invalid row type: {}", row_type)),
             };
-            newbuf.truncate(dst_len);
             let new_compressed_len = {
                 let mut encoder =
                     flate2::write::ZlibEncoder::new(MemWriter::new(), flate2::Compression::fast());
@@ -637,21 +582,17 @@ impl CrxImage {
                 buf_row_type = row_type;
             }
         }
-        dst[dst_p] = buf_row_type;
-        dst_p += 1;
-        dst[dst_p..dst_p + buf.len()].copy_from_slice(&buf);
-        dst_p += buf.len();
-        Ok(dst_p)
+        dst.push(buf_row_type);
+        dst.extend_from_slice(&buf);
+        Ok(())
     }
 
     fn encode_image_best(src: &[u8], width: u16, height: u16, pixel_size: u8) -> Result<Vec<u8>> {
         let size = width as usize * height as usize * pixel_size as usize + height as usize;
-        let mut dst = vec![0; size];
-        let mut dst_p = 0;
+        let mut dst = Vec::with_capacity(size);
         for y in 0..height {
-            dst_p = Self::encode_row_best(&mut dst, dst_p, src, width, pixel_size, y)?;
+            Self::encode_row_best(&mut dst, src, width, pixel_size, y)?;
         }
-        dst.truncate(dst_p);
         Ok(dst)
     }
 
@@ -663,26 +604,23 @@ impl CrxImage {
         row_type: u8,
     ) -> Result<Vec<u8>> {
         let size = width as usize * height as usize * pixel_size as usize + height as usize;
-        let mut dst = vec![0; size];
-        let mut dst_p = 0;
+        let mut dst = Vec::with_capacity(size);
         for y in 0..height {
             let row_type = if y == 0 && row_type != 0 && row_type != 4 {
                 0
             } else {
                 row_type
             };
-            dst[dst_p] = row_type;
-            dst_p += 1;
+            dst.push(row_type);
             match row_type {
-                0 => dst_p = Self::encode_row0(&mut dst, dst_p, src, width, pixel_size, y)?,
-                1 => dst_p = Self::encode_row1(&mut dst, dst_p, src, width, pixel_size, y)?,
-                2 => dst_p = Self::encode_row2(&mut dst, dst_p, src, width, pixel_size, y)?,
-                3 => dst_p = Self::encode_row3(&mut dst, dst_p, src, width, pixel_size, y)?,
-                4 => dst_p = Self::encode_row4(&mut dst, dst_p, src, width, pixel_size, y)?,
+                0 => Self::encode_row0(&mut dst, src, width, pixel_size, y),
+                1 => Self::encode_row1(&mut dst, src, width, pixel_size, y),
+                2 => Self::encode_row2(&mut dst, src, width, pixel_size, y),
+                3 => Self::encode_row3(&mut dst, src, width, pixel_size, y),
+                4 => Self::encode_row4(&mut dst, src, width, pixel_size, y),
                 _ => return Err(anyhow::anyhow!("Invalid row type: {}", row_type)),
             };
         }
-        dst.truncate(dst_p);
         Ok(dst)
     }
 
@@ -697,22 +635,19 @@ impl CrxImage {
             return Err(anyhow::anyhow!("Row type length does not match height"));
         }
         let size = width as usize * height as usize * pixel_size as usize + height as usize;
-        let mut dst = vec![0; size];
-        let mut dst_p = 0;
+        let mut dst = Vec::with_capacity(size);
         for y in 0..height {
-            let data = row_type[y as usize];
-            dst[dst_p] = data;
-            dst_p += 1;
-            dst_p = match data {
-                0 => Self::encode_row0(&mut dst, dst_p, src, width, pixel_size, y)?,
-                1 => Self::encode_row1(&mut dst, dst_p, src, width, pixel_size, y)?,
-                2 => Self::encode_row2(&mut dst, dst_p, src, width, pixel_size, y)?,
-                3 => Self::encode_row3(&mut dst, dst_p, src, width, pixel_size, y)?,
-                4 => Self::encode_row4(&mut dst, dst_p, src, width, pixel_size, y)?,
-                _ => return Err(anyhow::anyhow!("Invalid row type: {}", data)),
+            let row_type = row_type[y as usize];
+            dst.push(row_type);
+            match row_type {
+                0 => Self::encode_row0(&mut dst, src, width, pixel_size, y),
+                1 => Self::encode_row1(&mut dst, src, width, pixel_size, y),
+                2 => Self::encode_row2(&mut dst, src, width, pixel_size, y),
+                3 => Self::encode_row3(&mut dst, src, width, pixel_size, y),
+                4 => Self::encode_row4(&mut dst, src, width, pixel_size, y),
+                _ => return Err(anyhow::anyhow!("Invalid row type: {}", row_type)),
             };
         }
-        dst.truncate(dst_p);
         Ok(dst)
     }
 
