@@ -1540,6 +1540,11 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
+    let _ = ctrlc::try_set_handler(|| {
+        eprintln!("Aborted.");
+        eprintln!("{}", std::ops::Deref::deref(&COUNTER));
+        std::process::exit(1);
+    });
     let arg = args::parse_args();
     if arg.backtrace {
         unsafe { std::env::set_var("RUST_LIB_BACKTRACE", "1") };
