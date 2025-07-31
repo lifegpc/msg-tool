@@ -30,6 +30,7 @@ impl ScriptBuilder for ArtemisAsbBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(Asb::new(buf, encoding, config)?))
     }

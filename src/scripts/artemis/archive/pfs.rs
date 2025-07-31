@@ -1,6 +1,5 @@
 use crate::ext::io::*;
 use crate::scripts::base::*;
-use crate::try_option;
 use crate::types::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
@@ -35,6 +34,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(ArtemisArc::new(
             MemReader::new(buf),
@@ -50,6 +50,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         let f = std::fs::File::open(filename)?;
         let f = std::io::BufReader::new(f);
@@ -68,6 +69,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(ArtemisArc::new(
             reader,
@@ -199,20 +201,41 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for ArtemisArc<T> {
         true
     }
 
-    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+    fn iter_archive_filename<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         Ok(Box::new(
             self.entries.iter().map(|header| Ok(header.name.clone())),
         ))
     }
 
-    fn iter_archive_mut<'a>(
-        &'a mut self,
-    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        Ok(Box::new(ArtemisArcIter {
-            entries: self.entries.iter(),
+    fn iter_archive_offset<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<u64>> + 'a>> {
+        Ok(Box::new(
+            self.entries.iter().map(|header| Ok(header.offset as u64)),
+        ))
+    }
+
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+        if index >= self.entries.len() {
+            return Err(anyhow::anyhow!(
+                "Index out of bounds: {} (max: {})",
+                index,
+                self.entries.len()
+            ));
+        }
+        let header = &self.entries[index];
+        let mut entry = Entry {
+            header: header.clone(),
             reader: self.reader.clone(),
+            pos: 0,
+            script_type: None,
             xor_key: self.xor_key.clone(),
-        }))
+        };
+        let mut header = [0; 0x20];
+        let readed = entry.read(&mut header)?;
+        entry.pos = 0;
+        entry.script_type = detect_script_type(&header, readed, &entry.header.name);
+        Ok(Box::new(entry))
     }
 
     fn archive_output_ext<'a>(&'a self) -> Option<&'a str> {
@@ -311,37 +334,6 @@ fn detect_script_type(buf: &[u8], buf_len: usize, filename: &str) -> Option<Scri
         return Some(ScriptType::Artemis);
     }
     None
-}
-
-struct ArtemisArcIter<'a, T: Iterator<Item = &'a PfsEntryHeader>, R: Read + Seek + 'static> {
-    entries: T,
-    reader: Arc<Mutex<R>>,
-    xor_key: Option<[u8; 20]>,
-}
-
-impl<'a, T: Iterator<Item = &'a PfsEntryHeader>, R: Read + Seek + 'static> Iterator
-    for ArtemisArcIter<'a, T, R>
-{
-    type Item = Result<Box<dyn ArchiveContent>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(header) = self.entries.next() {
-            let mut entry = Entry {
-                header: header.clone(),
-                reader: self.reader.clone(),
-                pos: 0,
-                script_type: None,
-                xor_key: self.xor_key.clone(),
-            };
-            let mut header = [0; 0x20];
-            let readed = try_option!(entry.read(&mut header));
-            entry.pos = 0;
-            entry.script_type = detect_script_type(&header, readed, &entry.header.name);
-            Some(Ok(Box::new(entry)))
-        } else {
-            None
-        }
-    }
 }
 
 pub struct ArtemisArcWriter<T: Write + Seek + Read> {

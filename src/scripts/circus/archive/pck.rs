@@ -34,6 +34,7 @@ impl ScriptBuilder for PckArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(PckArchive::new(
             MemReader::new(data),
@@ -48,6 +49,7 @@ impl ScriptBuilder for PckArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
@@ -70,6 +72,7 @@ impl ScriptBuilder for PckArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(PckArchive::new(reader, archive_encoding, config)?))
     }
@@ -254,43 +257,25 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for PckArchive<T> {
         true
     }
 
-    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+    fn iter_archive_filename<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         Ok(Box::new(self.entries.iter().map(|e| Ok(e.name.clone()))))
     }
 
-    fn iter_archive_mut<'a>(
-        &'a mut self,
-    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        Ok(Box::new(PckArchiveIter {
-            entries: self.entries.iter(),
-            reader: self.reader.clone(),
-        }))
+    fn iter_archive_offset<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<u64>> + 'a>> {
+        Ok(Box::new(self.entries.iter().map(|e| Ok(e.offset as u64))))
     }
-}
 
-fn detect_script_type(_buf: &[u8], _buf_len: usize, _filename: &str) -> Option<ScriptType> {
-    #[cfg(feature = "circus-img")]
-    if _buf_len >= 4 && _buf.starts_with(b"CRXG") {
-        return Some(ScriptType::CircusCrx);
-    }
-    None
-}
-
-struct PckArchiveIter<'a, T: Iterator<Item = &'a PckFileHeader>, R: Read + Seek> {
-    entries: T,
-    reader: Arc<Mutex<R>>,
-}
-
-impl<'a, T: Iterator<Item = &'a PckFileHeader>, R: Read + Seek + 'static> Iterator
-    for PckArchiveIter<'a, T, R>
-{
-    type Item = Result<Box<dyn ArchiveContent>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let entry = match self.entries.next() {
-            Some(e) => e,
-            None => return None,
-        };
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+        if index >= self.entries.len() {
+            return Err(anyhow::anyhow!(
+                "Index out of bounds: {} (max: {})",
+                index,
+                self.entries.len()
+            ));
+        }
+        let entry = &self.entries[index];
         let mut entry = Entry {
             header: entry.clone(),
             reader: self.reader.clone(),
@@ -301,17 +286,25 @@ impl<'a, T: Iterator<Item = &'a PckFileHeader>, R: Read + Seek + 'static> Iterat
         let readed = match entry.read(&mut buf) {
             Ok(readed) => readed,
             Err(e) => {
-                return Some(Err(anyhow::anyhow!(
+                return Err(anyhow::anyhow!(
                     "Failed to read entry '{}': {}",
                     entry.header.name,
                     e
-                )));
+                ));
             }
         };
         entry.pos = 0;
         entry.script_type = detect_script_type(&buf, readed, &entry.header.name);
-        Some(Ok(Box::new(entry)))
+        Ok(Box::new(entry))
     }
+}
+
+fn detect_script_type(_buf: &[u8], _buf_len: usize, _filename: &str) -> Option<ScriptType> {
+    #[cfg(feature = "circus-img")]
+    if _buf_len >= 4 && _buf.starts_with(b"CRXG") {
+        return Some(ScriptType::CircusCrx);
+    }
+    None
 }
 
 pub struct PckArchiveWriter<T: Write + Seek> {

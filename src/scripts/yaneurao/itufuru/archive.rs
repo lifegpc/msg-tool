@@ -8,6 +8,7 @@ use anyhow::Result;
 use msg_tool_macro::*;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub struct ItufuruArchiveBuilder {}
@@ -34,6 +35,7 @@ impl ScriptBuilder for ItufuruArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(ItufuruArchive::new(
             MemReader::new(data),
@@ -48,6 +50,7 @@ impl ScriptBuilder for ItufuruArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
@@ -74,6 +77,7 @@ impl ScriptBuilder for ItufuruArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(ItufuruArchive::new(
             reader,
@@ -163,7 +167,7 @@ impl ArchiveContent for Entry {
 
 #[derive(Debug)]
 pub struct ItufuruArchive<T: Read + Seek + std::fmt::Debug> {
-    reader: Crypto<T>,
+    reader: Arc<Mutex<Crypto<T>>>,
     first_file_offset: u32,
     files: Vec<CustomHeader>,
 }
@@ -203,14 +207,14 @@ impl<T: Read + Seek + std::fmt::Debug> ItufuruArchive<T> {
             files.push(file);
         }
         Ok(ItufuruArchive {
-            reader,
+            reader: Arc::new(Mutex::new(reader)),
             first_file_offset,
             files,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Script for ItufuruArchive<T> {
+impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for ItufuruArchive<T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -223,56 +227,44 @@ impl<T: Read + Seek + std::fmt::Debug> Script for ItufuruArchive<T> {
         true
     }
 
-    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+    fn iter_archive_filename<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         Ok(Box::new(
             self.files.iter().map(|s| Ok(s.file_name.to_owned())),
         ))
     }
 
-    fn iter_archive_mut<'a>(
-        &'a mut self,
-    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        Ok(Box::new(ItufuruArchiveIter {
-            entries: self.files.iter(),
-            reader: &mut self.reader,
-            first_file_offset: self.first_file_offset,
-        }))
+    fn iter_archive_offset<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<u64>> + 'a>> {
+        Ok(Box::new(self.files.iter().map(|s| Ok(s.offset as u64))))
     }
-}
 
-struct ItufuruArchiveIter<'a, T: Iterator<Item = &'a CustomHeader>, R: Read + Seek> {
-    entries: T,
-    reader: &'a mut R,
-    first_file_offset: u32,
-}
-
-impl<'a, T: Iterator<Item = &'a CustomHeader>, R: Read + Seek> Iterator
-    for ItufuruArchiveIter<'a, T, R>
-{
-    type Item = Result<Box<dyn ArchiveContent>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(entry) = self.entries.next() {
-            let file_offset = entry.offset as usize;
-            match self.reader.peek_exact_at_vec(
-                file_offset + self.first_file_offset as usize,
-                entry.size as usize,
-            ) {
-                Ok(data) => {
-                    let name = entry.file_name.clone();
-                    Some(Ok(Box::new(Entry {
-                        name,
-                        data: MemReader::new(data),
-                    })))
-                }
-                Err(e) => Some(Err(anyhow::anyhow!(
-                    "Failed to read file {}: {}",
-                    entry.file_name,
-                    e
-                ))),
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+        if index >= self.files.len() {
+            return Err(anyhow::anyhow!(
+                "Index out of bounds: {} (max: {})",
+                index,
+                self.files.len()
+            ));
+        }
+        let entry = &self.files[index];
+        let file_offset = entry.offset as usize;
+        match self.reader.cpeek_exact_at_vec(
+            file_offset + self.first_file_offset as usize,
+            entry.size as usize,
+        ) {
+            Ok(data) => {
+                let name = entry.file_name.clone();
+                Ok(Box::new(Entry {
+                    name,
+                    data: MemReader::new(data),
+                }))
             }
-        } else {
-            None
+            Err(e) => Err(anyhow::anyhow!(
+                "Failed to read file {}: {}",
+                entry.file_name,
+                e
+            )),
         }
     }
 }

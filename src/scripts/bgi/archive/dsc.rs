@@ -507,6 +507,7 @@ impl ScriptBuilder for DscBuilder {
         _encoding: Encoding,
         _archive_encoding: Encoding,
         _config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(Dsc::new(buf)?))
     }

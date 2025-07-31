@@ -31,6 +31,7 @@ impl ScriptBuilder for AstScriptBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(AstScript::new(buf, encoding, config)?))
     }

@@ -25,6 +25,7 @@ impl ScriptBuilder for MdfBuilder {
         _encoding: Encoding,
         _archive_encoding: Encoding,
         _config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(Mdf::new(buf, filename)?))
     }

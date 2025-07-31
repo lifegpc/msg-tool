@@ -32,6 +32,7 @@ impl ScriptBuilder for PImgBuilder {
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(PImg::new(MemReader::new(buf), filename, config)?))
     }
@@ -42,6 +43,7 @@ impl ScriptBuilder for PImgBuilder {
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
@@ -60,6 +62,7 @@ impl ScriptBuilder for PImgBuilder {
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(PImg::new(reader, filename, config)?))
     }

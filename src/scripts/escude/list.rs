@@ -29,6 +29,7 @@ impl ScriptBuilder for EscudeBinListBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(EscudeBinList::new(
             data, filename, encoding, config,

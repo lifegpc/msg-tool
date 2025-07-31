@@ -35,6 +35,7 @@ impl ScriptBuilder for CSIntArcBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(CSIntArc::new(
             MemReader::new(data),
@@ -50,6 +51,7 @@ impl ScriptBuilder for CSIntArcBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
@@ -78,6 +80,7 @@ impl ScriptBuilder for CSIntArcBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(CSIntArc::new(
             reader,
@@ -390,48 +393,33 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for CSIntArc<T> {
         true
     }
 
-    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+    fn iter_archive_filename<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         Ok(Box::new(self.entries.iter().map(|e| Ok(e.name.clone()))))
     }
 
-    fn iter_archive_mut<'a>(
-        &'a mut self,
-    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        Ok(Box::new(CSIntArcIter {
-            entries: self.entries.iter(),
-            reader: self.reader.clone(),
-            encrypt: self.encrypt.as_ref(),
-        }))
+    fn iter_archive_offset<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<u64>> + 'a>> {
+        Ok(Box::new(self.entries.iter().map(|e| Ok(e.offset as u64))))
     }
-}
 
-struct CSIntArcIter<'a, T: Iterator<Item = &'a CSIntFileHeader>, R: Read + Seek> {
-    entries: T,
-    reader: Arc<Mutex<R>>,
-    encrypt: Option<&'a Blowfish>,
-}
-
-impl<'a, T: Iterator<Item = &'a CSIntFileHeader>, R: Read + Seek + 'static> Iterator
-    for CSIntArcIter<'a, T, R>
-{
-    type Item = Result<Box<dyn ArchiveContent>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let entry = match self.entries.next() {
-            Some(e) => e,
-            None => return None,
-        };
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+        if index >= self.entries.len() {
+            return Err(anyhow::anyhow!(
+                "Index out of bounds: {} (max: {})",
+                index,
+                self.entries.len()
+            ));
+        }
+        let entry = &self.entries[index];
         let mut entry = Entry {
             header: entry.clone(),
             reader: self.reader.clone(),
             pos: 0,
             script_type: None,
         };
-        if let Some(encrypt) = self.encrypt {
-            let mut data = match entry.data() {
-                Ok(data) => data,
-                Err(e) => return Some(Err(e)),
-            };
+        if let Some(encrypt) = &self.encrypt {
+            let mut data = entry.data()?;
             entry.pos = 0;
             for i in 0..data.len() / 8 {
                 let j = i * 8;
@@ -447,24 +435,24 @@ impl<'a, T: Iterator<Item = &'a CSIntFileHeader>, R: Read + Seek + 'static> Iter
                 data[j..j + 4].copy_from_slice(&result[0].to_le_bytes());
                 data[j + 4..j + 8].copy_from_slice(&result[1].to_le_bytes());
             }
-            return Some(Ok(Box::new(MemEntry {
+            return Ok(Box::new(MemEntry {
                 name: entry.header.name.clone(),
                 data: MemReader::new(data),
-            })));
+            }));
         }
         let mut buf = [0u8; 32];
         let buf_len = match entry.read(&mut buf) {
             Ok(len) => len,
             Err(e) => {
-                return Some(Err(anyhow::anyhow!(
+                return Err(anyhow::anyhow!(
                     "Failed to read entry '{}': {}",
                     entry.header.name,
                     e
-                )));
+                ));
             }
         };
         entry.pos = 0;
         entry.script_type = detect_script_type(&buf, buf_len, &entry.header.name).copied();
-        Some(Ok(Box::new(entry)))
+        Ok(Box::new(entry))
     }
 }

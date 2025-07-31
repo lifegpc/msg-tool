@@ -33,6 +33,7 @@ impl ScriptBuilder for EscudeBinScriptBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(EscudeBinScript::new(data, encoding, config)?))
     }

@@ -31,6 +31,7 @@ impl ScriptBuilder for BGIScriptBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(BGIScript::new(buf, encoding, config)?))
     }

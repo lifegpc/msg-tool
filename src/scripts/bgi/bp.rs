@@ -26,6 +26,7 @@ impl ScriptBuilder for BGIBpScriptBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(BGIBpScript::new(buf, encoding, config)?))
     }

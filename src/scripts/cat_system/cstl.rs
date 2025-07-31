@@ -26,6 +26,7 @@ impl ScriptBuilder for CstlScriptBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(CstlScript::new(buf, encoding, config)?))
     }

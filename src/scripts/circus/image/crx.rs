@@ -94,6 +94,7 @@ impl ScriptBuilder for CrxImageBuilder {
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(CrxImage::new(MemReader::new(data), config)?))
     }

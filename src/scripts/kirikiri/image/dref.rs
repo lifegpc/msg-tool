@@ -32,8 +32,11 @@ impl ScriptBuilder for DrefBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(Dref::new(buf, encoding, filename, config)?))
+        Ok(Box::new(Dref::new(
+            buf, encoding, filename, config, archive,
+        )?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -67,6 +70,16 @@ impl Dpak {
         let psb = psb
             .load()
             .map_err(|e| anyhow::anyhow!("Failed to load PSB from DPAK: {:?}", e))?;
+        let psb = psb.to_psb_fixed();
+        Ok(Self { psb })
+    }
+
+    pub fn load_from_data(data: &[u8]) -> Result<Self> {
+        let mut psb = PsbReader::open_psb(MemReaderRef::new(data))
+            .map_err(|e| anyhow::anyhow!("Failed to read PSB from DPAK data: {:?}", e))?;
+        let psb = psb
+            .load()
+            .map_err(|e| anyhow::anyhow!("Failed to load PSB from DPAK data: {:?}", e))?;
         let psb = psb.to_psb_fixed();
         Ok(Self { psb })
     }
@@ -149,12 +162,31 @@ impl DpakLoader {
         };
         dpak.load_image(filename)
     }
+
+    pub fn load_archives(&mut self, in_archives: &HashMap<String, Vec<u8>>) -> Result<()> {
+        for (name, data) in in_archives.iter() {
+            if !self.map.contains_key(name) {
+                let dpak = Dpak::load_from_data(data)?;
+                self.map.insert(name.clone(), dpak);
+            }
+        }
+        Ok(())
+    }
 }
 
-#[derive(Debug)]
 pub struct Dref {
     urls: Vec<Url>,
     dir: PathBuf,
+    in_archives: HashMap<String, Vec<u8>>,
+}
+
+impl std::fmt::Debug for Dref {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Dref")
+            .field("urls", &self.urls)
+            .field("dir", &self.dir)
+            .finish()
+    }
 }
 
 impl Dref {
@@ -163,6 +195,7 @@ impl Dref {
         encoding: Encoding,
         filename: &str,
         _config: &ExtraConfig,
+        archive: Option<&Box<dyn Script>>,
     ) -> Result<Self> {
         let text = decode_with_bom_detect(encoding, &buf, true)?.0;
         let mut urls = Vec::new();
@@ -190,7 +223,25 @@ impl Dref {
                 ));
             }
         }
-        Ok(Self { urls, dir })
+        let mut in_archives = HashMap::new();
+        if let Some(archive) = archive {
+            if archive.is_archive() {
+                for url in urls.iter() {
+                    let filename = url.domain().ok_or(anyhow::anyhow!(
+                        "Invalid URL in DREF file: {} (missing domain)",
+                        url
+                    ))?;
+                    if let Ok(mut content) = archive.open_file_by_name(filename, true) {
+                        in_archives.insert(filename.to_string(), content.data()?);
+                    }
+                }
+            }
+        }
+        Ok(Self {
+            urls,
+            dir,
+            in_archives,
+        })
     }
 }
 
@@ -209,6 +260,7 @@ impl Script for Dref {
 
     fn export_image(&self) -> Result<ImageData> {
         let mut loader = DpakLoader::default();
+        loader.load_archives(&self.in_archives)?;
         let base_url = &self.urls[0];
         let dpak = base_url.domain().ok_or(anyhow::anyhow!(
             "Invalid URL in DREF file: {} (missing domain)",

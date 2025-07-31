@@ -26,6 +26,7 @@ impl ScriptBuilder for SimpleCryptBuilder {
         _encoding: Encoding,
         _archive_encoding: Encoding,
         _config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(SimpleCrypt::new(buf, filename)?))
     }

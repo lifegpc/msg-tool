@@ -7,6 +7,7 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 pub struct EscudeBinArchiveBuilder {}
@@ -33,6 +34,7 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(EscudeBinArchive::new(
             MemReader::new(data),
@@ -47,6 +49,7 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
@@ -73,6 +76,7 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(EscudeBinArchive::new(
             reader,
@@ -158,7 +162,7 @@ impl ArchiveContent for Entry {
 
 #[derive(Debug)]
 pub struct EscudeBinArchive<T: Read + Seek + std::fmt::Debug> {
-    reader: T,
+    reader: Arc<Mutex<T>>,
     file_count: u32,
     entries: Vec<BinEntry>,
     archive_encoding: Encoding,
@@ -187,7 +191,7 @@ impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
             });
         }
         Ok(EscudeBinArchive {
-            reader,
+            reader: Arc::new(Mutex::new(reader)),
             file_count,
             entries,
             archive_encoding,
@@ -195,7 +199,7 @@ impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Script for EscudeBinArchive<T> {
+impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for EscudeBinArchive<T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -208,30 +212,56 @@ impl<T: Read + Seek + std::fmt::Debug> Script for EscudeBinArchive<T> {
         true
     }
 
-    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+    fn iter_archive_filename<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         Ok(Box::new(EscudeBinArchiveIter {
             entries: self.entries.iter(),
-            reader: &mut self.reader,
+            reader: self.reader.clone(),
             file_count: self.file_count,
             archive_encoding: self.archive_encoding,
         }))
     }
 
-    fn iter_archive_mut<'a>(
-        &'a mut self,
-    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        Ok(Box::new(EscudeBinArchiveIterator {
-            entries: self.entries.iter(),
-            reader: &mut self.reader,
-            file_count: self.file_count,
-            archive_encoding: self.archive_encoding,
+    fn iter_archive_offset<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<u64>> + 'a>> {
+        Ok(Box::new(
+            self.entries.iter().map(|e| Ok(e.data_offset as u64)),
+        ))
+    }
+
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+        if index >= self.entries.len() {
+            return Err(anyhow::anyhow!(
+                "Index out of bounds: {} (max: {})",
+                index,
+                self.entries.len()
+            ));
+        }
+        let entry = &self.entries[index];
+        let name = self
+            .reader
+            .cpeek_cstring_at(entry.name_offset as usize + self.file_count as usize * 12 + 0x14)?;
+        let name = decode_to_string(self.archive_encoding, name.as_bytes(), true)?;
+        let mut data = self
+            .reader
+            .cpeek_at_vec(entry.data_offset as usize, entry.length as usize)?;
+        if data.starts_with(b"acp") {
+            let mut decoder = match super::lzw::LZWDecoder::new(&data) {
+                Ok(decoder) => decoder,
+                Err(e) => return Err(anyhow::anyhow!("Failed to create LZW decoder: {}", e)),
+            };
+            data = decoder.unpack()?;
+        }
+        Ok(Box::new(Entry {
+            name,
+            data: MemReader::new(data),
         }))
     }
 }
 
 struct EscudeBinArchiveIter<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> {
     entries: T,
-    reader: &'a mut R,
+    reader: Arc<Mutex<R>>,
     file_count: u32,
     archive_encoding: Encoding,
 }
@@ -247,7 +277,7 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
             None => return None,
         };
         let name_offset = entry.name_offset as usize + self.file_count as usize * 12 + 0x14;
-        let name = match self.reader.peek_cstring_at(name_offset) {
+        let name = match self.reader.cpeek_cstring_at(name_offset) {
             Ok(name) => name,
             Err(e) => return Some(Err(e.into())),
         };
@@ -256,58 +286,6 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
             Err(e) => return Some(Err(e.into())),
         };
         Some(Ok(name))
-    }
-}
-
-struct EscudeBinArchiveIterator<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> {
-    entries: T,
-    reader: &'a mut R,
-    file_count: u32,
-    archive_encoding: Encoding,
-}
-
-impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
-    for EscudeBinArchiveIterator<'a, T, R>
-{
-    type Item = Result<Box<dyn ArchiveContent>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let entry = match self.entries.next() {
-            Some(entry) => entry,
-            None => return None,
-        };
-        let name = match self
-            .reader
-            .peek_cstring_at(entry.name_offset as usize + self.file_count as usize * 12 + 0x14)
-        {
-            Ok(name) => name,
-            Err(e) => return Some(Err(e.into())),
-        };
-        let name = match decode_to_string(self.archive_encoding, name.as_bytes(), true) {
-            Ok(name) => name,
-            Err(e) => return Some(Err(e.into())),
-        };
-        let mut data = match self
-            .reader
-            .peek_at_vec(entry.data_offset as usize, entry.length as usize)
-        {
-            Ok(data) => data,
-            Err(e) => return Some(Err(e.into())),
-        };
-        if data.starts_with(b"acp") {
-            let mut decoder = match super::lzw::LZWDecoder::new(&data) {
-                Ok(decoder) => decoder,
-                Err(e) => return Some(Err(anyhow::anyhow!("Failed to create LZW decoder: {}", e))),
-            };
-            data = match decoder.unpack() {
-                Ok(unpacked_data) => unpacked_data,
-                Err(e) => return Some(Err(e)),
-            };
-        }
-        Some(Ok(Box::new(Entry {
-            name,
-            data: MemReader::new(data),
-        })))
     }
 }
 

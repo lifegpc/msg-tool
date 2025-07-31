@@ -27,6 +27,7 @@ impl ScriptBuilder for Ws2ScriptBuilder {
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(Ws2Script::new(buf, encoding, config, false)?))
     }

@@ -29,6 +29,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
         encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>>;
 
     fn build_script_from_file(
@@ -37,9 +38,10 @@ pub trait ScriptBuilder: std::fmt::Debug {
         encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         let data = crate::utils::files::read_file(filename)?;
-        self.build_script(data, filename, encoding, archive_encoding, config)
+        self.build_script(data, filename, encoding, archive_encoding, config, archive)
     }
 
     fn build_script_from_reader(
@@ -49,12 +51,13 @@ pub trait ScriptBuilder: std::fmt::Debug {
         encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         let mut data = Vec::new();
         reader
             .read_to_end(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to read from reader: {}", e))?;
-        self.build_script(data, filename, encoding, archive_encoding, config)
+        self.build_script(data, filename, encoding, archive_encoding, config, archive)
     }
 
     fn extensions(&self) -> &'static [&'static str];
@@ -162,7 +165,7 @@ pub trait ArchiveContent: Read {
     }
 }
 
-pub trait Script: std::fmt::Debug {
+pub trait Script: std::fmt::Debug + std::any::Any {
     fn default_output_script_type(&self) -> OutputScriptType;
 
     fn is_output_supported(&self, output: OutputScriptType) -> bool {
@@ -245,16 +248,56 @@ pub trait Script: std::fmt::Debug {
         false
     }
 
-    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+    fn iter_archive_filename<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         Err(anyhow::anyhow!(
-            "This script type does not support iterating over archive contents."
+            "This script type does not support iterating over archive filenames."
         ))
     }
 
-    fn iter_archive_mut<'a>(
-        &'a mut self,
-    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        Ok(Box::new(std::iter::empty()))
+    fn iter_archive_offset<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<u64>> + 'a>> {
+        Err(anyhow::anyhow!(
+            "This script type does not support iterating over archive offsets."
+        ))
+    }
+
+    fn open_file<'a>(&'a self, _index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+        Err(anyhow::anyhow!(
+            "This script type does not support opening files."
+        ))
+    }
+
+    fn open_file_by_name<'a>(
+        &'a self,
+        name: &str,
+        ignore_case: bool,
+    ) -> Result<Box<dyn ArchiveContent + 'a>> {
+        for (i, fname) in self.iter_archive_filename()?.enumerate() {
+            if let Ok(fname) = fname {
+                if fname == name || (ignore_case && fname.eq_ignore_ascii_case(name)) {
+                    return self.open_file(i);
+                }
+            }
+        }
+        Err(anyhow::anyhow!(
+            "File with name '{}' not found in archive.",
+            name
+        ))
+    }
+
+    fn open_file_by_offset<'a>(&'a self, offset: u64) -> Result<Box<dyn ArchiveContent + 'a>> {
+        for (i, off) in self.iter_archive_offset()?.enumerate() {
+            if let Ok(off) = off {
+                if off == offset {
+                    return self.open_file(i);
+                }
+            }
+        }
+        Err(anyhow::anyhow!(
+            "File with offset '{}' not found in archive.",
+            offset
+        ))
     }
 
     /// Returns output extension for archive output folder.

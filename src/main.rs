@@ -161,6 +161,7 @@ pub fn parse_script(
                             encoding,
                             archive_encoding,
                             config,
+                            None,
                         )?,
                         builder,
                     ));
@@ -189,7 +190,7 @@ pub fn parse_script(
         let encoding = get_encoding(arg, builder);
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script_from_file(filename, encoding, archive_encoding, config)?,
+            builder.build_script_from_file(filename, encoding, archive_encoding, config, None)?,
             builder,
         ));
     }
@@ -220,7 +221,7 @@ pub fn parse_script(
         let encoding = get_encoding(arg, builder);
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script_from_file(filename, encoding, archive_encoding, config)?,
+            builder.build_script_from_file(filename, encoding, archive_encoding, config, None)?,
             builder,
         ));
     }
@@ -234,10 +235,11 @@ pub fn parse_script(
     Err(anyhow::anyhow!("Unsupported script type"))
 }
 
-pub fn parse_script_from_archive(
-    file: &mut Box<dyn ArchiveContent>,
+pub fn parse_script_from_archive<'a>(
+    file: &mut Box<dyn ArchiveContent + 'a>,
     arg: &args::Arg,
     config: &types::ExtraConfig,
+    archive: &Box<dyn scripts::Script>,
 ) -> anyhow::Result<(
     Box<dyn scripts::Script>,
     &'static Box<dyn scripts::ScriptBuilder + Send + Sync>,
@@ -255,6 +257,7 @@ pub fn parse_script_from_archive(
                             encoding,
                             archive_encoding,
                             config,
+                            Some(archive),
                         )?,
                         builder,
                     ));
@@ -289,6 +292,7 @@ pub fn parse_script_from_archive(
                 encoding,
                 archive_encoding,
                 config,
+                Some(archive),
             )?,
             builder,
         ));
@@ -315,7 +319,14 @@ pub fn parse_script_from_archive(
         let encoding = get_encoding(arg, builder);
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script(buf, file.name(), encoding, archive_encoding, config)?,
+            builder.build_script(
+                buf,
+                file.name(),
+                encoding,
+                archive_encoding,
+                config,
+                Some(archive),
+            )?,
             builder,
         ));
     }
@@ -338,7 +349,7 @@ pub fn export_script(
     is_dir: bool,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Exporting {}", filename);
-    let mut script = parse_script(filename, arg, config)?.0;
+    let script = parse_script(filename, arg, config)?.0;
     if script.is_archive() {
         let odir = match output.as_ref() {
             Some(output) => {
@@ -367,10 +378,31 @@ pub fn export_script(
         if !std::fs::exists(&odir)? {
             std::fs::create_dir_all(&odir)?;
         }
-        for f in script.iter_archive_mut()? {
-            let mut f = f?;
+        for (i, filename) in script.iter_archive_filename()?.enumerate() {
+            let filename = match filename {
+                Ok(f) => f,
+                Err(e) => {
+                    eprintln!("Error reading archive filename: {}", e);
+                    COUNTER.inc_error();
+                    if arg.backtrace {
+                        eprintln!("Backtrace: {}", e.backtrace());
+                    }
+                    continue;
+                }
+            };
+            let mut f = match script.open_file(i) {
+                Ok(f) => f,
+                Err(e) => {
+                    eprintln!("Error opening file {}: {}", filename, e);
+                    COUNTER.inc_error();
+                    if arg.backtrace {
+                        eprintln!("Backtrace: {}", e.backtrace());
+                    }
+                    continue;
+                }
+            };
             if f.is_script() {
-                let (script_file, _) = parse_script_from_archive(&mut f, arg, config)?;
+                let (script_file, _) = parse_script_from_archive(&mut f, arg, config, &script)?;
                 #[cfg(feature = "image")]
                 if script_file.is_image() {
                     if script_file.is_multi_image() {
@@ -807,7 +839,7 @@ pub fn import_script(
     repl: Option<&types::ReplacementTable>,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Importing {}", filename);
-    let (mut script, builder) = parse_script(filename, arg, config)?;
+    let (script, builder) = parse_script(filename, arg, config)?;
     if script.is_archive() {
         let odir = {
             let mut pb = std::path::PathBuf::from(&imp_cfg.output);
@@ -823,7 +855,7 @@ pub fn import_script(
             }
             pb.to_string_lossy().into_owned()
         };
-        let files: Vec<_> = script.iter_archive()?.collect();
+        let files: Vec<_> = script.iter_archive_filename()?.collect();
         let files = files.into_iter().filter_map(|f| f.ok()).collect::<Vec<_>>();
         let patched_f = if is_dir {
             let f = std::path::PathBuf::from(filename);
@@ -840,11 +872,32 @@ pub fn import_script(
         let pencoding = get_patched_encoding(imp_cfg, builder);
         let enc = get_patched_archive_encoding(imp_cfg, builder, pencoding);
         let mut arch = builder.create_archive(&patched_f, &files, enc, config)?;
-        for f in script.iter_archive_mut()? {
-            let mut f = f?;
+        for (index, filename) in script.iter_archive_filename()?.enumerate() {
+            let filename = match filename {
+                Ok(f) => f,
+                Err(e) => {
+                    eprintln!("Error reading archive filename: {}", e);
+                    COUNTER.inc_error();
+                    if arg.backtrace {
+                        eprintln!("Backtrace: {}", e.backtrace());
+                    }
+                    continue;
+                }
+            };
+            let mut f = match script.open_file(index) {
+                Ok(f) => f,
+                Err(e) => {
+                    eprintln!("Error opening file {}: {}", filename, e);
+                    COUNTER.inc_error();
+                    if arg.backtrace {
+                        eprintln!("Backtrace: {}", e.backtrace());
+                    }
+                    continue;
+                }
+            };
             let mut writer = arch.new_file(f.name())?;
             if f.is_script() {
-                let (script_file, _) = parse_script_from_archive(&mut f, arg, config)?;
+                let (script_file, _) = parse_script_from_archive(&mut f, arg, config, &script)?;
                 let mut of = match &arg.output_type {
                     Some(t) => t.clone(),
                     None => script_file.default_output_script_type(),
@@ -1252,7 +1305,7 @@ pub fn unpack_archive(
     is_dir: bool,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Unpacking {}", filename);
-    let mut script = parse_script(filename, arg, config)?.0;
+    let script = parse_script(filename, arg, config)?.0;
     if !script.is_archive() {
         return Ok(types::ScriptResult::Ignored);
     }
@@ -1283,8 +1336,29 @@ pub fn unpack_archive(
     if !std::fs::exists(&odir)? {
         std::fs::create_dir_all(&odir)?;
     }
-    for f in script.iter_archive_mut()? {
-        let mut f = f?;
+    for (index, filename) in script.iter_archive_filename()?.enumerate() {
+        let filename = match filename {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Error reading archive filename: {}", e);
+                COUNTER.inc_error();
+                if arg.backtrace {
+                    eprintln!("Backtrace: {}", e.backtrace());
+                }
+                continue;
+            }
+        };
+        let mut f = match script.open_file(index) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Error opening file {}: {}", filename, e);
+                COUNTER.inc_error();
+                if arg.backtrace {
+                    eprintln!("Backtrace: {}", e.backtrace());
+                }
+                continue;
+            }
+        };
         let out_path = std::path::PathBuf::from(&odir).join(f.name());
         match utils::files::make_sure_dir_exists(&out_path) {
             Ok(_) => {}

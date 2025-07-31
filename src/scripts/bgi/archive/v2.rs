@@ -36,6 +36,7 @@ impl ScriptBuilder for BgiArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(BgiArchive::new(
             MemReader::new(data),
@@ -51,6 +52,7 @@ impl ScriptBuilder for BgiArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
@@ -79,6 +81,7 @@ impl ScriptBuilder for BgiArchiveBuilder {
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
+        _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         Ok(Box::new(BgiArchive::new(
             reader,
@@ -246,8 +249,8 @@ impl<F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> ArchiveContent fo
 #[derive(Debug)]
 pub struct BgiArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
-    file_count: u32,
     entries: Vec<BgiFileHeader>,
+    base_offset: u64,
     #[cfg(feature = "bgi-img")]
     is_sysgrp_arc: bool,
 }
@@ -282,8 +285,8 @@ impl<T: Read + Seek + std::fmt::Debug> BgiArchive<T> {
 
         Ok(BgiArchive {
             reader: Arc::new(Mutex::new(reader)),
-            file_count,
             entries,
+            base_offset: 16 + (file_count as u64 * 0x80),
             #[cfg(feature = "bgi-img")]
             is_sysgrp_arc,
         })
@@ -303,22 +306,180 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for BgiArchive<T> {
         true
     }
 
-    fn iter_archive<'a>(&'a mut self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+    fn iter_archive_filename<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         Ok(Box::new(
             self.entries.iter().map(|e| Ok(e.filename.clone())),
         ))
     }
 
-    fn iter_archive_mut<'a>(
-        &'a mut self,
-    ) -> Result<Box<dyn Iterator<Item = Result<Box<dyn ArchiveContent>>> + 'a>> {
-        Ok(Box::new(BgiArchiveIter {
-            entries: self.entries.iter(),
+    fn iter_archive_offset<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<u64>> + 'a>> {
+        Ok(Box::new(self.entries.iter().map(|e| Ok(e.offset as u64))))
+    }
+
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+        if index >= self.entries.len() {
+            return Err(anyhow::anyhow!(
+                "Index out of bounds: {} (max: {})",
+                index,
+                self.entries.len()
+            ));
+        }
+        let entry = &self.entries[index];
+        let mut entry = Entry {
+            header: entry.clone(),
             reader: self.reader.clone(),
-            base_offset: 16 + (self.file_count as u64 * 0x80),
+            pos: 0,
+            base_offset: self.base_offset,
+            script_type: None,
+        };
+        let mut buf = [0u8; 32];
+        match entry.read(&mut buf) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "Failed to read entry '{}': {}",
+                    entry.header.filename,
+                    e
+                ));
+            }
+        }
+        entry.pos = 0;
+        if buf.starts_with(b"DSC FORMAT 1.00") {
+            let data = match entry.data() {
+                Ok(data) => data,
+                Err(e) => {
+                    return Err(anyhow::anyhow!(
+                        "Failed to read DSC data for '{}': {}",
+                        entry.header.filename,
+                        e
+                    ));
+                }
+            };
+            entry.pos = 0;
+            let dsc = match DscDecoder::new(&data) {
+                Ok(dsc) => dsc,
+                Err(e) => {
+                    return Err(anyhow::anyhow!(
+                        "Failed to create DSC decoder for '{}': {}",
+                        entry.header.filename,
+                        e
+                    ));
+                }
+            };
+            let decoded = match dsc.unpack() {
+                Ok(decoded) => decoded,
+                Err(e) => {
+                    return Err(anyhow::anyhow!(
+                        "Failed to unpack DSC data for '{}': {}",
+                        entry.header.filename,
+                        e
+                    ));
+                }
+            };
+            let reader = MemReader::new(decoded);
+            if reader.data.starts_with(b"BSE 1.") {
+                match BseReader::new(reader, detect_script_type, &entry.header.filename) {
+                    Ok(bse_reader) => {
+                        return Ok(Box::new(bse_reader));
+                    }
+                    Err(e) => {
+                        return Err(anyhow::anyhow!(
+                            "Failed to create BSE reader for '{}': {}",
+                            entry.header.filename,
+                            e
+                        ));
+                    }
+                };
+            }
+            return Ok(Box::new(MemEntry {
+                name: entry.header.filename.clone(),
+                data: reader,
+                #[cfg(feature = "bgi-img")]
+                detect: if self.is_sysgrp_arc {
+                    detect_script_type_sysgrp
+                } else {
+                    detect_script_type
+                },
+                #[cfg(not(feature = "bgi-img"))]
+                detect: detect_script_type,
+            }));
+        }
+        if buf.starts_with(b"BSE 1.") {
+            let filename = entry.header.filename.clone();
             #[cfg(feature = "bgi-img")]
-            is_sysgrp_arc: self.is_sysgrp_arc,
-        }))
+            let detect = if self.is_sysgrp_arc {
+                detect_script_type_sysgrp
+            } else {
+                detect_script_type
+            };
+            #[cfg(not(feature = "bgi-img"))]
+            let detect = detect_script_type;
+            match BseReader::new(entry, detect, &filename) {
+                Ok(mut bse_reader) => {
+                    if bse_reader.is_dsc() {
+                        let data = match bse_reader.data() {
+                            Ok(data) => data,
+                            Err(e) => {
+                                return Err(anyhow::anyhow!(
+                                    "Failed to read BSE data for '{}': {}",
+                                    &filename,
+                                    e
+                                ));
+                            }
+                        };
+                        let dsc = match DscDecoder::new(&data) {
+                            Ok(dsc) => dsc,
+                            Err(e) => {
+                                return Err(anyhow::anyhow!(
+                                    "Failed to create DSC decoder for '{}': {}",
+                                    &filename,
+                                    e
+                                ));
+                            }
+                        };
+                        let decoded = match dsc.unpack() {
+                            Ok(decoded) => decoded,
+                            Err(e) => {
+                                return Err(anyhow::anyhow!(
+                                    "Failed to unpack DSC data for '{}': {}",
+                                    &filename,
+                                    e
+                                ));
+                            }
+                        };
+                        let reader = MemReader::new(decoded);
+                        return Ok(Box::new(MemEntry {
+                            name: filename,
+                            data: reader,
+                            detect,
+                        }));
+                    }
+                    return Ok(Box::new(bse_reader));
+                }
+                Err(e) => {
+                    return Err(anyhow::anyhow!(
+                        "Failed to create BSE reader for '{}': {}",
+                        &filename,
+                        e
+                    ));
+                }
+            };
+        }
+        #[cfg(feature = "bgi-img")]
+        if self.is_sysgrp_arc {
+            entry.script_type = Some(ScriptType::BGIImg);
+        } else {
+            entry.script_type =
+                detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
+        }
+        #[cfg(not(feature = "bgi-img"))]
+        {
+            entry.script_type =
+                detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
+        }
+        Ok(Box::new(entry))
     }
 }
 
@@ -346,180 +507,6 @@ fn detect_script_type_sysgrp(
     _filename: &str,
 ) -> Option<&'static ScriptType> {
     Some(&ScriptType::BGIImg)
-}
-
-struct BgiArchiveIter<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek> {
-    entries: T,
-    reader: Arc<Mutex<R>>,
-    base_offset: u64,
-    #[cfg(feature = "bgi-img")]
-    is_sysgrp_arc: bool,
-}
-
-impl<'a, T: Iterator<Item = &'a BgiFileHeader>, R: Read + Seek + 'static> Iterator
-    for BgiArchiveIter<'a, T, R>
-{
-    type Item = Result<Box<dyn ArchiveContent>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let entry = match self.entries.next() {
-            Some(e) => e,
-            None => return None,
-        };
-        let mut entry = Entry {
-            header: entry.clone(),
-            reader: self.reader.clone(),
-            pos: 0,
-            base_offset: self.base_offset,
-            script_type: None,
-        };
-        let mut buf = [0u8; 32];
-        match entry.read(&mut buf) {
-            Ok(_) => {}
-            Err(e) => {
-                return Some(Err(anyhow::anyhow!(
-                    "Failed to read entry '{}': {}",
-                    entry.header.filename,
-                    e
-                )));
-            }
-        }
-        entry.pos = 0;
-        if buf.starts_with(b"DSC FORMAT 1.00") {
-            let data = match entry.data() {
-                Ok(data) => data,
-                Err(e) => {
-                    return Some(Err(anyhow::anyhow!(
-                        "Failed to read DSC data for '{}': {}",
-                        entry.header.filename,
-                        e
-                    )));
-                }
-            };
-            entry.pos = 0;
-            let dsc = match DscDecoder::new(&data) {
-                Ok(dsc) => dsc,
-                Err(e) => {
-                    return Some(Err(anyhow::anyhow!(
-                        "Failed to create DSC decoder for '{}': {}",
-                        entry.header.filename,
-                        e
-                    )));
-                }
-            };
-            let decoded = match dsc.unpack() {
-                Ok(decoded) => decoded,
-                Err(e) => {
-                    return Some(Err(anyhow::anyhow!(
-                        "Failed to unpack DSC data for '{}': {}",
-                        entry.header.filename,
-                        e
-                    )));
-                }
-            };
-            let reader = MemReader::new(decoded);
-            if reader.data.starts_with(b"BSE 1.") {
-                match BseReader::new(reader, detect_script_type, &entry.header.filename) {
-                    Ok(bse_reader) => {
-                        return Some(Ok(Box::new(bse_reader)));
-                    }
-                    Err(e) => {
-                        return Some(Err(anyhow::anyhow!(
-                            "Failed to create BSE reader for '{}': {}",
-                            entry.header.filename,
-                            e
-                        )));
-                    }
-                };
-            }
-            return Some(Ok(Box::new(MemEntry {
-                name: entry.header.filename.clone(),
-                data: reader,
-                #[cfg(feature = "bgi-img")]
-                detect: if self.is_sysgrp_arc {
-                    detect_script_type_sysgrp
-                } else {
-                    detect_script_type
-                },
-                #[cfg(not(feature = "bgi-img"))]
-                detect: detect_script_type,
-            })));
-        }
-        if buf.starts_with(b"BSE 1.") {
-            let filename = entry.header.filename.clone();
-            #[cfg(feature = "bgi-img")]
-            let detect = if self.is_sysgrp_arc {
-                detect_script_type_sysgrp
-            } else {
-                detect_script_type
-            };
-            #[cfg(not(feature = "bgi-img"))]
-            let detect = detect_script_type;
-            match BseReader::new(entry, detect, &filename) {
-                Ok(mut bse_reader) => {
-                    if bse_reader.is_dsc() {
-                        let data = match bse_reader.data() {
-                            Ok(data) => data,
-                            Err(e) => {
-                                return Some(Err(anyhow::anyhow!(
-                                    "Failed to read BSE data for '{}': {}",
-                                    &filename,
-                                    e
-                                )));
-                            }
-                        };
-                        let dsc = match DscDecoder::new(&data) {
-                            Ok(dsc) => dsc,
-                            Err(e) => {
-                                return Some(Err(anyhow::anyhow!(
-                                    "Failed to create DSC decoder for '{}': {}",
-                                    &filename,
-                                    e
-                                )));
-                            }
-                        };
-                        let decoded = match dsc.unpack() {
-                            Ok(decoded) => decoded,
-                            Err(e) => {
-                                return Some(Err(anyhow::anyhow!(
-                                    "Failed to unpack DSC data for '{}': {}",
-                                    &filename,
-                                    e
-                                )));
-                            }
-                        };
-                        let reader = MemReader::new(decoded);
-                        return Some(Ok(Box::new(MemEntry {
-                            name: filename,
-                            data: reader,
-                            detect,
-                        })));
-                    }
-                    return Some(Ok(Box::new(bse_reader)));
-                }
-                Err(e) => {
-                    return Some(Err(anyhow::anyhow!(
-                        "Failed to create BSE reader for '{}': {}",
-                        &filename,
-                        e
-                    )));
-                }
-            };
-        }
-        #[cfg(feature = "bgi-img")]
-        if self.is_sysgrp_arc {
-            entry.script_type = Some(ScriptType::BGIImg);
-        } else {
-            entry.script_type =
-                detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
-        }
-        #[cfg(not(feature = "bgi-img"))]
-        {
-            entry.script_type =
-                detect_script_type(&buf, buf.len(), &entry.header.filename).cloned();
-        }
-        Some(Ok(Box::new(entry)))
-    }
 }
 
 pub struct BgiArchiveWriter<T: Write + Seek> {
