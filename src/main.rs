@@ -401,8 +401,19 @@ pub fn export_script(
                     continue;
                 }
             };
-            if f.is_script() {
-                let (script_file, _) = parse_script_from_archive(&mut f, arg, config, &script)?;
+            if arg.force_script || f.is_script() {
+                let (script_file, _) = match parse_script_from_archive(&mut f, arg, config, &script)
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("Error parsing script '{}' from archive: {}", filename, e);
+                        COUNTER.inc_error();
+                        if arg.backtrace {
+                            eprintln!("Backtrace: {}", e.backtrace());
+                        }
+                        continue;
+                    }
+                };
                 #[cfg(feature = "image")]
                 if script_file.is_image() {
                     if script_file.is_multi_image() {
@@ -896,8 +907,19 @@ pub fn import_script(
                 }
             };
             let mut writer = arch.new_file(f.name())?;
-            if f.is_script() {
-                let (script_file, _) = parse_script_from_archive(&mut f, arg, config, &script)?;
+            if arg.force_script || f.is_script() {
+                let (script_file, _) = match parse_script_from_archive(&mut f, arg, config, &script)
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("Error parsing script '{}' from archive: {}", filename, e);
+                        COUNTER.inc_error();
+                        if arg.backtrace {
+                            eprintln!("Backtrace: {}", e.backtrace());
+                        }
+                        continue;
+                    }
+                };
                 let mut of = match &arg.output_type {
                     Some(t) => t.clone(),
                     None => script_file.default_output_script_type(),
