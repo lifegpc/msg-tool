@@ -346,7 +346,7 @@ pub fn export_script(
     arg: &args::Arg,
     config: &types::ExtraConfig,
     output: &Option<String>,
-    is_dir: bool,
+    root_dir: Option<&std::path::Path>,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Exporting {}", filename);
     let script = parse_script(filename, arg, config)?.0;
@@ -355,7 +355,11 @@ pub fn export_script(
             Some(output) => {
                 let mut pb = std::path::PathBuf::from(output);
                 let filename = std::path::PathBuf::from(filename);
-                if is_dir {
+                if let Some(root_dir) = root_dir {
+                    let rpath = utils::files::relative_path(root_dir, &filename);
+                    if let Some(parent) = rpath.parent() {
+                        pb.push(parent);
+                    }
                     if let Some(fname) = filename.file_name() {
                         pb.push(fname);
                     }
@@ -679,9 +683,13 @@ pub fn export_script(
                 let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
                 let f = match output.as_ref() {
                     Some(output) => {
-                        if is_dir {
+                        if let Some(root_dir) = root_dir {
                             let f = std::path::PathBuf::from(filename);
                             let mut pb = std::path::PathBuf::from(output);
+                            let rpath = utils::files::relative_path(root_dir, &f);
+                            if let Some(parent) = rpath.parent() {
+                                pb.push(parent);
+                            }
                             if !arg.image_output_flat {
                                 if let Some(fname) = f.file_name() {
                                     pb.push(fname);
@@ -750,9 +758,13 @@ pub fn export_script(
         } else {
             match output.as_ref() {
                 Some(output) => {
-                    if is_dir {
+                    if let Some(root_dir) = root_dir {
                         let f = std::path::PathBuf::from(filename);
                         let mut pb = std::path::PathBuf::from(output);
+                        let rpath = utils::files::relative_path(root_dir, &f);
+                        if let Some(parent) = rpath.parent() {
+                            pb.push(parent);
+                        }
                         if let Some(fname) = f.file_name() {
                             pb.push(fname);
                         }
@@ -769,6 +781,7 @@ pub fn export_script(
                 }
             }
         };
+        utils::files::make_sure_dir_exists(&f)?;
         utils::img::encode_img(img_data, out_type, &f, config)?;
         return Ok(types::ScriptResult::Ok);
     }
@@ -798,9 +811,13 @@ pub fn export_script(
     } else {
         match output.as_ref() {
             Some(output) => {
-                if is_dir {
+                if let Some(root_dir) = root_dir {
                     let f = std::path::PathBuf::from(filename);
                     let mut pb = std::path::PathBuf::from(output);
+                    let rpath = utils::files::relative_path(root_dir, &f);
+                    if let Some(parent) = rpath.parent() {
+                        pb.push(parent);
+                    }
                     if let Some(fname) = f.file_name() {
                         pb.push(fname);
                     }
@@ -817,6 +834,7 @@ pub fn export_script(
             }
         }
     };
+    utils::files::make_sure_dir_exists(&f)?;
     match of {
         types::OutputScriptType::Json => {
             let enc = get_output_encoding(arg);
@@ -845,7 +863,7 @@ pub fn import_script(
     arg: &args::Arg,
     config: &types::ExtraConfig,
     imp_cfg: &args::ImportArgs,
-    is_dir: bool,
+    root_dir: Option<&std::path::Path>,
     name_csv: Option<&std::collections::HashMap<String, String>>,
     repl: Option<&types::ReplacementTable>,
 ) -> anyhow::Result<types::ScriptResult> {
@@ -855,7 +873,11 @@ pub fn import_script(
         let odir = {
             let mut pb = std::path::PathBuf::from(&imp_cfg.output);
             let filename = std::path::PathBuf::from(filename);
-            if is_dir {
+            if let Some(root_dir) = root_dir {
+                let rpath = utils::files::relative_path(root_dir, &filename);
+                if let Some(parent) = rpath.parent() {
+                    pb.push(parent);
+                }
                 if let Some(fname) = filename.file_name() {
                     pb.push(fname);
                 }
@@ -868,9 +890,13 @@ pub fn import_script(
         };
         let files: Vec<_> = script.iter_archive_filename()?.collect();
         let files = files.into_iter().filter_map(|f| f.ok()).collect::<Vec<_>>();
-        let patched_f = if is_dir {
+        let patched_f = if let Some(root_dir) = root_dir {
             let f = std::path::PathBuf::from(filename);
             let mut pb = std::path::PathBuf::from(&imp_cfg.patched);
+            let rpath = utils::files::relative_path(root_dir, &f);
+            if let Some(parent) = rpath.parent() {
+                pb.push(parent);
+            }
             if let Some(fname) = f.file_name() {
                 pb.push(fname);
             }
@@ -882,6 +908,7 @@ pub fn import_script(
         let files: Vec<_> = files.iter().map(|s| s.as_str()).collect();
         let pencoding = get_patched_encoding(imp_cfg, builder);
         let enc = get_patched_archive_encoding(imp_cfg, builder, pencoding);
+        utils::files::make_sure_dir_exists(&patched_f)?;
         let mut arch = builder.create_archive(&patched_f, &files, enc, config)?;
         for (index, filename) in script.iter_archive_filename()?.enumerate() {
             let filename = match filename {
@@ -1126,9 +1153,13 @@ pub fn import_script(
     #[cfg(feature = "image")]
     if script.is_image() {
         let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
-        let out_f = if is_dir {
+        let out_f = if let Some(root_dir) = root_dir {
             let f = std::path::PathBuf::from(filename);
             let mut pb = std::path::PathBuf::from(&imp_cfg.output);
+            let rpath = utils::files::relative_path(root_dir, &f);
+            if let Some(parent) = rpath.parent() {
+                pb.push(parent);
+            }
             if let Some(fname) = f.file_name() {
                 pb.push(fname);
             }
@@ -1138,9 +1169,13 @@ pub fn import_script(
             imp_cfg.output.clone()
         };
         let data = utils::img::decode_img(out_type, &out_f)?;
-        let patched_f = if is_dir {
+        let patched_f = if let Some(root_dir) = root_dir {
             let f = std::path::PathBuf::from(filename);
             let mut pb = std::path::PathBuf::from(&imp_cfg.patched);
+            let rpath = utils::files::relative_path(root_dir, &f);
+            if let Some(parent) = rpath.parent() {
+                pb.push(parent);
+            }
             if let Some(fname) = f.file_name() {
                 pb.push(fname);
             }
@@ -1149,6 +1184,7 @@ pub fn import_script(
         } else {
             imp_cfg.patched.clone()
         };
+        utils::files::make_sure_dir_exists(&patched_f)?;
         script.import_image_filename(data, &patched_f)?;
         return Ok(types::ScriptResult::Ok);
     }
@@ -1159,9 +1195,13 @@ pub fn import_script(
     if !script.is_output_supported(of) {
         of = script.default_output_script_type();
     }
-    let out_f = if is_dir {
+    let out_f = if let Some(root_dir) = root_dir {
         let f = std::path::PathBuf::from(filename);
         let mut pb = std::path::PathBuf::from(&imp_cfg.output);
+        let rpath = utils::files::relative_path(root_dir, &f);
+        if let Some(parent) = rpath.parent() {
+            pb.push(parent);
+        }
         if let Some(fname) = f.file_name() {
             pb.push(fname);
         }
@@ -1197,9 +1237,13 @@ pub fn import_script(
         return Ok(types::ScriptResult::Ignored);
     }
     let encoding = get_patched_encoding(imp_cfg, builder);
-    let patched_f = if is_dir {
+    let patched_f = if let Some(root_dir) = root_dir {
         let f = std::path::PathBuf::from(filename);
         let mut pb = std::path::PathBuf::from(&imp_cfg.patched);
+        let rpath = utils::files::relative_path(root_dir, &f);
+        if let Some(parent) = rpath.parent() {
+            pb.push(parent);
+        }
         if let Some(fname) = f.file_name() {
             pb.push(fname);
         }
@@ -1208,6 +1252,7 @@ pub fn import_script(
     } else {
         imp_cfg.patched.clone()
     };
+    utils::files::make_sure_dir_exists(&patched_f)?;
     if of.is_custom() {
         let enc = get_output_encoding(arg);
         script.custom_import_filename(&out_f, &patched_f, encoding, enc)?;
@@ -1324,7 +1369,7 @@ pub fn unpack_archive(
     arg: &args::Arg,
     config: &types::ExtraConfig,
     output: &Option<String>,
-    is_dir: bool,
+    root_dir: Option<&std::path::Path>,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Unpacking {}", filename);
     let script = parse_script(filename, arg, config)?.0;
@@ -1335,7 +1380,11 @@ pub fn unpack_archive(
         Some(output) => {
             let mut pb = std::path::PathBuf::from(output);
             let filename = std::path::PathBuf::from(filename);
-            if is_dir {
+            if let Some(root_dir) = root_dir {
+                let rpath = utils::files::relative_path(root_dir, &filename);
+                if let Some(parent) = rpath.parent() {
+                    pb.push(parent);
+                }
                 if let Some(fname) = filename.file_name() {
                     pb.push(fname);
                 }
@@ -1584,8 +1633,13 @@ fn main() {
                     None => {}
                 }
             }
+            let root_dir = if is_dir {
+                Some(std::path::Path::new(input))
+            } else {
+                None
+            };
             for script in scripts.iter() {
-                let re = export_script(&script, &arg, &cfg, output, is_dir);
+                let re = export_script(&script, &arg, &cfg, output, root_dir);
                 match re {
                     Ok(s) => {
                         COUNTER.inc(s);
@@ -1630,13 +1684,18 @@ fn main() {
                     std::fs::create_dir_all(pb).unwrap();
                 }
             }
+            let root_dir = if is_dir {
+                Some(std::path::Path::new(&args.input))
+            } else {
+                None
+            };
             for script in scripts.iter() {
                 let re = import_script(
                     &script,
                     &arg,
                     &cfg,
                     args,
-                    is_dir,
+                    root_dir,
                     name_csv.as_ref(),
                     repl.as_ref(),
                 );
@@ -1679,8 +1738,13 @@ fn main() {
                     None => {}
                 }
             }
+            let root_dir = if is_dir {
+                Some(std::path::Path::new(input))
+            } else {
+                None
+            };
             for script in scripts.iter() {
-                let re = unpack_archive(&script, &arg, &cfg, output, is_dir);
+                let re = unpack_archive(&script, &arg, &cfg, output, root_dir);
                 match re {
                     Ok(s) => {
                         COUNTER.inc(s);

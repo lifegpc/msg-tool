@@ -2,7 +2,43 @@ use crate::scripts::{ALL_EXTS, ARCHIVE_EXTS};
 use std::fs;
 use std::io;
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+pub fn relative_path<P: AsRef<Path>, T: AsRef<Path>>(root: P, target: T) -> PathBuf {
+    let root = root
+        .as_ref()
+        .canonicalize()
+        .unwrap_or_else(|_| root.as_ref().to_path_buf());
+    let target = target
+        .as_ref()
+        .canonicalize()
+        .unwrap_or_else(|_| target.as_ref().to_path_buf());
+
+    let mut root_components: Vec<_> = root.components().collect();
+    let mut target_components: Vec<_> = target.components().collect();
+
+    // Remove common prefix
+    while !root_components.is_empty()
+        && !target_components.is_empty()
+        && root_components[0] == target_components[0]
+    {
+        root_components.remove(0);
+        target_components.remove(0);
+    }
+
+    // Add ".." for each remaining root component
+    let mut result = PathBuf::new();
+    for _ in root_components {
+        result.push("..");
+    }
+
+    // Add remaining target components
+    for component in target_components {
+        result.push(component);
+    }
+
+    result
+}
 
 pub fn find_files(path: &str, recursive: bool, no_ext_filter: bool) -> io::Result<Vec<String>> {
     let mut result = Vec::new();
