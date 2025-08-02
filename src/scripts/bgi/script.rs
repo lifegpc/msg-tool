@@ -166,7 +166,7 @@ impl Script for BGIScript {
                         cur_mes = mes.next();
                     }
                 }
-                if str_map.contains_key(&curs.address) {
+                if str_map.contains_key(&curs.address) && curs.typ.is_internal() {
                     continue;
                 }
                 let nmes = match curs.typ {
@@ -204,6 +204,19 @@ impl Script for BGIScript {
                         mes
                     }
                 };
+                match str_map.get(&curs.address) {
+                    Some(existed) => {
+                        if existed != &nmes {
+                            eprintln!(
+                                "Warning: Duplicate string at address {} with different content. Original: {}, New: {}. New string will be ignored. If you want to import it, use --bgi-import-duplicate.",
+                                curs.address, existed, nmes
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        continue;
+                    }
+                    None => {}
+                }
                 str_map.insert(curs.address, nmes);
             }
             if cur_mes.is_some() || mes.next().is_some() {
