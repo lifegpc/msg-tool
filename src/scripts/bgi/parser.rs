@@ -214,12 +214,6 @@ pub enum BGIStringType {
     Internal,
 }
 
-impl BGIStringType {
-    pub fn is_internal(&self) -> bool {
-        matches!(self, BGIStringType::Internal)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct BGIString {
     pub offset: usize,

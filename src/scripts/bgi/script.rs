@@ -4,7 +4,7 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct BGIScriptBuilder {}
@@ -157,16 +157,25 @@ impl Script for BGIScript {
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
         if !self.import_duplicate {
-            let mut str_map = BTreeMap::new();
+            let mut used = HashMap::new();
+            let mut extra = HashMap::new();
             let mut mes = messages.iter();
             let mut cur_mes = mes.next();
-            for curs in self.strings.iter() {
+            let mut old_offset = 0;
+            let mut new_offset = 0;
+            if self.append {
+                file.write_all(&self.data.data)?;
+                new_offset = self.data.data.len();
+            }
+            for curs in &self.strings {
                 if !curs.is_internal() {
                     if cur_mes.is_none() {
                         cur_mes = mes.next();
                     }
                 }
-                if str_map.contains_key(&curs.address) && curs.typ.is_internal() {
+                if used.contains_key(&curs.address) && curs.is_internal() {
+                    let (_, new_address) = used.get(&curs.address).unwrap();
+                    file.write_u32_at(curs.offset, *new_address as u32)?;
                     continue;
                 }
                 let nmes = match curs.typ {
@@ -204,33 +213,21 @@ impl Script for BGIScript {
                         mes
                     }
                 };
-                match str_map.get(&curs.address) {
-                    Some(existed) => {
-                        if existed != &nmes {
-                            eprintln!(
-                                "Warning: Duplicate string at address {} with different content. Original: {}, New: {}. New string will be ignored. If you want to import it, use --bgi-import-duplicate.",
-                                curs.address, existed, nmes
-                            );
-                            crate::COUNTER.inc_warning();
+                let in_used = match used.get(&curs.address) {
+                    Some((s, address)) => {
+                        if s == &nmes {
+                            file.write_u32_at(curs.offset, *address as u32)?;
+                            continue;
                         }
-                        continue;
+                        if let Some(address) = extra.get(&nmes) {
+                            file.write_u32_at(curs.offset, *address as u32)?;
+                            continue;
+                        }
+                        true
                     }
-                    None => {}
-                }
-                str_map.insert(curs.address, nmes);
-            }
-            if cur_mes.is_some() || mes.next().is_some() {
-                return Err(anyhow::anyhow!("Some messages were not processed."));
-            }
-            let mut old_offset = 0;
-            let mut new_offset = 0;
-            let mut new_address_map = BTreeMap::new();
-            if self.append {
-                file.write_all(&self.data.data)?;
-                new_offset = self.data.data.len();
-            }
-            for (address, nmes) in str_map {
-                let bgi_str_old_offset = address + self.offset;
+                    None => false,
+                };
+                let bgi_str_old_offset = curs.address + self.offset;
                 if !self.append && old_offset < bgi_str_old_offset {
                     file.write_all(&self.data.data[old_offset..bgi_str_old_offset])?;
                     new_offset += bgi_str_old_offset - old_offset;
@@ -241,13 +238,13 @@ impl Script for BGIScript {
                     .cpeek_cstring_at(bgi_str_old_offset)?
                     .as_bytes_with_nul()
                     .len();
-                let nmes = encode_string(encoding, &nmes, false)?;
-                let write_to_original = self.append && nmes.len() + 1 <= old_str_len;
+                let nmess = encode_string(encoding, &nmes, false)?;
+                let write_to_original = self.append && !in_used && nmess.len() + 1 <= old_str_len;
                 if write_to_original {
-                    file.write_all_at(bgi_str_old_offset, &nmes)?;
-                    file.write_u8_at(bgi_str_old_offset + nmes.len(), 0)?; // null terminator
+                    file.write_all_at(bgi_str_old_offset, &nmess)?;
+                    file.write_u8_at(bgi_str_old_offset + nmess.len(), 0)?; // null terminator
                 } else {
-                    file.write_all(&nmes)?;
+                    file.write_all(&nmess)?;
                     file.write_u8(0)?; // null terminator
                 }
                 let new_address = if write_to_original {
@@ -255,21 +252,22 @@ impl Script for BGIScript {
                 } else {
                     new_offset - self.offset
                 };
-                new_address_map.insert(address, new_address);
+                file.write_u32_at(curs.offset, new_address as u32)?;
+                if in_used {
+                    extra.insert(nmes, new_address);
+                } else {
+                    used.insert(curs.address, (nmes, new_address));
+                }
                 old_offset += old_str_len;
                 if !write_to_original {
-                    new_offset += nmes.len() + 1; // +1 for null terminator
+                    new_offset += nmess.len() + 1; // +1 for null terminator
                 }
+            }
+            if cur_mes.is_some() || mes.next().is_some() {
+                return Err(anyhow::anyhow!("Some messages were not processed."));
             }
             if !self.append && old_offset < self.data.data.len() {
                 file.write_all(&self.data.data[old_offset..])?;
-            }
-            for bgis in self.strings.iter() {
-                let new_address = new_address_map.get(&bgis.address).ok_or(anyhow::anyhow!(
-                    "Address {} not found in new address map.",
-                    bgis.address
-                ))?;
-                file.write_u32_at(bgis.offset, *new_address as u32)?;
             }
             return Ok(());
         }
