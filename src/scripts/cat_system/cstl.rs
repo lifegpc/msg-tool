@@ -3,6 +3,7 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
+use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
 #[derive(Debug)]
@@ -45,6 +46,71 @@ impl ScriptBuilder for CstlScriptBuilder {
         }
         None
     }
+
+    fn can_create_file(&self) -> bool {
+        true
+    }
+
+    fn create_file<'a>(
+        &'a self,
+        filename: &'a str,
+        writer: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        file_encoding: Encoding,
+    ) -> Result<()> {
+        create_file(filename, writer, encoding, file_encoding)
+    }
+}
+
+pub fn create_file<T: Write>(
+    custom_filename: &str,
+    mut file: T,
+    encoding: Encoding,
+    output_encoding: Encoding,
+) -> Result<()> {
+    let input = crate::utils::files::read_file(custom_filename)?;
+    let s = decode_to_string(output_encoding, &input, true)?;
+    let data: BTreeMap<String, Vec<Message>> = serde_json::from_str(&s)?;
+    let count = data
+        .first_key_value()
+        .ok_or(anyhow::anyhow!("No data found in JSON"))?
+        .1
+        .len();
+    for (lang, mess) in &data {
+        if mess.len() != count {
+            return Err(anyhow::anyhow!(
+                "Language {lang} Message count mismatch: expected {}, got {}",
+                count,
+                mess.len()
+            ));
+        }
+    }
+    file.write_all(b"CSTL")?;
+    file.write_u32(0)?; // unk
+    let lang_count = data.len();
+    file.write_size(lang_count)?;
+    for lang in data.keys() {
+        let encoded = encode_string(encoding, lang, false)?;
+        file.write_size(encoded.len())?;
+        file.write_all(&encoded)?;
+    }
+    file.write_size(count)?;
+    for i in 0..count {
+        for mess in data.values() {
+            let m = &mess[i];
+            if let Some(name) = &m.name {
+                let encoded_name = encode_string(encoding, name, false)?;
+                file.write_size(encoded_name.len())?;
+                file.write_all(&encoded_name)?;
+            } else {
+                file.write_size(0)?;
+            }
+            let encoded_mes = encode_string(encoding, &m.message, false)?;
+            file.write_size(encoded_mes.len())?;
+            file.write_all(&encoded_mes)?;
+        }
+    }
+    Ok(())
 }
 
 trait CustomFn {
@@ -173,6 +239,14 @@ impl Script for CstlScript {
         FormatOptions::None
     }
 
+    fn is_output_supported(&self, _: OutputScriptType) -> bool {
+        true
+    }
+
+    fn custom_output_extension<'a>(&'a self) -> &'a str {
+        "json"
+    }
+
     fn extract_messages(&self) -> Result<Vec<Message>> {
         if self.langs.is_empty() || self.data.is_empty() {
             return Err(anyhow::anyhow!("CSTL script has no languages or data"));
@@ -251,5 +325,27 @@ impl Script for CstlScript {
             }
         }
         Ok(())
+    }
+
+    fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
+        let mut d = BTreeMap::new();
+        for (lang, data) in self.langs.iter().zip(&self.data) {
+            d.insert(lang, data);
+        }
+        let s = serde_json::to_string_pretty(&d)?;
+        let s = encode_string(encoding, &s, false)?;
+        let mut file = std::fs::File::create(filename)?;
+        file.write_all(&s)?;
+        Ok(())
+    }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        create_file(custom_filename, file, encoding, output_encoding)
     }
 }
