@@ -47,3 +47,19 @@ impl StructPack for bool {
         Ok(())
     }
 }
+
+impl<T: StructPack> StructPack for Option<T> {
+    fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding) -> Result<()> {
+        if let Some(value) = self {
+            value.pack(writer, big, encoding)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: StructUnpack> StructUnpack for Option<T> {
+    fn unpack<R: Read + Seek>(reader: R, big: bool, encoding: Encoding) -> Result<Self> {
+        let value = T::unpack(reader, big, encoding)?;
+        Ok(Some(value))
+    }
+}

@@ -613,7 +613,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         }
         let p = cur.unwrap_or_else(|| {
             quote::quote! {
-                let #field_name = #field_type::unpack(&mut reader, big, encoding)?;
+                let #field_name = <#field_type>::unpack(&mut reader, big, encoding)?;
             }
         });
         if let Some(skip_if) = skip_if {

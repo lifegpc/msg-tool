@@ -312,6 +312,9 @@ pub enum ScriptType {
     #[cfg(feature = "circus-arc")]
     /// Circus PCK archive
     CircusPck,
+    #[cfg(feature = "circus-audio")]
+    /// Circus PCM audio
+    CircusPcm,
     #[cfg(feature = "circus-img")]
     /// Circus CRX Image
     CircusCrx,

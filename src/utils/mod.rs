@@ -13,6 +13,8 @@ pub mod files;
 pub mod img;
 pub mod macros;
 pub mod name_replacement;
+#[cfg(feature = "utils-pcm")]
+pub mod pcm;
 #[cfg(feature = "utils-str")]
 pub mod str;
 pub mod struct_pack;
