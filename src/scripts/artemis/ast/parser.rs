@@ -28,17 +28,31 @@ impl<'a> Parser<'a> {
 
     pub fn try_parse_header(mut self) -> Result<()> {
         self.erase_whitespace();
-        self.parse_indent(b"astver")?;
-        self.parse_equal()?;
-        self.parse_f64()?;
+        if self.is_indent(b"astver") {
+            self.parse_indent(b"astver")?;
+            self.parse_equal()?;
+            self.parse_f64()?;
+        } else if self.is_indent(b"astname") {
+            self.parse_indent(b"astname")?;
+            self.parse_equal()?;
+        } else if self.is_indent(b"ast") {
+            self.parse_indent(b"ast")?;
+            self.parse_equal()?;
+        } else {
+            return self.error("expected 'astver', 'astname' or 'ast'");
+        }
         Ok(())
     }
 
     pub fn parse(mut self) -> Result<AstFile> {
         self.erase_whitespace();
-        self.parse_indent(b"astver")?;
-        self.parse_equal()?;
-        let astver = self.parse_f64()?;
+        let astver = if self.is_indent(b"astver") {
+            self.parse_indent(b"astver")?;
+            self.parse_equal()?;
+            Some(self.parse_f64()?)
+        } else {
+            None
+        };
         self.erase_whitespace();
         let mut astname = None;
         if self.is_indent(b"astname") {
@@ -262,17 +276,26 @@ impl<'a> Parser<'a> {
         let key = self.get_indent()?;
         self.parse_equal()?;
         let val = self.parse_value()?;
-        Ok(Value::KeyVal((key.to_string(), Box::new(val))))
+        Ok(Value::KeyVal((Box::new(key), Box::new(val))))
     }
 
-    fn get_indent(&mut self) -> Result<String> {
+    fn get_indent(&mut self) -> Result<Value> {
         self.erase_whitespace();
         let start = self.pos;
         let mut is_first = true;
         let end = loop {
             match self.peek() {
                 Some(t) => match t {
-                    b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'[' | b']' | b'"' => self.eat_char(),
+                    b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'"' => self.eat_char(),
+                    b'[' => {
+                        self.eat_char();
+                        let v = self.parse_value()?;
+                        let n = self.next().ok_or(self.error2("unexpected eof"))?;
+                        if n != b']' {
+                            return self.error("expected ']' after key");
+                        }
+                        return Ok(v);
+                    }
                     b'0'..=b'9' => {
                         if is_first {
                             return self.error("unexpected digit");
@@ -290,7 +313,9 @@ impl<'a> Parser<'a> {
         if data.starts_with(b"[\"") && data.ends_with(b"\"]") {
             data = &data[2..data.len() - 2];
         }
-        decode_to_string(self.encoding, data, true).map_err(|e| self.error2(e))
+        Ok(Value::Str(
+            decode_to_string(self.encoding, data, true).map_err(|e| self.error2(e))?,
+        ))
     }
 
     fn is_indent(&self, indent: &[u8]) -> bool {

@@ -89,11 +89,136 @@ impl Script for AstScript {
     fn extract_messages(&self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let ast = &self.ast.ast;
+        let mut lang: Option<&str> = self.lang.as_ref().map(|s| s.as_str());
+        // old version
+        if ast["label"]["top"]["block"].is_null() && ast["text"].is_array() {
+            let text = &ast["text"];
+            let mut text_index = 1i64;
+            for block in ast.members() {
+                if block.is_array() {
+                    let savetitle = &block[Key("savetitle")];
+                    if savetitle.is_array() {
+                        if let Some(lang) = lang {
+                            if let Some(title) = savetitle[lang].as_str() {
+                                messages.push(Message {
+                                    name: None,
+                                    message: title.to_string(),
+                                });
+                            } else if let Some(title) = savetitle["text"].as_str() {
+                                messages.push(Message {
+                                    name: None,
+                                    message: title.to_string(),
+                                });
+                            }
+                        } else if let Some(title) = savetitle["text"].as_str() {
+                            messages.push(Message {
+                                name: None,
+                                message: title.to_string(),
+                            });
+                        }
+                    }
+                    if !block[Key("text")].is_null() {
+                        let tex = &text[NumKey(text_index)];
+                        text_index += 1;
+                        if tex.is_array() {
+                            let lan = match lang {
+                                Some(l) => l,
+                                None => {
+                                    for l in tex.kv_keys() {
+                                        if l.is_str() && l != "vo" && l != "name" {
+                                            lang = l.as_str();
+                                            break;
+                                        }
+                                    }
+                                    match lang {
+                                        Some(l) => l,
+                                        // No text found, continue to next block
+                                        None => continue,
+                                    }
+                                }
+                            };
+                            let mut te = &tex[lan];
+                            if te.is_null() {
+                                for l in tex.kv_keys() {
+                                    if l != "vo" && l != "name" {
+                                        te = &tex[l];
+                                        break;
+                                    }
+                                }
+                            }
+                            let name = &tex["name"];
+                            let nam = if name.is_array() {
+                                if let Some(lang) = lang {
+                                    if let Some(n) = name[lang].as_string() {
+                                        Some(n)
+                                    } else if let Some(n) = name["name"].as_string() {
+                                        Some(n)
+                                    } else {
+                                        None
+                                    }
+                                } else if let Some(n) = name["name"].as_string() {
+                                    Some(n)
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
+                            for item in te.members() {
+                                let message = text::TextGenerator::new().generate(item)?;
+                                messages.push(Message {
+                                    name: nam.clone(),
+                                    message: message.replace("<rt2>", "\n").replace("<ret2>", "\n"),
+                                });
+                            }
+                        }
+                    } else if !block[Key("select")].is_null() {
+                        let tex = &text[NumKey(text_index)]["select"];
+                        text_index += 1;
+                        if tex.is_array() {
+                            let lan = match lang {
+                                Some(l) => l,
+                                None => {
+                                    for l in tex.kv_keys() {
+                                        if l.is_str() && l != "vo" && l != "name" {
+                                            lang = l.as_str();
+                                            break;
+                                        }
+                                    }
+                                    match lang {
+                                        Some(l) => l,
+                                        // No text found, continue to next block
+                                        None => continue,
+                                    }
+                                }
+                            };
+                            let mut te = &tex[lan];
+                            if te.is_null() {
+                                for l in tex.kv_keys() {
+                                    if l != "vo" && l != "name" {
+                                        te = &tex[l];
+                                        break;
+                                    }
+                                }
+                            }
+                            for item in te.members() {
+                                if let Some(select) = item.as_str() {
+                                    messages.push(Message {
+                                        name: None,
+                                        message: select.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return Ok(messages);
+        }
         let mut block_name = ast["label"]["top"]["block"]
             .as_str()
             .ok_or(anyhow::anyhow!("Missing top block name"))?;
         let mut block = &ast[block_name];
-        let mut lang: Option<&str> = self.lang.as_ref().map(|s| s.as_str());
         loop {
             let savetitle = &block[Key("savetitle")];
             if savetitle.is_array() {
@@ -122,8 +247,8 @@ impl Script for AstScript {
                     Some(l) => l,
                     None => {
                         for l in text.kv_keys() {
-                            if l != "vo" {
-                                lang = Some(l);
+                            if l.is_str() && l != "vo" {
+                                lang = l.as_str();
                                 break;
                             }
                         }
@@ -169,8 +294,8 @@ impl Script for AstScript {
                     Some(l) => l,
                     None => {
                         for l in select.kv_keys() {
-                            if l != "vo" {
-                                lang = Some(l);
+                            if l.is_str() && l != "vo" {
+                                lang = l.as_str();
                                 break;
                             }
                         }
@@ -224,16 +349,169 @@ impl Script for AstScript {
     ) -> Result<()> {
         let mut ast = self.ast.clone();
         let root = &mut ast.ast;
+        let mut lang = self.lang.as_ref().map(|s| s.to_string());
+        let mut mess = messages.iter();
+        let mut mes = mess.next();
+        if root["label"]["top"]["block"].is_null() && root["text"].is_array() {
+            let mut text_index = 1i64;
+            let len = root.len();
+            for i in 0..len {
+                if root[i].is_array() {
+                    if root[i][Key("savetitle")].is_array() {
+                        let lan = self.lang.as_ref().map(|s| s.as_str()).unwrap_or("text");
+                        let m = match mes {
+                            Some(m) => m,
+                            None => return Err(anyhow::anyhow!("Not enough messages.")),
+                        };
+                        let mut title = m.message.clone();
+                        if let Some(repl) = replacement {
+                            for (k, v) in &repl.map {
+                                title = title.replace(k, v);
+                            }
+                        }
+                        root[i][Key("savetitle")][lan].set_string(title);
+                        mes = mess.next();
+                    }
+                }
+                if !root[i][Key("text")].is_null() {
+                    let lan = match &lang {
+                        Some(l) => l.as_str(),
+                        None => {
+                            for l in root["text"][NumKey(text_index)].kv_keys() {
+                                if l.is_str() && l != "vo" && l != "name" {
+                                    lang = l.as_string();
+                                    break;
+                                }
+                            }
+                            match lang {
+                                Some(ref l) => l.as_str(),
+                                // No text found, continue to next block
+                                None => continue,
+                            }
+                        }
+                    };
+                    if root["text"][NumKey(text_index)]["name"].is_array() {
+                        let name = match mes {
+                            Some(m) => m.name.clone(),
+                            None => return Err(anyhow::anyhow!("Message name is missing.")),
+                        };
+                        let mut name = match name {
+                            Some(n) => n,
+                            None => return Err(anyhow::anyhow!("Message name is missing.")),
+                        };
+                        if let Some(repl) = replacement {
+                            for (k, v) in &repl.map {
+                                name = name.replace(k, v);
+                            }
+                        }
+                        let nlan = self.lang.as_ref().map(|s| s.as_str()).unwrap_or("name");
+                        root["text"][NumKey(text_index)]["name"][nlan].set_string(name);
+                    }
+                    let origin_count = {
+                        let text = &root["text"][NumKey(text_index)];
+                        let mut tex = &text[lan];
+                        if tex.is_null() {
+                            for l in text.kv_keys() {
+                                if l != "vo" && l != "name" {
+                                    tex = &text[l];
+                                    break;
+                                }
+                            }
+                        }
+                        tex.len()
+                    };
+                    let mut arr = Value::new_array();
+                    for _ in 0..origin_count {
+                        let m = match mes {
+                            Some(m) => m,
+                            None => return Err(anyhow::anyhow!("Not enough messages.")),
+                        };
+                        let mut text = m.message.clone();
+                        if let Some(repl) = replacement {
+                            for (k, v) in &repl.map {
+                                text = text.replace(k, v);
+                            }
+                        }
+                        let v = text::TextParser::new(&text.replace("\n", "<rt2>")).parse()?;
+                        arr.push_member(v);
+                        mes = mess.next();
+                    }
+                    root["text"][NumKey(text_index)][lan] = arr;
+                    text_index += 1;
+                } else if !root[i][Key("select")].is_null() {
+                    let lan = match &lang {
+                        Some(l) => l.as_str(),
+                        None => {
+                            for l in root["text"][NumKey(text_index)]["select"].kv_keys() {
+                                if l.is_str() && l != "vo" && l != "name" {
+                                    lang = l.as_string();
+                                    break;
+                                }
+                            }
+                            match lang {
+                                Some(ref l) => l.as_str(),
+                                // No text found, continue to next block
+                                None => continue,
+                            }
+                        }
+                    };
+                    let count = {
+                        let text = &root["text"][NumKey(text_index)]["select"];
+                        let mut tex = &text[lan];
+                        if tex.is_null() {
+                            for l in text.kv_keys() {
+                                if l != "vo" && l != "name" {
+                                    tex = &text[l];
+                                    break;
+                                }
+                            }
+                        }
+                        tex.len()
+                    };
+                    let mut new_select = Value::new_array();
+                    for _ in 0..count {
+                        let m = match mes {
+                            Some(m) => m,
+                            None => return Err(anyhow::anyhow!("Not enough messages.")),
+                        };
+                        let mut select_text = m.message.clone();
+                        if let Some(repl) = replacement {
+                            for (k, v) in &repl.map {
+                                select_text = select_text.replace(k, v);
+                            }
+                        }
+                        new_select.push_member(Value::Str(select_text));
+                        mes = mess.next();
+                    }
+                    root["text"][NumKey(text_index)]["select"][lan] = new_select;
+                    text_index += 1;
+                }
+            }
+            if mes.is_some() || mess.next().is_some() {
+                return Err(anyhow::anyhow!("Not all messages were used."));
+            }
+            let mut writer = Vec::new();
+            let mut dumper = dump::Dumper::new(&mut writer);
+            if self.no_indent {
+                dumper.set_no_indent();
+            } else if let Some(indent) = self.indent {
+                dumper.set_indent(indent);
+            }
+            dumper.set_max_line_width(self.max_line_width);
+            dumper.dump(&ast)?;
+            let data = String::from_utf8(writer)?;
+            let encoded = encode_string(encoding, &data, false)?;
+            file.write_all(&encoded)?;
+            file.flush()?;
+            return Ok(());
+        }
         let mut block_name = root["label"]["top"]["block"]
             .as_string()
             .ok_or(anyhow::anyhow!("Missing top block name"))?;
         let mut block = &mut root[block_name];
-        let mut mess = messages.iter();
-        let mut mes = mess.next();
-        let mut lang = self.lang.as_ref().map(|s| s.to_string());
         loop {
             if block[Key("savetitle")].is_array() {
-                let lan = lang.as_ref().map(|s| s.as_str()).unwrap_or("text");
+                let lan = self.lang.as_ref().map(|s| s.as_str()).unwrap_or("text");
                 let m = match mes {
                     Some(m) => m,
                     None => return Err(anyhow::anyhow!("Not enough messages.")),
@@ -252,8 +530,8 @@ impl Script for AstScript {
                     Some(l) => l.as_str(),
                     None => {
                         for l in block["text"].kv_keys() {
-                            if l != "vo" {
-                                lang = Some(l.to_string());
+                            if l.is_str() && l != "vo" {
+                                lang = l.as_string();
                                 break;
                             }
                         }
@@ -328,8 +606,8 @@ impl Script for AstScript {
                     Some(l) => l.as_str(),
                     None => {
                         for l in block["select"].kv_keys() {
-                            if l != "vo" {
-                                lang = Some(l.to_string());
+                            if l.is_str() && l != "vo" {
+                                lang = l.as_string();
                                 break;
                             }
                         }

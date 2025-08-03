@@ -81,6 +81,10 @@ impl TextGenerator {
                                 self.data.push_str(&i.to_string());
                             }
                             Value::KeyVal((k, v)) => {
+                                let k = k.as_str().ok_or(anyhow::anyhow!(
+                                    "Expected key to be a string, but found: {:?}",
+                                    k
+                                ))?;
                                 self.data.push_str(k);
                                 self.data.push('=');
                                 match v.as_ref() {
@@ -201,7 +205,7 @@ impl<'a> TextParser<'a> {
                             | "9" => self.parse_any_number()?,
                             _ => return self.error("Expected value after key"),
                         };
-                        Value::KeyVal((key, Box::new(v)))
+                        Value::new_kv(key, v)
                     } else {
                         Value::Str(key)
                     };
@@ -368,12 +372,9 @@ fn test_gen() {
             Value::Str("title".to_string()),
             Value::Int(1),
             Value::Float(2.0),
-            Value::KeyVal((
-                "name".to_string(),
-                Box::new(Value::Str("World".to_string())),
-            )),
-            Value::KeyVal(("int".to_string(), Box::new(Value::Int(42)))),
-            Value::KeyVal(("float".to_string(), Box::new(Value::Float(3.0)))),
+            Value::new_kv("name", "World"),
+            Value::new_kv("int", 42),
+            Value::new_kv("float", 3.0),
         ]),
         Value::Str(">World".to_string()),
     ]);
@@ -392,12 +393,9 @@ fn test_parse() {
             Value::Str("title".to_string()),
             Value::Int(1),
             Value::Float(2.0),
-            Value::KeyVal((
-                "name".to_string(),
-                Box::new(Value::Str("World".to_string())),
-            )),
-            Value::KeyVal(("int".to_string(), Box::new(Value::Int(42)))),
-            Value::KeyVal(("float".to_string(), Box::new(Value::Float(3.0)))),
+            Value::new_kv("name", "World"),
+            Value::new_kv("int", 42),
+            Value::new_kv("float", 3.0),
         ]),
         Value::Str(">World".to_string()),
     ]);

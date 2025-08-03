@@ -7,7 +7,7 @@ pub enum Value {
     Float(f64),
     Int(i64),
     Str(String),
-    KeyVal((String, Box<Value>)),
+    KeyVal((Box<Value>, Box<Value>)),
     Array(Vec<Value>),
     Null,
 }
@@ -18,9 +18,32 @@ impl From<String> for Value {
     }
 }
 
+impl<'a> From<&'a str> for Value {
+    fn from(s: &'a str) -> Self {
+        Value::Str(s.to_string())
+    }
+}
+
+impl From<i64> for Value {
+    fn from(i: i64) -> Self {
+        Value::Int(i)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(f: f64) -> Self {
+        Value::Float(f)
+    }
+}
+
 /// Reprsents a key in nested arrays.
 /// For example, in the array `{"save", text="test"}`, the key is `"save"`.
 pub struct Key<'a>(pub &'a str);
+
+/// Represents a key in key value pairs.
+/// For example, in the key value pair `[1] = "test"`, the key is `1`.
+#[derive(Clone, Copy)]
+pub struct NumKey<T: Clone + Copy>(pub T);
 
 impl<'a> Deref for Key<'a> {
     type Target = str;
@@ -96,6 +119,10 @@ impl Value {
         matches!(self, Value::Array(_))
     }
 
+    pub fn is_str(&self) -> bool {
+        matches!(self, Value::Str(_))
+    }
+
     pub fn is_kv(&self) -> bool {
         matches!(self, Value::KeyVal(_))
     }
@@ -104,17 +131,17 @@ impl Value {
         matches!(self, Value::Null)
     }
 
-    pub fn kv_key(&self) -> Option<&str> {
+    pub fn kv_key(&self) -> Option<&Value> {
         if let Value::KeyVal((k, _)) = self {
-            Some(k)
+            Some(&k)
         } else {
             None
         }
     }
 
-    pub fn kv_keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a str> + 'a> {
+    pub fn kv_keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Value> + 'a> {
         match self {
-            Value::KeyVal((k, _)) => Box::new(std::iter::once(k.as_str())),
+            Value::KeyVal((k, _)) => Box::new(std::iter::once(&**k)),
             Value::Array(arr) => Box::new(arr.iter().filter_map(|v| v.kv_key())),
             _ => Box::new(std::iter::empty()),
         }
@@ -184,8 +211,8 @@ impl Value {
         Value::Array(Vec::new())
     }
 
-    pub fn new_kv<S: Into<String>>(key: S, value: Value) -> Self {
-        Value::KeyVal((key.into(), Box::new(value)))
+    pub fn new_kv<K: Into<Value>, V: Into<Value>>(key: K, value: V) -> Self {
+        Value::KeyVal((Box::new(key.into()), Box::new(value.into())))
     }
 
     pub fn push_member(&mut self, value: Value) {
@@ -274,7 +301,7 @@ impl<'a> IndexMut<&'a str> for Value {
                         unreachable!()
                     }
                 } else {
-                    *self = Value::KeyVal((index.to_string(), Box::new(NULL)));
+                    *self = Value::KeyVal((Box::new(index.to_string().into()), Box::new(NULL)));
                     if let Value::KeyVal((_, v)) = self {
                         v
                     } else {
@@ -295,7 +322,10 @@ impl<'a> IndexMut<&'a str> for Value {
                     }
                 }
                 if let Value::Array(arr) = self {
-                    arr.push(Value::KeyVal((index.to_string(), Box::new(NULL))));
+                    arr.push(Value::KeyVal((
+                        Box::new(index.to_string().into()),
+                        Box::new(NULL),
+                    )));
                     if let Value::KeyVal((_, v)) = arr.last_mut().unwrap() {
                         v
                     } else {
@@ -306,7 +336,10 @@ impl<'a> IndexMut<&'a str> for Value {
                 }
             }
             _ => {
-                *self = Value::Array(vec![Value::KeyVal((index.to_string(), Box::new(NULL)))]);
+                *self = Value::Array(vec![Value::KeyVal((
+                    Box::new(index.to_string().into()),
+                    Box::new(NULL),
+                ))]);
                 self.index_mut(index)
             }
         }
@@ -342,6 +375,237 @@ impl IndexMut<String> for Value {
     #[inline(always)]
     fn index_mut(&mut self, index: String) -> &mut Self::Output {
         self.index_mut(index.as_str())
+    }
+}
+
+impl<'a> Index<&'a Value> for Value {
+    type Output = Value;
+
+    fn index(&self, key: &'a Value) -> &Self::Output {
+        match self {
+            Value::KeyVal((k, v)) if k == key => v,
+            Value::Array(arr) => {
+                for item in arr.iter().rev() {
+                    if let Value::KeyVal((k, v)) = item {
+                        if k == key {
+                            return v;
+                        }
+                    }
+                }
+                &NULL
+            }
+            _ => &NULL,
+        }
+    }
+}
+
+impl<'a> IndexMut<&'a Value> for Value {
+    fn index_mut(&mut self, index: &'a Value) -> &mut Self::Output {
+        match &self {
+            Value::KeyVal((k, _)) => {
+                if k == index {
+                    if let Value::KeyVal((_, v)) = self {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    *self = Value::KeyVal((Box::new(index.clone()), Box::new(NULL)));
+                    if let Value::KeyVal((_, v)) = self {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+            Value::Array(arr) => {
+                for (i, item) in arr.iter().enumerate().rev() {
+                    if let Value::KeyVal((k, _)) = item {
+                        if k == index {
+                            if let Value::KeyVal((_, v)) = &mut self[i] {
+                                return v;
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                    }
+                }
+                if let Value::Array(arr) = self {
+                    arr.push(Value::KeyVal((Box::new(index.clone()), Box::new(NULL))));
+                    if let Value::KeyVal((_, v)) = arr.last_mut().unwrap() {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => {
+                *self = Value::Array(vec![Value::KeyVal((
+                    Box::new(index.clone()),
+                    Box::new(NULL),
+                ))]);
+                self.index_mut(index)
+            }
+        }
+    }
+}
+
+impl<'a> Index<&'a Box<Value>> for Value {
+    type Output = Value;
+
+    #[inline(always)]
+    fn index(&self, key: &'a Box<Value>) -> &Self::Output {
+        self.index(&**key)
+    }
+}
+
+impl Index<NumKey<i64>> for Value {
+    type Output = Value;
+
+    fn index(&self, key: NumKey<i64>) -> &Self::Output {
+        match self {
+            Value::KeyVal((k, v)) if k == key.0 => v,
+            Value::Array(arr) => {
+                for item in arr.iter().rev() {
+                    if let Value::KeyVal((k, v)) = item {
+                        if k == key.0 {
+                            return v;
+                        }
+                    }
+                }
+                &NULL
+            }
+            _ => &NULL,
+        }
+    }
+}
+
+impl IndexMut<NumKey<i64>> for Value {
+    fn index_mut(&mut self, key: NumKey<i64>) -> &mut Self::Output {
+        match &self {
+            Value::KeyVal((k, _)) => {
+                if k == key.0 {
+                    if let Value::KeyVal((_, v)) = self {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    *self = Value::KeyVal((Box::new(key.0.into()), Box::new(NULL)));
+                    if let Value::KeyVal((_, v)) = self {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+            Value::Array(arr) => {
+                for (i, item) in arr.iter().enumerate().rev() {
+                    if let Value::KeyVal((k, _)) = item {
+                        if k == key.0 {
+                            if let Value::KeyVal((_, v)) = &mut self[i] {
+                                return v;
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                    }
+                }
+                if let Value::Array(arr) = self {
+                    arr.push(Value::KeyVal((Box::new(key.0.into()), Box::new(NULL))));
+                    if let Value::KeyVal((_, v)) = arr.last_mut().unwrap() {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => {
+                *self = Value::Array(vec![Value::KeyVal((
+                    Box::new(key.0.into()),
+                    Box::new(NULL),
+                ))]);
+                self.index_mut(key)
+            }
+        }
+    }
+}
+
+impl Index<NumKey<f64>> for Value {
+    type Output = Value;
+
+    fn index(&self, key: NumKey<f64>) -> &Self::Output {
+        match self {
+            Value::KeyVal((k, v)) if k == key.0 => v,
+            Value::Array(arr) => {
+                for item in arr.iter().rev() {
+                    if let Value::KeyVal((k, v)) = item {
+                        if k == key.0 {
+                            return v;
+                        }
+                    }
+                }
+                &NULL
+            }
+            _ => &NULL,
+        }
+    }
+}
+
+impl IndexMut<NumKey<f64>> for Value {
+    fn index_mut(&mut self, key: NumKey<f64>) -> &mut Self::Output {
+        match &self {
+            Value::KeyVal((k, _)) => {
+                if k == key.0 {
+                    if let Value::KeyVal((_, v)) = self {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    *self = Value::KeyVal((Box::new(key.0.into()), Box::new(NULL)));
+                    if let Value::KeyVal((_, v)) = self {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+            Value::Array(arr) => {
+                for (i, item) in arr.iter().enumerate().rev() {
+                    if let Value::KeyVal((k, _)) = item {
+                        if k == key.0 {
+                            if let Value::KeyVal((_, v)) = &mut self[i] {
+                                return v;
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                    }
+                }
+                if let Value::Array(arr) = self {
+                    arr.push(Value::KeyVal((Box::new(key.0.into()), Box::new(NULL))));
+                    if let Value::KeyVal((_, v)) = arr.last_mut().unwrap() {
+                        v
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => {
+                *self = Value::Array(vec![Value::KeyVal((
+                    Box::new(key.0.into()),
+                    Box::new(NULL),
+                ))]);
+                self.index_mut(key)
+            }
+        }
     }
 }
 
@@ -410,6 +674,55 @@ impl PartialEq<f64> for Value {
     }
 }
 
+impl PartialEq<str> for Box<Value> {
+    #[inline(always)]
+    fn eq(&self, other: &str) -> bool {
+        **self == *other
+    }
+}
+
+impl PartialEq<String> for Box<Value> {
+    #[inline(always)]
+    fn eq(&self, other: &String) -> bool {
+        **self == *other
+    }
+}
+
+impl PartialEq<i64> for Box<Value> {
+    #[inline(always)]
+    fn eq(&self, other: &i64) -> bool {
+        **self == *other
+    }
+}
+
+impl PartialEq<f64> for Box<Value> {
+    #[inline(always)]
+    fn eq(&self, other: &f64) -> bool {
+        **self == *other
+    }
+}
+
+impl PartialEq<Value> for Box<Value> {
+    #[inline(always)]
+    fn eq(&self, other: &Value) -> bool {
+        **self == *other
+    }
+}
+
+impl<'a> PartialEq<i64> for &'a Box<Value> {
+    #[inline(always)]
+    fn eq(&self, other: &i64) -> bool {
+        **self == *other
+    }
+}
+
+impl<'a> PartialEq<f64> for &'a Box<Value> {
+    #[inline(always)]
+    fn eq(&self, other: &f64) -> bool {
+        **self == *other
+    }
+}
+
 impl PartialOrd<i64> for Value {
     fn partial_cmp(&self, other: &i64) -> Option<std::cmp::Ordering> {
         match self {
@@ -425,6 +738,20 @@ impl PartialOrd<f64> for Value {
             Value::Float(f) => f.partial_cmp(other),
             _ => None,
         }
+    }
+}
+
+impl PartialOrd<i64> for Box<Value> {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &i64) -> Option<std::cmp::Ordering> {
+        (**self).partial_cmp(other)
+    }
+}
+
+impl PartialOrd<f64> for Box<Value> {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &f64) -> Option<std::cmp::Ordering> {
+        (**self).partial_cmp(other)
     }
 }
 
@@ -486,7 +813,7 @@ impl<'a> DoubleEndedIterator for IterMut<'a> {
 
 #[derive(Clone, Debug)]
 pub struct AstFile {
-    pub astver: f64,
+    pub astver: Option<f64>,
     pub astname: Option<String>,
     pub ast: Value,
 }
