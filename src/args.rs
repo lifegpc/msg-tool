@@ -29,7 +29,14 @@ fn parse_zstd_compression_level(level: &str) -> Result<i32, String> {
 
 /// Tools for export and import scripts
 #[derive(Parser, Debug)]
-#[clap(group = ArgGroup::new("encodingg").multiple(false), group = ArgGroup::new("output_encodingg").multiple(false), group = ArgGroup::new("archive_encodingg").multiple(false), group = ArgGroup::new("artemis_indentg").multiple(false))]
+#[clap(
+    group = ArgGroup::new("encodingg").multiple(false),
+    group = ArgGroup::new("output_encodingg").multiple(false),
+    group = ArgGroup::new("archive_encodingg").multiple(false),
+    group = ArgGroup::new("artemis_indentg").multiple(false),
+    group = ArgGroup::new("ex_hibit_rld_xor_keyg").multiple(false),
+    group = ArgGroup::new("ex_hibit_rld_def_xor_keyg").multiple(false),
+)]
 #[command(
     version,
     about,
@@ -236,6 +243,52 @@ pub struct Arg {
     #[arg(short = 'F', long, global = true, action = ArgAction::SetTrue)]
     /// Force all files in archive to be treated as script files.
     pub force_script: bool,
+    #[cfg(feature = "ex-hibit")]
+    #[arg(
+        long,
+        global = true,
+        value_name = "HEX",
+        group = "ex_hibit_rld_xor_keyg"
+    )]
+    /// ExHibit xor key for rld script, in hexadecimal format. (e.g. `12345678`)
+    /// Use https://github.com/ZQF-ReVN/RxExHIBIT to find the key.
+    pub ex_hibit_rld_xor_key: Option<String>,
+    #[cfg(feature = "ex-hibit")]
+    #[arg(
+        long,
+        global = true,
+        value_name = "PATH",
+        group = "ex_hibit_rld_xor_keyg"
+    )]
+    /// ExHibit rld xor key file, which contains the xor key in hexadecimal format. (e.g. `0x12345678`)
+    pub ex_hibit_rld_xor_key_file: Option<String>,
+    #[cfg(feature = "ex-hibit")]
+    #[arg(
+        long,
+        global = true,
+        value_name = "HEX",
+        group = "ex_hibit_rld_def_xor_keyg"
+    )]
+    /// ExHibit rld def.rld xor key, in hexadecimal format. (e.g. `12345678`)
+    pub ex_hibit_rld_def_xor_key: Option<String>,
+    #[cfg(feature = "ex-hibit")]
+    #[arg(
+        long,
+        global = true,
+        value_name = "PATH",
+        group = "ex_hibit_rld_def_xor_keyg"
+    )]
+    /// ExHibit rld def.rld xor key file, which contains the xor key in hexadecimal format. (e.g. `0x12345678`)
+    pub ex_hibit_rld_def_xor_key_file: Option<String>,
+    #[cfg(feature = "ex-hibit")]
+    #[arg(long, global = true, value_name = "PATH")]
+    /// Path to the ExHibit rld keys file, which contains the keys in BINARY format.
+    /// Use https://github.com/ZQF-ReVN/RxExHIBIT to get this file.
+    pub ex_hibit_rld_keys: Option<String>,
+    #[cfg(feature = "ex-hibit")]
+    #[arg(long, global = true, value_name = "PATH")]
+    /// Path to the ExHibit rld def keys file, which contains the keys in BINARY format.
+    pub ex_hibit_rld_def_keys: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

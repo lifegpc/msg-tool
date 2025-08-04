@@ -247,6 +247,14 @@ pub struct ExtraConfig {
     pub zstd_compression_level: i32,
     #[cfg(feature = "circus-img")]
     pub circus_crx_mode: crate::scripts::circus::image::crx::CircusCrxMode,
+    #[cfg(feature = "ex-hibit")]
+    pub ex_hibit_rld_xor_key: Option<u32>,
+    #[cfg(feature = "ex-hibit")]
+    pub ex_hibit_rld_def_xor_key: Option<u32>,
+    #[cfg(feature = "ex-hibit")]
+    pub ex_hibit_rld_keys: Option<Box<[u32; 0x100]>>,
+    #[cfg(feature = "ex-hibit")]
+    pub ex_hibit_rld_def_keys: Option<Box<[u32; 0x100]>>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -327,6 +335,9 @@ pub enum ScriptType {
     #[cfg(feature = "escude")]
     /// Escude list script
     EscudeList,
+    #[cfg(feature = "ex-hibit")]
+    /// ExHibit rld script
+    ExHibit,
     #[cfg(feature = "hexen-haus")]
     /// HexenHaus bin script
     HexenHaus,

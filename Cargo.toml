@@ -32,7 +32,7 @@ utf16string = "0.2"
 zstd = { version = "0.13", optional = true }
 
 [features]
-default = ["artemis", "artemis-arc", "bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "circus-arc", "circus-audio", "circus-img", "escude", "escude-arc", "hexen-haus", "kirikiri", "kirikiri-img", "will-plus", "yaneurao", "yaneurao-itufuru"]
+default = ["artemis", "artemis-arc", "bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "circus-arc", "circus-audio", "circus-img", "escude", "escude-arc", "ex-hibit", "hexen-haus", "kirikiri", "kirikiri-img", "will-plus", "yaneurao", "yaneurao-itufuru"]
 artemis = ["utils-escape"]
 artemis-arc = ["artemis", "msg_tool_macro/artemis-arc", "sha1"]
 bgi = []
@@ -47,6 +47,7 @@ circus-audio = ["circus", "flate2", "int-enum", "utils-pcm"]
 circus-img = ["circus", "image", "flate2", "zstd"]
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
+ex-hibit = []
 hexen-haus = ["memchr", "utils-str"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "utils-escape"]
 kirikiri-img = ["kirikiri", "emote-psb", "image", "libtlg-rs", "url"]

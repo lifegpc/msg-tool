@@ -9,6 +9,8 @@ pub mod cat_system;
 pub mod circus;
 #[cfg(feature = "escude")]
 pub mod escude;
+#[cfg(feature = "ex-hibit")]
+pub mod ex_hibit;
 #[cfg(feature = "hexen-haus")]
 pub mod hexen_haus;
 #[cfg(feature = "kirikiri")]
@@ -88,6 +90,8 @@ lazy_static::lazy_static! {
         Box::new(circus::archive::pck::PckArchiveBuilder::new()),
         #[cfg(feature = "circus-audio")]
         Box::new(circus::audio::pcm::PcmBuilder::new()),
+        #[cfg(feature = "ex-hibit")]
+        Box::new(ex_hibit::rld::RldScriptBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();
