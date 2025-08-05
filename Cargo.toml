@@ -19,6 +19,7 @@ json = { version = "0.12", optional = true }
 lazy_static = "1.5.0"
 libtlg-rs = { version = "0.1", optional = true }
 memchr = { version = "2.7", optional = true }
+mozjpeg = { version = "0.10.13", optional = true }
 msg_tool_macro = { path = "./msg_tool_macro" }
 overf = "0.1"
 png = { version = "0.17", optional = true }
@@ -32,7 +33,12 @@ utf16string = "0.2"
 zstd = { version = "0.13", optional = true }
 
 [features]
-default = ["artemis", "artemis-arc", "bgi", "bgi-arc", "bgi-img", "cat-system", "cat-system-arc", "cat-system-img", "circus", "circus-arc", "circus-audio", "circus-img", "escude", "escude-arc", "ex-hibit", "hexen-haus", "kirikiri", "kirikiri-img", "will-plus", "yaneurao", "yaneurao-itufuru"]
+default = ["all-fmt", "image-jpg"]
+all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
+all-script = ["artemis", "bgi", "cat-system", "circus", "escude", "ex-hibit", "hexen-haus", "kirikiri", "will-plus", "yaneurao", "yaneurao-itufuru"]
+all-img = ["bgi-img", "cat-system-img", "circus-img", "kirikiri-img"]
+all-arc = ["artemis-arc", "bgi-arc", "cat-system-arc", "circus-arc", "escude-arc"]
+all-audio = ["circus-audio"]
 artemis = ["utils-escape"]
 artemis-arc = ["artemis", "msg_tool_macro/artemis-arc", "sha1"]
 bgi = []
@@ -56,6 +62,7 @@ yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
 # basic feature
 image = ["png"]
+image-jpg = ["mozjpeg"]
 # utils feature
 utils-bit-stream = []
 utils-crc32 = []

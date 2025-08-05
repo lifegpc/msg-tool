@@ -2,6 +2,14 @@ import toml
 import subprocess
 import sys
 
+def filter_name(name):
+    if name.startswith("utils-"):
+        return False
+    if name.startswith("all-"):
+        return False
+    return True
+
+
 def main():
     # 检查cargo是否可用
     try:
@@ -31,7 +39,7 @@ def main():
     
     features = cargo_toml.get("features", {})
     feature_names = list(features.keys())
-    feature_names = [name for name in feature_names if not name.startswith("utils-")]
+    feature_names = [name for name in feature_names if filter_name(name)]
     
     if not feature_names:
         print("No features defined in Cargo.toml.")

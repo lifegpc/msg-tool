@@ -189,6 +189,36 @@ pub fn encode_img(
             writer.finish()?;
             Ok(())
         }
+        #[cfg(feature = "image-jpg")]
+        ImageOutputType::Jpg => {
+            let file = crate::utils::files::write_file(filename)?;
+            let color_type = match data.color_type {
+                ImageColorType::Grayscale => mozjpeg::ColorSpace::JCS_GRAYSCALE,
+                ImageColorType::Rgb => mozjpeg::ColorSpace::JCS_RGB,
+                ImageColorType::Rgba => mozjpeg::ColorSpace::JCS_EXT_RGBA,
+                ImageColorType::Bgr => {
+                    convert_bgr_to_rgb(&mut data)?;
+                    mozjpeg::ColorSpace::JCS_RGB
+                }
+                ImageColorType::Bgra => {
+                    convert_bgra_to_rgba(&mut data)?;
+                    mozjpeg::ColorSpace::JCS_EXT_RGBA
+                }
+            };
+            if data.depth != 8 {
+                return Err(anyhow::anyhow!(
+                    "JPEG encoding only supports 8-bit depth, found: {}",
+                    data.depth
+                ));
+            }
+            let mut encoder = mozjpeg::compress::Compress::new(color_type);
+            encoder.set_size(data.width as usize, data.height as usize);
+            encoder.set_quality(config.jpeg_quality as f32);
+            let mut start = encoder.start_compress(file)?;
+            start.write_scanlines(&data.data)?;
+            start.finish()?;
+            Ok(())
+        }
     }
 }
 
@@ -230,6 +260,37 @@ pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
         ImageOutputType::Png => {
             let file = crate::utils::files::read_file(filename)?;
             load_png(&file[..])
+        }
+        #[cfg(feature = "image-jpg")]
+        ImageOutputType::Jpg => {
+            let file = crate::utils::files::read_file(filename)?;
+            let decoder = mozjpeg::decompress::Decompress::new_mem(&file)?;
+            let color_type = match decoder.color_space() {
+                mozjpeg::ColorSpace::JCS_GRAYSCALE => ImageColorType::Grayscale,
+                mozjpeg::ColorSpace::JCS_RGB => ImageColorType::Rgb,
+                mozjpeg::ColorSpace::JCS_EXT_RGBA => ImageColorType::Rgba,
+                _ => ImageColorType::Rgb, // Convert other types to RGB
+            };
+            let width = decoder.width() as u32;
+            let height = decoder.height() as u32;
+            let stride = width as usize * color_type.bpp(8) as usize / 8;
+            let mut data = vec![0; stride * height as usize];
+            let mut re = match color_type {
+                ImageColorType::Grayscale => decoder.grayscale()?,
+                ImageColorType::Rgb => decoder.rgb()?,
+                ImageColorType::Rgba => decoder.rgba()?,
+                _ => {
+                    unreachable!(); // We already checked the color type above
+                }
+            };
+            re.read_scanlines_into(&mut data)?;
+            Ok(ImageData {
+                width,
+                height,
+                depth: 8,
+                color_type,
+                data,
+            })
         }
     }
 }

@@ -1631,6 +1631,8 @@ fn main() {
             arg.ex_hibit_rld_def_keys.as_ref(),
         )
         .expect("Failed to load RLD DEF keys"),
+        #[cfg(feature = "mozjpeg")]
+        jpeg_quality: arg.jpeg_quality,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

@@ -16,6 +16,15 @@ fn parse_compression_level(level: &str) -> Result<u32, String> {
     clap_num::number_range(level, 0, 9)
 }
 
+#[cfg(feature = "mozjpeg")]
+fn parse_jpeg_quality(quality: &str) -> Result<u8, String> {
+    let lower = quality.to_ascii_lowercase();
+    if lower == "best" {
+        return Ok(100);
+    }
+    clap_num::number_range(quality, 0, 100)
+}
+
 #[cfg(feature = "zstd")]
 fn parse_zstd_compression_level(level: &str) -> Result<i32, String> {
     let lower = level.to_ascii_lowercase();
@@ -289,6 +298,10 @@ pub struct Arg {
     #[arg(long, global = true, value_name = "PATH")]
     /// Path to the ExHibit rld def keys file, which contains the keys in BINARY format.
     pub ex_hibit_rld_def_keys: Option<String>,
+    #[cfg(feature = "mozjpeg")]
+    #[arg(long, global = true, default_value_t = 80, value_parser = parse_jpeg_quality)]
+    /// JPEG quality for output images, 0-100. 100 means best quality.
+    pub jpeg_quality: u8,
     #[command(subcommand)]
     /// Command
     pub command: Command,
