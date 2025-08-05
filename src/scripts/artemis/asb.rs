@@ -4,6 +4,7 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use crate::utils::escape::*;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::ops::Index;
@@ -49,6 +50,20 @@ impl ScriptBuilder for ArtemisAsbBuilder {
         }
         None
     }
+
+    fn can_create_file(&self) -> bool {
+        true
+    }
+
+    fn create_file<'a>(
+        &'a self,
+        filename: &'a str,
+        writer: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        file_encoding: Encoding,
+    ) -> Result<()> {
+        create_file(filename, writer, encoding, file_encoding)
+    }
 }
 
 fn escape_text(s: &str) -> String {
@@ -63,7 +78,7 @@ fn escape_text(s: &str) -> String {
     escaped
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Command {
     pub name: String,
     pub line_number: u32,
@@ -110,7 +125,8 @@ impl Index<String> for Command {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
 enum Item {
     Command(Command),
     Label(String),
@@ -212,10 +228,11 @@ struct TextParser<'a> {
     text: Vec<&'a str>,
     pos: usize,
     len: usize,
+    hcls_index: usize,
 }
 
 impl<'a> TextParser<'a> {
-    pub fn new(str: &'a str) -> Self {
+    pub fn new(str: &'a str, hcls_index: usize) -> Self {
         let text: Vec<&'a str> = UnicodeSegmentation::graphemes(str, true).collect();
         let len = text.len();
         TextParser {
@@ -223,6 +240,7 @@ impl<'a> TextParser<'a> {
             text,
             pos: 0,
             len,
+            hcls_index,
         }
     }
 
@@ -253,8 +271,10 @@ impl<'a> TextParser<'a> {
                 }
             }
         }
-        self.items
-            .push(Item::Command(Command::new("hcls".to_string(), 0)));
+        let mut hcls = Command::new("hcls".to_string(), 0);
+        hcls.attributes
+            .insert("0".to_string(), self.hcls_index.to_string());
+        self.items.push(Item::Command(hcls));
         Ok(self.items)
     }
 
@@ -413,8 +433,16 @@ impl Script for Asb {
         OutputScriptType::Json
     }
 
+    fn is_output_supported(&self, _: OutputScriptType) -> bool {
+        true
+    }
+
     fn default_format_type(&self) -> FormatOptions {
         FormatOptions::None
+    }
+
+    fn custom_output_extension<'a>(&'a self) -> &'a str {
+        "json"
     }
 
     fn extract_messages(&self) -> Result<Vec<Message>> {
@@ -501,6 +529,7 @@ impl Script for Asb {
         let mut mes_index = 0;
         let mut item_index = 0;
         let mut print_index = None;
+        let mut hcls_index = 1;
         while item_index < items.len() {
             if let Some(print_ind) = print_index.clone() {
                 if items[item_index].is_command_name("hcls") {
@@ -538,7 +567,8 @@ impl Script for Asb {
                             m = m.replace(k, v);
                         }
                     }
-                    let new_cmds = TextParser::new(&m.replace("\n", "<rt>")).parse()?;
+                    let new_cmds = TextParser::new(&m.replace("\n", "<rt>"), hcls_index).parse()?;
+                    hcls_index += 1;
                     let new_cmds_len = new_cmds.len();
                     items.splice(print_ind..=item_index, new_cmds);
                     print_index = None;
@@ -603,12 +633,47 @@ impl Script for Asb {
         file.flush()?;
         Ok(())
     }
+
+    fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
+        let s = serde_json::to_string_pretty(&self.items)?;
+        let s = encode_string(encoding, &s, false)?;
+        let mut file = std::fs::File::create(filename)?;
+        file.write_all(&s)?;
+        Ok(())
+    }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        create_file(custom_filename, file, encoding, output_encoding)
+    }
+}
+
+pub fn create_file<'a>(
+    custom_filename: &'a str,
+    mut writer: Box<dyn WriteSeek + 'a>,
+    encoding: Encoding,
+    output_encoding: Encoding,
+) -> Result<()> {
+    let f = crate::utils::files::read_file(custom_filename)?;
+    let s = decode_to_string(output_encoding, &f, true)?;
+    let items: Vec<Item> = serde_json::from_str(&s)?;
+    writer.write_all(b"ASB\0\0")?;
+    writer.write_u32(items.len() as u32)?;
+    for item in items {
+        writer.write_item(&item, encoding)?;
+    }
+    Ok(())
 }
 
 #[test]
 fn test_parse() {
     let text = "Hello &lt; &amp; World!<tag><tags x=\"123\"><name 0=\"Ok\">Test";
-    let parser = TextParser::new(text);
+    let parser = TextParser::new(text, 1);
     let items = parser.parse().unwrap();
     assert_eq!(
         items,
@@ -641,7 +706,7 @@ fn test_parse() {
             Item::Command(Command {
                 name: "hcls".to_string(),
                 line_number: 0,
-                attributes: BTreeMap::new(),
+                attributes: BTreeMap::from([("0".to_string(), "1".to_string())]),
             }),
         ]
     )
