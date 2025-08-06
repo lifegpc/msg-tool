@@ -94,6 +94,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
         _writer: Box<dyn WriteSeek + 'a>,
         _encoding: Encoding,
         _file_encoding: Encoding,
+        _config: &ExtraConfig,
     ) -> Result<()> {
         Err(anyhow::anyhow!(
             "This script type does not support creating directly."
@@ -106,10 +107,11 @@ pub trait ScriptBuilder: std::fmt::Debug {
         output_filename: &str,
         encoding: Encoding,
         file_encoding: Encoding,
+        config: &ExtraConfig,
     ) -> Result<()> {
         let f = std::fs::File::create(output_filename)?;
         let f = std::io::BufWriter::new(f);
-        self.create_file(filename, Box::new(f), encoding, file_encoding)
+        self.create_file(filename, Box::new(f), encoding, file_encoding, config)
     }
 
     #[cfg(feature = "image")]

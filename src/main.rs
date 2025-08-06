@@ -1467,7 +1467,7 @@ pub fn create_file(
     input: &str,
     output: Option<&str>,
     arg: &args::Arg,
-    _config: &types::ExtraConfig,
+    config: &types::ExtraConfig,
 ) -> anyhow::Result<()> {
     let typ = match &arg.script_type {
         Some(t) => t,
@@ -1502,7 +1502,7 @@ pub fn create_file(
                 pb.to_string_lossy().into_owned()
             }
         };
-        builder.create_image_file_filename(data, &output, _config)?;
+        builder.create_image_file_filename(data, &output, config)?;
         return Ok(());
     }
 
@@ -1531,6 +1531,7 @@ pub fn create_file(
         &output,
         get_encoding(arg, builder),
         get_output_encoding(arg),
+        config,
     )?;
     Ok(())
 }
@@ -1591,6 +1592,8 @@ fn main() {
         )),
         #[cfg(feature = "bgi-arc")]
         bgi_compress_file: arg.bgi_compress_file,
+        #[cfg(feature = "bgi-arc")]
+        bgi_compress_min_len: arg.bgi_compress_min_len,
         #[cfg(feature = "kirikiri-img")]
         kirikiri_pimg_overlay: arg.kirikiri_pimg_overlay,
         #[cfg(feature = "artemis-arc")]

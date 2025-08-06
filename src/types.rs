@@ -221,6 +221,8 @@ pub struct ExtraConfig {
     pub kirikiri_message_commands: std::sync::Arc<std::collections::HashSet<String>>,
     #[cfg(feature = "bgi-arc")]
     pub bgi_compress_file: bool,
+    #[cfg(feature = "bgi-arc")]
+    pub bgi_compress_min_len: usize,
     #[cfg(feature = "kirikiri-img")]
     pub kirikiri_pimg_overlay: Option<bool>,
     #[cfg(feature = "artemis-arc")]

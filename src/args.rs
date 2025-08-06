@@ -205,6 +205,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Whether to compress files in BGI archive when packing BGI archive.
     pub bgi_compress_file: bool,
+    #[cfg(feature = "bgi-arc")]
+    #[arg(long, global = true, default_value_t = 3, value_parser = crate::scripts::bgi::archive::dsc::parse_min_length)]
+    /// Minimum length of match size for DSC compression. Possible values are 2-256.
+    pub bgi_compress_min_len: usize,
     #[cfg(feature = "kirikiri-img")]
     #[arg(long, global = true)]
     /// Whether to overlay PIMG images. (By default, true if all layers are not group layers.)

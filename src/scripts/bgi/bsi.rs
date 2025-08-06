@@ -50,6 +50,7 @@ impl ScriptBuilder for BGIBsiScriptBuilder {
         writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         file_encoding: Encoding,
+        _config: &ExtraConfig,
     ) -> Result<()> {
         create_file(filename, writer, encoding, file_encoding)
     }

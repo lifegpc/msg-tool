@@ -512,6 +512,7 @@ pub struct BgiArchiveWriter<T: Write + Seek> {
     headers: HashMap<String, BgiFileHeader>,
     compress_file: bool,
     encoding: Encoding,
+    min_len: usize,
 }
 
 impl<T: Write + Seek> BgiArchiveWriter<T> {
@@ -540,6 +541,7 @@ impl<T: Write + Seek> BgiArchiveWriter<T> {
             headers,
             compress_file: config.bgi_compress_file,
             encoding,
+            min_len: config.bgi_compress_min_len,
         })
     }
 }
@@ -561,7 +563,7 @@ impl<T: Write + Seek> Archive for BgiArchiveWriter<T> {
             pos: 0,
         };
         Ok(if self.compress_file {
-            Box::new(BgiArchiveFileWithDsc::new(file))
+            Box::new(BgiArchiveFileWithDsc::new(file, self.min_len))
         } else {
             Box::new(file)
         })
@@ -640,13 +642,15 @@ impl<'a, T: Write + Seek> Seek for BgiArchiveFile<'a, T> {
 pub struct BgiArchiveFileWithDsc<'a, T: Write + Seek> {
     writer: BgiArchiveFile<'a, T>,
     buf: MemWriter,
+    min_len: usize,
 }
 
 impl<'a, T: Write + Seek> BgiArchiveFileWithDsc<'a, T> {
-    pub fn new(writer: BgiArchiveFile<'a, T>) -> Self {
+    pub fn new(writer: BgiArchiveFile<'a, T>, min_len: usize) -> Self {
         BgiArchiveFileWithDsc {
             writer,
             buf: MemWriter::new(),
+            min_len,
         }
     }
 }
@@ -678,7 +682,7 @@ impl<'a, T: Write + Seek> Seek for BgiArchiveFileWithDsc<'a, T> {
 impl<'a, T: Write + Seek> Drop for BgiArchiveFileWithDsc<'a, T> {
     fn drop(&mut self) {
         let buf = self.buf.as_slice();
-        let encoder = DscEncoder::new(&mut self.writer);
+        let encoder = DscEncoder::new(&mut self.writer, self.min_len);
         if let Err(e) = encoder.pack(&buf) {
             eprintln!("Failed to write DSC data: {}", e);
             crate::COUNTER.inc_error();

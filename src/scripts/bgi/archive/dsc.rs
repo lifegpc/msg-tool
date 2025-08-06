@@ -401,16 +401,18 @@ pub struct DscEncoder<'a, T: Write + Seek> {
     magic: u32,
     key: u32,
     dec_count: u32,
+    min_len: usize,
 }
 
 impl<'a, T: Write + Seek> DscEncoder<'a, T> {
-    pub fn new(writer: &'a mut T) -> Self {
+    pub fn new(writer: &'a mut T, min_len: usize) -> Self {
         let stream = MsbBitWriter::new(writer);
         DscEncoder {
             stream,
             magic: 0x5344 << 16, // "DS"
             key: rand::rng().random(),
             dec_count: 0,
+            min_len,
         }
     }
 
@@ -419,7 +421,6 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
         let mut ops = vec![];
         let mut pos = 0;
 
-        const MIN_LEN: usize = 2;
         const MAX_LEN: usize = 257;
         const WINDOW_SIZE: usize = 4097;
 
@@ -431,7 +432,7 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
             let mut best_len = 0;
             let mut best_offset = 0;
 
-            if max_len >= MIN_LEN {
+            if max_len >= self.min_len {
                 let limit = pos.saturating_sub(WINDOW_SIZE);
                 let key = (data[pos] as u16) << 8 | data[pos + 1] as u16;
                 let mut match_pos_i32 = head[key as usize];
@@ -463,7 +464,7 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
                 }
             }
 
-            if best_len >= MIN_LEN && best_offset >= 2 {
+            if best_len >= self.min_len && best_offset >= 2 {
                 ops.push(LzssOp::Match {
                     len: best_len as u16,
                     offset: best_offset as u16,
@@ -574,10 +575,10 @@ impl ScriptBuilder for DscBuilder {
         _filename: &str,
         _encoding: Encoding,
         _archive_encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(Dsc::new(buf)?))
+        Ok(Box::new(Dsc::new(buf, config)?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -605,8 +606,9 @@ impl ScriptBuilder for DscBuilder {
         mut writer: Box<dyn WriteSeek + 'a>,
         _encoding: Encoding,
         _file_encoding: Encoding,
+        config: &ExtraConfig,
     ) -> Result<()> {
-        let encoder = DscEncoder::new(&mut writer);
+        let encoder = DscEncoder::new(&mut writer, config.bgi_compress_min_len);
         let data = crate::utils::files::read_file(filename)?;
         encoder.pack(&data)?;
         Ok(())
@@ -616,16 +618,20 @@ impl ScriptBuilder for DscBuilder {
 #[derive(Debug)]
 pub struct Dsc {
     data: Vec<u8>,
+    min_len: usize,
 }
 
 impl Dsc {
-    pub fn new(buf: Vec<u8>) -> Result<Self> {
+    pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         if buf.len() < 16 || !buf.starts_with(b"DSC FORMAT 1.00\0") {
             return Err(anyhow::anyhow!("Invalid DSC format"));
         }
         let decoder = DscDecoder::new(&buf)?;
         let data = decoder.unpack()?;
-        Ok(Dsc { data })
+        Ok(Dsc {
+            data,
+            min_len: config.bgi_compress_min_len,
+        })
     }
 }
 
@@ -659,9 +665,13 @@ impl Script for Dsc {
         _encoding: Encoding,
         _output_encoding: Encoding,
     ) -> Result<()> {
-        let encoder = DscEncoder::new(&mut file);
+        let encoder = DscEncoder::new(&mut file, self.min_len);
         let data = crate::utils::files::read_file(custom_filename)?;
         encoder.pack(&data)?;
         Ok(())
     }
+}
+
+pub fn parse_min_length(len: &str) -> Result<usize, String> {
+    clap_num::number_range(len, 2, 256)
 }
