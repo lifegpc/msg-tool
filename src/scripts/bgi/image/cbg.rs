@@ -250,13 +250,13 @@ impl<'a> CbgDecoder<'a> {
         })
     }
 
-    // #TODO: Fix
     fn unpack_v2(&mut self) -> Result<ImageData> {
         let dct_data = self.read_encoded()?;
-        let mut dct = [[0f32; 64]; 2];
-        for i in 0..0x80usize {
-            dct[i >> 6][i & 0x3f] = DCT_TABLE[i & 0x3f] * dct_data[i] as f32;
+        let mut dct = [[0.0f32; 64]; 2];
+        for i in 0..0x80 {
+            dct[i >> 6][i & 0x3f] = dct_data[i] as f32 * DCT_TABLE[i & 0x3f];
         }
+
         let base_offset = self.stream.m_input.pos;
         let tree1 = HuffmanTree::new(
             &Self::read_weight_table(&mut self.stream.m_input, 0x10)?,
@@ -266,27 +266,31 @@ impl<'a> CbgDecoder<'a> {
             &Self::read_weight_table(&mut self.stream.m_input, 0xB0)?,
             true,
         );
-        let bpp = self.info.bpp;
-        let width = ((self.info.width as i32 + 7) & -8) as u16;
-        let height = ((self.info.height as i32 + 7) & -8) as u16;
+
+        let width = ((self.info.width as i32 + 7) & -8) as i32;
+        let height = ((self.info.height as i32 + 7) & -8) as i32;
         let y_blocks = height / 8;
-        let mut offsets = Vec::with_capacity(y_blocks as usize + 1);
-        let input_base = self.stream.m_input.pos + (y_blocks as usize + 1) * 4 - base_offset;
-        for _ in 0..y_blocks + 1 {
-            let offset = self.stream.m_input.read_u32()?;
-            offsets.push(offset as usize - input_base);
+
+        let mut offsets = Vec::with_capacity((y_blocks + 1) as usize);
+        let input_base =
+            (self.stream.m_input.pos + ((y_blocks + 1) as usize * 4) - base_offset) as i32;
+
+        for _ in 0..=y_blocks {
+            let offset = self.stream.m_input.read_i32()?;
+            offsets.push(offset - input_base);
         }
+
         let input = self.stream.m_input.data[self.stream.m_input.pos..].to_vec();
-        let pad_skip = ((width as usize >> 3) + 7) >> 3;
-        let mut tasks = Vec::with_capacity(y_blocks as usize + 1);
-        let output_size = width as usize * height as usize * 4;
-        let mut output = Vec::with_capacity(output_size);
-        output.resize(output_size, 0);
-        let output = Mutex::new(output);
+        let pad_skip = ((width >> 3) + 7) >> 3;
+
+        let output_size = (width * height * 4) as usize;
+        let output = vec![0u8; output_size];
+        let output_mutex = Mutex::new(output);
+
         let decoder = Arc::new(ParallelCbgDecoder {
             input,
-            output,
-            bpp: bpp,
+            output: output_mutex,
+            bpp: self.info.bpp as i32,
             width,
             height,
             tree1,
@@ -294,40 +298,46 @@ impl<'a> CbgDecoder<'a> {
             dct,
             has_alpha: AtomicBool::new(false),
         });
-        let mut dst = 0usize;
+
+        let mut tasks = Vec::new();
+        let mut dst = 0i32;
+
         for i in 0..y_blocks {
             let block_offset = offsets[i as usize] + pad_skip;
             let next_offset = if i + 1 == y_blocks {
-                decoder.input.len()
+                decoder.input.len() as i32
             } else {
                 offsets[(i + 1) as usize]
             };
-            let cdst = dst;
+            let closure_dst = dst;
             let decoder_ref = Arc::clone(&decoder);
+
             let task = std::thread::spawn(move || {
-                decoder_ref.unpack_block(block_offset, next_offset - block_offset, cdst)
+                decoder_ref.unpack_block(block_offset, next_offset - block_offset, closure_dst)
             });
             tasks.push(task);
-            dst += decoder.width as usize * 32;
+            dst += width * 32;
         }
+
         if self.info.bpp == 32 {
             let decoder_ref = Arc::clone(&decoder);
             let task =
                 std::thread::spawn(move || decoder_ref.unpack_alpha(offsets[y_blocks as usize]));
             tasks.push(task);
         }
+
         for task in tasks {
             task.join()
-                .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+                .map_err(|e| anyhow::anyhow!("Thread join failed: {:?}", e))??;
         }
+
         let has_alpha = decoder.has_alpha.qload();
-        let width = decoder.width as u32;
-        let height = decoder.height as u32;
         let mut output = decoder
             .output
             .lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock output: {}", e))?
             .clone();
+
         if !has_alpha {
             let mut src_idx = 0;
             let mut dst_idx = 0;
@@ -342,14 +352,17 @@ impl<'a> CbgDecoder<'a> {
             }
             output.truncate(dst_idx);
         }
+
+        let color_type = if has_alpha {
+            ImageColorType::Bgra
+        } else {
+            ImageColorType::Bgr
+        };
+
         Ok(ImageData {
-            width,
-            height,
-            color_type: if has_alpha {
-                ImageColorType::Bgra
-            } else {
-                ImageColorType::Bgr
-            },
+            width: decoder.width as u32,
+            height: decoder.height as u32,
+            color_type,
             depth: 8,
             data: output,
         })
@@ -605,9 +618,9 @@ const BLOCK_FILL_ORDER: [u8; 64] = [
 struct ParallelCbgDecoder {
     input: Vec<u8>,
     output: Mutex<Vec<u8>>,
-    bpp: u32,
-    width: u16,
-    height: u16,
+    bpp: i32,
+    width: i32,
+    height: i32,
     tree1: HuffmanTree,
     tree2: HuffmanTree,
     dct: [[f32; 64]; 2],
@@ -615,14 +628,19 @@ struct ParallelCbgDecoder {
 }
 
 impl ParallelCbgDecoder {
-    fn unpack_block(&self, offset: usize, length: usize, dst: usize) -> Result<()> {
-        let input = MemReaderRef::new(&self.input[offset..offset + length]);
+    fn unpack_block(&self, offset: i32, length: i32, dst: i32) -> Result<()> {
+        let input = MemReaderRef::new(&self.input[offset as usize..(offset + length) as usize]);
         let mut reader = MsbBitStream::new(input);
+
         let block_size = CbgDecoder::read_int(&mut reader.m_input)?;
-        let mut color_data = Vec::with_capacity(block_size as usize);
-        color_data.resize(block_size as usize, 0i16);
-        let mut acc = 0;
-        let mut i = 0;
+        if block_size == -1 {
+            return Ok(());
+        }
+
+        let mut color_data = vec![0i16; block_size as usize];
+        let mut acc = 0i32;
+        let mut i = 0i32;
+
         while i < block_size && reader.m_input.pos < reader.m_input.data.len() {
             let count = self.tree1.decode_token(&mut reader)?;
             if count != 0 {
@@ -635,14 +653,16 @@ impl ParallelCbgDecoder {
             color_data[i as usize] = acc as i16;
             i += 64;
         }
-        if reader.m_cached_bits & 7 != 0 {
+
+        if (reader.m_cached_bits & 7) != 0 {
             reader.get_bits(reader.m_cached_bits & 7)?;
         }
+
         i = 0;
         while i < block_size && reader.m_input.pos < reader.m_input.data.len() {
-            let mut index = 1;
-            while reader.m_input.pos < reader.m_input.data.len() {
-                let mut code = self.tree2.decode_token(&mut reader)?;
+            let mut index = 1usize;
+            while index < 64 && reader.m_input.pos < reader.m_input.data.len() {
+                let code = self.tree2.decode_token(&mut reader)?;
                 if code == 0 {
                     break;
                 }
@@ -651,50 +671,61 @@ impl ParallelCbgDecoder {
                     continue;
                 }
                 index += code & 0xf;
-                if index >= 64 {
+                if index >= BLOCK_FILL_ORDER.len() {
                     break;
                 }
-                code >>= 4;
-                let mut v = reader.get_bits(code as u32)? as i32;
-                if code != 0 && (v >> (code - 1)) == 0 {
-                    v = (-1 << code | v) + 1;
+                let bits = code >> 4;
+                let mut v = reader.get_bits(bits as u32)? as i32;
+                if bits != 0 && (v >> (bits - 1)) == 0 {
+                    v = (-1 << bits | v) + 1;
                 }
-                color_data[i as usize + BLOCK_FILL_ORDER[index as usize] as usize] = v as i16;
+                color_data[i as usize + BLOCK_FILL_ORDER[index] as usize] = v as i16;
                 index += 1;
             }
             i += 64;
         }
+
         if self.bpp == 8 {
             self.decode_grayscale(&color_data, dst)?;
         } else {
             self.decode_rgb(&color_data, dst)?;
         }
+
         Ok(())
     }
 
-    fn decode_rgb(&self, data: &[i16], mut dst: usize) -> Result<()> {
+    fn decode_rgb(&self, data: &[i16], dst: i32) -> Result<()> {
         let block_count = self.width / 8;
+        let mut dst = dst as usize;
+
         for i in 0..block_count {
-            let mut src = i as usize * 64;
-            let mut yuv_blocks = [[0; 3]; 64];
+            let mut src = (i * 64) as usize;
+            let mut ycbcr_block = [[0i16; 3]; 64];
+
             for channel in 0..3 {
-                self.decode_dct(channel, data, src, &mut yuv_blocks)?;
-                src += self.width as usize * 8;
+                self.decode_dct(channel, data, src, &mut ycbcr_block)?;
+                src += (self.width * 8) as usize;
             }
+
             let mut output = self
                 .output
                 .lock()
                 .map_err(|e| anyhow::anyhow!("Failed to lock output: {}", e))?;
+
             for j in 0..64 {
-                let cy = yuv_blocks[j][0] as f32;
-                let cb = yuv_blocks[j][1] as f32;
-                let cr = yuv_blocks[j][2] as f32;
-                let r = cy + 1.402 * cr - 178.956;
-                let g = cy - 0.34414 * cb - 0.71414 * cr + 135.95984;
-                let b = cy + 1.772 * cb - 226.316;
+                let cy = ycbcr_block[j][0] as f32;
+                let cb = ycbcr_block[j][1] as f32;
+                let cr = ycbcr_block[j][2] as f32;
+
+                // Full-range YCbCr->RGB conversion
+                let r = cy + 1.402f32 * cr - 178.956f32;
+                let g = cy - 0.34414f32 * cb - 0.71414f32 * cr + 135.95984f32;
+                let b = cy + 1.772f32 * cb - 226.316f32;
+
                 let y = j >> 3;
                 let x = j & 7;
                 let p = (y * self.width as usize + x) * 4 + dst;
+
                 output[p] = Self::float_to_byte(b);
                 output[p + 1] = Self::float_to_byte(g);
                 output[p + 2] = Self::float_to_byte(r);
@@ -704,47 +735,58 @@ impl ParallelCbgDecoder {
         Ok(())
     }
 
-    fn decode_grayscale(&self, data: &[i16], mut dst: usize) -> Result<()> {
+    fn decode_grayscale(&self, data: &[i16], dst: i32) -> Result<()> {
         let mut src = 0;
         let block_count = self.width / 8;
+        let mut dst = dst as usize;
+
         for _ in 0..block_count {
-            let mut yuv_blocks = [[0; 3]; 64];
-            self.decode_dct(0, data, src, &mut yuv_blocks)?;
+            let mut ycbcr_block = [[0i16; 3]; 64];
+            self.decode_dct(0, data, src, &mut ycbcr_block)?;
             src += 64;
+
             let mut output = self
                 .output
                 .lock()
                 .map_err(|e| anyhow::anyhow!("Failed to lock output: {}", e))?;
-            for j in 0usize..64 {
+
+            for j in 0..64 {
                 let y = j >> 3;
                 let x = j & 7;
                 let p = (y * self.width as usize + x) * 4 + dst;
-                output[p] = yuv_blocks[j][0] as u8;
-                output[p + 1] = yuv_blocks[j][0] as u8;
-                output[p + 2] = yuv_blocks[j][0] as u8;
+                let value = ycbcr_block[j][0] as u8;
+
+                output[p] = value;
+                output[p + 1] = value;
+                output[p + 2] = value;
             }
             dst += 32;
         }
         Ok(())
     }
 
-    fn unpack_alpha(&self, offset: usize) -> Result<()> {
-        let mut input = MemReaderRef::new(&self.input[offset..]);
+    fn unpack_alpha(&self, offset: i32) -> Result<()> {
+        let mut input = MemReaderRef::new(&self.input[offset as usize..]);
+
         if input.read_i32()? != 1 {
             return Ok(());
         }
+
         let mut dst = 3;
-        let mut ctl = 1 << 1;
+        let mut ctl = 1i32 << 1;
+
         let mut output = self
             .output
             .lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock output: {}", e))?;
+
         while dst < output.len() {
             ctl >>= 1;
             if ctl == 1 {
                 ctl = (input.read_u8()? as i32) | 0x100;
             }
-            if ctl & 1 != 0 {
+
+            if (ctl & 1) != 0 {
                 let v = input.read_u16()? as i32;
                 let mut x = v & 0x3f;
                 if x > 0x1f {
@@ -755,11 +797,13 @@ impl ParallelCbgDecoder {
                     y |= -8;
                 }
                 let count = ((v >> 9) & 0x7f) + 3;
-                let mut src =
-                    (dst as isize + (x as isize + y as isize * self.width as isize) * 4) as usize;
-                if src >= dst {
+
+                let src = dst as isize + (x as isize + y as isize * self.width as isize) * 4;
+                if src < 0 || src >= dst as isize {
                     return Ok(());
                 }
+
+                let mut src = src as usize;
                 for _ in 0..count {
                     output[dst] = output[src];
                     src += 4;
@@ -770,6 +814,7 @@ impl ParallelCbgDecoder {
                 dst += 4;
             }
         }
+
         self.has_alpha.qsave(true);
         Ok(())
     }
@@ -781,74 +826,56 @@ impl ParallelCbgDecoder {
         src: usize,
         output: &mut [[i16; 3]; 64],
     ) -> Result<()> {
-        let mut v1;
-        let mut v2;
-        let mut v3;
-        let mut v4;
-        let mut v5;
-        let mut v6;
-        let mut v7;
-        let mut v8;
-        let mut v9;
-        let mut v10;
-        let mut v11;
-        let mut v12;
-        let mut v13;
-        let mut v14;
-        let mut v15;
-        let mut v16;
-        let mut v17;
         let d = if channel > 0 { 1 } else { 0 };
         let mut tmp = [[0f32; 8]; 8];
-        for i in 0..8usize {
-            if 0 == data[src + 8 + i]
-                && 0 == data[src + 16 + i]
-                && 0 == data[src + 24 + i]
-                && 0 == data[src + 32 + i]
-                && 0 == data[src + 40 + i]
-                && 0 == data[src + 48 + i]
-                && 0 == data[src + 56 + i]
+
+        for i in 0..8 {
+            // Check if all AC coefficients are zero
+            if data[src + 8 + i] == 0
+                && data[src + 16 + i] == 0
+                && data[src + 24 + i] == 0
+                && data[src + 32 + i] == 0
+                && data[src + 40 + i] == 0
+                && data[src + 48 + i] == 0
+                && data[src + 56 + i] == 0
             {
-                let t = (data[src + i] as f32) * self.dct[d][i];
-                tmp[0][i] = t;
-                tmp[1][i] = t;
-                tmp[2][i] = t;
-                tmp[3][i] = t;
-                tmp[4][i] = t;
-                tmp[5][i] = t;
-                tmp[6][i] = t;
-                tmp[7][i] = t;
+                let t = data[src + i] as f32 * self.dct[d][i];
+                for row in 0..8 {
+                    tmp[row][i] = t;
+                }
                 continue;
             }
-            v1 = (data[src + i] as f32) * self.dct[d][i];
-            v2 = (data[src + 8 + i] as f32) * self.dct[d][i + 8];
-            v3 = (data[src + 16 + i] as f32) * self.dct[d][i + 16];
-            v4 = (data[src + 24 + i] as f32) * self.dct[d][i + 24];
-            v5 = (data[src + 32 + i] as f32) * self.dct[d][i + 32];
-            v6 = (data[src + 40 + i] as f32) * self.dct[d][i + 40];
-            v7 = (data[src + 48 + i] as f32) * self.dct[d][i + 48];
-            v8 = (data[src + 56 + i] as f32) * self.dct[d][i + 56];
 
-            v10 = v1 + v5;
-            v11 = v1 - v5;
-            v12 = v3 + v7;
-            v13 = (v3 - v7) * 1.414213562 - v12;
-            v1 = v10 + v12;
-            v7 = v10 - v12;
-            v3 = v11 + v13;
-            v5 = v11 - v13;
-            v14 = v2 + v8;
-            v15 = v2 - v8;
-            v16 = v6 + v4;
-            v17 = v6 - v4;
-            v8 = v14 + v16;
-            v11 = (v14 - v16) * 1.414213562;
-            v9 = (v17 + v15) * 1.847759065;
-            v10 = 1.082392200 * v15 - v9;
-            v13 = -2.613125930 * v17 + v9;
-            v6 = v13 - v8;
-            v4 = v11 - v6;
-            v2 = v10 + v4;
+            let v1 = data[src + i] as f32 * self.dct[d][i];
+            let v2 = data[src + 8 + i] as f32 * self.dct[d][8 + i];
+            let v3 = data[src + 16 + i] as f32 * self.dct[d][16 + i];
+            let v4 = data[src + 24 + i] as f32 * self.dct[d][24 + i];
+            let v5 = data[src + 32 + i] as f32 * self.dct[d][32 + i];
+            let v6 = data[src + 40 + i] as f32 * self.dct[d][40 + i];
+            let v7 = data[src + 48 + i] as f32 * self.dct[d][48 + i];
+            let v8 = data[src + 56 + i] as f32 * self.dct[d][56 + i];
+
+            let v10 = v1 + v5;
+            let v11 = v1 - v5;
+            let v12 = v3 + v7;
+            let v13 = (v3 - v7) * 1.414213562f32 - v12;
+            let v1 = v10 + v12;
+            let v7 = v10 - v12;
+            let v3 = v11 + v13;
+            let v5 = v11 - v13;
+            let v14 = v2 + v8;
+            let v15 = v2 - v8;
+            let v16 = v6 + v4;
+            let v17 = v6 - v4;
+            let v8 = v14 + v16;
+            let v11 = (v14 - v16) * 1.414213562f32;
+            let v9 = (v17 + v15) * 1.847759065f32;
+            let v10 = 1.082392200f32 * v15 - v9;
+            let v13 = -2.613125930f32 * v17 + v9;
+            let v6 = v13 - v8;
+            let v4 = v11 - v6;
+            let v2 = v10 + v4;
+
             tmp[0][i] = v1 + v8;
             tmp[1][i] = v3 + v6;
             tmp[2][i] = v5 + v4;
@@ -858,30 +885,31 @@ impl ParallelCbgDecoder {
             tmp[6][i] = v3 - v6;
             tmp[7][i] = v1 - v8;
         }
-        let mut dst = 0;
-        for i in 0..8usize {
-            v10 = tmp[i][0] + tmp[i][4];
-            v11 = tmp[i][0] - tmp[i][4];
-            v12 = tmp[i][2] + tmp[i][6];
-            v13 = tmp[i][2] - tmp[i][6];
-            v14 = tmp[i][1] + tmp[i][7];
-            v15 = tmp[i][1] - tmp[i][7];
-            v16 = tmp[i][5] + tmp[i][3];
-            v17 = tmp[i][5] - tmp[i][3];
 
-            v13 = 1.414213562 * v13 - v12;
-            v1 = v10 + v12;
-            v7 = v10 - v12;
-            v3 = v11 + v13;
-            v5 = v11 - v13;
-            v8 = v14 + v16;
-            v11 = (v14 - v16) * 1.414213562;
-            v9 = (v15 + v17) * 1.847759065;
-            v10 = v9 - v15 * 1.082392200;
-            v13 = v9 - v17 * 2.613125930;
-            v6 = v13 - v8;
-            v4 = v11 - v6;
-            v2 = v10 - v4;
+        let mut dst = 0;
+        for i in 0..8 {
+            let v10 = tmp[i][0] + tmp[i][4];
+            let v11 = tmp[i][0] - tmp[i][4];
+            let v12 = tmp[i][2] + tmp[i][6];
+            let v13 = tmp[i][2] - tmp[i][6];
+            let v14 = tmp[i][1] + tmp[i][7];
+            let v15 = tmp[i][1] - tmp[i][7];
+            let v16 = tmp[i][5] + tmp[i][3];
+            let v17 = tmp[i][5] - tmp[i][3];
+
+            let v13 = 1.414213562f32 * v13 - v12;
+            let v1 = v10 + v12;
+            let v7 = v10 - v12;
+            let v3 = v11 + v13;
+            let v5 = v11 - v13;
+            let v8 = v14 + v16;
+            let v11 = (v14 - v16) * 1.414213562f32;
+            let v9 = (v17 + v15) * 1.847759065f32;
+            let v10 = v9 - v15 * 1.082392200f32;
+            let v13 = v9 - v17 * 2.613125930f32;
+            let v6 = v13 - v8;
+            let v4 = v11 - v6;
+            let v2 = v10 - v4;
 
             output[dst][channel] = Self::float_to_short(v1 + v8);
             output[dst + 1][channel] = Self::float_to_short(v3 + v6);
@@ -893,11 +921,12 @@ impl ParallelCbgDecoder {
             output[dst + 7][channel] = Self::float_to_short(v1 - v8);
             dst += 8;
         }
+
         Ok(())
     }
 
     fn float_to_short(f: f32) -> i16 {
-        let a = 0x80 + (f as i32 >> 3);
+        let a = 0x80 + ((f as i32) >> 3);
         if a <= 0 {
             0
         } else if a <= 0xff {
