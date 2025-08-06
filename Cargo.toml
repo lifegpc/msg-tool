@@ -19,7 +19,7 @@ json = { version = "0.12", optional = true }
 lazy_static = "1.5.0"
 libtlg-rs = { version = "0.1", optional = true }
 memchr = { version = "2.7", optional = true }
-mozjpeg = { version = "0.10.13", optional = true }
+mozjpeg = { version = "0.10", optional = true }
 msg_tool_macro = { path = "./msg_tool_macro" }
 overf = "0.1"
 png = { version = "0.17", optional = true }
@@ -30,10 +30,11 @@ sha1 = { version = "0.10", optional = true }
 unicode-segmentation = "1.12"
 url = { version = "2.5", optional = true }
 utf16string = "0.2"
+webp = { version = "0.3", default-features = false, optional = true }
 zstd = { version = "0.13", optional = true }
 
 [features]
-default = ["all-fmt", "image-jpg"]
+default = ["all-fmt", "image-jpg", "image-webp"]
 all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
 all-script = ["artemis", "bgi", "cat-system", "circus", "escude", "ex-hibit", "hexen-haus", "kirikiri", "will-plus", "yaneurao", "yaneurao-itufuru"]
 all-img = ["bgi-img", "cat-system-img", "circus-img", "kirikiri-img"]
@@ -63,6 +64,7 @@ yaneurao-itufuru = ["yaneurao"]
 # basic feature
 image = ["png"]
 image-jpg = ["mozjpeg"]
+image-webp = ["webp"]
 # utils feature
 utils-bit-stream = []
 utils-crc32 = []

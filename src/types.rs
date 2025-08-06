@@ -257,6 +257,10 @@ pub struct ExtraConfig {
     pub ex_hibit_rld_def_keys: Option<Box<[u32; 0x100]>>,
     #[cfg(feature = "mozjpeg")]
     pub jpeg_quality: u8,
+    #[cfg(feature = "webp")]
+    pub webp_lossless: bool,
+    #[cfg(feature = "webp")]
+    pub webp_quality: u8,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -469,6 +473,8 @@ pub enum ImageOutputType {
     Png,
     #[cfg(feature = "image-jpg")]
     Jpg,
+    #[cfg(feature = "image-webp")]
+    Webp,
 }
 
 #[cfg(feature = "image")]
@@ -478,6 +484,8 @@ impl AsRef<str> for ImageOutputType {
             ImageOutputType::Png => "png",
             #[cfg(feature = "image-jpg")]
             ImageOutputType::Jpg => "jpg",
+            #[cfg(feature = "image-webp")]
+            ImageOutputType::Webp => "webp",
         }
     }
 }

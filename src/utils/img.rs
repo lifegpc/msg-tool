@@ -219,6 +219,40 @@ pub fn encode_img(
             start.finish()?;
             Ok(())
         }
+        #[cfg(feature = "image-webp")]
+        ImageOutputType::Webp => {
+            let mut file = crate::utils::files::write_file(filename)?;
+            let color_type = match data.color_type {
+                ImageColorType::Rgb => webp::PixelLayout::Rgb,
+                ImageColorType::Rgba => webp::PixelLayout::Rgba,
+                ImageColorType::Bgr => {
+                    convert_bgr_to_rgb(&mut data)?;
+                    webp::PixelLayout::Rgb
+                }
+                ImageColorType::Bgra => {
+                    convert_bgra_to_rgba(&mut data)?;
+                    webp::PixelLayout::Rgba
+                }
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "Unsupported color type for WebP: {:?}",
+                        data.color_type
+                    ));
+                }
+            };
+            if data.depth != 8 {
+                return Err(anyhow::anyhow!(
+                    "WebP encoding only supports 8-bit depth, found: {}",
+                    data.depth
+                ));
+            }
+            let encoder = webp::Encoder::new(&data.data, color_type, data.width, data.height);
+            let re = encoder
+                .encode_simple(config.webp_lossless, config.webp_quality as f32)
+                .map_err(|e| anyhow::anyhow!("Failed to encode WebP image: {:?}", e))?;
+            file.write_all(&re)?;
+            Ok(())
+        }
     }
 }
 
@@ -284,6 +318,38 @@ pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
                 }
             };
             re.read_scanlines_into(&mut data)?;
+            Ok(ImageData {
+                width,
+                height,
+                depth: 8,
+                color_type,
+                data,
+            })
+        }
+        #[cfg(feature = "image-webp")]
+        ImageOutputType::Webp => {
+            let file = crate::utils::files::read_file(filename)?;
+            let decoder = webp::Decoder::new(&file);
+            let image = decoder
+                .decode()
+                .ok_or(anyhow::anyhow!("Failed to decode WebP image"))?;
+            let color_type = if image.is_alpha() {
+                ImageColorType::Rgba
+            } else {
+                ImageColorType::Rgb
+            };
+            let width = image.width();
+            let height = image.height();
+            let stride = width as usize * color_type.bpp(8) as usize / 8;
+            let mut data = vec![0; stride * height as usize];
+            if image.len() != data.len() {
+                return Err(anyhow::anyhow!(
+                    "WebP image data size mismatch: expected {}, got {}",
+                    data.len(),
+                    image.len()
+                ));
+            }
+            data.copy_from_slice(&image);
             Ok(ImageData {
                 width,
                 height,

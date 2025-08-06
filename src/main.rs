@@ -1633,6 +1633,10 @@ fn main() {
         .expect("Failed to load RLD DEF keys"),
         #[cfg(feature = "mozjpeg")]
         jpeg_quality: arg.jpeg_quality,
+        #[cfg(feature = "webp")]
+        webp_lossless: arg.webp_lossless,
+        #[cfg(feature = "webp")]
+        webp_quality: arg.webp_quality,
     };
     match &arg.command {
         args::Command::Export { input, output } => {
