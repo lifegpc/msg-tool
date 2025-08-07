@@ -1,5 +1,4 @@
 use crate::ext::io::*;
-use crate::ext::vec::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::pcm::*;
@@ -456,12 +455,12 @@ impl PcmDecoder {
             self.dword_43a214[i] = reader.read_i32()?;
         }
         self.decode_v1()?;
+        self.pcm_data.truncate(self.pcm_size);
         Ok(self.pcm_data)
     }
 
-    /// #TODO: FIXME
     fn decode_v1(&mut self) -> Result<()> {
-        let v14 = self.pcm_size as i32 / 2;
+        let v14 = self.pcm_size / 2;
         let mut v5 = 0;
         let mut decoded = 0;
         let mut dst_sizea = 0;
@@ -476,16 +475,15 @@ impl PcmDecoder {
             while v9 > -4064 {
                 if v7 + dst_sizea < v14 {
                     let mut v11;
-                    if v9 > 0 && 0 != dst_sizea {
-                        let v10 = (v7 as u32 * self.a2[v8 as usize] as u32) as i64
-                            + (v9 as i32
-                                * (i16::from_le_bytes([
-                                    self.pcm_data[v6 as usize],
-                                    self.pcm_data[v6 as usize + 1],
-                                ]) as i32)) as i64;
+                    if v9 > 0 && dst_sizea != 0 {
+                        let v10 = (v7 as i64).wrapping_mul(self.a2[v8] as u32 as i64)
+                            + (v9 as i64).wrapping_mul(i16::from_le_bytes([
+                                self.pcm_data[v6],
+                                self.pcm_data[v6 + 1],
+                            ]) as i64);
                         v11 = (((v10 >> 32) & 0x1F) as i32 + v10 as i32) >> 5;
                     } else {
-                        v11 = self.a2[v8 as usize];
+                        v11 = self.a2[v8];
                     }
                     if v11 > 32767 {
                         v11 = 32767;
@@ -493,8 +491,8 @@ impl PcmDecoder {
                         v11 = -32768;
                     }
                     let data = (v11 as i16).to_le_bytes();
-                    self.pcm_data[v6 as usize] = data[0];
-                    self.pcm_data[v6 as usize + 1] = data[1];
+                    self.pcm_data[v6] = data[0];
+                    self.pcm_data[v6 + 1] = data[1];
                 }
                 v7 += 1;
                 v6 += 2;
@@ -507,50 +505,38 @@ impl PcmDecoder {
         Ok(())
     }
 
-    fn sub_4121c0(&mut self, a1: i32) -> Result<()> {
+    fn sub_4121c0(&mut self, a1: usize) -> Result<()> {
         let mut v1 = a1;
         let mut v5 = 1;
-        let mut v3 = 0;
-        while v3 < 0x1000 {
-            self.unk_6a16c8[v5 as usize] = self.encoded.cpeek_u8_at(v1 as usize)?;
+        for _ in 0..0x1000 {
+            self.unk_6a16c8[v5] = self.encoded.cpeek_u8_at(v1)?;
             v1 += 1;
             v5 += 2;
-            v3 += 1;
         }
         v5 = 0;
-        let mut v6 = 0;
-        while v6 < 0x800 {
-            let v7 = self.encoded.cpeek_u8_at(v1 as usize + 0x800)?;
-            let v8 = self.encoded.cpeek_u8_at(v1 as usize)?;
-            self.unk_6a16c8[v5 as usize] = (v7 >> 4) | (v8 & 0xF0);
-            self.unk_6a16c8[v5 as usize + 2] = (v8 << 4) | (v7 & 0x0F);
+        for _ in 0..0x800 {
+            let v7 = self.encoded.cpeek_u8_at(v1 + 0x800)?;
+            let v8 = self.encoded.cpeek_u8_at(v1)?;
+            self.unk_6a16c8[v5] = (v7 >> 4) | (v8 & 0xF0);
+            self.unk_6a16c8[v5 + 2] = (v8 << 4) | (v7 & 0x0F);
             v5 += 4;
-            v6 += 1;
+            v1 += 1;
         }
         let mut v9 = 0;
         v5 = 0;
-        let mut v11 = 0;
-        while v11 < 32768 {
-            let result = self.dword_43a214[v11 as usize / 0x1000];
-            let i1 = u16::from_le_bytes([
-                self.unk_6a16c8[v5 as usize],
-                self.unk_6a16c8[v5 as usize + 1],
-            ]) as i32;
-            let i2 = u16::from_le_bytes([
-                self.unk_6a16c8[v5 as usize + 2],
-                self.unk_6a16c8[v5 as usize + 3],
-            ]) as i32;
-            self.a2[v9 as usize] = result * WORD_6A56C8[i1 as usize] as i32;
-            self.a3[v9 as usize] = result * WORD_6A56C8[i2 as usize] as i32;
+        for v11_chunk in (0..32768).step_by(16) {
+            let result = self.dword_43a214[v11_chunk / 0x1000];
+            let i1 = u16::from_le_bytes([self.unk_6a16c8[v5], self.unk_6a16c8[v5 + 1]]) as usize;
+            let i2 =
+                u16::from_le_bytes([self.unk_6a16c8[v5 + 2], self.unk_6a16c8[v5 + 3]]) as usize;
+            self.a2[v9] = result.wrapping_mul(WORD_6A56C8[i1] as i32);
+            self.a3[v9] = result.wrapping_mul(WORD_6A56C8[i2] as i32);
             v9 += 1;
             v5 += 4;
-            v11 += 16;
         }
-        let mut i = v9;
-        while i < 4096 {
+        for i in v9..4096 {
             self.a2[i] = 0;
             self.a3[i] = 0;
-            i += 1;
         }
         Ok(())
     }
@@ -596,12 +582,13 @@ impl PcmDecoder {
                         let v19 = self.a3[v11 as usize] - self.a3[v13 as usize];
                         self.a2[v11 as usize] += v17;
                         self.a3[v11 as usize] += self.a3[v13 as usize];
-                        self.a2[v13 as usize] = (((v18 as i64 * v82 as i64) as u64 >> 12)
-                            + ((v19 as i64 * v80 as i64) as u64 >> 12))
+                        self.a2[v13 as usize] = (((v18 as i64).wrapping_mul(v82 as i64) as u64
+                            >> 12)
+                            + ((v19 as i64).wrapping_mul(v80 as i64) as u64 >> 12))
                             as i32;
-                        self.a3[v13 as usize] = (((v19 as i64 * v82 as i64) as u64 >> 12)
-                            - ((v18 as i64 * v80 as i64) as u64 >> 12))
-                            as i32;
+                        let pv = (v19 as i64).wrapping_mul(v82 as i64) as u64 >> 12;
+                        let nv = (v18 as i64).wrapping_mul(v80 as i64) as u64 >> 12;
+                        self.a3[v13 as usize] = pv.wrapping_sub(nv) as i32;
                         let v20 = self.a2[v69 as usize] - self.a2[v71 as usize];
                         let v21 = v64;
                         let v22 = self.a3[v64 as usize - 1] - self.a3[v12 as usize - 1];
@@ -614,11 +601,12 @@ impl PcmDecoder {
                         let v25 = self.a3[v64 as usize] - self.a3[v12 as usize];
                         self.a2[v21 as usize] += v23;
                         self.a3[v21 as usize] += self.a3[v12 as usize];
-                        self.a2[v12 as usize] = (((v25 as i64 * v82 as i64) as u64 >> 12)
-                            - ((v24 as i64 * v80 as i64) as u64 >> 12))
-                            as i32;
-                        self.a3[v12 as usize] = (-((((v24 as i64 * v82 as i64) as u64 >> 12)
-                            + ((v25 as i64 * v80 as i64) as u64 >> 12))
+                        let pv = (v25 as i64).wrapping_mul(v82 as i64) as u64 >> 12;
+                        let nv = (v24 as i64).wrapping_mul(v80 as i64) as u64 >> 12;
+                        self.a2[v12 as usize] = pv.wrapping_sub(nv) as i32;
+                        self.a3[v12 as usize] = (-((((v24 as i64).wrapping_mul(v82 as i64) as u64
+                            >> 12)
+                            + ((v25 as i64).wrapping_mul(v80 as i64) as u64 >> 12))
                             as i64)) as i32;
                         v13 += v63;
                         v75 += v63;
@@ -660,22 +648,23 @@ impl PcmDecoder {
                                 let v33 = self.a3[v28 as usize] - self.a3[v29 as usize];
                                 self.a2[v28 as usize] += v31;
                                 self.a3[v28 as usize] += self.a3[v29 as usize];
-                                self.a2[v29 as usize] = (((v32 as i64 * v83 as i64) as u64 >> 12)
-                                    + ((v33 as i64 * v81 as i64) as u64 >> 12))
-                                    as i32;
-                                self.a3[v29 as usize] = (((v33 as i64 * v83 as i64) as u64 >> 12)
-                                    - ((v32 as i64 * v81 as i64) as u64 >> 12))
-                                    as i32;
+                                self.a2[v29 as usize] =
+                                    (((v32 as i64).wrapping_mul(v83 as i64) as u64 >> 12)
+                                        + ((v33 as i64).wrapping_mul(v81 as i64) as u64 >> 12))
+                                        as i32;
+                                let pv = (v33 as i64).wrapping_mul(v83 as i64) as u64 >> 12;
+                                let nv = (v32 as i64).wrapping_mul(v81 as i64) as u64 >> 12;
+                                self.a3[v29 as usize] = pv.wrapping_sub(nv) as i32;
                                 let v34 = self.a2[v65 as usize] - self.a2[v85 as usize];
                                 let v35 = self.a3[v65 as usize] - self.a3[v85 as usize];
                                 self.a2[v65 as usize] += self.a2[v85 as usize];
                                 self.a3[v65 as usize] += self.a3[v85 as usize];
-                                self.a2[v85 as usize] = (((v35 as i64 * v83 as i64) as u64 >> 12)
-                                    - ((v34 as i64 * v81 as i64) as u64 >> 12))
-                                    as i32;
+                                let pv = (v35 as i64).wrapping_mul(v83 as i64) as u64 >> 12;
+                                let nv = (v34 as i64).wrapping_mul(v81 as i64) as u64 >> 12;
+                                self.a2[v85 as usize] = pv.wrapping_sub(nv) as i32;
                                 self.a3[v85 as usize] =
-                                    (-((((v34 as i64 * v83 as i64) as u64 >> 12)
-                                        + ((v35 as i64 * v81 as i64) as u64 >> 12))
+                                    (-((((v34 as i64).wrapping_mul(v83 as i64) as u64 >> 12)
+                                        + ((v35 as i64).wrapping_mul(v81 as i64) as u64 >> 12))
                                         as i64)) as i32;
                                 v29 += v63;
                                 v85 += v63;
@@ -773,15 +762,10 @@ impl PcmDecoder {
                 }
                 v51 += result;
                 if v90 < v51 {
-                    let v55 = self.a2[(v45 + v51) as usize];
-                    self.a2[(v45 + v51) as usize] = self.a2[v54 as usize];
-                    self.a2[v54 as usize] = v55;
-                    let v56 = self.a3[v51 as usize];
-                    self.a3[v51 as usize] = self.a3[v54 as usize];
-                    self.a3[v54 as usize] = v56;
+                    self.a2.swap((v45 + v51) as usize, v54 as usize);
+                    self.a3.swap(v51 as usize, v54 as usize);
                 }
                 v54 += 1;
-                // result = v79 - 1;
                 v90 += 1;
                 if v90 >= v79 - 1 {
                     break;
@@ -791,10 +775,9 @@ impl PcmDecoder {
             v6 = v79;
         }
         while v6 > 0 {
-            let mut eax = self.a2[v45 as usize] << 4;
-            let edx = (((eax as i64) >> 32) & 0x3FFF) as i32;
-            eax += edx;
-            self.a2[v45 as usize] = eax >> 14;
+            let eax = self.a2[v45] << 4;
+            let edx = if eax < 0 { 0x3FFF } else { 0 };
+            self.a2[v45] = eax.wrapping_add(edx) >> 14;
             v45 += 1;
             v6 -= 1;
         }
@@ -804,8 +787,7 @@ impl PcmDecoder {
         let packed_size = input.len();
         let mut flag = 0;
         let mut src = 0;
-        let mut output = vec![0u8];
-        let mut dstt = 0;
+        let mut output = Vec::new();
         while src < packed_size {
             flag >>= 1;
             if (flag & 0x100) == 0 {
@@ -815,7 +797,6 @@ impl PcmDecoder {
             if (flag & 1) != 0 {
                 output.push(input[src]);
                 src += 1;
-                dstt += 1;
             } else {
                 if src >= packed_size {
                     break;
@@ -825,30 +806,30 @@ impl PcmDecoder {
                 let ctl = input[src] as u32;
                 src += 1;
                 if ctl >= 0xc0 {
-                    offset = input[src] as u32 | ((ctl & 3) << 8);
+                    offset = input[src] as usize | (((ctl & 3) << 8) as usize);
                     src += 1;
-                    count = 4 + ((ctl >> 2) & 0xF);
+                    count = 4 + ((ctl >> 2) & 0xF) as usize;
                 } else if ctl & 0x80 != 0 {
-                    offset = ctl & 0x1F;
-                    count = 2 + ((ctl >> 5) & 3);
+                    offset = (ctl & 0x1F) as usize;
+                    count = (2 + ((ctl >> 5) & 3)) as usize;
                     if offset == 0 {
-                        offset = input[src] as u32;
+                        offset = input[src] as usize;
                         src += 1;
                     }
                 } else if ctl == 0x7F {
-                    count = 2 + u16::from_le_bytes([input[src], input[src + 1]]) as u32;
-                    src += 2;
-                    offset = u16::from_le_bytes([input[src], input[src + 1]]) as u32;
-                    src += 2;
+                    count = (2 + u16::from_le_bytes([input[src], input[src + 1]])) as usize;
+                    offset = u16::from_le_bytes([input[src + 2], input[src + 3]]) as usize;
+                    src += 4;
                 } else {
-                    offset = u16::from_le_bytes([input[src], input[src + 1]]) as u32;
+                    offset = u16::from_le_bytes([input[src], input[src + 1]]) as usize;
                     src += 2;
-                    count = ctl + 4;
+                    count = (ctl + 4) as usize;
                 }
-                offset = dstt - offset;
-                output.resize(dstt as usize + count as usize, 0);
-                output.copy_overlapped(offset as usize, dstt as usize, count as usize);
-                dstt += count;
+                let dst = output.len();
+                let copy_src = dst - offset;
+                for i in 0..count {
+                    output.push(output[copy_src + i]);
+                }
             }
         }
         Ok(output)
