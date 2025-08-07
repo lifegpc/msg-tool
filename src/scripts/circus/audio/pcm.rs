@@ -82,6 +82,7 @@ impl ScriptBuilder for PcmBuilder {
 enum Mode {
     Raw = 0,
     Lzss = 1,
+    Adpcm = 2,
     Zlib = 3,
     Ogg = 5,
 }
@@ -138,6 +139,7 @@ impl Pcm {
                 reader.read_exact(&mut data)?;
                 data
             }
+            Mode::Adpcm => Self::decode_adpcm(&mut reader, header.src_size as usize)?,
             _ => {
                 PcmDecoder::new(reader, header.src_size as usize, header.extra(), mode)?.unpack()?
             }
@@ -146,6 +148,35 @@ impl Pcm {
             header,
             data: MemReader::new(data),
         })
+    }
+
+    fn decode_adpcm<R: Read + Seek>(mut input: R, pcm_size: usize) -> Result<Vec<u8>> {
+        let input_len = input.stream_length()? - input.stream_position()?;
+        let mut output = Vec::with_capacity(pcm_size);
+        let mut table = [0u32; 6];
+        let mut channel = 0;
+        let mut src = 0;
+        let mut dst = 0;
+        while src < input_len && dst < pcm_size as u32 {
+            let data = input.read_i8()?;
+            src += 1;
+            table[channel * 3] =
+                table[channel * 3].wrapping_add((data as u32) << (table[channel * 3 + 1] & 0xFF));
+            if data == 0 {
+                if table[channel * 3 + 1] != 0 {
+                    table[channel * 3 + 1] = table[channel * 3 + 1].wrapping_sub(1);
+                }
+            } else if data == 0x7F || data == -0x80 {
+                if table[channel * 3 + 1] != 8 {
+                    table[channel * 3 + 1] = table[channel * 3 + 1].wrapping_add(1);
+                }
+            }
+            output.push(table[channel * 3] as u8);
+            output.push((table[channel * 3] >> 8) as u8);
+            channel = 1 - channel;
+            dst += 2;
+        }
+        Ok(output)
     }
 }
 
