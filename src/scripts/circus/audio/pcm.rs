@@ -805,48 +805,50 @@ impl PcmDecoder {
         let mut flag = 0;
         let mut src = 0;
         let mut output = vec![0u8];
+        let mut dstt = 0;
         while src < packed_size {
             flag >>= 1;
             if (flag & 0x100) == 0 {
-                flag = input[src] as i32 | 0xFF00;
+                flag = input[src] as u32 | 0xFF00;
                 src += 1;
             }
             if (flag & 1) != 0 {
                 output.push(input[src]);
                 src += 1;
+                dstt += 1;
             } else {
                 if src >= packed_size {
                     break;
                 }
                 let mut offset;
                 let count;
-                let ctl = input[src] as i32;
+                let ctl = input[src] as u32;
                 src += 1;
                 if ctl >= 0xc0 {
-                    offset = input[src] as i32 | ((ctl & 3) << 8);
+                    offset = input[src] as u32 | ((ctl & 3) << 8);
                     src += 1;
                     count = 4 + ((ctl >> 2) & 0xF);
                 } else if ctl & 0x80 != 0 {
                     offset = ctl & 0x1F;
                     count = 2 + ((ctl >> 5) & 3);
                     if offset == 0 {
-                        offset = input[src] as i32;
+                        offset = input[src] as u32;
                         src += 1;
                     }
                 } else if ctl == 0x7F {
-                    count = 2 + u16::from_le_bytes([input[src], input[src + 1]]) as i32;
+                    count = 2 + u16::from_le_bytes([input[src], input[src + 1]]) as u32;
                     src += 2;
-                    offset = u16::from_le_bytes([input[src], input[src + 1]]) as i32;
+                    offset = u16::from_le_bytes([input[src], input[src + 1]]) as u32;
                     src += 2;
                 } else {
-                    offset = u16::from_le_bytes([input[src], input[src + 1]]) as i32;
+                    offset = u16::from_le_bytes([input[src], input[src + 1]]) as u32;
                     src += 2;
                     count = ctl + 4;
                 }
-                let dst = output.len();
-                offset = dst as i32 - offset;
-                output.resize(dst + count as usize, 0);
-                output.copy_overlapped(offset as usize, dst, count as usize);
+                offset = dstt - offset;
+                output.resize(dstt as usize + count as usize, 0);
+                output.copy_overlapped(offset as usize, dstt as usize, count as usize);
+                dstt += count;
             }
         }
         Ok(output)
