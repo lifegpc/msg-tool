@@ -308,6 +308,10 @@ fn detect_script_type(_buf: &[u8], _buf_len: usize, _filename: &str) -> Option<S
     if _buf_len >= 4 && _buf.starts_with(b"CRXG") {
         return Some(ScriptType::CircusCrx);
     }
+    #[cfg(feature = "circus-audio")]
+    if _buf_len >= 4 && _buf.starts_with(b"XPCM") {
+        return Some(ScriptType::CircusPcm);
+    }
     None
 }
 
@@ -442,11 +446,7 @@ impl<'a, T: Write + Seek> Seek for PckArchiveFile<'a, T> {
 pub fn is_this_format(buf: &[u8]) -> Result<u8> {
     let mut reader = MemReaderRef::new(buf);
     let count = reader.read_u32()? as usize;
-    let mut score = if count > 0 && count < 0x40000 {
-        5
-    } else {
-        0
-    };
+    let mut score = if count > 0 && count < 0x40000 { 5 } else { 0 };
     let avail_count = ((buf.len() - 4) / 0x8).min(count);
     score += ((avail_count / 2).min(10)) as u8;
     if avail_count == 0 {
