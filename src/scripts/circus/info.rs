@@ -54,7 +54,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0x43,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "ffexs",
@@ -66,7 +66,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x50, 0xFF),
         0x43,
         0x20,
-        0xFF,
+        0x4D,
     ),
     ScriptInfo::new(
         "ef",
@@ -78,7 +78,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4F, 0xFF),
         0x46,
         0x20,
-        0xFF,
+        0x4C,
     ),
     ScriptInfo::new(
         "dcos",
@@ -90,7 +90,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4A, 0xFF),
         0x42,
         0x20,
-        0xFF,
+        0x47,
     ),
     ScriptInfo::new(
         "ktlep",
@@ -102,7 +102,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0x45,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "dcws",
@@ -114,7 +114,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x51, 0xFF),
         0x48,
         0x20,
-        0xFF,
+        0x4E,
     ),
     ScriptInfo::new(
         "dcsv",
@@ -126,7 +126,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x51, 0xFF),
         0x46,
         0x20,
-        0xFF,
+        0x4E,
     ),
     ScriptInfo::new(
         "dcpc",
@@ -138,7 +138,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0x44,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "dcmems",
@@ -150,7 +150,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4A, 0xFF),
         0x42,
         0x20,
-        0xFF,
+        0x47,
     ),
     ScriptInfo::new(
         "dcdx",
@@ -162,7 +162,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0x45,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "dcas",
@@ -174,7 +174,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0x43,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "dcbs",
@@ -186,7 +186,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4D, 0xFF),
         0xFF,
         0x20,
-        0xFF,
+        0x4A,
     ),
     ScriptInfo::new(
         "dc2fl",
@@ -198,7 +198,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0x45,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "dc2bs",
@@ -210,7 +210,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x51, 0xFF),
         0xFF,
         0x20,
-        0xFF,
+        0x4E,
     ),
     ScriptInfo::new(
         "dc2dm",
@@ -222,7 +222,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x51, 0xFF),
         0x44,
         0x20,
-        0xFF,
+        0x4E,
     ),
     ScriptInfo::new(
         "dc2fy",
@@ -234,7 +234,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x50, 0xFF),
         0x48,
         0x20,
-        0xFF,
+        0x4D,
     ),
     ScriptInfo::new(
         "dc2cckko",
@@ -246,7 +246,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x51, 0xFF),
         0xFF,
         0x20,
-        0xFF,
+        0x4E,
     ),
     ScriptInfo::new(
         "dc2ccotm",
@@ -258,7 +258,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x51, 0xFF),
         0xFF,
         0x20,
-        0xFF,
+        0x4E,
     ),
     ScriptInfo::new(
         "dc2sc",
@@ -270,7 +270,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0x45,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "dc2ty",
@@ -282,7 +282,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0xFF,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "dc2pc",
@@ -294,7 +294,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x4E, 0xFF),
         0x45,
         0x20,
-        0xFF,
+        0x4B,
     ),
     ScriptInfo::new(
         "dc3rx",
@@ -306,7 +306,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x53, 0xFF),
         0x45,
         0x20,
-        0xFF,
+        0x50,
     ),
     ScriptInfo::new(
         "dc3pp",
@@ -318,7 +318,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x52, 0xFF),
         0x45,
         0x20,
-        0xFF,
+        0x50,
     ),
     ScriptInfo::new(
         "dc3wy",
@@ -330,7 +330,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x64, 0xFF),
         0x55,
         0x20,
-        0xFF,
+        0x61,
     ),
     ScriptInfo::new(
         "dc3dd",
@@ -342,7 +342,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x68, 0xFF),
         0x58,
         0x20,
-        0xFF,
+        0x64,
     ),
     ScriptInfo::new(
         "dc4",
@@ -354,7 +354,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x6E, 0xFF),
         0x5D,
         0x20,
-        0xFF,
+        0x6A,
     ),
     ScriptInfo::new(
         "dc4ph",
@@ -366,7 +366,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x6E, 0xFF),
         0x5D,
         0x20,
-        0xFF,
+        0x6A,
     ),
     ScriptInfo::new(
         "ds",
@@ -414,7 +414,7 @@ const SCRIPT_INFO: [ScriptInfo; 31] = [
         (0x53, 0xFF),
         0x43,
         0x01,
-        0xFF,
+        0x50,
     ),
 ];
 
