@@ -1640,6 +1640,8 @@ fn main() {
         webp_lossless: arg.webp_lossless,
         #[cfg(feature = "webp")]
         webp_quality: arg.webp_quality,
+        #[cfg(feature = "circus-img")]
+        circus_crx_canvas: arg.circus_crx_canvas,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

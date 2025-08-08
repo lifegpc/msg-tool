@@ -90,7 +90,8 @@ impl CrxdImage {
             nf.set_file_name(name);
             let f = std::fs::File::open(nf)?;
             CrxImage::new(std::io::BufReader::new(f), config)?
-        };
+        }
+        .with_canvas(false);
         let mut typ = [0; 4];
         reader.read_exact(&mut typ)?;
         if typ == *b"CRXJ" {
@@ -107,7 +108,7 @@ impl CrxdImage {
             return Ok(Self { base, diff });
         } else if typ == *b"CRXG" {
             let reader = StreamRegion::with_start_pos(reader, 0x20)?;
-            let diff = CrxImage::new(reader, config)?;
+            let diff = CrxImage::new(reader, config)?.with_canvas(false);
             return Ok(Self { base, diff });
         }
         Err(anyhow::anyhow!("Unsupported diff CRXD type: {:?}", typ))
@@ -129,16 +130,17 @@ impl CrxdImage {
         if typ == *b"CRXJ" {
             reader.seek_relative(4)?;
             let offset = reader.read_u32()?;
-            return Ok(CrxImage::new(
+            return Self::read_diff(
                 archive
                     .ok_or(anyhow::anyhow!("No archive provided"))?
                     .open_file_by_offset(offset as u64)?
                     .to_data()?,
+                archive,
                 config,
-            )?);
+            );
         } else if typ == *b"CRXG" {
             let reader = StreamRegion::with_start_pos(reader, 0x20)?;
-            return Ok(CrxImage::new(reader, config)?);
+            return Ok(CrxImage::new(reader, config)?.with_canvas(false));
         }
         Err(anyhow::anyhow!("Unsupported diff CRXD type: {:?}", typ))
     }

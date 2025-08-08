@@ -263,6 +263,8 @@ pub struct ExtraConfig {
     pub webp_lossless: bool,
     #[cfg(feature = "webp")]
     pub webp_quality: u8,
+    #[cfg(feature = "circus-img")]
+    pub circus_crx_canvas: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

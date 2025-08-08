@@ -263,6 +263,10 @@ pub struct Arg {
     #[arg(long, global = true, value_enum, default_value_t = crate::scripts::circus::image::crx::CircusCrxMode::Auto)]
     /// Circus CRX image row type mode
     pub circus_crx_mode: crate::scripts::circus::image::crx::CircusCrxMode,
+    #[cfg(feature = "circus-img")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Draw Circus CRX images on canvas (if canvas width and height are specified in file)
+    pub circus_crx_canvas: bool,
     #[arg(short = 'F', long, global = true, action = ArgAction::SetTrue)]
     /// Force all files in archive to be treated as script files.
     pub force_script: bool,

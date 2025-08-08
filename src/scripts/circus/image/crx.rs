@@ -169,6 +169,7 @@ pub struct CrxImage {
     zstd: bool,
     zstd_compression_level: i32,
     row_type: CircusCrxMode,
+    canvas: bool,
 }
 
 impl std::fmt::Debug for CrxImage {
@@ -230,7 +231,13 @@ impl CrxImage {
             zstd: config.circus_crx_zstd,
             zstd_compression_level: config.zstd_compression_level,
             row_type: config.circus_crx_mode.for_importing(),
+            canvas: config.circus_crx_canvas,
         })
+    }
+
+    pub fn with_canvas(mut self, canvas: bool) -> Self {
+        self.canvas = canvas;
+        self
     }
 
     pub fn draw_diff(&self, diff: &Self) -> Result<ImageData> {
@@ -810,13 +817,29 @@ impl Script for CrxImage {
                 data[i + 3] = a ^ alpha_flip;
             }
         }
-        Ok(ImageData {
+        let img = ImageData {
             width: self.header.width as u32,
             height: self.header.height as u32,
             depth: 8,
             color_type: self.color_type,
             data,
-        })
+        };
+        if self.canvas {
+            let (img_width, img_height) = if self.header.clips.is_empty() {
+                (self.header.width as u32, self.header.height as u32)
+            } else {
+                let clip = &self.header.clips[0];
+                (clip.img_width as u32, clip.img_height as u32)
+            };
+            return Ok(draw_on_canvas(
+                img,
+                img_width,
+                img_height,
+                self.header.inner_x as u32,
+                self.header.inner_y as u32,
+            )?);
+        }
+        Ok(img)
     }
 
     fn import_image<'a>(
