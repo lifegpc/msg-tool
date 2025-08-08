@@ -102,6 +102,10 @@ impl ScriptBuilder for PckArchiveBuilder {
             writer, files, encoding, config,
         )?))
     }
+
+    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+        is_this_format(&buf[..buf_len]).ok()
+    }
 }
 
 #[derive(Debug, Clone, StructPack, StructUnpack)]
@@ -433,4 +437,33 @@ impl<'a, T: Write + Seek> Seek for PckArchiveFile<'a, T> {
         self.pos = new_pos;
         Ok(self.pos as u64)
     }
+}
+
+pub fn is_this_format(buf: &[u8]) -> Result<u8> {
+    let mut reader = MemReaderRef::new(buf);
+    let count = reader.read_u32()? as usize;
+    let mut score = if count > 0 && count < 0x40000 {
+        5
+    } else {
+        0
+    };
+    let avail_count = ((buf.len() - 4) / 0x8).min(count);
+    score += ((avail_count / 2).min(10)) as u8;
+    if avail_count == 0 {
+        return Err(anyhow::anyhow!("No valid entries found in PCK archive"));
+    }
+    let mut prev_off = reader.read_u32()?;
+    let mut prev_size = reader.read_u32()?;
+    let mut index = 1;
+    while index < avail_count {
+        let off = reader.read_u32()?;
+        let size = reader.read_u32()?;
+        if off < prev_off || prev_off + prev_size != off {
+            return Err(anyhow::anyhow!("Invalid offset."));
+        }
+        prev_off = off;
+        prev_size = size;
+        index += 1;
+    }
+    Ok(score)
 }
