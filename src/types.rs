@@ -326,6 +326,9 @@ pub enum ScriptType {
     /// Circus MES script
     Circus,
     #[cfg(feature = "circus-arc")]
+    /// Circus DAT archive
+    CircusDat,
+    #[cfg(feature = "circus-arc")]
     /// Circus PCK archive
     CircusPck,
     #[cfg(feature = "circus-audio")]

@@ -7,9 +7,13 @@ pub trait ReadSeek: Read + Seek + std::fmt::Debug {}
 
 pub trait WriteSeek: Write + Seek {}
 
+pub trait AnyDebug: std::fmt::Debug + std::any::Any {}
+
 impl<T: Read + Seek + std::fmt::Debug> ReadSeek for T {}
 
 impl<T: Write + Seek> WriteSeek for T {}
+
+impl<T: std::fmt::Debug + std::any::Any> AnyDebug for T {}
 
 pub trait ScriptBuilder: std::fmt::Debug {
     fn default_encoding(&self) -> Encoding;
@@ -367,6 +371,10 @@ pub trait Script: std::fmt::Debug + std::any::Any {
         let f = std::fs::File::create(filename)?;
         let f = std::io::BufWriter::new(f);
         self.import_multi_image(data, Box::new(f))
+    }
+
+    fn extra_info<'a>(&'a self) -> Option<Box<dyn AnyDebug + 'a>> {
+        None
     }
 }
 
