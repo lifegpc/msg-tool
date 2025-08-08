@@ -7,6 +7,7 @@ use anyhow::Result;
 use clap::ValueEnum;
 use clap::builder::PossibleValue;
 use msg_tool_macro::*;
+use overf::wrapping;
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,12 +136,12 @@ impl ScriptBuilder for CrxImageBuilder {
 #[derive(Clone, Debug, StructPack, StructUnpack)]
 struct Clip {
     field_0: u32,
+    img_width: u16,
+    img_height: u16,
+    clip_offset_x: u16,
+    clip_offset_y: u16,
     clip_width: u16,
     clip_height: u16,
-    field_8: u16,
-    field_a: u16,
-    width: u16,
-    height: u16,
 }
 
 #[derive(Clone, Debug, StructPack, StructUnpack)]
@@ -230,6 +231,43 @@ impl CrxImage {
             zstd_compression_level: config.zstd_compression_level,
             row_type: config.circus_crx_mode.for_importing(),
         })
+    }
+
+    pub fn draw_diff(&self, diff: &Self) -> Result<ImageData> {
+        let base_header = &self.header;
+        let diff_header = &diff.header;
+        let (img_width, img_height) =
+            if base_header.clips.is_empty() && diff_header.clips.is_empty() {
+                (
+                    (base_header.width + base_header.inner_x)
+                        .max(diff_header.width + diff_header.inner_x),
+                    (base_header.height + base_header.inner_y)
+                        .max(diff_header.height + diff_header.inner_y),
+                )
+            } else {
+                if base_header.clips.is_empty() {
+                    let clip = &diff_header.clips[0];
+                    (clip.img_width, clip.img_height)
+                } else {
+                    let clip = &base_header.clips[0];
+                    (clip.img_width, clip.img_height)
+                }
+            };
+        let base = self.export_image()?;
+        let mut nw = draw_on_canvas(
+            base,
+            img_width as u32,
+            img_height as u32,
+            base_header.inner_x as u32,
+            base_header.inner_y as u32,
+        )?;
+        draw_on_img(
+            &mut nw,
+            &diff.export_image()?,
+            diff_header.inner_x as u32,
+            diff_header.inner_y as u32,
+        )?;
+        Ok(nw)
     }
 
     fn decode_row0(
@@ -906,4 +944,56 @@ impl Script for CrxImage {
         file.write_all(&compressed)?;
         Ok(())
     }
+}
+
+fn draw_on_img(base: &mut ImageData, diff: &ImageData, left: u32, top: u32) -> Result<()> {
+    if base.color_type != diff.color_type {
+        return Err(anyhow::anyhow!(
+            "Color types do not match: {:?} vs {:?}",
+            base.color_type,
+            diff.color_type
+        ));
+    }
+    let bpp = base.color_type.bpp(1) as usize;
+    let base_stride = base.width as usize * bpp;
+    let diff_stride = diff.width as usize * bpp;
+
+    for y in 0..diff.height {
+        let base_y = top + y;
+        if base_y >= base.height {
+            continue; // Skip if the base image is not tall enough
+        }
+
+        for x in 0..diff.width {
+            let base_x = left + x;
+            if base_x >= base.width {
+                continue; // Skip if the base image is not wide enough
+            }
+
+            let base_index = (base_y as usize * base_stride) + (base_x as usize * bpp);
+            let diff_index = (y as usize * diff_stride) + (x as usize * bpp);
+
+            let diff_pixel = &diff.data[diff_index..diff_index + bpp];
+            let base_pixel_orig = base.data[base_index..base_index + bpp].to_vec();
+            let mut b = base_pixel_orig[0];
+            let mut g = base_pixel_orig[1];
+            let mut r = base_pixel_orig[2];
+            wrapping! {
+                b += diff_pixel[0];
+                g += diff_pixel[1];
+                r += diff_pixel[2];
+            }
+            base.data[base_index] = b;
+            base.data[base_index + 1] = g;
+            base.data[base_index + 2] = r;
+            if bpp == 4 {
+                let mut a = base_pixel_orig[3];
+                wrapping! {
+                    a -= diff_pixel[3];
+                }
+                base.data[base_index + 3] = a;
+            }
+        }
+    }
+    Ok(())
 }

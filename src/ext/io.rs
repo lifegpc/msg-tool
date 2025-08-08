@@ -1268,3 +1268,77 @@ impl CPeek for MemWriter {
         self.to_ref().cpeek_cstring()
     }
 }
+
+pub struct StreamRegion<T: Seek> {
+    stream: T,
+    start_pos: u64,
+    end_pos: u64,
+    cur_pos: u64,
+}
+
+impl<T: Seek> StreamRegion<T> {
+    pub fn new(stream: T, start_pos: u64, end_pos: u64) -> Result<Self> {
+        if start_pos > end_pos {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Start position cannot be greater than end position",
+            ));
+        }
+        Ok(Self {
+            stream,
+            start_pos,
+            end_pos,
+            cur_pos: 0,
+        })
+    }
+
+    pub fn with_start_pos(mut stream: T, start_pos: u64) -> Result<Self> {
+        let end_pos = stream.stream_length()?;
+        Self::new(stream, start_pos, end_pos)
+    }
+}
+
+impl<T: Read + Seek> Read for StreamRegion<T> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if self.cur_pos + self.start_pos >= self.end_pos {
+            return Ok(0); // EOF
+        }
+        self.stream
+            .seek(SeekFrom::Start(self.start_pos + self.cur_pos))?;
+        let bytes_to_read = (self.end_pos - self.start_pos - self.cur_pos) as usize;
+        let m = buf.len().min(bytes_to_read);
+        let readed = self.stream.read(&mut buf[..m])?;
+        self.cur_pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+impl<T: Seek> Seek for StreamRegion<T> {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => self.start_pos + offset,
+            SeekFrom::End(offset) => (self.end_pos as i64 + offset as i64) as u64,
+            SeekFrom::Current(offset) => {
+                (self.start_pos as i64 + self.cur_pos as i64 + offset as i64) as u64
+            }
+        };
+        if new_pos < self.start_pos || new_pos > self.end_pos {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Seek position out of bounds",
+            ));
+        }
+        self.cur_pos = new_pos - self.start_pos;
+        self.stream.seek(SeekFrom::Start(new_pos))
+    }
+
+    fn stream_position(&mut self) -> Result<u64> {
+        Ok(self.cur_pos)
+    }
+
+    fn rewind(&mut self) -> Result<()> {
+        self.cur_pos = 0;
+        self.stream.seek(SeekFrom::Start(self.start_pos))?;
+        Ok(())
+    }
+}

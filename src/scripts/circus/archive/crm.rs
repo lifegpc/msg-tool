@@ -282,5 +282,9 @@ fn detect_script_type(_buf: &[u8], _buf_len: usize, _filename: &str) -> Option<S
     if _buf_len >= 4 && _buf.starts_with(b"CRXG") {
         return Some(ScriptType::CircusCrx);
     }
+    #[cfg(feature = "circus-img")]
+    if _buf_len >= 4 && _buf.starts_with(b"CRXD") {
+        return Some(ScriptType::CircusCrxd);
+    }
     None
 }
