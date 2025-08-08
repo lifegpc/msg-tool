@@ -94,6 +94,8 @@ lazy_static::lazy_static! {
         Box::new(ex_hibit::rld::RldScriptBuilder::new()),
         #[cfg(feature = "circus-arc")]
         Box::new(circus::archive::dat::DatArchiveBuilder::new()),
+        #[cfg(feature = "circus-arc")]
+        Box::new(circus::archive::crm::CrmArchiveBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();
