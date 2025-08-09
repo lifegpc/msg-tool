@@ -83,6 +83,10 @@ msg-tool create -t <script-type> <input> <output>
 | `bgi-arc-v1`/`ethornell-arc-v1` | `bgi-arc` | Buriko General Interpreter/Ethornell Archive File Version 1 (.arc) | ✔️ | ✔️ | |
 | `bgi-arc`/`bgi-arc-v2`/`ethornell-arc`/`ethornell-arc-v2` | `bgi-arc` | Buriko General Interpreter/Ethornell Archive File Version 2 (.arc) | ✔️ | ✔️ | |
 
+| Audio Type | Feature Name | Name | Export | Import | Create | Remarks |
+|---|---|---|---|---|---|---|
+| `bgi-audio`/`ethornell-audio` | `bgi-audio` | Buriko General Interpreter/Ethornell Audio File (Ogg/Vorbis) | ✔️ | ❌ | ❌ | |
+
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `bgi-img`/`ethornell-img` | `bgi-img` | Buriko General Interpreter/Ethornell Uncompressed Image File | ✔️ | ✔️ | ❌ | ❌ | ✔️ | Image files in `sysgrp.arc` |

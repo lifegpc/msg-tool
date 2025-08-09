@@ -304,6 +304,10 @@ pub enum ScriptType {
     #[value(alias("ethornell-dsc"))]
     /// Buriko General Interpreter/Ethornell compressed file (DSC)
     BGIDsc,
+    #[cfg(feature = "bgi-audio")]
+    #[value(alias("ethornell-audio"))]
+    /// Buriko General Interpreter/Ethornell audio file (Ogg/Vorbis)
+    BGIAudio,
     #[cfg(feature = "bgi-img")]
     #[value(alias("ethornell-img"))]
     /// Buriko General Interpreter/Ethornell image (Image files in sysgrp.arc)

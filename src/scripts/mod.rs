@@ -98,6 +98,8 @@ lazy_static::lazy_static! {
         Box::new(circus::archive::crm::CrmArchiveBuilder::new()),
         #[cfg(feature = "circus-img")]
         Box::new(circus::image::crxd::CrxdImageBuilder::new()),
+        #[cfg(feature = "bgi-audio")]
+        Box::new(bgi::audio::audio::BgiAudioBuilder::new()),
     ];
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();

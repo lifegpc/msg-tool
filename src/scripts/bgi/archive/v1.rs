@@ -489,6 +489,10 @@ fn detect_script_type(buf: &[u8], buf_len: usize, filename: &str) -> Option<&'st
     if buf_len >= 16 && buf.starts_with(b"CompressedBG___") {
         return Some(&ScriptType::BGICbg);
     }
+    #[cfg(feature = "bgi-audio")]
+    if buf_len >= 8 && buf[4..].starts_with(b"bw  ") {
+        return Some(&ScriptType::BGIAudio);
+    }
     let filename = filename.to_lowercase();
     if filename.ends_with("._bp") {
         return Some(&ScriptType::BGIBp);
