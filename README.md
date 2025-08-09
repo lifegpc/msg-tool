@@ -87,3 +87,77 @@ msg-tool create -t <script-type> <input> <output>
 |---|---|---|---|---|---|---|---|---|
 | `bgi-img`/`ethornell-img` | `bgi-img` | Buriko General Interpreter/Ethornell Uncompressed Image File | ✔️ | ✔️ | ❌ | ❌ | ✔️ | Image files in `sysgrp.arc` |
 | `bgi-cbg`/`ethornell-cbg` | `bgi-img` | Buriko General Interpreter/Ethornell Compressed Image File | ✔️ | ❌  | ❌ | ❌ | ❌  | |
+### CatSystem2
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `cat-system` | `cat-system` | CatSystem2 Scene Script File (.cst) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
+| `cat-system-cstl` | `cat-system` | CatSystem2 Scene I18N File (.cstl) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | |
+
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `cat-system-int` | `cat-system-arc` | CatSystem2 Archive File (.int) | ✔️ | ❌ | Encrypted archives are supported too. Use `--cat-system-int-encrypt-password` to specify password |
+
+| Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `cat-system-hg3` | `cat-system-img` | CatSystem2 HG3 Image File (.hg3) | ✔️ | ❌ | ✔️ | ❌ | ❌ | |
+### Circus
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `circus` | `circus` | Circus Script File (.mes) | ✔️ | ✔️ | ❌ | ❌ | ❌ | Some scripts must use `--circus-mes-type` to specify game |
+
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `circus-crm` | `circus-arc` | Circus Image Archive File (.crm) | ✔️ | ❌ | |
+| `circus-dat` | `circus-arc` | Circus Archive File (.dat) | ✔️ | ❌ | |
+| `circus-pck` | `circus-arc` | Circus Archive File (.pck/.dat) | ✔️ | ✔️ | |
+
+| Audio Type | Feature Name | Name | Export | Import | Create | Remarks |
+|---|---|---|---|---|---|---|
+| `circus-pcm` | `circus-audio` | Circus Audio File (.pcm) | ✔️ | ❌ | ❌ | |
+
+| Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `circus-crx` | `circus-img` | Circus Image File (.crx) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | |
+| `circus-crxd` | `circus-img` | Circus Differential Image File (.crx) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
+### Escu:de
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `escude` | `escude` | Escu:de Script File (.bin) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
+| `escude-list` | `escude` | Escu:de List File (.bin) | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
+
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `escude-arc` | `escude-arc` | Escu:de Archive File (.arc) | ✔️ | ✔️ | |
+### ExHibit
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `ex-hibit` | `ex-hibit` | ExHibit Script File (.rld) | ✔️ | ✔️ | ✔️ | ✔️ | ❌ | |
+### HexenHaus
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `hexen-haus` | `hexen-haus` | HexenHaus Script File (.bin) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
+### Kirikiri
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `kirikiri`/`kr`/`kr-ks`/`kirikiri-ks` | `kirikiri` | Kirikiri Script File (.ks) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
+| `kirikiri-scn`/`kr-scn` | `kirikiri` | Kirikiri Scene File (.scn) | ✔️ | ✔️ | ✔️ | ✔️ | ❌ | Patched script may be broken |
+| `kirikiri-simple-crypt`/`kr-simple-crypt` | `kirikiri` | Kirikiri Simple Crypt Text File | ❌ | ❌ | ✔️ | ❌ | ❌ | |
+| `kirikiri-mdf`/`kr-mdf` | `kirikiri` | Kirikiri Zlib-Compressed File | ❌ | ❌ | ✔️ | ❌ | ❌ | |
+
+| Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `kirikiri-tlg`/`kr-tlg` | `kirikiri-img` | Kirikiri TLG Image File (.tlg) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
+| `kirikiri-pimg`/`kr-pimg` | `kirikiri-img` | Kirikiri Multiple Image File (.pimg) | ❌ | ❌ | ✔️ | ❌ | ❌ | |
+| `kirikiri-dref`/`kr-dref` | `kirikiri-img` | Kirikiri DPAK-referenced Image File (.dref) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
+### WillPlus
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `will-plus-ws2` | `will-plus` | WillPlus Script File (.ws2) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
+### Yaneurao Itufuru
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `yaneurao-itufuru`/`itufuru` | `yaneurao-itufuru` | Yaneurao Itufuru Script File | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
+
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `yaneurao-itufuru-arc`/`itufuru-arc` | `yaneurao-itufuru-arc` | Yaneurao Itufuru Archive File (.scd) | ✔️ | ✔️ | |
