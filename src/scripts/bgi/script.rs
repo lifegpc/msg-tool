@@ -4,7 +4,9 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
-use std::collections::HashMap;
+use fancy_regex::Regex;
+use lazy_static::lazy_static;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug)]
 pub struct BGIScriptBuilder {}
@@ -57,6 +59,7 @@ pub struct BGIScript {
     encoding: Encoding,
     strings: Vec<BGIString>,
     is_v1: bool,
+    is_v1_instr: bool,
     offset: usize,
     import_duplicate: bool,
     append: bool,
@@ -83,19 +86,31 @@ impl BGIScript {
                 encoding,
                 strings,
                 is_v1: true,
+                is_v1_instr: true,
                 offset,
                 import_duplicate: config.bgi_import_duplicate,
                 append: !config.bgi_disable_append,
             })
         } else {
-            let mut parser = V0Parser::new(data.to_ref());
-            parser.disassemble()?;
-            let strings = parser.strings.clone();
+            let mut is_v1_instr = false;
+            let strings = {
+                let mut parser = V0Parser::new(data.to_ref());
+                match parser.disassemble() {
+                    Ok(_) => parser.strings,
+                    Err(_) => {
+                        let mut parser = V1Parser::new(data.to_ref(), encoding)?;
+                        parser.disassemble()?;
+                        is_v1_instr = true;
+                        parser.strings
+                    }
+                }
+            };
             Ok(Self {
                 data,
                 encoding,
                 strings,
                 is_v1: false,
+                is_v1_instr,
                 offset: 0,
                 import_duplicate: config.bgi_import_duplicate,
                 append: !config.bgi_disable_append,
@@ -110,6 +125,25 @@ impl BGIScript {
         let string = decode_to_string(self.encoding, string_data.as_bytes(), false)?;
         Ok(string)
     }
+
+    fn output_with_ruby(str: &mut String, ruby: &mut Vec<String>) -> Result<()> {
+        if ruby.is_empty() {
+            return Ok(());
+        }
+        if ruby.len() % 2 != 0 {
+            return Err(anyhow::anyhow!("Ruby strings count is not even."));
+        }
+        for i in (0..ruby.len()).step_by(2) {
+            let ruby_str = &ruby[i];
+            let ruby_text = &ruby[i + 1];
+            if ruby_str.is_empty() || ruby_text.is_empty() {
+                continue;
+            }
+            *str = str.replace(ruby_str, &format!("<r{ruby_text}>{ruby_str}</r>"));
+        }
+        ruby.clear();
+        Ok(())
+    }
 }
 
 impl Script for BGIScript {
@@ -118,7 +152,7 @@ impl Script for BGIScript {
     }
 
     fn default_format_type(&self) -> FormatOptions {
-        if self.is_v1 {
+        if self.is_v1_instr {
             FormatOptions::None
         } else {
             FormatOptions::Fixed {
@@ -131,17 +165,25 @@ impl Script for BGIScript {
     fn extract_messages(&self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let mut name = None;
+        let mut ruby = Vec::new();
         for bgi_string in &self.strings {
             match bgi_string.typ {
                 BGIStringType::Name => {
                     name = Some(self.read_string(bgi_string.address)?);
                 }
                 BGIStringType::Message => {
-                    let message = self.read_string(bgi_string.address)?;
+                    let mut message = self.read_string(bgi_string.address)?;
+                    if !ruby.is_empty() {
+                        Self::output_with_ruby(&mut message, &mut ruby)?;
+                    }
                     messages.push(Message {
                         name: name.take(),
                         message: message,
                     });
+                }
+                BGIStringType::Ruby => {
+                    let ruby_str = self.read_string(bgi_string.address)?;
+                    ruby.push(ruby_str);
                 }
                 _ => {}
             }
@@ -151,7 +193,7 @@ impl Script for BGIScript {
 
     fn import_messages<'a>(
         &'a self,
-        messages: Vec<Message>,
+        mut messages: Vec<Message>,
         mut file: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
@@ -159,10 +201,12 @@ impl Script for BGIScript {
         if !self.import_duplicate {
             let mut used = HashMap::new();
             let mut extra = HashMap::new();
-            let mut mes = messages.iter();
+            let mut mes = messages.iter_mut();
             let mut cur_mes = mes.next();
             let mut old_offset = 0;
             let mut new_offset = 0;
+            let mut rubys = Vec::new();
+            let mut parsed_ruby = false;
             if self.append {
                 file.write_all(&self.data.data)?;
                 new_offset = self.data.data.len();
@@ -180,6 +224,31 @@ impl Script for BGIScript {
                 }
                 let nmes = match curs.typ {
                     BGIStringType::Internal => self.read_string(curs.address)?,
+                    BGIStringType::Ruby => {
+                        if !self.is_v1 && self.is_v1_instr {
+                            if rubys.is_empty() {
+                                if parsed_ruby {
+                                    String::from("<")
+                                } else {
+                                    rubys = match &mut cur_mes {
+                                        Some(m) => parse_ruby_from_text(&mut m.message)?,
+                                        None => return Err(anyhow::anyhow!("No enough messages.")),
+                                    };
+                                    parsed_ruby = true;
+                                    if rubys.is_empty() {
+                                        String::from("<")
+                                    } else {
+                                        let ruby_str = rubys.remove(0);
+                                        ruby_str
+                                    }
+                                }
+                            } else {
+                                rubys.remove(0)
+                            }
+                        } else {
+                            self.read_string(curs.address)?
+                        }
+                    }
                     BGIStringType::Name => match &cur_mes {
                         Some(m) => {
                             if let Some(name) = &m.name {
@@ -197,6 +266,12 @@ impl Script for BGIScript {
                         None => return Err(anyhow::anyhow!("No enough messages.")),
                     },
                     BGIStringType::Message => {
+                        if !rubys.is_empty() {
+                            eprintln!("Warning: Some ruby strings are unused: {:?}", rubys);
+                            crate::COUNTER.inc_warning();
+                            rubys.clear();
+                        }
+                        parsed_ruby = false;
                         let mes = match &cur_mes {
                             Some(m) => {
                                 let mut message = m.message.clone();
@@ -271,13 +346,15 @@ impl Script for BGIScript {
             }
             return Ok(());
         }
-        let mut mes = messages.iter();
+        let mut mes = messages.iter_mut();
         let mut cur_mes = None;
         let mut strs = self.strings.iter();
         let mut nstrs = Vec::new();
         let mut cur_str = strs.next();
         let mut old_offset = 0;
         let mut new_offset = 0;
+        let mut rubys = Vec::new();
+        let mut parsed_ruby = false;
         if self.append {
             file.write_all(&self.data.data)?;
             new_offset = self.data.data.len();
@@ -301,6 +378,31 @@ impl Script for BGIScript {
                 .len();
             let nmes = match curs.typ {
                 BGIStringType::Internal => self.read_string(curs.address)?,
+                BGIStringType::Ruby => {
+                    if !self.is_v1 && self.is_v1_instr {
+                        if rubys.is_empty() {
+                            if parsed_ruby {
+                                String::from("<")
+                            } else {
+                                rubys = match &mut cur_mes {
+                                    Some(m) => parse_ruby_from_text(&mut m.message)?,
+                                    None => return Err(anyhow::anyhow!("No enough messages.")),
+                                };
+                                parsed_ruby = true;
+                                if rubys.is_empty() {
+                                    String::from("<")
+                                } else {
+                                    let ruby_str = rubys.remove(0);
+                                    ruby_str
+                                }
+                            }
+                        } else {
+                            rubys.remove(0)
+                        }
+                    } else {
+                        self.read_string(curs.address)?
+                    }
+                }
                 BGIStringType::Name => match &cur_mes {
                     Some(m) => {
                         if let Some(name) = &m.name {
@@ -318,6 +420,12 @@ impl Script for BGIScript {
                     None => return Err(anyhow::anyhow!("No enough messages.")),
                 },
                 BGIStringType::Message => {
+                    if !rubys.is_empty() {
+                        eprintln!("Warning: Some ruby strings are unused: {:?}", rubys);
+                        crate::COUNTER.inc_warning();
+                        rubys.clear();
+                    }
+                    parsed_ruby = false;
                     let mes = match &cur_mes {
                         Some(m) => {
                             let mut message = m.message.clone();
@@ -359,4 +467,44 @@ impl Script for BGIScript {
         }
         Ok(())
     }
+}
+
+lazy_static! {
+    static ref RUBY_REGEX: Regex = Regex::new(r"<r([^>]+)>([^<]+)</r>").unwrap();
+}
+
+fn parse_ruby_from_text(text: &mut String) -> Result<Vec<String>> {
+    let mut map = BTreeMap::new();
+    for i in RUBY_REGEX.captures_iter(&text) {
+        let i = i?;
+        let ruby_text = i.get(1).map_or("", |m| m.as_str());
+        let ruby_str = i.get(2).map_or("", |m| m.as_str());
+        if !ruby_text.is_empty() && !ruby_str.is_empty() {
+            map.insert(ruby_str.to_owned(), ruby_text.to_owned());
+        }
+    }
+    let mut result = Vec::new();
+    for (ruby_str, ruby_text) in map {
+        *text = text.replace(&format!("<r{ruby_text}>{ruby_str}</r>"), &ruby_str);
+        result.push(ruby_str);
+        result.push(ruby_text);
+    }
+    Ok(result)
+}
+
+#[test]
+fn test_parse_ruby_from_text() {
+    let mut text =
+        String::from("This is a test <rRubyText>RubyString</r> and <rAnotherText>AnotherRuby</r>.");
+    let ruby = parse_ruby_from_text(&mut text).unwrap();
+    assert_eq!(text, "This is a test RubyString and AnotherRuby.");
+    assert_eq!(
+        ruby,
+        vec![
+            "AnotherRuby".to_string(),
+            "AnotherText".to_string(),
+            "RubyString".to_string(),
+            "RubyText".to_string()
+        ]
+    );
 }

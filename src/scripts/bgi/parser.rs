@@ -212,6 +212,9 @@ pub enum BGIStringType {
     Name,
     Message,
     Internal,
+    /// For v1 instructions.
+    /// Only old BGI scripts have this type. (Scripts that does not have a magic)
+    Ruby,
 }
 
 #[derive(Debug, Clone)]
@@ -366,13 +369,14 @@ pub struct V1Parser<'a> {
 
 impl<'a> V1Parser<'a> {
     pub fn new(mut buf: MemReaderRef<'a>, encoding: Encoding) -> Result<Self> {
-        if !buf.data.starts_with(b"BurikoCompiledScriptVer1.00\0") {
-            return Err(anyhow::anyhow!("Invalid BGI script"));
-        }
         if buf.data.len() < 32 {
             return Err(anyhow::anyhow!("Buffer too small"));
         }
-        let offset = 28 + buf.peek_u32_at(28)? as u64;
+        let offset = if buf.data.starts_with(b"BurikoCompiledScriptVer1.00\0") {
+            28 + buf.peek_u32_at(28)? as u64
+        } else {
+            0
+        };
         buf.seek(SeekFrom::Start(offset))?;
         Ok(V1Parser {
             buf,
@@ -475,6 +479,69 @@ impl<'a> V1Parser<'a> {
         Ok(())
     }
 
+    pub fn handle_ruby(&mut self) -> Result<()> {
+        let dest = self
+            .stacks
+            .pop()
+            .ok_or(anyhow::anyhow!("Stack underflow"))?;
+        let ori = self
+            .stacks
+            .pop()
+            .ok_or(anyhow::anyhow!("Stack underflow"))?;
+        self.strings.push(BGIString {
+            offset: ori.offset,
+            address: ori.value,
+            typ: BGIStringType::Ruby,
+        });
+        self.strings.push(BGIString {
+            offset: dest.offset,
+            address: dest.value,
+            typ: BGIStringType::Ruby,
+        });
+        Ok(())
+    }
+
+    pub fn handle_message_old(&mut self) -> Result<()> {
+        let item = self
+            .stacks
+            .pop()
+            .ok_or(anyhow::anyhow!("Stack underflow"))?;
+        match self.stacks.pop() {
+            Some(stack) => {
+                self.strings.push(BGIString {
+                    offset: item.offset,
+                    address: item.value,
+                    typ: if self.is_empty_string(item.value)? {
+                        BGIStringType::Internal
+                    } else {
+                        BGIStringType::Name
+                    },
+                });
+                self.strings.push(BGIString {
+                    offset: stack.offset,
+                    address: stack.value,
+                    typ: if self.is_empty_string(stack.value)? {
+                        BGIStringType::Internal
+                    } else {
+                        BGIStringType::Message
+                    },
+                });
+                return Ok(());
+            }
+            None => {}
+        }
+        self.strings.push(BGIString {
+            offset: item.offset,
+            address: item.value,
+            typ: if self.is_empty_string(item.value)? {
+                BGIStringType::Internal
+            } else {
+                BGIStringType::Message
+            },
+        });
+        Ok(())
+    }
+
     pub fn handle_message(&mut self) -> Result<()> {
         let item = self
             .stacks
@@ -539,13 +606,17 @@ impl<'a> V1Parser<'a> {
                 self.handle_choice_screen()?;
             } else if let Some(templ) = V1_INSTS_MAP.get(&opcode) {
                 self.read_opers(templ)?;
+            } else if opcode == 0x0145 {
+                self.handle_message_old()?;
+            } else if opcode == 0x014e {
+                self.handle_ruby()?;
             }
             if (opcode == 0x001b || opcode == 0x00f4)
                 && self.largest_code_address_pperand_encountered < self.buf.pos - self.offset
             {
                 break;
             }
-            if opcode == 0x007e || opcode == 0x007f || opcode == 0x00fe {
+            if opcode == 0x007e || opcode == 0x007f || opcode == 0x00fe || opcode == 0x01b5 {
                 self.output_internal_strings();
             }
         }
