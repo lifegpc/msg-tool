@@ -3,8 +3,8 @@ use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::bit_stream::*;
+use crate::utils::img::*;
 use crate::utils::struct_pack::*;
-use anyhow::Ok;
 use anyhow::Result;
 use msg_tool_macro::*;
 use std::io::{Read, Seek, Write};
@@ -54,6 +54,22 @@ impl ScriptBuilder for BgiCBGBuilder {
             return Some(255);
         }
         None
+    }
+
+    fn can_create_image_file(&self) -> bool {
+        true
+    }
+
+    fn create_image_file<'a>(
+        &'a self,
+        data: ImageData,
+        mut writer: Box<dyn WriteSeek + 'a>,
+        _options: &ExtraConfig,
+    ) -> Result<()> {
+        let encoder = CbgEncoder::new(data)?;
+        let data = encoder.encode()?;
+        writer.write_all(&data)?;
+        Ok(())
     }
 }
 
@@ -163,6 +179,17 @@ impl Script for BgiCBG {
     fn export_image(&self) -> Result<ImageData> {
         let decoder = CbgDecoder::new(self.data.to_ref(), &self.header, self.color_type)?;
         Ok(decoder.unpack()?)
+    }
+
+    fn import_image<'a>(
+        &'a self,
+        data: ImageData,
+        mut file: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
+        let encoder = CbgEncoder::new(data)?;
+        let encoded_data = encoder.encode()?;
+        file.write_all(&encoded_data)?;
+        Ok(())
     }
 }
 
@@ -596,6 +623,37 @@ impl HuffmanTree {
             }
         }
     }
+
+    fn encode_token(&self, stream: &mut MsbBitWriter<impl Write>, token: usize) -> Result<()> {
+        let mut path = Vec::new();
+        if !self.find_path(self.nodes.len() - 1, token, &mut path) {
+            return Err(anyhow::anyhow!("Token not found in Huffman tree"));
+        }
+        for &bit in path.iter().rev() {
+            stream.put_bit(bit)?;
+        }
+        Ok(())
+    }
+
+    fn find_path(&self, node_index: usize, token: usize, path: &mut Vec<bool>) -> bool {
+        if node_index == usize::MAX {
+            return false;
+        }
+        let node = &self.nodes[node_index];
+        if !node.is_parent {
+            return node_index == token;
+        }
+
+        if self.find_path(node.left_index, token, path) {
+            path.push(false);
+            return true;
+        }
+        if self.find_path(node.right_index, token, path) {
+            path.push(true);
+            return true;
+        }
+        false
+    }
 }
 
 const DCT_TABLE: [f32; 64] = [
@@ -946,5 +1004,212 @@ impl ParallelCbgDecoder {
         } else {
             f as u8
         }
+    }
+}
+
+struct CbgEncoder {
+    header: BgiCBGHeader,
+    stream: MemWriter,
+    img: ImageData,
+    key: u32,
+    magic: u32,
+}
+
+impl CbgEncoder {
+    pub fn new(mut img: ImageData) -> Result<Self> {
+        if img.depth != 8 {
+            return Err(anyhow::anyhow!("Unsupported image depth: {}", img.depth));
+        }
+        let bpp = match img.color_type {
+            ImageColorType::Bgr => 24,
+            ImageColorType::Bgra => 32,
+            ImageColorType::Grayscale => 8,
+            ImageColorType::Rgb => {
+                convert_rgb_to_bgr(&mut img)?;
+                24
+            }
+            ImageColorType::Rgba => {
+                convert_rgba_to_bgra(&mut img)?;
+                32
+            }
+        };
+        let key = rand::random();
+        let header = BgiCBGHeader {
+            width: img.width as u16,
+            height: img.height as u16,
+            bpp,
+            _unk: 0,
+            intermediate_length: 0,
+            key,
+            enc_length: 0,
+            check_sum: 0,
+            check_xor: 0,
+            version: 1,
+        };
+
+        Ok(CbgEncoder {
+            header,
+            stream: MemWriter::new(),
+            img,
+            key,
+            magic: 0,
+        })
+    }
+
+    pub fn encode(mut self) -> Result<Vec<u8>> {
+        self.stream.write_all(b"CompressedBG___\0")?;
+        let header_pos = self.stream.pos;
+        self.stream.seek(std::io::SeekFrom::Current(0x20))?;
+
+        let pixel_size = (self.header.bpp / 8) as usize;
+        let stride = self.header.width as usize * pixel_size;
+        let mut sampled_data = self.img.data.clone();
+        self.average_sampling(&mut sampled_data, stride, pixel_size);
+
+        let packed_data = Self::pack_zeros(&sampled_data);
+        self.header.intermediate_length = packed_data.len() as u32;
+
+        let mut frequencies = vec![0u32; 256];
+        for &byte in &packed_data {
+            frequencies[byte as usize] += 1;
+        }
+        if frequencies.iter().all(|&f| f == 0) {
+            frequencies[0] = 1;
+        }
+
+        let tree = HuffmanTree::new(&frequencies, false);
+
+        let mut weight_writer = MemWriter::new();
+        for &weight in &frequencies {
+            Self::write_int(&mut weight_writer, weight as i32)?;
+        }
+        let weight_data = weight_writer.into_inner();
+        self.write_encoded(&weight_data)?;
+
+        let mut bit_writer = MsbBitWriter::new(&mut self.stream);
+        for &byte in &packed_data {
+            tree.encode_token(&mut bit_writer, byte as usize)?;
+        }
+        bit_writer.flush()?;
+
+        let final_pos = self.stream.pos;
+        self.stream.pos = header_pos;
+        self.header.pack(&mut self.stream, false, Encoding::Cp932)?;
+        self.stream.pos = final_pos;
+
+        Ok(self.stream.into_inner())
+    }
+
+    fn average_sampling(&self, data: &mut [u8], stride: usize, pixel_size: usize) {
+        for y in (0..self.header.height as usize).rev() {
+            let line = y * stride;
+            for x in (0..self.header.width as usize).rev() {
+                let pixel = line + x * pixel_size;
+                for p in 0..pixel_size {
+                    let mut avg = 0u32;
+                    let mut count = 0;
+                    if x > 0 {
+                        avg = avg.wrapping_add(data[pixel + p - pixel_size] as u32);
+                        count += 1;
+                    }
+                    if y > 0 {
+                        avg = avg.wrapping_add(data[pixel + p - stride] as u32);
+                        count += 1;
+                    }
+                    if count > 0 {
+                        avg /= count;
+                    }
+                    if avg != 0 {
+                        data[pixel + p] = data[pixel + p].wrapping_sub(avg as u8);
+                    }
+                }
+            }
+        }
+    }
+
+    fn pack_zeros(input: &[u8]) -> Vec<u8> {
+        let mut output = Vec::new();
+        let mut i = 0;
+        let mut is_zero_run = false;
+
+        while i < input.len() {
+            let mut count = 0;
+            if is_zero_run {
+                while i + count < input.len() && input[i + count] == 0 {
+                    count += 1;
+                }
+            } else {
+                while i + count < input.len() && input[i + count] != 0 {
+                    count += 1;
+                }
+            }
+
+            let mut count_buf = Vec::new();
+            let mut n = count;
+            loop {
+                let mut byte = (n & 0x7f) as u8;
+                n >>= 7;
+                if n > 0 {
+                    byte |= 0x80;
+                }
+                count_buf.push(byte);
+                if n == 0 {
+                    break;
+                }
+            }
+            output.extend_from_slice(&count_buf);
+
+            if !is_zero_run {
+                output.extend_from_slice(&input[i..i + count]);
+            }
+            i += count;
+            is_zero_run = !is_zero_run;
+        }
+        output
+    }
+
+    fn write_int<W: Write>(writer: &mut W, mut value: i32) -> Result<()> {
+        loop {
+            let mut b = (value as u8) & 0x7f;
+            value >>= 7;
+            if value != 0 {
+                b |= 0x80;
+            }
+            writer.write_u8(b)?;
+            if value == 0 {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn write_encoded(&mut self, data: &[u8]) -> Result<()> {
+        self.header.enc_length = data.len() as u32;
+        let mut sum = 0u8;
+        let mut xor = 0u8;
+        let mut encoded_data = Vec::with_capacity(data.len());
+        for &byte in data {
+            let encrypted_byte = byte.wrapping_add(self.update_key());
+            sum = sum.wrapping_add(byte);
+            xor ^= byte;
+            encoded_data.push(encrypted_byte);
+        }
+        self.header.check_sum = sum;
+        self.header.check_xor = xor;
+        self.stream.write_all(&encoded_data)?;
+        Ok(())
+    }
+
+    fn update_key(&mut self) -> u8 {
+        let v0 = 20021 * (self.key & 0xffff);
+        let mut v1 = self.magic | (self.key >> 16);
+        v1 = v1
+            .overflowing_mul(20021)
+            .0
+            .overflowing_add(self.key.overflowing_mul(346).0)
+            .0;
+        v1 = (v1 + (v0 >> 16)) & 0xffff;
+        self.key = (v1 << 16) + (v0 & 0xffff) + 1;
+        v1 as u8
     }
 }

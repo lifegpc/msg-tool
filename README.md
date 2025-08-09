@@ -27,7 +27,7 @@ If the script file is an archive file, it will be unpacked and will try to extra
 
 If the input is a directory, all script files in the directory will be processed. (The `-r` / `--recursive` option is needed if you want to process files in subdirectories.)
 
-### Import data to script files
+### Import data into script files
 ```bash
 msg-tool import <input> <output> <patched>
 ```
@@ -90,7 +90,7 @@ msg-tool create -t <script-type> <input> <output>
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `bgi-img`/`ethornell-img` | `bgi-img` | Buriko General Interpreter/Ethornell Uncompressed Image File | ✔️ | ✔️ | ❌ | ❌ | ✔️ | Image files in `sysgrp.arc` |
-| `bgi-cbg`/`ethornell-cbg` | `bgi-img` | Buriko General Interpreter/Ethornell Compressed Image File | ✔️ | ❌  | ❌ | ❌ | ❌  | |
+| `bgi-cbg`/`ethornell-cbg` | `bgi-img` | Buriko General Interpreter/Ethornell Compressed Image File | ✔️ | ✔️  | ❌ | ❌ | ✔️  | V2 is not supported when importing/creating image |
 ### CatSystem2
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
