@@ -495,6 +495,39 @@ pub enum ImageOutputType {
 }
 
 #[cfg(feature = "image")]
+impl TryFrom<&str> for ImageOutputType {
+    type Error = anyhow::Error;
+
+    /// Try to convert a extension string to an `ImageOutputType`.
+    /// Extensions are case-insensitive.
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.to_ascii_lowercase().as_str() {
+            "png" => Ok(ImageOutputType::Png),
+            #[cfg(feature = "image-jpg")]
+            "jpg" => Ok(ImageOutputType::Jpg),
+            #[cfg(feature = "image-jpg")]
+            "jpeg" => Ok(ImageOutputType::Jpg),
+            #[cfg(feature = "image-webp")]
+            "webp" => Ok(ImageOutputType::Webp),
+            _ => Err(anyhow::anyhow!("Unsupported image output type: {}", value)),
+        }
+    }
+}
+
+#[cfg(feature = "image")]
+impl TryFrom<&std::path::Path> for ImageOutputType {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::Path) -> Result<Self, Self::Error> {
+        if let Some(ext) = value.extension() {
+            Self::try_from(ext.to_string_lossy().as_ref())
+        } else {
+            Err(anyhow::anyhow!("No extension found in path"))
+        }
+    }
+}
+
+#[cfg(feature = "image")]
 impl AsRef<str> for ImageOutputType {
     fn as_ref(&self) -> &str {
         match self {

@@ -752,7 +752,16 @@ pub fn export_script(
             return Ok(types::ScriptResult::Ok);
         }
         let img_data = script.export_image()?;
-        let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
+        let out_type = arg.image_type.unwrap_or_else(|| {
+            if root_dir.is_some() {
+                types::ImageOutputType::Png
+            } else {
+                output
+                    .as_ref()
+                    .and_then(|s| types::ImageOutputType::try_from(std::path::Path::new(s)).ok())
+                    .unwrap_or(types::ImageOutputType::Png)
+            }
+        });
         let f = if filename == "-" {
             String::from("-")
         } else {
@@ -1152,7 +1161,14 @@ pub fn import_script(
     }
     #[cfg(feature = "image")]
     if script.is_image() {
-        let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
+        let out_type = arg.image_type.unwrap_or_else(|| {
+            if root_dir.is_some() {
+                types::ImageOutputType::Png
+            } else {
+                types::ImageOutputType::try_from(std::path::Path::new(&imp_cfg.output))
+                    .unwrap_or(types::ImageOutputType::Png)
+            }
+        });
         let out_f = if let Some(root_dir) = root_dir {
             let f = std::path::PathBuf::from(filename);
             let mut pb = std::path::PathBuf::from(&imp_cfg.output);
@@ -1488,8 +1504,13 @@ pub fn create_file(
                 typ
             ));
         }
-        let data =
-            utils::img::decode_img(arg.image_type.unwrap_or(types::ImageOutputType::Png), input)?;
+        let data = utils::img::decode_img(
+            arg.image_type.unwrap_or_else(|| {
+                types::ImageOutputType::try_from(std::path::Path::new(input))
+                    .unwrap_or(types::ImageOutputType::Png)
+            }),
+            input,
+        )?;
         let output = match output {
             Some(output) => output.to_string(),
             None => {
