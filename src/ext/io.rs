@@ -1,14 +1,26 @@
+//!Extensions for IO operations.
 use crate::utils::encoding::decode_to_string;
 use crate::{types::Encoding, utils::struct_pack::StructUnpack};
 use std::ffi::CString;
 use std::io::*;
 use std::sync::Mutex;
 
+/// A trait to help to peek data from a reader.
 pub trait Peek {
+    /// Peeks data from the reader into the provided buffer.
+    /// Returns the number of bytes read.
     fn peek(&mut self, buf: &mut [u8]) -> Result<usize>;
+    /// Peeks data from the reader into the provided buffer.
+    /// Returns an error if the buffer is not filled completely.
     fn peek_exact(&mut self, buf: &mut [u8]) -> Result<()>;
+    /// Peeks data from the reader at a specific offset into the provided buffer.
+    /// Returns the number of bytes read.
     fn peek_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<usize>;
+    /// Peeks data from the reader at a specific offset into the provided buffer.
+    /// Returns an error if the buffer is not filled completely.
     fn peek_exact_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<()>;
+    /// Peeks data from the reader at a specific offset into a vector.
+    /// Returns the vector containing the data read.
     fn peek_at_vec(&mut self, offset: usize, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         let bytes_read = self.peek_at(offset, &mut buf)?;
@@ -17,197 +29,250 @@ pub trait Peek {
         }
         Ok(buf)
     }
+    /// Peeks data from the reader at a specific offset into a vector.
+    /// Returns an error if the buffer is not filled completely.
     fn peek_exact_at_vec(&mut self, offset: usize, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(buf)
     }
 
+    /// Peeks a [u8] from the reader.
     fn peek_u8(&mut self) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.peek_exact(&mut buf)?;
         Ok(buf[0])
     }
+    /// Peeks a [u16] from the reader in little-endian order.
     fn peek_u16(&mut self) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.peek_exact(&mut buf)?;
         Ok(u16::from_le_bytes(buf))
     }
+    /// Peeks a [u16] from the reader in big-endian order.
     fn peek_u16_be(&mut self) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.peek_exact(&mut buf)?;
         Ok(u16::from_be_bytes(buf))
     }
+    /// Peeks a [u32] from the reader in little-endian order.
     fn peek_u32(&mut self) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.peek_exact(&mut buf)?;
         Ok(u32::from_le_bytes(buf))
     }
+    /// Peeks a [u32] from the reader in big-endian order.
     fn peek_u32_be(&mut self) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.peek_exact(&mut buf)?;
         Ok(u32::from_be_bytes(buf))
     }
+    /// Peeks a [u64] from the reader in little-endian order.
     fn peek_u64(&mut self) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.peek_exact(&mut buf)?;
         Ok(u64::from_le_bytes(buf))
     }
+    /// Peeks a [u64] from the reader in big-endian order.
     fn peek_u64_be(&mut self) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.peek_exact(&mut buf)?;
         Ok(u64::from_be_bytes(buf))
     }
+    /// Peeks a [u128] from the reader in little-endian order.
     fn peek_u128(&mut self) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.peek_exact(&mut buf)?;
         Ok(u128::from_le_bytes(buf))
     }
+    /// Peeks a [u128] from the reader in big-endian order.
     fn peek_u128_be(&mut self) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.peek_exact(&mut buf)?;
         Ok(u128::from_be_bytes(buf))
     }
+    /// Peeks an [i8] from the reader.
     fn peek_i8(&mut self) -> Result<i8> {
         let mut buf = [0u8; 1];
         self.peek_exact(&mut buf)?;
         Ok(i8::from_le_bytes(buf))
     }
+    /// Peeks an [i16] from the reader in little-endian order.
     fn peek_i16(&mut self) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.peek_exact(&mut buf)?;
         Ok(i16::from_le_bytes(buf))
     }
+    /// Peeks an [i16] from the reader in big-endian order.
     fn peek_i16_be(&mut self) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.peek_exact(&mut buf)?;
         Ok(i16::from_be_bytes(buf))
     }
+    /// Peeks an [i32] from the reader in little-endian order.
     fn peek_i32(&mut self) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.peek_exact(&mut buf)?;
         Ok(i32::from_le_bytes(buf))
     }
+    /// Peeks an [i32] from the reader in big-endian order.
     fn peek_i32_be(&mut self) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.peek_exact(&mut buf)?;
         Ok(i32::from_be_bytes(buf))
     }
+    /// Peeks an [i64] from the reader in little-endian order.
     fn peek_i64(&mut self) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.peek_exact(&mut buf)?;
         Ok(i64::from_le_bytes(buf))
     }
+    /// Peeks an [i64] from the reader in big-endian order.
     fn peek_i64_be(&mut self) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.peek_exact(&mut buf)?;
         Ok(i64::from_be_bytes(buf))
     }
+    /// Peeks an [i128] from the reader in little-endian order.
     fn peek_i128(&mut self) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.peek_exact(&mut buf)?;
         Ok(i128::from_le_bytes(buf))
     }
+    /// Peeks an [i128] from the reader in big-endian order.
     fn peek_i128_be(&mut self) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.peek_exact(&mut buf)?;
         Ok(i128::from_be_bytes(buf))
     }
+    /// Peeks a [u8] at a specific offset from the reader.
     fn peek_u8_at(&mut self, offset: usize) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(buf[0])
     }
+    /// Peeks a [u16] at a specific offset from the reader in little-endian order.
     fn peek_u16_at(&mut self, offset: usize) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u16::from_le_bytes(buf))
     }
+    /// Peeks a [u16] at a specific offset from the reader in big-endian order.
     fn peek_u16_be_at(&mut self, offset: usize) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u16::from_be_bytes(buf))
     }
+    /// Peeks a [u32] at a specific offset from the reader in little-endian order.
     fn peek_u32_at(&mut self, offset: usize) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u32::from_le_bytes(buf))
     }
+    /// Peeks a [u32] at a specific offset from the reader in big-endian order.
     fn peek_u32_be_at(&mut self, offset: usize) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u32::from_be_bytes(buf))
     }
+    /// Peeks a [u64] at a specific offset from the reader in little-endian order.
     fn peek_u64_at(&mut self, offset: usize) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u64::from_le_bytes(buf))
     }
+    /// Peeks a [u64] at a specific offset from the reader in big-endian order.
     fn peek_u64_be_at(&mut self, offset: usize) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u64::from_be_bytes(buf))
     }
+    /// Peeks a [u128] at a specific offset from the reader in little-endian order.
     fn peek_u128_at(&mut self, offset: usize) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u128::from_le_bytes(buf))
     }
+    /// Peeks a [u128] at a specific offset from the reader in big-endian order.
     fn peek_u128_be_at(&mut self, offset: usize) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u128::from_be_bytes(buf))
     }
+    /// Peeks an [i8] at a specific offset from the reader.
     fn peek_i8_at(&mut self, offset: usize) -> Result<i8> {
         let mut buf = [0u8; 1];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i8::from_le_bytes(buf))
     }
+    /// Peeks an [i16] at a specific offset from the reader in little-endian order.
     fn peek_i16_at(&mut self, offset: usize) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i16::from_le_bytes(buf))
     }
+    /// Peeks an [i16] at a specific offset from the reader in big-endian order.
     fn peek_i16_be_at(&mut self, offset: usize) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i16::from_be_bytes(buf))
     }
+    /// Peeks an [i32] at a specific offset from the reader in little-endian order.
     fn peek_i32_at(&mut self, offset: usize) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i32::from_le_bytes(buf))
     }
+    /// Peeks an [i32] at a specific offset from the reader in big-endian order.
     fn peek_i32_be_at(&mut self, offset: usize) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i32::from_be_bytes(buf))
     }
+    /// Peeks an [i64] at a specific offset from the reader in little-endian order.
     fn peek_i64_at(&mut self, offset: usize) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i64::from_le_bytes(buf))
     }
+    /// Peeks an [i64] at a specific offset from the reader in big-endian order.
     fn peek_i64_be_at(&mut self, offset: usize) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i64::from_be_bytes(buf))
     }
+    /// Peeks an [i128] at a specific offset from the reader in little-endian order.
     fn peek_i128_at(&mut self, offset: usize) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i128::from_le_bytes(buf))
     }
+    /// Peeks an [i128] at a specific offset from the reader in big-endian order.
     fn peek_i128_be_at(&mut self, offset: usize) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i128::from_be_bytes(buf))
     }
 
+    /// Peeks a C-style string (null-terminated) from the reader.
     fn peek_cstring(&mut self) -> Result<CString>;
+    /// Peeks a C-style string (null-terminated) from the reader at a specific offset.
     fn peek_cstring_at(&mut self, offset: usize) -> Result<CString>;
 
+    /// Reads a struct from the reader.
+    /// The struct must implement the `StructUnpack` trait.
+    ///
+    /// * `big` indicates whether the struct is in big-endian format.
+    /// * `encoding` specifies the encoding to use for string fields in the struct.
+    /// Returns the unpacked struct.
     fn read_struct<T: StructUnpack>(&mut self, big: bool, encoding: Encoding) -> Result<T>;
+    /// Reads a vector of structs from the reader.
+    /// The structs must implement the `StructUnpack` trait.
+    ///
+    /// * `count` is the number of structs to read.
+    /// * `big` indicates whether the structs are in big-endian format.
+    /// * `encoding` specifies the encoding to use for string fields in the structs.
+    /// Returns a vector of unpacked structs.
     fn read_struct_vec<T: StructUnpack>(
         &mut self,
         count: usize,
@@ -221,6 +286,7 @@ pub trait Peek {
         Ok(vec)
     }
 
+    /// Peeks data and checks if it matches the provided data.
     fn peek_and_equal(&mut self, data: &[u8]) -> Result<()> {
         let mut buf = vec![0u8; data.len()];
         self.peek_exact(&mut buf)?;
@@ -232,6 +298,7 @@ pub trait Peek {
         }
         Ok(())
     }
+    /// Peeks data at a specific offset and checks if it matches the provided data.
     fn peek_and_equal_at(&mut self, offset: usize, data: &[u8]) -> Result<()> {
         let mut buf = vec![0u8; data.len()];
         self.peek_exact_at(offset, &mut buf)?;
@@ -313,8 +380,13 @@ impl<T: Read + Seek> Peek for T {
     }
 }
 
+/// A trait to help to peek data from a reader in a thread-safe manner.
 pub trait CPeek {
+    /// Peeks data from the reader into the provided buffer.
+    /// Returns the number of bytes read.
     fn cpeek(&self, buf: &mut [u8]) -> Result<usize>;
+    /// Peeks data from the reader into the provided buffer.
+    /// Returns an error if the buffer is not filled completely.
     fn cpeek_exact(&self, buf: &mut [u8]) -> Result<()> {
         let bytes_read = self.cpeek(buf)?;
         if bytes_read < buf.len() {
@@ -325,7 +397,11 @@ pub trait CPeek {
         }
         Ok(())
     }
+    /// Peeks data from the reader at a specific offset into the provided buffer.
+    /// Returns the number of bytes read.
     fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize>;
+    /// Peeks data from the reader at a specific offset into the provided buffer.
+    /// Returns an error if the buffer is not filled completely.
     fn cpeek_exact_at(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
         let bytes_read = self.cpeek_at(offset, buf)?;
         if bytes_read < buf.len() {
@@ -336,6 +412,8 @@ pub trait CPeek {
         }
         Ok(())
     }
+    /// Peeks data from the reader at a specific offset into a vector.
+    /// Returns the vector containing the data read.
     fn cpeek_at_vec(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         let bytes_read = self.cpeek_at(offset, &mut buf)?;
@@ -344,195 +422,235 @@ pub trait CPeek {
         }
         Ok(buf)
     }
+    /// Peeks data from the reader at a specific offset into a vector.
+    /// Returns an error if the buffer is not filled completely.
     fn cpeek_exact_at_vec(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(buf)
     }
 
+    /// Peeks a [u8] from the reader.
     fn cpeek_u8(&self) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.cpeek_exact(&mut buf)?;
         Ok(buf[0])
     }
+    /// Peeks a [u16] from the reader in little-endian order.
     fn cpeek_u16(&self) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact(&mut buf)?;
         Ok(u16::from_le_bytes(buf))
     }
+    /// Peeks a [u16] from the reader in big-endian order.
     fn cpeek_u16_be(&self) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact(&mut buf)?;
         Ok(u16::from_be_bytes(buf))
     }
+    /// Peeks a [u32] from the reader in little-endian order.
     fn cpeek_u32(&self) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact(&mut buf)?;
         Ok(u32::from_le_bytes(buf))
     }
+    /// Peeks a [u32] from the reader in big-endian order.
     fn cpeek_u32_be(&self) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact(&mut buf)?;
         Ok(u32::from_be_bytes(buf))
     }
+    /// Peeks a [u64] from the reader in little-endian order.
     fn cpeek_u64(&self) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact(&mut buf)?;
         Ok(u64::from_le_bytes(buf))
     }
+    /// Peeks a [u64] from the reader in big-endian order.
     fn cpeek_u64_be(&self) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact(&mut buf)?;
         Ok(u64::from_be_bytes(buf))
     }
+    /// Peeks a [u128] from the reader in little-endian order.
     fn cpeek_u128(&self) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact(&mut buf)?;
         Ok(u128::from_le_bytes(buf))
     }
+    /// Peeks a [u128] from the reader in big-endian order.
     fn cpeek_u128_be(&self) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact(&mut buf)?;
         Ok(u128::from_be_bytes(buf))
     }
+    /// Peeks an [i8] from the reader.
     fn cpeek_i8(&self) -> Result<i8> {
         let mut buf = [0u8; 1];
         self.cpeek_exact(&mut buf)?;
         Ok(i8::from_le_bytes(buf))
     }
+    /// Peeks an [i16] from the reader in little-endian order.
     fn cpeek_i16(&self) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact(&mut buf)?;
         Ok(i16::from_le_bytes(buf))
     }
+    /// Peeks an [i16] from the reader in big-endian order.
     fn cpeek_i16_be(&self) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact(&mut buf)?;
         Ok(i16::from_be_bytes(buf))
     }
+    /// Peeks an [i32] from the reader in little-endian order.
     fn cpeek_i32(&self) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact(&mut buf)?;
         Ok(i32::from_le_bytes(buf))
     }
+    /// Peeks an [i32] from the reader in big-endian order.
     fn cpeek_i32_be(&self) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact(&mut buf)?;
         Ok(i32::from_be_bytes(buf))
     }
+    /// Peeks an [i64] from the reader in little-endian order.
     fn cpeek_i64(&self) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact(&mut buf)?;
         Ok(i64::from_le_bytes(buf))
     }
+    /// Peeks an [i64] from the reader in big-endian order.
     fn cpeek_i64_be(&self) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact(&mut buf)?;
         Ok(i64::from_be_bytes(buf))
     }
+    /// Peeks an [i128] from the reader in little-endian order.
     fn cpeek_i128(&self) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact(&mut buf)?;
         Ok(i128::from_le_bytes(buf))
     }
+    /// Peeks an [i128] from the reader in big-endian order.
     fn cpeek_i128_be(&self) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact(&mut buf)?;
         Ok(i128::from_be_bytes(buf))
     }
+    /// Peeks a [u8] at a specific offset from the reader.
     fn cpeek_u8_at(&self, offset: usize) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(buf[0])
     }
+    /// Peeks a [u16] at a specific offset from the reader in little-endian order.
     fn cpeek_u16_at(&self, offset: usize) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u16::from_le_bytes(buf))
     }
+    /// Peeks a [u16] at a specific offset from the reader in big-endian order.
     fn cpeek_u16_be_at(&self, offset: usize) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u16::from_be_bytes(buf))
     }
+    /// Peeks a [u32] at a specific offset from the reader in little-endian order.
     fn cpeek_u32_at(&self, offset: usize) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u32::from_le_bytes(buf))
     }
+    /// Peeks a [u32] at a specific offset from the reader in big-endian order.
     fn cpeek_u32_be_at(&self, offset: usize) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u32::from_be_bytes(buf))
     }
+    /// Peeks a [u64] at a specific offset from the reader in little-endian order.
     fn cpeek_u64_at(&self, offset: usize) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u64::from_le_bytes(buf))
     }
+    /// Peeks a [u64] at a specific offset from the reader in big-endian order.
     fn cpeek_u64_be_at(&self, offset: usize) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u64::from_be_bytes(buf))
     }
+    /// Peeks a [u128] at a specific offset from the reader in little-endian order.
     fn cpeek_u128_at(&self, offset: usize) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u128::from_le_bytes(buf))
     }
+    /// Peeks a [u128] at a specific offset from the reader in big-endian order.
     fn cpeek_u128_be_at(&self, offset: usize) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u128::from_be_bytes(buf))
     }
+    /// Peeks an [i8] at a specific offset from the reader.
     fn cpeek_i8_at(&self, offset: usize) -> Result<i8> {
         let mut buf = [0u8; 1];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i8::from_le_bytes(buf))
     }
+    /// Peeks an [i16] at a specific offset from the reader in little-endian order.
     fn cpeek_i16_at(&self, offset: usize) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i16::from_le_bytes(buf))
     }
+    /// Peeks an [i16] at a specific offset from the reader in big-endian order.
     fn cpeek_i16_be_at(&self, offset: usize) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i16::from_be_bytes(buf))
     }
+    /// Peeks an [i32] at a specific offset from the reader in little-endian order.
     fn cpeek_i32_at(&self, offset: usize) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i32::from_le_bytes(buf))
     }
+    /// Peeks an [i32] at a specific offset from the reader in big-endian order.
     fn cpeek_i32_be_at(&self, offset: usize) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i32::from_be_bytes(buf))
     }
+    /// Peeks an [i64] at a specific offset from the reader in little-endian order.
     fn cpeek_i64_at(&self, offset: usize) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i64::from_le_bytes(buf))
     }
+    /// Peeks an [i64] at a specific offset from the reader in big-endian order.
     fn cpeek_i64_be_at(&self, offset: usize) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i64::from_be_bytes(buf))
     }
+    /// Peeks an [i128] at a specific offset from the reader in little-endian order.
     fn cpeek_i128_at(&self, offset: usize) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i128::from_le_bytes(buf))
     }
+    /// Peeks an [i128] at a specific offset from the reader in big-endian order.
     fn cpeek_i128_be_at(&self, offset: usize) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i128::from_be_bytes(buf))
     }
 
+    /// Peeks a C-style string (null-terminated) from the reader.
     fn cpeek_cstring(&self) -> Result<CString>;
 
+    /// Peeks a C-style string (null-terminated) from the reader at a specific offset.
     fn cpeek_cstring_at(&self, offset: usize) -> Result<CString> {
         let mut buf = Vec::new();
         let mut byte = [0u8; 1];
@@ -544,6 +662,7 @@ pub trait CPeek {
         CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
+    /// Peeks data and checks if it matches the provided data.
     fn cpeek_and_equal(&self, data: &[u8]) -> Result<()> {
         let mut buf = vec![0u8; data.len()];
         self.cpeek_exact(&mut buf)?;
@@ -555,6 +674,7 @@ pub trait CPeek {
         }
         Ok(())
     }
+    /// Peeks data at a specific offset and checks if it matches the provided data.
     fn cpeek_and_equal_at(&self, offset: usize, data: &[u8]) -> Result<()> {
         let mut buf = vec![0u8; data.len()];
         self.cpeek_exact_at(offset, &mut buf)?;
@@ -591,31 +711,57 @@ impl<T: Peek> CPeek for Mutex<T> {
     }
 }
 
+/// A trait to help to read data from a reader.
 pub trait ReadExt {
+    /// Reads a [u8] from the reader.
     fn read_u8(&mut self) -> Result<u8>;
+    /// Reads a [u16] from the reader in little-endian order.
     fn read_u16(&mut self) -> Result<u16>;
+    /// Reads a [u16] from the reader in big-endian order.
     fn read_u16_be(&mut self) -> Result<u16>;
+    /// Reads a [u32] from the reader in little-endian order.
     fn read_u32(&mut self) -> Result<u32>;
+    /// Reads a [u32] from the reader in big-endian order.
     fn read_u32_be(&mut self) -> Result<u32>;
+    /// Reads a [u64] from the reader in little-endian order.
     fn read_u64(&mut self) -> Result<u64>;
+    /// Reads a [u64] from the reader in big-endian order.
     fn read_u64_be(&mut self) -> Result<u64>;
+    /// Reads a [u128] from the reader in little-endian order.
     fn read_u128(&mut self) -> Result<u128>;
+    /// Reads a [u128] from the reader in big-endian order.
     fn read_u128_be(&mut self) -> Result<u128>;
+    /// Reads an [i8] from the reader.
     fn read_i8(&mut self) -> Result<i8>;
+    /// Reads an [i16] from the reader in little-endian order.
     fn read_i16(&mut self) -> Result<i16>;
+    /// Reads an [i16] from the reader in big-endian order.
     fn read_i16_be(&mut self) -> Result<i16>;
+    /// Reads an [i32] from the reader in little-endian order.
     fn read_i32(&mut self) -> Result<i32>;
+    /// Reads an [i32] from the reader in big-endian order.
     fn read_i32_be(&mut self) -> Result<i32>;
+    /// Reads an [i64] from the reader in little-endian order.
     fn read_i64(&mut self) -> Result<i64>;
+    /// Reads an [i64] from the reader in big-endian order.
     fn read_i64_be(&mut self) -> Result<i64>;
+    /// Reads an [i128] from the reader in little-endian order.
     fn read_i128(&mut self) -> Result<i128>;
+    /// Reads an [i128] from the reader in big-endian order.
     fn read_i128_be(&mut self) -> Result<i128>;
 
+    /// Reads a C-style string (null-terminated) from the reader.
     fn read_cstring(&mut self) -> Result<CString>;
+    /// Reads a C-style string (null-terminated) from the reader with maximum length.
+    /// * `len` is the maximum length of the string to read.
+    /// * `encoding` specifies the encoding to use for the string.
+    /// * `trim` indicates whether to trim the string after the first null byte.
     fn read_fstring(&mut self, len: usize, encoding: Encoding, trim: bool) -> Result<String>;
 
+    /// Reads some data from the reader into a vector.
     fn read_exact_vec(&mut self, len: usize) -> Result<Vec<u8>>;
 
+    /// Reads data and checks if it matches the provided data.
     fn read_and_equal(&mut self, data: &[u8]) -> Result<()>;
 }
 
@@ -756,26 +902,46 @@ impl<T: Read> ReadExt for T {
     }
 }
 
+/// A trait to help to write data to a writer.
 pub trait WriteExt {
+    /// Writes a [u8] to the writer.
     fn write_u8(&mut self, value: u8) -> Result<()>;
+    /// Writes a [u16] to the writer in little-endian order.
     fn write_u16(&mut self, value: u16) -> Result<()>;
+    /// Writes a [u16] to the writer in big-endian order.
     fn write_u16_be(&mut self, value: u16) -> Result<()>;
+    /// Writes a [u32] to the writer in little-endian order.
     fn write_u32(&mut self, value: u32) -> Result<()>;
+    /// Writes a [u32] to the writer in big-endian order.
     fn write_u32_be(&mut self, value: u32) -> Result<()>;
+    /// Writes a [u64] to the writer in little-endian order.
     fn write_u64(&mut self, value: u64) -> Result<()>;
+    /// Writes a [u64] to the writer in big-endian order.
     fn write_u64_be(&mut self, value: u64) -> Result<()>;
+    /// Writes a [u128] to the writer in little-endian order.
     fn write_u128(&mut self, value: u128) -> Result<()>;
+    /// Writes a [u128] to the writer in big-endian order.
     fn write_u128_be(&mut self, value: u128) -> Result<()>;
+    /// Writes an [i8] to the writer.
     fn write_i8(&mut self, value: i8) -> Result<()>;
+    /// Writes an [i16] to the writer in little-endian order.
     fn write_i16(&mut self, value: i16) -> Result<()>;
+    /// Writes an [i16] to the writer in big-endian order.
     fn write_i16_be(&mut self, value: i16) -> Result<()>;
+    /// Writes an [i32] to the writer in little-endian order.
     fn write_i32(&mut self, value: i32) -> Result<()>;
+    /// Writes an [i32] to the writer in big-endian order.
     fn write_i32_be(&mut self, value: i32) -> Result<()>;
+    /// Writes an [i64] to the writer in little-endian order.
     fn write_i64(&mut self, value: i64) -> Result<()>;
+    /// Writes an [i64] to the writer in big-endian order.
     fn write_i64_be(&mut self, value: i64) -> Result<()>;
+    /// Writes an [i128] to the writer in little-endian order.
     fn write_i128(&mut self, value: i128) -> Result<()>;
+    /// Writes an [i128] to the writer in big-endian order.
     fn write_i128_be(&mut self, value: i128) -> Result<()>;
 
+    /// Writes a C-style string (null-terminated) to the writer.
     fn write_cstring(&mut self, value: &CString) -> Result<()>;
 }
 
@@ -840,65 +1006,89 @@ impl<T: Write> WriteExt for T {
     }
 }
 
+/// A trait to help to write data to a writer at a specific offset.
 pub trait WriteAt {
+    /// Writes data to the writer at a specific offset.
+    /// Returns the number of bytes written.
     fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<usize>;
+    /// Writes all data to the writer at a specific offset.
+    /// Returns an error if the write fails.
     fn write_all_at(&mut self, offset: usize, buf: &[u8]) -> Result<()>;
 
+    /// Writes a [u8] at a specific offset.
     fn write_u8_at(&mut self, offset: usize, value: u8) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes a [u16] at a specific offset in little-endian order.
     fn write_u16_at(&mut self, offset: usize, value: u16) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes a [u16] at a specific offset in big-endian order.
     fn write_u16_be_at(&mut self, offset: usize, value: u16) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
+    /// Writes a [u32] at a specific offset in little-endian order.
     fn write_u32_at(&mut self, offset: usize, value: u32) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes a [u32] at a specific offset in big-endian order.
     fn write_u32_be_at(&mut self, offset: usize, value: u32) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
+    /// Writes a [u64] at a specific offset in little-endian order.
     fn write_u64_at(&mut self, offset: usize, value: u64) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes a [u64] at a specific offset in big-endian order.
     fn write_u64_be_at(&mut self, offset: usize, value: u64) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
+    /// Writes a [u128] at a specific offset in little-endian order.
     fn write_u128_at(&mut self, offset: usize, value: u128) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes a [u128] at a specific offset in big-endian order.
     fn write_u128_be_at(&mut self, offset: usize, value: u128) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
+    /// Writes an [i8] at a specific offset.
     fn write_i8_at(&mut self, offset: usize, value: i8) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes an [i16] at a specific offset in little-endian order.
     fn write_i16_at(&mut self, offset: usize, value: i16) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes an [i16] at a specific offset in big-endian order.
     fn write_i16_be_at(&mut self, offset: usize, value: i16) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
+    /// Writes an [i32] at a specific offset in little-endian order.
     fn write_i32_at(&mut self, offset: usize, value: i32) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes an [i32] at a specific offset in big-endian order.
     fn write_i32_be_at(&mut self, offset: usize, value: i32) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
+    /// Writes an [i64] at a specific offset in little-endian order.
     fn write_i64_at(&mut self, offset: usize, value: i64) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes an [i64] at a specific offset in big-endian order.
     fn write_i64_be_at(&mut self, offset: usize, value: i64) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
+    /// Writes an [i128] at a specific offset in little-endian order.
     fn write_i128_at(&mut self, offset: usize, value: i128) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
+    /// Writes an [i128] at a specific offset in big-endian order.
     fn write_i128_be_at(&mut self, offset: usize, value: i128) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
 
+    /// Writes a C-style string (null-terminated) at a specific offset.
     fn write_cstring_at(&mut self, offset: usize, value: &CString) -> Result<()> {
         self.write_all_at(offset, value.as_bytes_with_nul())
     }
@@ -922,7 +1112,9 @@ impl<T: Write + Seek> WriteAt for T {
     }
 }
 
+/// A trait to help to seek in a stream.
 pub trait SeekExt {
+    /// Returns the length of the stream.
     fn stream_length(&mut self) -> Result<u64>;
 }
 
@@ -935,14 +1127,20 @@ impl<T: Seek> SeekExt for T {
     }
 }
 
+/// A memory reader that can read data from a vector of bytes.
 pub struct MemReader {
+    /// The data to read from.
     pub data: Vec<u8>,
+    /// The current position in the data.
     pub pos: usize,
 }
 
+/// A memory reader that can read data from a slice of bytes.
 #[derive(Clone)]
 pub struct MemReaderRef<'a> {
+    /// The data to read from.
     pub data: &'a [u8],
+    /// The current position in the data.
     pub pos: usize,
 }
 
@@ -965,10 +1163,12 @@ impl<'a> std::fmt::Debug for MemReaderRef<'a> {
 }
 
 impl MemReader {
+    /// Creates a new `MemReader` with the given data.
     pub fn new(data: Vec<u8>) -> Self {
         MemReader { data, pos: 0 }
     }
 
+    /// Creates a new [MemReaderRef] from the current data and position.
     pub fn to_ref<'a>(&'a self) -> MemReaderRef<'a> {
         MemReaderRef {
             data: &self.data,
@@ -976,20 +1176,24 @@ impl MemReader {
         }
     }
 
+    /// Checks if the reader has reached the end of the data.
     pub fn is_eof(&self) -> bool {
         self.pos >= self.data.len()
     }
 
+    /// Returns the inner data of the reader.
     pub fn inner(self) -> Vec<u8> {
         self.data
     }
 }
 
 impl<'a> MemReaderRef<'a> {
+    /// Creates a new `MemReaderRef` with the given data.
     pub fn new(data: &'a [u8]) -> Self {
         MemReaderRef { data, pos: 0 }
     }
 
+    /// Checks if the reader has reached the end of the data.
     pub fn is_eof(&self) -> bool {
         self.pos >= self.data.len()
     }
@@ -1157,12 +1361,16 @@ impl<'a> CPeek for MemReaderRef<'a> {
     }
 }
 
+/// A memory writer that can write data to a vector of bytes.
 pub struct MemWriter {
+    /// The data to write to.
     pub data: Vec<u8>,
+    /// The current position in the data.
     pub pos: usize,
 }
 
 impl MemWriter {
+    /// Creates a new `MemWriter` with an empty data vector.
     pub fn new() -> Self {
         MemWriter {
             data: Vec::new(),
@@ -1170,18 +1378,22 @@ impl MemWriter {
         }
     }
 
+    /// Creates a new `MemWriter` with the given data.
     pub fn from_vec(data: Vec<u8>) -> Self {
         MemWriter { data, pos: 0 }
     }
 
+    /// Returns the inner data of the writer.
     pub fn into_inner(self) -> Vec<u8> {
         self.data
     }
 
+    /// Returns a reference to the inner data of the writer.
     pub fn as_slice(&self) -> &[u8] {
         &self.data
     }
 
+    /// Returns a new `MemReaderRef` that references the current data and position.
     pub fn to_ref<'a>(&'a self) -> MemReaderRef<'a> {
         MemReaderRef {
             data: &self.data,
@@ -1269,6 +1481,7 @@ impl CPeek for MemWriter {
     }
 }
 
+/// A region of a stream that can be read/write and seeked within a specified range.
 pub struct StreamRegion<T: Seek> {
     stream: T,
     start_pos: u64,
@@ -1277,6 +1490,7 @@ pub struct StreamRegion<T: Seek> {
 }
 
 impl<T: Seek> StreamRegion<T> {
+    /// Creates a new `StreamRegion` with the specified stream and position range.
     pub fn new(stream: T, start_pos: u64, end_pos: u64) -> Result<Self> {
         if start_pos > end_pos {
             return Err(std::io::Error::new(
@@ -1292,6 +1506,8 @@ impl<T: Seek> StreamRegion<T> {
         })
     }
 
+    /// Creates a new `StreamRegion` with the specified stream and start position.
+    /// The end position is determined by the length of the stream.
     pub fn with_start_pos(mut stream: T, start_pos: u64) -> Result<Self> {
         let end_pos = stream.stream_length()?;
         Self::new(stream, start_pos, end_pos)

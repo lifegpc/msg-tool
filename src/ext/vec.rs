@@ -1,3 +1,5 @@
+//!Extensions for vector operations.
+/// Extensions for vector operations.
 pub trait VecExt<T> {
     /// Copy potentially overlapping sequence of elements from `src` to `dst`.
     fn copy_overlapped(&mut self, src: usize, dst: usize, len: usize);

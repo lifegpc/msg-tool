@@ -1,3 +1,4 @@
+//! Extensions for other crates.
 pub mod atomic;
 #[cfg(feature = "fancy-regex")]
 pub mod fancy_regex;

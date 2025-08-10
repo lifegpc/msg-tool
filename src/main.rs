@@ -1725,10 +1725,10 @@ fn main() {
         #[cfg(feature = "circus-img")]
         circus_crx_mode: arg.circus_crx_mode,
         #[cfg(feature = "ex-hibit")]
-        ex_hibit_rld_xor_key: scripts::ex_hibit::rld::load_xor_key(&arg)
+        ex_hibit_rld_xor_key: args::load_ex_hibit_rld_xor_key(&arg)
             .expect("Failed to load RLD XOR key"),
         #[cfg(feature = "ex-hibit")]
-        ex_hibit_rld_def_xor_key: scripts::ex_hibit::rld::load_def_xor_key(&arg)
+        ex_hibit_rld_def_xor_key: args::load_ex_hibit_rld_def_xor_key(&arg)
             .expect("Failed to load RLD DEF XOR key"),
         #[cfg(feature = "ex-hibit")]
         ex_hibit_rld_keys: scripts::ex_hibit::rld::load_keys(arg.ex_hibit_rld_keys.as_ref())

@@ -1,12 +1,15 @@
+//!Extensions for fancy_regex crate.
 use anyhow::Result;
 use fancy_regex::Regex;
 
+/// Extension trait for [fancy_regex::Regex] to provide more convenient methods.
 pub trait FancyRegexExt {
     /// Splits the input string by the regex pattern.
     /// Like python's `re.split()`, but returns an iterator.
     fn py_split<'a>(&'a self, input: &'a str) -> Result<PySplit<'a>>;
 }
 
+/// An iterator that splits a string by a regex pattern, similar to Python's `re.split()`.
 pub struct PySplit<'a> {
     str: &'a str,
     pos: Vec<(usize, usize)>,

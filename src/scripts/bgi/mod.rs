@@ -1,3 +1,4 @@
+//! Buriko General Interpreter / Ethornell Scripts
 #[cfg(feature = "bgi-arc")]
 pub mod archive;
 #[cfg(feature = "bgi-audio")]

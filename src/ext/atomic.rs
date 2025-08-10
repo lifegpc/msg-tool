@@ -1,3 +1,4 @@
+//!Extensions for atomic operations.
 use std::sync::atomic::Ordering;
 
 /// A trait to help to load and store atomic value quickly.

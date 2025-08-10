@@ -1,3 +1,4 @@
+//! Artemis Engine PFS Archive (pf6 and pf8)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -10,9 +11,11 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// The builder for Artemis PFS archive scripts.
 pub struct ArtemisArcBuilder {}
 
 impl ArtemisArcBuilder {
+    /// Creates a new instance of `ArtemisArcBuilder`.
     pub fn new() -> Self {
         ArtemisArcBuilder {}
     }
@@ -125,6 +128,7 @@ struct PfsEntryHeader {
 }
 
 #[derive(Debug)]
+/// The Artemis PFS archive script.
 pub struct ArtemisArc<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     entries: Vec<PfsEntryHeader>,
@@ -133,6 +137,12 @@ pub struct ArtemisArc<T: Read + Seek + std::fmt::Debug> {
 }
 
 impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
+    /// Creates a new Artemis PFS archive script.
+    ///
+    /// * `reader` - The reader for the archive.
+    /// * `archive_encoding` - The encoding used for the archive.
+    /// * `config` - Extra configuration options.
+    /// * `filename` - The name of the archive file.
     pub fn new(
         mut reader: T,
         archive_encoding: Encoding,
@@ -336,6 +346,7 @@ fn detect_script_type(buf: &[u8], buf_len: usize, filename: &str) -> Option<Scri
     None
 }
 
+/// The Artemis PFS archive writer.
 pub struct ArtemisArcWriter<T: Write + Seek + Read> {
     writer: T,
     headers: HashMap<String, PfsEntryHeader>,
@@ -345,6 +356,12 @@ pub struct ArtemisArcWriter<T: Write + Seek + Read> {
 }
 
 impl<T: Write + Seek + Read> ArtemisArcWriter<T> {
+    /// Creates a new Artemis PFS archive writer.
+    ///
+    /// * `writer` - The writer for the archive.
+    /// * `files` - The list of files to include in the archive.
+    /// * `encoding` - The encoding used for the archive.
+    /// * `config` - Extra configuration options.
     pub fn new(
         mut writer: T,
         files: &[&str],
@@ -445,6 +462,7 @@ impl<T: Write + Seek + Read> Archive for ArtemisArcWriter<T> {
     }
 }
 
+/// The Artemis PFS archive file writer.
 pub struct ArtemisArcFile<'a, T: Write + Seek> {
     header: &'a mut PfsEntryHeader,
     writer: &'a mut T,

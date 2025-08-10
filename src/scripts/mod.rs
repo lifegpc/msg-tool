@@ -1,3 +1,4 @@
+//! Module for various script formats and builders.
 #[cfg(feature = "artemis")]
 pub mod artemis;
 pub mod base;
@@ -23,6 +24,7 @@ pub mod yaneurao;
 pub use base::{Script, ScriptBuilder};
 
 lazy_static::lazy_static! {
+    /// A list of all script builders.
     pub static ref BUILDER: Vec<Box<dyn ScriptBuilder + Sync + Send>> = vec![
         #[cfg(feature = "circus")]
         Box::new(circus::script::CircusMesScriptBuilder::new()),
@@ -101,8 +103,10 @@ lazy_static::lazy_static! {
         #[cfg(feature = "bgi-audio")]
         Box::new(bgi::audio::audio::BgiAudioBuilder::new()),
     ];
+    /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =
         BUILDER.iter().flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();
+    /// A list of all script extensions that are archives.
     pub static ref ARCHIVE_EXTS: Vec<String> =
         BUILDER.iter().filter(|b| b.is_archive()).flat_map(|b| b.extensions()).map(|s| s.to_string()).collect();
 }

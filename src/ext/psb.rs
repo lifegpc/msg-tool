@@ -1,3 +1,4 @@
+//!Extensions for emote_psb crate.
 use emote_psb::VirtualPsb;
 use emote_psb::header::PsbHeader;
 use emote_psb::types::collection::*;
@@ -14,27 +15,46 @@ use std::ops::{Index, IndexMut};
 const NONE: PsbValueFixed = PsbValueFixed::None;
 
 #[derive(Debug)]
+/// Represents of a PSB value.
 pub enum PsbValueFixed {
+    /// No value.
     None,
+    /// Represents a null value.
     Null,
+    /// Represents a boolean value.
     Bool(bool),
+    /// Represents a number value.
     Number(PsbNumber),
+    /// Represents an array of integers.
     IntArray(PsbUintArray),
+    /// Represents a string value.
     String(PsbString),
+    /// Represents a list of PSB values.
     List(PsbListFixed),
+    /// Represents an object with key-value pairs.
     Object(PsbObjectFixed),
+    /// Represents a resource reference.
     Resource(PsbResourceRef),
+    /// Represents an extra resource reference.
     ExtraResource(PsbExtraRef),
+    /// Represents a compiler number.
     CompilerNumber,
+    /// Represents a compiler string.
     CompilerString,
+    /// Represents a compiler resource.
     CompilerResource,
+    /// Represents a compiler decimal.
     CompilerDecimal,
+    /// Represents a compiler array.
     CompilerArray,
+    /// Represents a compiler boolean.
     CompilerBool,
+    /// Represents a compiler binary tree.
     CompilerBinaryTree,
 }
 
 impl PsbValueFixed {
+    /// Converts this value to original PSB value type.
     pub fn to_psb(self) -> PsbValue {
         match self {
             PsbValueFixed::None => PsbValue::None,
@@ -57,30 +77,37 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns true if this value is a list.
     pub fn is_list(&self) -> bool {
         matches!(self, PsbValueFixed::List(_))
     }
 
+    /// Returns true if this value is an object.
     pub fn is_object(&self) -> bool {
         matches!(self, PsbValueFixed::Object(_))
     }
 
+    /// Returns true if this value is a string or null.
     pub fn is_string_or_null(&self) -> bool {
         self.is_string() || self.is_null()
     }
 
+    /// Returns true if this value is a string.
     pub fn is_string(&self) -> bool {
         matches!(self, PsbValueFixed::String(_))
     }
 
+    /// Returns true if this value is none.
     pub fn is_none(&self) -> bool {
         matches!(self, PsbValueFixed::None)
     }
 
+    /// Returns true if this value is null.
     pub fn is_null(&self) -> bool {
         matches!(self, PsbValueFixed::Null)
     }
 
+    /// Sets the value of this PSB value to a new string.
     pub fn set_str(&mut self, value: &str) {
         match self {
             PsbValueFixed::String(s) => {
@@ -94,18 +121,22 @@ impl PsbValueFixed {
         }
     }
 
+    /// Sets the value of this PSB value to a new string.
     pub fn set_string(&mut self, value: String) {
         self.set_str(&value);
     }
 
+    /// Returns the value as a boolean, if it is a boolean.
     pub fn as_u8(&self) -> Option<u8> {
         self.as_i64().map(|n| n.try_into().ok()).flatten()
     }
 
+    /// Returns the value as a [u32], if it is a number.
     pub fn as_u32(&self) -> Option<u32> {
         self.as_i64().map(|n| n as u32)
     }
 
+    /// Returns the value as a [i64], if it is a number.
     pub fn as_i64(&self) -> Option<i64> {
         match self {
             PsbValueFixed::Number(n) => match n {
@@ -116,6 +147,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns the value as a string, if it is a string.
     pub fn as_str(&self) -> Option<&str> {
         match self {
             PsbValueFixed::String(s) => Some(s.string()),
@@ -123,6 +155,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns the lengtho of a list or object.
     pub fn len(&self) -> usize {
         match self {
             PsbValueFixed::List(l) => l.len(),
@@ -131,6 +164,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns a iterator over the entries of an object.
     pub fn entries(&self) -> ObjectIter<'_> {
         match self {
             PsbValueFixed::Object(o) => o.iter(),
@@ -138,6 +172,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns a mutable iterator over the entries of an object.
     pub fn entries_mut(&mut self) -> ObjectIterMut<'_> {
         match self {
             PsbValueFixed::Object(o) => o.iter_mut(),
@@ -145,6 +180,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns a iterator over the members of a list.
     pub fn members(&self) -> ListIter<'_> {
         match self {
             PsbValueFixed::List(l) => l.iter(),
@@ -152,6 +188,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns a mutable iterator over the members of a list.
     pub fn members_mut(&mut self) -> ListIterMut<'_> {
         match self {
             PsbValueFixed::List(l) => l.iter_mut(),
@@ -159,6 +196,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns the resource ID if this value is a resource reference.
     pub fn resource_id(&self) -> Option<u64> {
         match self {
             PsbValueFixed::Resource(r) => Some(r.resource_ref),
@@ -166,6 +204,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Converts this value to a JSON value, if possible.
     #[cfg(feature = "json")]
     pub fn to_json(&self) -> Option<JsonValue> {
         match self {
@@ -193,6 +232,7 @@ impl PsbValueFixed {
         }
     }
 
+    /// Converts a JSON value to a PSB value.
     #[cfg(feature = "json")]
     pub fn from_json(obj: &JsonValue) -> Self {
         match obj {
@@ -378,7 +418,9 @@ impl<'a> PartialEq<&'a str> for PsbValueFixed {
     }
 }
 
+/// Trait to convert a PSB value to a fixed PSB value.
 pub trait PsbValueExt {
+    /// Converts this PSB value to a fixed PSB value.
     fn to_psb_fixed(self) -> PsbValueFixed;
 }
 
@@ -407,36 +449,44 @@ impl PsbValueExt for PsbValue {
 }
 
 #[derive(Clone, Debug)]
+/// Represents a PSB list of PSB values.
 pub struct PsbListFixed {
+    /// The values in the list.
     pub values: Vec<PsbValueFixed>,
 }
 
 impl PsbListFixed {
+    /// Converts this PSB list to a original PSB list.
     pub fn to_psb(self) -> PsbList {
         let v: Vec<_> = self.values.into_iter().map(|v| v.to_psb()).collect();
         PsbList::from(v)
     }
 
+    /// Returns a iterator over the values in the list.
     pub fn iter(&self) -> ListIter<'_> {
         ListIter {
             inner: self.values.iter(),
         }
     }
 
+    /// Returns a mutable iterator over the values in the list.
     pub fn iter_mut(&mut self) -> ListIterMut<'_> {
         ListIterMut {
             inner: self.values.iter_mut(),
         }
     }
 
+    /// Returns a reference to the values in the list.
     pub fn values(&self) -> &Vec<PsbValueFixed> {
         &self.values
     }
 
+    /// Returns the length of the list.
     pub fn len(&self) -> usize {
         self.values.len()
     }
 
+    /// Converts this PSB list to a JSON value.
     #[cfg(feature = "json")]
     pub fn to_json(&self) -> JsonValue {
         let data: Vec<_> = self.values.iter().filter_map(|v| v.to_json()).collect();
@@ -463,11 +513,13 @@ impl IndexMut<usize> for PsbListFixed {
     }
 }
 
+/// Iterator for a slice of PSB values in a list.
 pub struct ListIter<'a> {
     inner: std::slice::Iter<'a, PsbValueFixed>,
 }
 
 impl<'a> ListIter<'a> {
+    /// Creates an empty iterator.
     pub fn empty() -> Self {
         ListIter {
             inner: Default::default(),
@@ -497,11 +549,13 @@ impl<'a> DoubleEndedIterator for ListIter<'a> {
     }
 }
 
+/// Mutable iterator for a slice of PSB values in a list.
 pub struct ListIterMut<'a> {
     inner: std::slice::IterMut<'a, PsbValueFixed>,
 }
 
 impl<'a> ListIterMut<'a> {
+    /// Creates an empty mutable iterator.
     pub fn empty() -> Self {
         ListIterMut {
             inner: Default::default(),
@@ -531,7 +585,9 @@ impl<'a> DoubleEndedIterator for ListIterMut<'a> {
     }
 }
 
+/// Trait to convert a PSB list to a fixed PSB list.
 pub trait PsbListExt {
+    /// Converts this PSB list to a fixed PSB list.
     fn to_psb_fixed(self) -> PsbListFixed;
 }
 
@@ -547,11 +603,14 @@ impl PsbListExt for PsbList {
 }
 
 #[derive(Clone, Debug)]
+/// Represents a PSB object with key-value pairs.
 pub struct PsbObjectFixed {
+    /// The key-value pairs in the object.
     pub values: HashMap<String, PsbValueFixed>,
 }
 
 impl PsbObjectFixed {
+    /// Creates a new empty PSB object.
     pub fn to_psb(self) -> PsbObject {
         let mut hash_map = HashMap::new();
         for (key, value) in self.values {
@@ -560,22 +619,26 @@ impl PsbObjectFixed {
         PsbObject::from(hash_map)
     }
 
+    /// Gets a reference of value in the object by key.
     pub fn get_value(&self, key: &str) -> Option<&PsbValueFixed> {
         self.values.get(key)
     }
 
+    /// Returns a iterator over the entries of the object.
     pub fn iter(&self) -> ObjectIter<'_> {
         ObjectIter {
             inner: self.values.iter(),
         }
     }
 
+    /// Returns a mutable iterator over the entries of the object.
     pub fn iter_mut(&mut self) -> ObjectIterMut<'_> {
         ObjectIterMut {
             inner: self.values.iter_mut(),
         }
     }
 
+    /// Converts this PSB object to a JSON value.
     #[cfg(feature = "json")]
     pub fn to_json(&self) -> JsonValue {
         let mut obj = json::object::Object::new();
@@ -587,6 +650,7 @@ impl PsbObjectFixed {
         JsonValue::Object(obj)
     }
 
+    /// Converts a JSON object to a PSB object.
     #[cfg(feature = "json")]
     pub fn from_json(obj: &JsonValue) -> Self {
         let mut values = HashMap::new();
@@ -639,7 +703,9 @@ impl IndexMut<String> for PsbObjectFixed {
     }
 }
 
+/// Trait to convert a PSB object to a fixed PSB object.
 pub trait PsbObjectExt {
+    /// Converts this PSB object to a fixed PSB object.
     fn to_psb_fixed(self) -> PsbObjectFixed;
 }
 
@@ -653,11 +719,13 @@ impl PsbObjectExt for PsbObject {
     }
 }
 
+/// Iterator for a slice of PSB values in an object.
 pub struct ObjectIter<'a> {
     inner: std::collections::hash_map::Iter<'a, String, PsbValueFixed>,
 }
 
 impl<'a> ObjectIter<'a> {
+    /// Creates an empty iterator.
     pub fn empty() -> Self {
         ObjectIter {
             inner: Default::default(),
@@ -679,11 +747,13 @@ impl<'a> ExactSizeIterator for ObjectIter<'a> {
     }
 }
 
+/// Mutable iterator for a slice of PSB values in an object.
 pub struct ObjectIterMut<'a> {
     inner: std::collections::hash_map::IterMut<'a, String, PsbValueFixed>,
 }
 
 impl<'a> ObjectIterMut<'a> {
+    /// Creates an empty mutable iterator.
     pub fn empty() -> Self {
         ObjectIterMut {
             inner: Default::default(),
@@ -706,6 +776,7 @@ impl<'a> ExactSizeIterator for ObjectIterMut<'a> {
     }
 }
 
+/// Represents a fixed version of a virtual PSB.
 #[derive(Clone, Debug)]
 pub struct VirtualPsbFixed {
     header: PsbHeader,
@@ -715,6 +786,7 @@ pub struct VirtualPsbFixed {
 }
 
 impl VirtualPsbFixed {
+    /// Creates a new fixed virtual PSB.
     pub fn new(
         header: PsbHeader,
         resources: Vec<Vec<u8>>,
@@ -729,47 +801,58 @@ impl VirtualPsbFixed {
         }
     }
 
+    /// Returns the header of the PSB.
     pub fn header(&self) -> PsbHeader {
         self.header
     }
 
+    /// Returns a reference to the resources of the PSB.
     pub fn resources(&self) -> &Vec<Vec<u8>> {
         &self.resources
     }
 
+    /// Returns a mutable reference to the resources of the PSB.
     pub fn resources_mut(&mut self) -> &mut Vec<Vec<u8>> {
         &mut self.resources
     }
 
+    /// Returns a reference to the extra resources of the PSB.
     pub fn extra(&self) -> &Vec<Vec<u8>> {
         &self.extra
     }
 
+    /// Returns a mutable reference to the extra resources of the PSB.
     pub fn extra_mut(&mut self) -> &mut Vec<Vec<u8>> {
         &mut self.extra
     }
 
+    /// Returns a reference to the root object of the PSB.
     pub fn root(&self) -> &PsbObjectFixed {
         &self.root
     }
 
+    /// Returns a mutable reference to the root object of the PSB.
     pub fn root_mut(&mut self) -> &mut PsbObjectFixed {
         &mut self.root
     }
 
+    /// Sets the root of the PSB.
     pub fn set_root(&mut self, root: PsbObjectFixed) {
         self.root = root;
     }
 
+    /// Unwraps the PSB into its components.
     pub fn unwrap(self) -> (PsbHeader, Vec<Vec<u8>>, Vec<Vec<u8>>, PsbObjectFixed) {
         (self.header, self.resources, self.extra, self.root)
     }
 
+    /// Converts this fixed PSB to a virtual PSB.
     pub fn to_psb(self) -> VirtualPsb {
         let (header, resources, extra, root) = self.unwrap();
         VirtualPsb::new(header, resources, extra, root.to_psb())
     }
 
+    /// Converts json object to a fixed PSB.
     #[cfg(feature = "json")]
     pub fn from_json(&mut self, obj: &JsonValue) -> Result<(), anyhow::Error> {
         let version = obj["version"]
@@ -784,6 +867,7 @@ impl VirtualPsbFixed {
         Ok(())
     }
 
+    /// Converts this fixed PSB to a JSON object.
     #[cfg(feature = "json")]
     pub fn to_json(&self) -> JsonValue {
         json::object! {
@@ -794,7 +878,9 @@ impl VirtualPsbFixed {
     }
 }
 
+/// Trait to convert a virtual PSB to a fixed PSB.
 pub trait VirtualPsbExt {
+    /// Converts this virtual PSB to a fixed PSB.
     fn to_psb_fixed(self) -> VirtualPsbFixed;
 }
 

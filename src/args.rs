@@ -413,3 +413,43 @@ pub enum Command {
 pub fn parse_args() -> Arg {
     Arg::parse()
 }
+
+#[cfg(feature = "ex-hibit")]
+pub fn load_ex_hibit_rld_xor_key(arg: &Arg) -> anyhow::Result<Option<u32>> {
+    if let Some(key) = &arg.ex_hibit_rld_xor_key {
+        if key.starts_with("0x") {
+            return Ok(Some(u32::from_str_radix(&key[2..], 16)?));
+        } else {
+            return Ok(Some(u32::from_str_radix(key, 16)?));
+        }
+    }
+    if let Some(file) = &arg.ex_hibit_rld_xor_key_file {
+        let key = std::fs::read_to_string(file)?.trim().to_string();
+        if key.starts_with("0x") {
+            return Ok(Some(u32::from_str_radix(&key[2..], 16)?));
+        } else {
+            return Ok(Some(u32::from_str_radix(&key, 16)?));
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(feature = "ex-hibit")]
+pub fn load_ex_hibit_rld_def_xor_key(arg: &crate::args::Arg) -> anyhow::Result<Option<u32>> {
+    if let Some(key) = &arg.ex_hibit_rld_def_xor_key {
+        if key.starts_with("0x") {
+            return Ok(Some(u32::from_str_radix(&key[2..], 16)?));
+        } else {
+            return Ok(Some(u32::from_str_radix(key, 16)?));
+        }
+    }
+    if let Some(file) = &arg.ex_hibit_rld_def_xor_key_file {
+        let key = std::fs::read_to_string(file)?.trim().to_string();
+        if key.starts_with("0x") {
+            return Ok(Some(u32::from_str_radix(&key[2..], 16)?));
+        } else {
+            return Ok(Some(u32::from_str_radix(&key, 16)?));
+        }
+    }
+    Ok(None)
+}

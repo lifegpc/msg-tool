@@ -522,44 +522,6 @@ impl Script for RldScript {
     }
 }
 
-pub fn load_xor_key(arg: &crate::args::Arg) -> Result<Option<u32>> {
-    if let Some(key) = &arg.ex_hibit_rld_xor_key {
-        if key.starts_with("0x") {
-            return Ok(Some(u32::from_str_radix(&key[2..], 16)?));
-        } else {
-            return Ok(Some(u32::from_str_radix(key, 16)?));
-        }
-    }
-    if let Some(file) = &arg.ex_hibit_rld_xor_key_file {
-        let key = std::fs::read_to_string(file)?.trim().to_string();
-        if key.starts_with("0x") {
-            return Ok(Some(u32::from_str_radix(&key[2..], 16)?));
-        } else {
-            return Ok(Some(u32::from_str_radix(&key, 16)?));
-        }
-    }
-    Ok(None)
-}
-
-pub fn load_def_xor_key(arg: &crate::args::Arg) -> Result<Option<u32>> {
-    if let Some(key) = &arg.ex_hibit_rld_def_xor_key {
-        if key.starts_with("0x") {
-            return Ok(Some(u32::from_str_radix(&key[2..], 16)?));
-        } else {
-            return Ok(Some(u32::from_str_radix(key, 16)?));
-        }
-    }
-    if let Some(file) = &arg.ex_hibit_rld_def_xor_key_file {
-        let key = std::fs::read_to_string(file)?.trim().to_string();
-        if key.starts_with("0x") {
-            return Ok(Some(u32::from_str_radix(&key[2..], 16)?));
-        } else {
-            return Ok(Some(u32::from_str_radix(&key, 16)?));
-        }
-    }
-    Ok(None)
-}
-
 pub fn load_keys(path: Option<&String>) -> Result<Option<Box<[u32; 0x100]>>> {
     if let Some(path) = path {
         let f = crate::utils::files::read_file(path)?;

@@ -1,3 +1,4 @@
+//! Artemis Engine AST file (.ast)
 mod dump;
 mod parser;
 mod text;
@@ -11,9 +12,11 @@ use std::io::Write;
 use types::*;
 
 #[derive(Debug)]
+/// The builder for Artemis AST scripts.
 pub struct AstScriptBuilder {}
 
 impl AstScriptBuilder {
+    /// Creates a new instance of `AstScriptBuilder`.
     pub fn new() -> Self {
         AstScriptBuilder {}
     }
@@ -55,6 +58,7 @@ impl ScriptBuilder for AstScriptBuilder {
 }
 
 #[derive(Debug)]
+/// The Artemis AST script.
 pub struct AstScript {
     ast: AstFile,
     indent: Option<usize>,
@@ -64,6 +68,11 @@ pub struct AstScript {
 }
 
 impl AstScript {
+    /// Creates a new Artemis AST script from the given buffer.
+    ///
+    /// * `buf` - The buffer containing the AST data.
+    /// * `encoding` - The encoding used for the AST data.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let parser = parser::Parser::new(&buf, encoding);
         let ast = parser.parse()?;
@@ -680,6 +689,11 @@ impl Script for AstScript {
     }
 }
 
+/// Checks if the given buffer is in the Artemis AST format.
+///
+/// * `filename` - The name of the file.
+/// * `buf` - The buffer containing the data.
+/// * `buf_len` - The length of the buffer.
 pub fn is_this_format(_filename: &str, buf: &[u8], buf_len: usize) -> bool {
     let parser = parser::Parser::new(&buf[..buf_len], Encoding::Utf8);
     parser.try_parse_header().is_ok()

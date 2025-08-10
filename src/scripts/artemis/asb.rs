@@ -1,3 +1,4 @@
+//! Artemis Engine ASB file (.asb)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -11,9 +12,11 @@ use std::ops::Index;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
+/// The builder for Artemis ASB scripts.
 pub struct ArtemisAsbBuilder {}
 
 impl ArtemisAsbBuilder {
+    /// Creates a new instance of `ArtemisAsbBuilder`.
     pub fn new() -> Self {
         ArtemisAsbBuilder {}
     }
@@ -408,11 +411,17 @@ impl<'a> TextParser<'a> {
 }
 
 #[derive(Debug)]
+/// The Artemis ASB script.
 pub struct Asb {
     items: Vec<Item>,
 }
 
 impl Asb {
+    /// Creates a new Artemis ASB script from the given buffer.
+    ///
+    /// * `buf` - The buffer containing the ASB data.
+    /// * `encoding` - The encoding used for the ASB data.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut data = MemReader::new(buf);
         let mut magic = [0; 5];
@@ -654,6 +663,12 @@ impl Script for Asb {
     }
 }
 
+/// Creates a new ASB file.
+///
+/// * `custom_filename` - The path ot the input file.
+/// * `writer` - The writer to write the ASB script.
+/// * `encoding` - The encoding used for the ASB script.
+/// * `output_encoding` - The encoding used for the input file.
 pub fn create_file<'a>(
     custom_filename: &'a str,
     mut writer: Box<dyn WriteSeek + 'a>,

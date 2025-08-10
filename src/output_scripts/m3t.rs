@@ -1,12 +1,24 @@
+//! A simple text format that supports both original/llm/translated messages.
+//!
+//! A simple m3t file example:
+//! ```text
+//! ○ NAME: Example
+//!
+//! ○ Original message
+//! △ LLM message
+//! ● Translated message
+//! ```
 use crate::types::Message;
 use anyhow::Result;
 
+/// A parser for the M3T format.
 pub struct M3tParser<'a> {
     str: &'a str,
     line: usize,
 }
 
 impl<'a> M3tParser<'a> {
+    /// Creates a new M3tParser with the given string.
     pub fn new(str: &'a str) -> Self {
         M3tParser { str, line: 1 }
     }
@@ -31,6 +43,7 @@ impl<'a> M3tParser<'a> {
         }
     }
 
+    /// Parses the M3T format and returns a vector of messages.
     pub fn parse(&mut self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let mut name = None;
@@ -79,9 +92,11 @@ impl<'a> M3tParser<'a> {
     }
 }
 
+/// A dumper for the M3T format.
 pub struct M3tDumper {}
 
 impl M3tDumper {
+    /// Dumps the messages in M3T format.
     pub fn dump(messages: &[Message]) -> String {
         let mut result = String::new();
         for message in messages {
