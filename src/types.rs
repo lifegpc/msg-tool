@@ -60,6 +60,8 @@ pub enum OutputScriptType {
     M3t,
     /// JSON which can be used for GalTransl
     Json,
+    /// YAML (same as JSON, but with YAML syntax)
+    Yaml,
     /// Custom output
     Custom,
 }
@@ -75,6 +77,7 @@ impl AsRef<str> for OutputScriptType {
         match self {
             OutputScriptType::M3t => "m3t",
             OutputScriptType::Json => "json",
+            OutputScriptType::Yaml => "yaml",
             OutputScriptType::Custom => "",
         }
     }
