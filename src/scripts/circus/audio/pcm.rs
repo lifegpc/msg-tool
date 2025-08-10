@@ -1,3 +1,4 @@
+//! Circus Audio File (.pcm)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -10,9 +11,11 @@ use overf::wrapping;
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug)]
+/// Circus PCM Builder
 pub struct PcmBuilder {}
 
 impl PcmBuilder {
+    /// Creates a new instance of `PcmBuilder`.
     pub fn new() -> Self {
         Self {}
     }
@@ -110,12 +113,17 @@ impl Header {
 }
 
 #[derive(Debug)]
+/// Circus PCM Script
 pub struct Pcm {
     header: Header,
     data: MemReader,
 }
 
 impl Pcm {
+    /// Creates a new `Pcm` instance from a reader and configuration.
+    ///
+    /// * `reader` - The reader to read the PCM data from.
+    /// * `config` - Extra configuration options.
     pub fn new<R: Read + Seek>(mut reader: R, _config: &ExtraConfig) -> Result<Self> {
         let mut magic = [0u8; 4];
         reader.read_exact(&mut magic)?;

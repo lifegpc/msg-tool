@@ -1,3 +1,4 @@
+//! Circus Image File (.crx)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -11,10 +12,15 @@ use overf::wrapping;
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Circus CRX Row Encoding Mode
 pub enum CircusCrxMode {
+    /// Encoding all rows with a fixed type.
     Fixed(u8),
+    /// When importing, use origin mode; when creating, use best mode.
     Auto,
+    /// Use origin mode for importing; when creating, fallback to best mode.
     Origin,
+    /// Try to use the best mode for encoding.
     Best,
 }
 
@@ -25,6 +31,7 @@ impl Default for CircusCrxMode {
 }
 
 impl CircusCrxMode {
+    /// Returns mode for importing.
     pub fn for_importing(&self) -> Self {
         match self {
             CircusCrxMode::Auto => CircusCrxMode::Origin,
@@ -32,6 +39,7 @@ impl CircusCrxMode {
         }
     }
 
+    /// Returns mode for creating.
     pub fn for_creating(&self) -> Self {
         match self {
             CircusCrxMode::Auto => CircusCrxMode::Best,
@@ -40,10 +48,12 @@ impl CircusCrxMode {
         }
     }
 
+    /// Checks if the mode is best.
     pub fn is_best(&self) -> bool {
         matches!(self, CircusCrxMode::Best)
     }
 
+    /// Checks if the mode is origin.
     pub fn is_origin(&self) -> bool {
         matches!(self, CircusCrxMode::Origin)
     }
@@ -81,9 +91,11 @@ impl ValueEnum for CircusCrxMode {
 }
 
 #[derive(Debug)]
+/// Circus CRX Image Builder
 pub struct CrxImageBuilder {}
 
 impl CrxImageBuilder {
+    /// Creates a new instance of `CrxImageBuilder`.
     pub const fn new() -> Self {
         CrxImageBuilder {}
     }
@@ -166,6 +178,7 @@ struct Header {
     clips: Vec<Clip>,
 }
 
+/// Circus CRX Image
 pub struct CrxImage {
     header: Header,
     color_type: ImageColorType,
@@ -189,6 +202,10 @@ impl std::fmt::Debug for CrxImage {
 }
 
 impl CrxImage {
+    /// Creates a new `CrxImage` from the given data and configuration.
+    ///
+    /// * `data` - The reader to read the CRX image from.
+    /// * `config` - Extra configuration options.
     pub fn new<T: Read + Seek>(data: T, config: &ExtraConfig) -> Result<Self> {
         let mut reader = data;
         let mut magic = [0; 4];
@@ -241,11 +258,15 @@ impl CrxImage {
         })
     }
 
+    /// Whether to draw image on canvas if canvas's width and height are specified in image.
     pub fn with_canvas(mut self, canvas: bool) -> Self {
         self.canvas = canvas;
         self
     }
 
+    /// Draws another image on this image.
+    ///
+    /// Returns a new `ImageData` with the combined image.
     pub fn draw_diff(&self, diff: &Self) -> Result<ImageData> {
         let base_header = &self.header;
         let diff_header = &diff.header;
@@ -703,6 +724,11 @@ impl CrxImage {
         Ok(dst)
     }
 
+    /// Creates a CRX image file from the given image data and writes it to the specified writer.
+    ///
+    /// * `data` - The input image data.
+    /// * `writer` - The writer to write the CRX image to.
+    /// * `config` - Extra configuration options.
     pub fn create_image<T: Write + Seek>(
         mut data: ImageData,
         mut writer: T,

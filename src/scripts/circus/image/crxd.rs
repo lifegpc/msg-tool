@@ -1,3 +1,4 @@
+//! Circus Differential Image File (.crx)
 use super::crx::CrxImage;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -6,9 +7,11 @@ use anyhow::Result;
 use std::io::{Read, Seek};
 
 #[derive(Debug)]
+/// Circus CRXD Image Builder
 pub struct CrxdImageBuilder {}
 
 impl CrxdImageBuilder {
+    /// Creates a new instance of `CrxdImageBuilder`.
     pub fn new() -> Self {
         Self {}
     }
@@ -58,12 +61,20 @@ impl ScriptBuilder for CrxdImageBuilder {
 }
 
 #[derive(Debug)]
+/// Circus CRXD Image
 pub struct CrxdImage {
     base: CrxImage,
     diff: CrxImage,
 }
 
 impl CrxdImage {
+    /// Creates a new `CrxdImage` from the given data and configuration.
+    ///
+    /// * `data` - The reader to read the CRXD image from.
+    /// * `filename` - The name of the file to read.
+    /// * `encoding` - The encoding to use for string fields.
+    /// * `config` - Extra configuration options.
+    /// * `archive` - Optional archive to read the image from.
     pub fn new<T: Read + Seek>(
         data: T,
         filename: &str,

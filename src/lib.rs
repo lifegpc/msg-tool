@@ -11,3 +11,8 @@ pub mod utils;
 lazy_static::lazy_static! {
     static ref COUNTER: utils::counter::Counter = utils::counter::Counter::new();
 }
+
+/// Returns a reference to the global counter instance.
+pub fn get_counter() -> &'static utils::counter::Counter {
+    &COUNTER
+}

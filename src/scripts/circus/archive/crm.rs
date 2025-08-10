@@ -1,3 +1,4 @@
+//! Circus Image Archive File (.crm)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -7,9 +8,11 @@ use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// Circus CRM Archive Builder
 pub struct CrmArchiveBuilder {}
 
 impl CrmArchiveBuilder {
+    /// Creates a new instance of `CrmArchiveBuilder`.
     pub fn new() -> Self {
         Self {}
     }
@@ -178,12 +181,18 @@ impl<T: Read + Seek> Seek for Entry<T> {
 }
 
 #[derive(Debug)]
+/// Circus CRM Archive
 pub struct CrmArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     entries: Vec<CrmFileHeader>,
 }
 
 impl<T: Read + Seek + std::fmt::Debug> CrmArchive<T> {
+    /// Creates a new `CrmArchive` from a reader.
+    ///
+    /// * `reader` - The reader to read the CRM archive from.
+    /// * `encoding` - The encoding to use for string fields.
+    /// * `config` - Extra configuration options.
     pub fn new(mut reader: T, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut magic = [0u8; 4];
         reader.read_exact(&mut magic)?;

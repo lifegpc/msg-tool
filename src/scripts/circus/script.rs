@@ -1,3 +1,4 @@
+//! Circus Script File (.mes)
 use super::info::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -5,9 +6,11 @@ use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
 
 #[derive(Debug)]
+/// Circus MES Script Builder
 pub struct CircusMesScriptBuilder {}
 
 impl CircusMesScriptBuilder {
+    /// Creates a new instance of `CircusMesScriptBuilder`.
     pub const fn new() -> Self {
         CircusMesScriptBuilder {}
     }
@@ -46,6 +49,7 @@ struct Token {
     value: u8,
 }
 
+/// Circus MES Script
 pub struct CircusMesScript {
     data: Vec<u8>,
     encoding: Encoding,
@@ -58,6 +62,11 @@ pub struct CircusMesScript {
 }
 
 impl CircusMesScript {
+    /// Creates a new `CircusMesScript` from the given data and configuration.
+    ///
+    /// * `data` - The data to read the MES script from.
+    /// * `encoding` - The encoding to use for string fields.
+    /// * `config` - Extra configuration options.
     pub fn new(data: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let head0 = i32::from_le_bytes(data[0..4].try_into()?);
         let head1 = i32::from_le_bytes(data[4..8].try_into()?);

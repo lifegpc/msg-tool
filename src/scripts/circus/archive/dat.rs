@@ -1,3 +1,4 @@
+//! Circus Archive File (.dat)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -6,9 +7,11 @@ use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// Circus DAT Archive Builder
 pub struct DatArchiveBuilder {}
 
 impl DatArchiveBuilder {
+    /// Creates a new instance of `DatArchiveBuilder`.
     pub fn new() -> Self {
         Self {}
     }
@@ -174,11 +177,14 @@ impl<T: Read + Seek> Seek for Entry<T> {
 }
 
 #[derive(Debug)]
+/// Extra information for the DAT archive.
 pub struct DatExtraInfo {
+    /// Maximum length of file names in the DAT archive.
     pub name_len: usize,
 }
 
 #[derive(Debug)]
+/// Circus DAT Archive
 pub struct DatArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     entries: Vec<DatFileHeader>,
@@ -188,6 +194,11 @@ pub struct DatArchive<T: Read + Seek + std::fmt::Debug> {
 const NAME_LEN: [usize; 3] = [0x24, 0x30, 0x3C];
 
 impl<T: Read + Seek + std::fmt::Debug> DatArchive<T> {
+    /// Creates a new `DatArchive` from a reader.
+    ///
+    /// * `reader` - The reader to read the DAT archive from.
+    /// * `encoding` - The encoding to use for string fields.
+    /// * `config` - Extra configuration options.
     pub fn new(mut reader: T, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let (name_len, entries) = Self::read_all_index(&mut reader, encoding)?;
         let reader = Arc::new(Mutex::new(reader));
@@ -365,6 +376,9 @@ fn is_this_format_name_len(buf: &[u8], name_len: usize) -> Result<u8> {
     Ok(score)
 }
 
+/// Checks if the buffer is a valid DAT archive format.
+///
+/// * `buf` - The buffer to check.
 pub fn is_this_format(buf: &[u8]) -> Result<u8> {
     for &name_len in &NAME_LEN {
         match is_this_format_name_len(buf, name_len) {

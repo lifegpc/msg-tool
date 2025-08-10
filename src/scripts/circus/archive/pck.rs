@@ -1,3 +1,4 @@
+//! Circus Archive File (.pck/.dat)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -10,9 +11,11 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// Circus PCK Archive Builder
 pub struct PckArchiveBuilder {}
 
 impl PckArchiveBuilder {
+    /// Creates a new instance of `PckArchiveBuilder`.
     pub const fn new() -> Self {
         Self {}
     }
@@ -193,12 +196,18 @@ impl<T: Read + Seek> Seek for Entry<T> {
 }
 
 #[derive(Debug)]
+/// PCK Archive
 pub struct PckArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     entries: Vec<PckFileHeader>,
 }
 
 impl<T: Read + Seek + std::fmt::Debug> PckArchive<T> {
+    /// Creates a new `PckArchive` from a reader.
+    ///
+    /// * `reader` - The reader to read the PCK archive from.
+    /// * `archive_encoding` - The encoding to use for string fields in the archive.
+    /// * `config` - Extra configuration options.
     pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let file_count = reader.read_u32()?;
         // (offset, size)
@@ -315,6 +324,7 @@ fn detect_script_type(_buf: &[u8], _buf_len: usize, _filename: &str) -> Option<S
     None
 }
 
+/// PCK Archive Writer
 pub struct PckArchiveWriter<T: Write + Seek> {
     writer: T,
     headers: HashMap<String, PckFileHeader>,
@@ -322,6 +332,12 @@ pub struct PckArchiveWriter<T: Write + Seek> {
 }
 
 impl<T: Write + Seek> PckArchiveWriter<T> {
+    /// Creates a new `PckArchiveWriter` for writing a PCK archive.
+    ///
+    /// * `writer` - The writer to write the PCK archive to.
+    /// * `files` - A list of file names to include in the archive.
+    /// * `encoding` - The encoding to use for string fields in the archive.
+    /// * `config` - Extra configuration options.
     pub fn new(
         mut writer: T,
         files: &[&str],
@@ -386,6 +402,7 @@ impl<T: Write + Seek> Archive for PckArchiveWriter<T> {
     }
 }
 
+/// PCK Archive File
 pub struct PckArchiveFile<'a, T: Write + Seek> {
     header: &'a mut PckFileHeader,
     writer: &'a mut T,
@@ -443,6 +460,7 @@ impl<'a, T: Write + Seek> Seek for PckArchiveFile<'a, T> {
     }
 }
 
+/// Checks if the buffer is a valid PCK archive format.
 pub fn is_this_format(buf: &[u8]) -> Result<u8> {
     let mut reader = MemReaderRef::new(buf);
     let count = reader.read_u32()? as usize;
