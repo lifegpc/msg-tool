@@ -1,5 +1,11 @@
+//! Encoding Utilities
 use crate::types::*;
 
+/// Decodes a byte slice to a string using the specified encoding with BOM detection.
+///
+/// * `check` - If true, checks for decoding errors and returns an error if any.
+///
+/// Returns the decoded string and the detected BOM type.
 pub fn decode_with_bom_detect(
     encoding: Encoding,
     data: &[u8],
@@ -53,6 +59,9 @@ pub fn decode_with_bom_detect(
     decode_to_string(encoding, data, check).map(|s| (s, BomType::None))
 }
 
+/// Decodes a byte slice to a string using the specified encoding.
+///
+/// * `check` - If true, checks for decoding errors and returns an error if any.
 pub fn decode_to_string(
     encoding: Encoding,
     data: &[u8],
@@ -98,6 +107,9 @@ pub fn decode_to_string(
     }
 }
 
+/// Encodes a string to a byte vector using the specified encoding.
+///
+/// * `check` - If true, checks for encoding errors and returns an error if any.
 pub fn encode_string(
     encoding: Encoding,
     data: &str,
@@ -141,6 +153,10 @@ pub fn encode_string(
     }
 }
 
+/// Encodes a string to a byte vector using the specified encoding with BOM.
+///
+/// * `bom` - The BOM type to use.
+/// * `check` - If true, checks for encoding errors and returns an error if any
 pub fn encode_string_with_bom(
     encoding: Encoding,
     data: &str,

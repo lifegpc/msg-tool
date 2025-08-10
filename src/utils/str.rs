@@ -1,3 +1,4 @@
+//! String Utilities
 use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;

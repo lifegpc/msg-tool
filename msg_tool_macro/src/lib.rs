@@ -29,6 +29,7 @@ impl syn::parse::Parse for PackStruct {
 }
 
 #[proc_macro]
+/// Implements `StructUnpack` and `StructPack` traits for numeric types.
 pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
     let i = syn::parse_macro_input!(item as syn::Ident);
     let output = quote::quote! {
@@ -647,6 +648,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
 
 #[cfg(feature = "artemis-arc")]
 #[proc_macro]
+/// Generates a list of Artemis Arc extensions for the PFS file format.
 pub fn gen_artemis_arc_ext(_: TokenStream) -> TokenStream {
     let mut exts = Vec::new();
     exts.push(quote::quote! { "pfs" });

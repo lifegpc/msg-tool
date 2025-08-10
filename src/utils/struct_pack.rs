@@ -1,13 +1,26 @@
+//! Binary Struct Packing and Unpacking Utilities
 use crate::types::Encoding;
 use anyhow::Result;
 use msg_tool_macro::struct_unpack_impl_for_num;
 use std::io::{Read, Seek, Write};
 
+/// Trait for unpacking a struct from a binary stream.
 pub trait StructUnpack: Sized {
+    /// Unpacks a struct from a binary stream.
+    ///
+    /// * `reader` - The reader to read the binary data from.
+    /// * `big` - Whether the data is in big-endian format.
+    /// * `encoding` - The encoding to use for string fields.
     fn unpack<R: Read + Seek>(reader: R, big: bool, encoding: Encoding) -> Result<Self>;
 }
 
+/// Trait for packing a struct into a binary stream.
 pub trait StructPack: Sized {
+    /// Packs a struct into a binary stream.
+    ///
+    /// * `writer` - The writer to write the binary data to.
+    /// * `big` - Whether to use big-endian format.
+    /// * `encoding` - The encoding to use for string fields.
     fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding) -> Result<()>;
 }
 

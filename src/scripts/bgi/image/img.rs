@@ -1,3 +1,4 @@
+//! Buriko General Interpreter/Ethornell Uncompressed Image File
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -31,9 +32,11 @@ fn try_parse(buf: &[u8]) -> Result<u8> {
 }
 
 #[derive(Debug)]
+/// Builder for BGI Uncompressed Image scripts.
 pub struct BgiImageBuilder {}
 
 impl BgiImageBuilder {
+    /// Creates a new instance of `BgiImageBuilder`.
     pub const fn new() -> Self {
         BgiImageBuilder {}
     }
@@ -90,6 +93,7 @@ impl ScriptBuilder for BgiImageBuilder {
 }
 
 #[derive(Debug)]
+/// BGI Uncompressed Image script.
 pub struct BgiImage {
     data: MemReader,
     width: u32,
@@ -162,6 +166,10 @@ fn create_image<'a>(
 }
 
 impl BgiImage {
+    /// Creates a new instance of `BgiImage` from a buffer.
+    ///
+    /// * `buf` - The buffer containing the script data.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(buf);
         let width = reader.read_u16()? as u32;

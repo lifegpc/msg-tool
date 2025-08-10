@@ -1,6 +1,10 @@
+//! Image Utilities
 use crate::types::*;
 use anyhow::Result;
 
+/// Reverses the alpha values of an image.
+///
+/// Only supports RGBA or BGRA images with 8-bit depth.
 pub fn reverse_alpha_values(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Rgba && data.color_type != ImageColorType::Bgra {
         return Err(anyhow::anyhow!("Image is not RGBA or BGRA"));
@@ -16,6 +20,9 @@ pub fn reverse_alpha_values(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Converts a BGR image to BGRA format.
+///
+/// Only supports BGR images with 8-bit depth.
 pub fn convert_bgr_to_bgra(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Bgr {
         return Err(anyhow::anyhow!("Image is not BGR"));
@@ -37,6 +44,9 @@ pub fn convert_bgr_to_bgra(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Converts a BGR image to RGB format.
+///
+/// Only supports BGR images with 8-bit depth.
 pub fn convert_bgr_to_rgb(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Bgr {
         return Err(anyhow::anyhow!("Image is not BGR"));
@@ -55,6 +65,9 @@ pub fn convert_bgr_to_rgb(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Converts a BGRA image to BGR format.
+///
+/// Only supports BGRA images with 8-bit depth.
 pub fn convert_bgra_to_bgr(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Bgra {
         return Err(anyhow::anyhow!("Image is not BGRA"));
@@ -75,6 +88,9 @@ pub fn convert_bgra_to_bgr(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Converts a BGRA image to RGBA format.
+///
+/// Only supports BGRA images with 8-bit depth.
 pub fn convert_bgra_to_rgba(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Bgra {
         return Err(anyhow::anyhow!("Image is not BGRA"));
@@ -93,6 +109,9 @@ pub fn convert_bgra_to_rgba(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Converts an RGB image to RGBA format.
+///
+/// Only supports RGB images with 8-bit depth.
 pub fn convert_rgb_to_rgba(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Rgb {
         return Err(anyhow::anyhow!("Image is not RGB"));
@@ -114,6 +133,9 @@ pub fn convert_rgb_to_rgba(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Converts an RGB image to BGR format.
+///
+/// Only supports RGB images with 8-bit depth.
 pub fn convert_rgb_to_bgr(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Rgb {
         return Err(anyhow::anyhow!("Image is not RGB"));
@@ -132,6 +154,9 @@ pub fn convert_rgb_to_bgr(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Converts an RGBA image to BGRA format.
+///
+/// Only supports RGBA images with 8-bit depth.
 pub fn convert_rgba_to_bgra(data: &mut ImageData) -> Result<()> {
     if data.color_type != ImageColorType::Rgba {
         return Err(anyhow::anyhow!("Image is not RGBA"));
@@ -150,6 +175,12 @@ pub fn convert_rgba_to_bgra(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Encodes an image to the specified format and writes it to a file.
+///
+/// * `data` - The image data to encode.
+/// * `typ` - The output image format.
+/// * `filename` - The path of the file to write the encoded image to.
+/// * `config` - Extra configuration.
 pub fn encode_img(
     mut data: ImageData,
     typ: ImageOutputType,
@@ -256,6 +287,7 @@ pub fn encode_img(
     }
 }
 
+/// Loads a PNG image from the given reader and returns its data.
 pub fn load_png<R: std::io::Read>(data: R) -> Result<ImageData> {
     let decoder = png::Decoder::new(data);
     let mut reader = decoder.read_info()?;
@@ -289,6 +321,10 @@ pub fn load_png<R: std::io::Read>(data: R) -> Result<ImageData> {
     })
 }
 
+/// Decodes an image from the specified file path and returns its data.
+///
+/// * `typ` - The type of the image to decode.
+/// * `filename` - The path of the file to decode.
 pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
     match typ {
         ImageOutputType::Png => {
@@ -361,6 +397,15 @@ pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
     }
 }
 
+/// Draws an image on a canvas with specified offsets.
+///
+/// * `img` - The image data to draw.
+/// * `canvas_width` - The width of the canvas.
+/// * `canvas_height` - The height of the canvas.
+/// * `offset_x` - The horizontal offset to start drawing the image.
+/// * `offset_y` - The vertical offset to start drawing the image.
+///
+/// Returns the canvas image data.
 pub fn draw_on_canvas(
     img: ImageData,
     canvas_width: u32,
@@ -397,6 +442,7 @@ pub fn draw_on_canvas(
     })
 }
 
+/// Flips an image vertically.
 pub fn flip_image(data: &mut ImageData) -> Result<()> {
     if data.height <= 1 {
         return Ok(());
@@ -420,6 +466,9 @@ pub fn flip_image(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Applies opacity to an image.
+///
+/// Only supports RGBA or BGRA images with 8-bit depth.
 pub fn apply_opacity(img: &mut ImageData, opacity: u8) -> Result<()> {
     if img.color_type != ImageColorType::Rgba && img.color_type != ImageColorType::Bgra {
         return Err(anyhow::anyhow!("Image is not RGBA or BGRA"));
@@ -435,6 +484,13 @@ pub fn apply_opacity(img: &mut ImageData, opacity: u8) -> Result<()> {
     Ok(())
 }
 
+/// Draws an image on another image with specified opacity.
+///
+/// * `base` - The base image to draw on.
+/// * `diff` - The image to draw with opacity.
+/// * `left` - The horizontal offset to start drawing the image.
+/// * `top` - The vertical offset to start drawing the image.
+/// * `opacity` - The opacity level to apply to the drawn image (0-255
 pub fn draw_on_img_with_opacity(
     base: &mut ImageData,
     diff: &ImageData,

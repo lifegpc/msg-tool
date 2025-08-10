@@ -1,3 +1,4 @@
+//! CatSystem2 Scene Script File (.cst)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -8,9 +9,11 @@ use int_enum::IntEnum;
 use std::io::{Read, Write};
 
 #[derive(Debug)]
+/// Builder for CatSystem2 Scene Script files.
 pub struct CstScriptBuilder {}
 
 impl CstScriptBuilder {
+    /// Creates a new instance of `CstScriptBuilder`.
     pub fn new() -> Self {
         CstScriptBuilder {}
     }
@@ -96,6 +99,7 @@ struct CstString {
 }
 
 #[derive(Debug)]
+/// CatSystem2 Scene Script.
 pub struct CstScript {
     data: MemReader,
     compressed: bool,
@@ -104,6 +108,11 @@ pub struct CstScript {
 }
 
 impl CstScript {
+    /// Creates a new instance of `CstScript` from a buffer.
+    ///
+    /// * `buf` - The buffer containing the script data.
+    /// * `encoding` - The encoding of the script.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(buf);
         let mut magic = [0; 8];

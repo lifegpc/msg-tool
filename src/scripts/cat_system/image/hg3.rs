@@ -1,3 +1,4 @@
+//! CatSystem2 HG3 Image File (.hg3)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -11,9 +12,11 @@ use overf::wrapping;
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug)]
+/// Builder for CatSystem2 HG3 Image scripts.
 pub struct Hg3ImageBuilder {}
 
 impl Hg3ImageBuilder {
+    /// Creates a new instance of `Hg3ImageBuilder`.
     pub const fn new() -> Self {
         Hg3ImageBuilder {}
     }
@@ -66,6 +69,7 @@ struct Hg3Entry {
 }
 
 #[derive(Debug)]
+/// CatSystem2 HG3 Image script.
 pub struct Hg3Image {
     data: MemReader,
     entries: Vec<(Hg3Entry, usize, usize)>,
@@ -73,6 +77,10 @@ pub struct Hg3Image {
 }
 
 impl Hg3Image {
+    /// Creates a new instance of `Hg3Image` from a buffer.
+    ///
+    /// * `buf` - The buffer containing the script data.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(buf);
         let mut magic = [0u8; 4];
@@ -216,14 +224,14 @@ impl<'a, T: Iterator<Item = &'a (Hg3Entry, usize, usize)> + 'a> Iterator for Hg3
     }
 }
 
-pub struct Hg3Reader<'a> {
+struct Hg3Reader<'a> {
     m_input: MemReaderRef<'a>,
     m_info: Hg3Entry,
     m_pixel_size: u32,
 }
 
 impl<'a> Hg3Reader<'a> {
-    pub fn unpack_stream(
+    fn unpack_stream(
         &mut self,
         data_offset: usize,
         data_packed: usize,

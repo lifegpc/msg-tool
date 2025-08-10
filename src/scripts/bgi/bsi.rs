@@ -1,3 +1,4 @@
+//! Buriko General Interpreter/Ethornell BSI Script (._bsi)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -7,9 +8,11 @@ use std::collections::BTreeMap;
 use std::ffi::CString;
 
 #[derive(Debug)]
+/// Builder for BGI BSI scripts.
 pub struct BGIBsiScriptBuilder {}
 
 impl BGIBsiScriptBuilder {
+    /// Creates a new instance of `BGIBsiScriptBuilder`.
     pub fn new() -> Self {
         BGIBsiScriptBuilder {}
     }
@@ -57,11 +60,18 @@ impl ScriptBuilder for BGIBsiScriptBuilder {
 }
 
 #[derive(Debug)]
+/// BGI BSI script.
 pub struct BGIBsiScript {
+    /// Section name and its data map.
     pub data: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl BGIBsiScript {
+    /// Creates a new instance of `BGIBsiScript` from a buffer.
+    ///
+    /// * `buf` - The buffer containing the script data.
+    /// * `encoding` - The encoding of the script.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut data = BTreeMap::new();
         let mut reader = MemReader::new(buf);

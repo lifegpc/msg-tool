@@ -1,14 +1,19 @@
+//! Bit stream utilities.
 use crate::ext::io::*;
 use anyhow::Result;
 use std::io::{Read, Write};
 
+/// A most significant bit (MSB) bit stream reader.
 pub struct MsbBitStream<T: Read> {
+    /// The input stream to read from.
     pub m_input: T,
     m_bits: u32,
+    /// The number of bits currently cached.
     pub m_cached_bits: u32,
 }
 
 impl<T: Read> MsbBitStream<T> {
+    /// Creates a new MSB bit stream reader.
     pub fn new(input: T) -> Self {
         MsbBitStream {
             m_input: input,
@@ -17,6 +22,7 @@ impl<T: Read> MsbBitStream<T> {
         }
     }
 
+    /// Reads a specified number of bits from the stream.
     pub fn get_bits(&mut self, count: u32) -> Result<u32> {
         while self.m_cached_bits < count {
             let byte = self.m_input.read_u8()?;
@@ -29,6 +35,7 @@ impl<T: Read> MsbBitStream<T> {
         Ok(result)
     }
 
+    /// Reads the next bit from the stream.
     pub fn get_next_bit(&mut self) -> Result<bool> {
         if self.m_cached_bits == 0 {
             let byte = self.m_input.read_u8()?;
@@ -41,13 +48,16 @@ impl<T: Read> MsbBitStream<T> {
     }
 }
 
+/// A most significant bit (MSB) bit writer.
 pub struct MsbBitWriter<'a, T: Write> {
+    /// The output stream to write to.
     pub writer: &'a mut T,
     buffer: u32,
     buffer_size: u32,
 }
 
 impl<'a, T: Write> MsbBitWriter<'a, T> {
+    /// Creates a new MSB bit writer.
     pub fn new(writer: &'a mut T) -> Self {
         MsbBitWriter {
             writer,
@@ -56,6 +66,8 @@ impl<'a, T: Write> MsbBitWriter<'a, T> {
         }
     }
 
+    /// Flushes the buffer to the output stream.
+    /// This writes any remaining bits in the buffer to the stream.
     pub fn flush(&mut self) -> Result<()> {
         if self.buffer_size > 0 {
             self.writer
@@ -66,6 +78,7 @@ impl<'a, T: Write> MsbBitWriter<'a, T> {
         Ok(())
     }
 
+    /// Puts a byte into the bit stream with a specified token width.
     pub fn put_bits(&mut self, byte: u32, token_width: u8) -> Result<()> {
         for i in 0..token_width {
             self.put_bit((byte & (1 << (token_width - 1 - i))) != 0)?;
@@ -73,6 +86,7 @@ impl<'a, T: Write> MsbBitWriter<'a, T> {
         Ok(())
     }
 
+    /// Puts a single bit into the bit stream.
     pub fn put_bit(&mut self, bit: bool) -> Result<()> {
         self.buffer <<= 1;
         if bit {
@@ -87,13 +101,17 @@ impl<'a, T: Write> MsbBitWriter<'a, T> {
     }
 }
 
+/// A least significant bit (LSB) bit stream reader.
 pub struct LsbBitStream<T: Read> {
+    /// The input stream to read from.
     pub m_input: T,
     m_bits: u32,
+    /// The number of bits currently cached.
     pub m_cached_bits: u32,
 }
 
 impl<T: Read> LsbBitStream<T> {
+    /// Creates a new LSB bit stream reader.
     pub fn new(input: T) -> Self {
         LsbBitStream {
             m_input: input,
@@ -102,6 +120,7 @@ impl<T: Read> LsbBitStream<T> {
         }
     }
 
+    /// Reads a specified number of bits from the stream.
     pub fn get_bits(&mut self, mut count: u32) -> Result<u32> {
         if self.m_cached_bits >= count {
             let mask = (1 << count) - 1;
@@ -130,6 +149,7 @@ impl<T: Read> LsbBitStream<T> {
         }
     }
 
+    /// Reads the next bit from the stream.
     pub fn get_next_bit(&mut self) -> Result<bool> {
         Ok(self.get_bits(1)? == 1)
     }

@@ -1,7 +1,9 @@
+//! A simple counter for tracking script execution results.
 use crate::types::*;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
 
+/// A counter for tracking script execution results.
 pub struct Counter {
     ok: AtomicUsize,
     ignored: AtomicUsize,
@@ -10,6 +12,7 @@ pub struct Counter {
 }
 
 impl Counter {
+    /// Creates a new Counter instance.
     pub fn new() -> Self {
         Self {
             ok: AtomicUsize::new(0),
@@ -19,14 +22,17 @@ impl Counter {
         }
     }
 
+    /// Increments the count of errors.
     pub fn inc_error(&self) {
         self.error.fetch_add(1, SeqCst);
     }
 
+    /// Increments the count of warnings.
     pub fn inc_warning(&self) {
         self.warning.fetch_add(1, SeqCst);
     }
 
+    /// Increments the count of script executions.
     pub fn inc(&self, result: ScriptResult) {
         match result {
             ScriptResult::Ok => self.ok.fetch_add(1, SeqCst),

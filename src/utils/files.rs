@@ -1,9 +1,11 @@
+//! Utilities for File Operations
 use crate::scripts::{ALL_EXTS, ARCHIVE_EXTS};
 use std::fs;
 use std::io;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
+/// Returns the relative path from `root` to `target`.
 pub fn relative_path<P: AsRef<Path>, T: AsRef<Path>>(root: P, target: T) -> PathBuf {
     let root = root
         .as_ref()
@@ -40,6 +42,7 @@ pub fn relative_path<P: AsRef<Path>, T: AsRef<Path>>(root: P, target: T) -> Path
     result
 }
 
+/// Finds all files in the specified directory and its subdirectories.
 pub fn find_files(path: &str, recursive: bool, no_ext_filter: bool) -> io::Result<Vec<String>> {
     let mut result = Vec::new();
     let dir_path = Path::new(&path);
@@ -79,6 +82,7 @@ pub fn find_files(path: &str, recursive: bool, no_ext_filter: bool) -> io::Resul
     Ok(result)
 }
 
+/// Finds all archive files in the specified directory and its subdirectories.
 pub fn find_arc_files(path: &str, recursive: bool) -> io::Result<Vec<String>> {
     let mut result = Vec::new();
     let dir_path = Path::new(&path);
@@ -116,6 +120,7 @@ pub fn find_arc_files(path: &str, recursive: bool) -> io::Result<Vec<String>> {
     Ok(result)
 }
 
+/// Collects files from the specified path, either as a directory or a single file.
 pub fn collect_files(
     path: &str,
     recursive: bool,
@@ -134,6 +139,7 @@ pub fn collect_files(
     ))
 }
 
+/// Collects archive files from the specified path, either as a directory or a single file.
 pub fn collect_arc_files(path: &str, recursive: bool) -> io::Result<(Vec<String>, bool)> {
     let pa = Path::new(path);
     if pa.is_dir() {
@@ -148,6 +154,7 @@ pub fn collect_arc_files(path: &str, recursive: bool) -> io::Result<(Vec<String>
     ))
 }
 
+/// Reads the content of a file or standard input if the path is "-".
 pub fn read_file<F: AsRef<Path> + ?Sized>(f: &F) -> io::Result<Vec<u8>> {
     let mut content = Vec::new();
     if f.as_ref() == Path::new("-") {
@@ -158,6 +165,7 @@ pub fn read_file<F: AsRef<Path> + ?Sized>(f: &F) -> io::Result<Vec<u8>> {
     Ok(content)
 }
 
+/// Writes content to a file or standard output if the path is "-".
 pub fn write_file<F: AsRef<Path> + ?Sized>(f: &F) -> io::Result<Box<dyn Write>> {
     Ok(if f.as_ref() == Path::new("-") {
         Box::new(io::stdout())
@@ -166,6 +174,7 @@ pub fn write_file<F: AsRef<Path> + ?Sized>(f: &F) -> io::Result<Box<dyn Write>> 
     })
 }
 
+/// Ensures that the parent directory for the specified path exists, creating it if necessary.
 pub fn make_sure_dir_exists<F: AsRef<Path> + ?Sized>(f: &F) -> io::Result<()> {
     let path = f.as_ref();
     if let Some(parent) = path.parent() {

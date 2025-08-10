@@ -1,3 +1,4 @@
+//! CatSystem2 Scripts
 #[cfg(feature = "cat-system-arc")]
 pub mod archive;
 pub mod cst;

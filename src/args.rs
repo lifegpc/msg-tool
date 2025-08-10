@@ -246,6 +246,7 @@ pub struct Arg {
     pub zlib_compression_level: u32,
     #[cfg(feature = "image")]
     #[arg(short = 'g', long, global = true, value_enum, default_value_t = PngCompressionLevel::Fast)]
+    /// PNG compression level.
     pub png_compression_level: PngCompressionLevel,
     #[cfg(feature = "circus-img")]
     #[arg(long, global = true, action = ArgAction::SetTrue)]

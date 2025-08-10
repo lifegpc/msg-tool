@@ -1,3 +1,4 @@
+//! Buriko General Interpreter/Ethornell Script
 use super::parser::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -9,9 +10,11 @@ use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug)]
+/// Builder for BGI scripts.
 pub struct BGIScriptBuilder {}
 
 impl BGIScriptBuilder {
+    /// Creates a new instance of `BGIScriptBuilder`.
     pub fn new() -> Self {
         BGIScriptBuilder {}
     }
@@ -54,6 +57,7 @@ impl ScriptBuilder for BGIScriptBuilder {
     }
 }
 
+/// BGI Script
 pub struct BGIScript {
     data: MemReader,
     encoding: Encoding,
@@ -74,6 +78,11 @@ impl std::fmt::Debug for BGIScript {
 }
 
 impl BGIScript {
+    /// Creates a new instance of `BGIScript` from a buffer.
+    ///
+    /// * `data` - The buffer containing the script data.
+    /// * `encoding` - The encoding of the script.
+    /// * `config` - Extra configuration options.
     pub fn new(data: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let data = MemReader::new(data);
         if data.data.starts_with(b"BurikoCompiledScriptVer1.00\0") {

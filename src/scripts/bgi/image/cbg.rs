@@ -1,3 +1,4 @@
+//! Buriko General Interpreter/Ethornell Compressed Image File
 use crate::ext::atomic::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -12,9 +13,11 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// Builder for BGI Compressed Image scripts.
 pub struct BgiCBGBuilder {}
 
 impl BgiCBGBuilder {
+    /// Creates a new instance of `BgiCBGBuilder`.
     pub const fn new() -> Self {
         BgiCBGBuilder {}
     }
@@ -125,6 +128,7 @@ fn convert_bgr565_to_bgr24(input: Vec<u8>, width: u16, height: u16) -> ImageData
 }
 
 #[derive(Debug)]
+/// BGI Compressed Image script.
 pub struct BgiCBG {
     header: BgiCBGHeader,
     data: MemReader,
@@ -132,6 +136,10 @@ pub struct BgiCBG {
 }
 
 impl BgiCBG {
+    /// Creates a new instance of `BgiCBG` from a buffer.
+    ///
+    /// * `data` - The buffer containing the script data.
+    /// * `config` - Extra configuration options.
     pub fn new(data: Vec<u8>, _config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(data);
         let mut magic = [0u8; 16];

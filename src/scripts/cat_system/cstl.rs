@@ -1,3 +1,4 @@
+//! CatSystem2 Scene I18N File (.cstl)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -7,9 +8,11 @@ use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
 #[derive(Debug)]
+/// Builder for CatSystem2 Scene I18N Script files.
 pub struct CstlScriptBuilder {}
 
 impl CstlScriptBuilder {
+    /// Creates a new instance of `CstlScriptBuilder`.
     pub fn new() -> Self {
         CstlScriptBuilder {}
     }
@@ -63,6 +66,12 @@ impl ScriptBuilder for CstlScriptBuilder {
     }
 }
 
+/// Create a new CSTL file.
+///
+/// * `custom_filename` - The path of input file.
+/// * `file` - The writer to write the CSTL file to.
+/// * `encoding` - The encoding of the CSTL file.
+/// * `output_encoding` - The encoding to use for the input file.
 pub fn create_file<T: Write>(
     custom_filename: &str,
     mut file: T,
@@ -151,13 +160,19 @@ impl<T: Write> CustomWriteFn for T {
 }
 
 #[derive(Debug)]
-struct CstlScript {
+/// CSTL script.
+pub struct CstlScript {
     langs: Vec<String>,
     data: Vec<Vec<Message>>,
     lang_index: Option<usize>,
 }
 
 impl CstlScript {
+    /// Creates a new instance of `CstlScript` from a buffer.
+    ///
+    /// * `buf` - The buffer containing the script data.
+    /// * `encoding` - The encoding of the script.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let mut langs = Vec::new();
         let mut data = Vec::new();

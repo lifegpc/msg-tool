@@ -1,4 +1,7 @@
+//! Macros Utilities
+
 #[macro_export]
+/// A macro likes `try!` but returns `Option<Result<T, E>>`.
 macro_rules! try_option {
     ($expr:expr $(,)?) => {
         match $expr {

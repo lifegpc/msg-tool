@@ -2,6 +2,9 @@
 name = "msg_tool"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/lifegpc/msg-tool"
+description = "A command-line tool for exporting, importing, packing, and unpacking script files."
+license = "MIT"
 
 [dependencies]
 anyhow = "1"

@@ -2,6 +2,9 @@
 name = "msg_tool_macro"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/lifegpc/msg-tool"
+description = "A procedural macro for the msg-tool project."
+license = "MIT"
 
 [lib]
 proc-macro = true

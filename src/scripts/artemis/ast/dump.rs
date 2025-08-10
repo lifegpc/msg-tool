@@ -73,6 +73,7 @@ impl LenChecker {
     }
 }
 
+/// A dumper for Artemis AST scripts.
 pub struct Dumper<'a> {
     current_indent: usize,
     writer: Box<dyn Write + 'a>,
@@ -82,6 +83,9 @@ pub struct Dumper<'a> {
 }
 
 impl<'a> Dumper<'a> {
+    /// Creates a new Dumper with the specified writer.
+    ///
+    /// default indent size is 4 spaces, and max line width is 100 characters.
     pub fn new<W: Write + 'a>(writer: W) -> Self {
         Dumper {
             current_indent: 0,
@@ -92,14 +96,17 @@ impl<'a> Dumper<'a> {
         }
     }
 
+    /// Sets the indent size for the dumper.
     pub fn set_indent(&mut self, indent: usize) {
         self.indent = Some(indent);
     }
 
+    /// Disables indentation for the dumper.
     pub fn set_no_indent(&mut self) {
         self.indent = None;
     }
 
+    /// Sets the maximum line width for the dumper.
     pub fn set_max_line_width(&mut self, max_line_width: usize) {
         self.max_line_width = max_line_width;
     }
@@ -112,6 +119,7 @@ impl<'a> Dumper<'a> {
         }
     }
 
+    /// Dumps the AST file to the writer.
     pub fn dump(mut self, ast: &AstFile) -> std::io::Result<()> {
         if self.indent.is_none() {
             if let Some(astver) = ast.astver {

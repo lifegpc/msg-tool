@@ -18,6 +18,12 @@ pub enum CircusCrxMode {
     Best,
 }
 
+impl Default for CircusCrxMode {
+    fn default() -> Self {
+        CircusCrxMode::Auto
+    }
+}
+
 impl CircusCrxMode {
     pub fn for_importing(&self) -> Self {
         match self {

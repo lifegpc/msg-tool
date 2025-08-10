@@ -1,3 +1,4 @@
+//! Buriko General Interpreter/Ethornell BP Script (._bp)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -6,9 +7,11 @@ use anyhow::Result;
 use std::io::{Seek, SeekFrom};
 
 #[derive(Debug)]
+/// Builder for BGI BP scripts.
 pub struct BGIBpScriptBuilder {}
 
 impl BGIBpScriptBuilder {
+    /// Creates a new instance of `BGIBpScriptBuilder`.
     pub fn new() -> Self {
         BGIBpScriptBuilder {}
     }
@@ -47,6 +50,7 @@ struct BpString {
 }
 
 #[derive(Debug)]
+/// BGI BP script.
 pub struct BGIBpScript {
     data: MemReader,
     header_size: u32,
@@ -55,6 +59,11 @@ pub struct BGIBpScript {
 }
 
 impl BGIBpScript {
+    /// Creates a new instance of `BGIBpScript` from a buffer.
+    ///
+    /// * `buf` - The buffer containing the script data.
+    /// * `encoding` - The encoding of the script.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(buf);
         let header_size = reader.read_u32()?;

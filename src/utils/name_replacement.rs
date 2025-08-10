@@ -1,7 +1,9 @@
+//! Name Replacement Utilities
 use crate::types::*;
 use anyhow::Result;
 use std::collections::HashMap;
 
+/// Read Name Replacement Table from CSV
 pub fn read_csv(path: &str) -> Result<HashMap<String, String>> {
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -17,6 +19,7 @@ pub fn read_csv(path: &str) -> Result<HashMap<String, String>> {
     Ok(map)
 }
 
+/// Replace names in the message with the given name table.
 pub fn replace_message(mes: &mut Vec<Message>, name_table: &HashMap<String, String>) {
     for message in mes.iter_mut() {
         if let Some(name) = &message.name {

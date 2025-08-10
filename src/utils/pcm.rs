@@ -1,3 +1,4 @@
+//! PCM Utilities
 use crate::ext::io::*;
 use crate::types::*;
 use crate::utils::struct_pack::*;
@@ -6,15 +7,27 @@ use msg_tool_macro::*;
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug, StructPack, StructUnpack)]
+/// PCM Audio Format
 pub struct PcmFormat {
-    format_tag: u16,
-    channels: u16,
-    sample_rate: u32,
-    average_bytes_per_second: u32,
-    block_align: u16,
-    bits_per_sample: u16,
+    /// The format tag
+    pub format_tag: u16,
+    /// The number of channels
+    pub channels: u16,
+    /// The sample rate
+    pub sample_rate: u32,
+    /// The average bytes per second
+    pub average_bytes_per_second: u32,
+    /// The block alignment
+    pub block_align: u16,
+    /// The bits per sample
+    pub bits_per_sample: u16,
 }
 
+/// Writes PCM data to a file.
+///
+/// * `format` - The PCM format to write.
+/// * `reader` - The reader to read PCM data from.
+/// * `writer` - The writer to write PCM data to.
 pub fn write_pcm<W: Write + Seek, R: Read>(
     format: &PcmFormat,
     mut reader: R,

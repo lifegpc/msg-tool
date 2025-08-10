@@ -1,3 +1,4 @@
+//! Buriko General Interpreter/Ethornell compressed file in archive
 use crate::ext::io::*;
 use crate::ext::vec::*;
 use crate::scripts::base::*;
@@ -52,6 +53,7 @@ struct HuffmanNode {
     right_index: usize,
 }
 
+/// Decoder for Buriko General Interpreter/Ethornell compressed files (DSC format).
 pub struct DscDecoder<'a> {
     stream: MsbBitStream<MemReaderRef<'a>>,
     key: u32,
@@ -61,6 +63,7 @@ pub struct DscDecoder<'a> {
 }
 
 impl<'a> DscDecoder<'a> {
+    /// Creates a new DscDecoder from the given data slice.
     pub fn new(data: &'a [u8]) -> Result<Self> {
         let mut reader = MemReaderRef::new(data);
         let magic = (reader.read_u16()? as u32) << 16;
@@ -78,6 +81,7 @@ impl<'a> DscDecoder<'a> {
         })
     }
 
+    /// Unpacks the DSC file and returns the decompressed data.
     pub fn unpack(mut self) -> Result<Vec<u8>> {
         self.stream.m_input.pos = 0x20;
         let mut codes = Vec::new();
@@ -396,6 +400,7 @@ fn generate_canonical_codes(depths: &[u8]) -> Vec<Option<(u16, u8)>> {
     huffman_codes
 }
 
+/// Encoder for Buriko General Interpreter/Ethornell compressed files (DSC format).
 pub struct DscEncoder<'a, T: Write + Seek> {
     stream: MsbBitWriter<'a, T>,
     magic: u32,
@@ -405,6 +410,7 @@ pub struct DscEncoder<'a, T: Write + Seek> {
 }
 
 impl<'a, T: Write + Seek> DscEncoder<'a, T> {
+    /// Creates a new DscEncoder with the given writer and minimum length for LZSS compression.
     pub fn new(writer: &'a mut T, min_len: usize) -> Self {
         let stream = MsbBitWriter::new(writer);
         DscEncoder {
@@ -416,6 +422,7 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
         }
     }
 
+    /// Packs the given data into the DSC format using LZSS compression.
     pub fn pack(mut self, data: &[u8]) -> Result<()> {
         // LZSS compression
         let mut ops = vec![];
@@ -552,9 +559,11 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
 }
 
 #[derive(Debug)]
+/// Builder for DSC scripts.
 pub struct DscBuilder {}
 
 impl DscBuilder {
+    /// Creates a new instance of `DscBuilder`.
     pub fn new() -> Self {
         DscBuilder {}
     }
@@ -616,12 +625,17 @@ impl ScriptBuilder for DscBuilder {
 }
 
 #[derive(Debug)]
+/// DSC script
 pub struct Dsc {
     data: Vec<u8>,
     min_len: usize,
 }
 
 impl Dsc {
+    /// Creates a new Dsc script
+    ///
+    /// * `buf` - The buffer containing the DSC data.
+    /// * `config` - Extra configuration options.
     pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         if buf.len() < 16 || !buf.starts_with(b"DSC FORMAT 1.00\0") {
             return Err(anyhow::anyhow!("Invalid DSC format"));
@@ -672,6 +686,7 @@ impl Script for Dsc {
     }
 }
 
+/// Parses the minimum length for LZSS compression from a string.
 pub fn parse_min_length(len: &str) -> Result<usize, String> {
     clap_num::number_range(len, 2, 256)
 }

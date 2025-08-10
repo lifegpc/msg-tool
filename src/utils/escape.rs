@@ -1,5 +1,7 @@
+//! Escape and Unescape Utilities
 use fancy_regex::Regex;
 
+/// Escapes special characters in XML attribute values.
 pub fn escape_xml_attr_value(s: &str) -> String {
     let mut escaped = String::with_capacity(s.len());
     for c in s.chars() {
@@ -14,6 +16,7 @@ pub fn escape_xml_attr_value(s: &str) -> String {
     escaped
 }
 
+/// Escapes special characters in XML text values.
 pub fn escape_xml_text_value(s: &str) -> String {
     let mut escaped = String::with_capacity(s.len());
     for c in s.chars() {
@@ -37,6 +40,7 @@ lazy_static::lazy_static! {
     static ref LUA_NCR_BASE16_U_REGEX: Regex = Regex::new(r"\\u([0-9a-fA-F]{4})").unwrap();
 }
 
+/// Unescapes XML character references and entities.
 pub fn unescape_xml(s: &str) -> String {
     let mut s = s.to_owned();
     s = XML_NCR_BASE10_REGEX
@@ -58,6 +62,7 @@ pub fn unescape_xml(s: &str) -> String {
         .replace("&apos;", "'")
 }
 
+/// Unescapes Lua string escape sequences.
 pub fn unescape_lua_str(s: &str) -> String {
     let mut s = s.to_owned();
     s = s
@@ -91,6 +96,7 @@ pub fn unescape_lua_str(s: &str) -> String {
     s.replace("\\\\", "\\")
 }
 
+/// Checks if a string contains characters that need to be escaped in Lua strings.
 pub fn lua_str_contains_need_escape(s: &str) -> bool {
     s.contains('\\')
         || s.contains('\n')
@@ -103,6 +109,7 @@ pub fn lua_str_contains_need_escape(s: &str) -> bool {
         || s.contains('"')
 }
 
+/// Checks if a string contains characters that need to be escaped in Lua keys.
 pub fn lua_key_contains_need_escape(s: &str) -> bool {
     s.chars().next().map_or(false, |c| c.is_ascii_digit())
 }

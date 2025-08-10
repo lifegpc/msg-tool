@@ -1,3 +1,4 @@
+//! Buriko General Interpreter/Ethornell Archive File Version 1 (.arc)
 use super::bse::*;
 use super::dsc::*;
 use crate::ext::io::*;
@@ -12,9 +13,11 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// Builder for BGI Archive Version 1 scripts.
 pub struct BgiArchiveBuilder {}
 
 impl BgiArchiveBuilder {
+    /// Creates a new instance of `BgiArchiveBuilder`.
     pub const fn new() -> Self {
         BgiArchiveBuilder {}
     }
@@ -215,6 +218,7 @@ impl<T: Read + Seek> Seek for Entry<T> {
 }
 
 #[derive(Debug)]
+/// Buriko General Interpreter/Ethornell Archive File Version 1 (.arc)
 pub struct BgiArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     entries: Vec<BgiFileHeader>,
@@ -224,6 +228,12 @@ pub struct BgiArchive<T: Read + Seek + std::fmt::Debug> {
 }
 
 impl<T: Read + Seek + std::fmt::Debug> BgiArchive<T> {
+    /// Creates a new BGI archive from a reader.
+    ///
+    /// * `reader` - The reader to read the archive from.
+    /// * `archive_encoding` - The encoding used for the archive.
+    /// * `config` - Extra configuration options.
+    /// * `filename` - The name of the archive file.
     pub fn new(
         mut reader: T,
         archive_encoding: Encoding,
@@ -511,6 +521,7 @@ fn detect_script_type_sysgrp(
     Some(&ScriptType::BGIImg)
 }
 
+/// BGI Archive Writer
 pub struct BgiArchiveWriter<T: Write + Seek> {
     writer: T,
     headers: HashMap<String, BgiFileHeader>,
@@ -520,6 +531,12 @@ pub struct BgiArchiveWriter<T: Write + Seek> {
 }
 
 impl<T: Write + Seek> BgiArchiveWriter<T> {
+    /// Creates a new BGI Archive Writer.
+    ///
+    /// * `writer` - The writer to write the archive to.
+    /// * `files` - The list of files to include in the archive.
+    /// * `encoding` - The encoding used for the archive.
+    /// * `config` - Extra configuration options.
     pub fn new(
         mut writer: T,
         files: &[&str],
@@ -586,6 +603,7 @@ impl<T: Write + Seek> Archive for BgiArchiveWriter<T> {
     }
 }
 
+/// BGI Archive File Writer (Not compressed)
 pub struct BgiArchiveFile<'a, T: Write + Seek> {
     header: &'a mut BgiFileHeader,
     writer: &'a mut T,
@@ -643,6 +661,7 @@ impl<'a, T: Write + Seek> Seek for BgiArchiveFile<'a, T> {
     }
 }
 
+/// BGI Archive File Writer with DSC compression
 pub struct BgiArchiveFileWithDsc<'a, T: Write + Seek> {
     writer: BgiArchiveFile<'a, T>,
     buf: MemWriter,
@@ -650,6 +669,10 @@ pub struct BgiArchiveFileWithDsc<'a, T: Write + Seek> {
 }
 
 impl<'a, T: Write + Seek> BgiArchiveFileWithDsc<'a, T> {
+    /// Creates a new BGI Archive File Writer with DSC compression.
+    ///
+    /// * `writer` - The writer to write the archive file to.
+    /// * `min_len` - The minimum length for LZSS compression.
     pub fn new(writer: BgiArchiveFile<'a, T>, min_len: usize) -> Self {
         BgiArchiveFileWithDsc {
             writer,

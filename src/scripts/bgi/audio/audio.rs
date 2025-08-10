@@ -1,3 +1,4 @@
+//! Buriko General Interpreter/Ethornell Audio File (Ogg/Vorbis)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -5,9 +6,11 @@ use anyhow::Result;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 #[derive(Debug)]
+/// Builder for BGI Audio scripts.
 pub struct BgiAudioBuilder {}
 
 impl BgiAudioBuilder {
+    /// Creates a new instance of `BgiAudioBuilder`.
     pub fn new() -> Self {
         Self {}
     }
@@ -73,11 +76,16 @@ impl ScriptBuilder for BgiAudioBuilder {
 }
 
 #[derive(Debug)]
+/// BGI Audio script.
 pub struct BgiAudio {
     data: MemReader,
 }
 
 impl BgiAudio {
+    /// Creates a new instance of `BgiAudio` from a reader.
+    ///
+    /// * `reader` - The reader to read the audio data from.
+    /// * `config` - Extra configuration options.
     pub fn new<R: Read + Seek>(mut reader: R, _config: &ExtraConfig) -> Result<Self> {
         let offset = reader.read_u32()?;
         let len = reader.stream_length()?;

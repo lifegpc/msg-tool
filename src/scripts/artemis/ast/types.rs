@@ -3,12 +3,19 @@ use std::convert::From;
 use std::ops::{Deref, Index, IndexMut};
 
 #[derive(Clone, Debug, PartialEq)]
+/// Represents a value in LUA table
 pub enum Value {
+    /// Float number
     Float(f64),
+    /// Integer number
     Int(i64),
+    /// String value
     Str(String),
+    /// Key value pair
     KeyVal((Box<Value>, Box<Value>)),
+    /// Array of values
     Array(Vec<Value>),
+    /// Null(nli) value
     Null,
 }
 
@@ -55,8 +62,8 @@ impl<'a> Deref for Key<'a> {
 
 const NULL: Value = Value::Null;
 
-#[allow(dead_code)]
 impl Value {
+    /// Returns a reference to the string if the value is a string, otherwise returns None.
     pub fn as_str(&self) -> Option<&str> {
         if let Value::Str(s) = self {
             Some(s)
@@ -65,6 +72,7 @@ impl Value {
         }
     }
 
+    /// Returns a string if the value is a string, otherwise returns None.
     pub fn as_string(&self) -> Option<String> {
         if let Value::Str(s) = self {
             Some(s.clone())
@@ -97,6 +105,16 @@ impl Value {
         }
     }
 
+    /// Find a nested array by key (first value of nested array).
+    /// If the key is not found, it creates a new array with the key and returns a mutable reference to it.
+    ///
+    /// # Example
+    /// ```lua
+    /// {
+    ///    {"save", text="test"},
+    /// }
+    /// ```
+    /// for above array, calling `find_array_mut("save")` will return a mutable reference to the array `{"save", text="test"}`.
     pub fn find_array_mut(&mut self, key: &str) -> &mut Value {
         match &self {
             Value::Array(arr) => {
@@ -115,22 +133,27 @@ impl Value {
         }
     }
 
+    /// Returns true if the value is an array.
     pub fn is_array(&self) -> bool {
         matches!(self, Value::Array(_))
     }
 
+    /// Returns true if the value is a string.
     pub fn is_str(&self) -> bool {
         matches!(self, Value::Str(_))
     }
 
+    /// Returns true if the value is a key-value pair.
     pub fn is_kv(&self) -> bool {
         matches!(self, Value::KeyVal(_))
     }
 
+    /// Returns true if the value is null.
     pub fn is_null(&self) -> bool {
         matches!(self, Value::Null)
     }
 
+    /// Returns the key of a key-value pair if it exists, otherwise returns None.
     pub fn kv_key(&self) -> Option<&Value> {
         if let Value::KeyVal((k, _)) = self {
             Some(&k)
@@ -139,6 +162,7 @@ impl Value {
         }
     }
 
+    /// Returns the keys in a lua table.
     pub fn kv_keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Value> + 'a> {
         match self {
             Value::KeyVal((k, _)) => Box::new(std::iter::once(&**k)),
@@ -147,6 +171,7 @@ impl Value {
         }
     }
 
+    /// Returns the last member of the array if it exists, otherwise returns a reference to `NULL`.
     pub fn last_member(&self) -> &Value {
         match self {
             Value::Array(arr) => arr.last().unwrap_or(&NULL),
@@ -154,6 +179,10 @@ impl Value {
         }
     }
 
+    /// Returns a mutable reference to the last member of the array.
+    ///
+    /// If the array is empty, it creates a new member with `NULL` and returns it.
+    /// If the value is not an array, it converts it to an array with a single `NULL` member.
     pub fn last_member_mut(&mut self) -> &mut Value {
         match self {
             Value::Array(arr) => {
@@ -169,6 +198,7 @@ impl Value {
         }
     }
 
+    /// Returns the length of the array.
     pub fn len(&self) -> usize {
         match self {
             Value::Array(arr) => arr.len(),
@@ -176,6 +206,10 @@ impl Value {
         }
     }
 
+    /// Inserts a member at the specified index in the array.
+    ///
+    /// If the index is out of bounds, it appends the value to the end of the array.
+    /// If the value is not an array, it converts it to an array with a single member.
     pub fn insert_member(&mut self, index: usize, value: Value) {
         match self {
             Value::Array(arr) => {
@@ -191,6 +225,7 @@ impl Value {
         }
     }
 
+    /// Returns an iterator over the members of the array.
     pub fn members<'a>(&'a self) -> Iter<'a> {
         match self {
             Value::Array(arr) => Iter { iter: arr.iter() },
@@ -198,6 +233,7 @@ impl Value {
         }
     }
 
+    /// Returns a mutable iterator over the members of the array.
     pub fn members_mut<'a>(&'a mut self) -> IterMut<'a> {
         match self {
             Value::Array(arr) => IterMut {
@@ -207,14 +243,17 @@ impl Value {
         }
     }
 
+    /// Creates a new empty array.
     pub fn new_array() -> Self {
         Value::Array(Vec::new())
     }
 
+    /// Creates a new key-value pair.
     pub fn new_kv<K: Into<Value>, V: Into<Value>>(key: K, value: V) -> Self {
         Value::KeyVal((Box::new(key.into()), Box::new(value.into())))
     }
 
+    /// Pushes a member to the end of the array.
     pub fn push_member(&mut self, value: Value) {
         match self {
             Value::Array(arr) => arr.push(value),
@@ -224,10 +263,12 @@ impl Value {
         }
     }
 
+    /// Sets the value to a string.
     pub fn set_str<S: AsRef<str> + ?Sized>(&mut self, value: &S) {
         *self = Value::Str(value.as_ref().to_string());
     }
 
+    /// Sets the value to a string.
     pub fn set_string<S: Into<String>>(&mut self, value: S) {
         *self = Value::Str(value.into());
     }
@@ -756,6 +797,7 @@ impl PartialOrd<f64> for Box<Value> {
 }
 
 #[derive(Default)]
+/// An iterator over the members of an array.
 pub struct Iter<'a> {
     iter: std::slice::Iter<'a, Value>,
 }
@@ -784,6 +826,7 @@ impl<'a> DoubleEndedIterator for Iter<'a> {
 }
 
 #[derive(Default)]
+/// A mutable iterator over the members of an array.
 pub struct IterMut<'a> {
     iter: std::slice::IterMut<'a, Value>,
 }
@@ -812,8 +855,12 @@ impl<'a> DoubleEndedIterator for IterMut<'a> {
 }
 
 #[derive(Clone, Debug)]
+/// Represents an AST file.
 pub struct AstFile {
+    /// The version of the AST file.
     pub astver: Option<f64>,
+    /// The name of the AST file.
     pub astname: Option<String>,
+    /// The data of the AST file.
     pub ast: Value,
 }

@@ -4,6 +4,7 @@ use crate::utils::encoding::*;
 use crate::utils::escape::unescape_lua_str;
 use anyhow::Result;
 
+/// A parser for Artemis AST scripts.
 pub struct Parser<'a> {
     str: &'a [u8],
     pos: usize,
@@ -14,6 +15,10 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    /// Creates a new parser for the given string with the specified encoding.
+    ///
+    /// * `str` - The string to parse.
+    /// * `encoding` - The encoding of the string.
     pub fn new<S: AsRef<[u8]> + ?Sized>(str: &'a S, encoding: Encoding) -> Self {
         let str = str.as_ref();
         Parser {
@@ -26,6 +31,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Checks if input is a valid header for an AST file.
     pub fn try_parse_header(mut self) -> Result<()> {
         self.erase_whitespace();
         if self.is_indent(b"astver") {
@@ -44,6 +50,7 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    /// Parses the AST file and returns an [AstFile] object.
     pub fn parse(mut self) -> Result<AstFile> {
         self.erase_whitespace();
         let astver = if self.is_indent(b"astver") {

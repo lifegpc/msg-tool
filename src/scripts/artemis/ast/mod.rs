@@ -9,7 +9,10 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
 use std::io::Write;
-use types::*;
+
+pub use dump::Dumper;
+pub use parser::Parser;
+pub use types::*;
 
 #[derive(Debug)]
 /// The builder for Artemis AST scripts.

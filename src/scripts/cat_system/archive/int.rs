@@ -1,3 +1,4 @@
+//! CatSystem2 Archive File (.int)
 use super::twister::MersenneTwister;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -11,9 +12,11 @@ use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// Builder for CatSystem2 Archive scripts.
 pub struct CSIntArcBuilder {}
 
 impl CSIntArcBuilder {
+    /// Creates a new instance of `CSIntArcBuilder`.
     pub fn new() -> Self {
         CSIntArcBuilder {}
     }
@@ -237,6 +240,7 @@ impl ArchiveContent for MemEntry {
 }
 
 #[derive(Debug)]
+/// CatSystem2 Archive script.
 pub struct CSIntArc<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     encrypt: Option<Blowfish>,
@@ -246,6 +250,12 @@ pub struct CSIntArc<T: Read + Seek + std::fmt::Debug> {
 const NAME_SIZES: [usize; 2] = [0x20, 0x40];
 
 impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
+    /// Creates a new instance of `CSIntArc` from a reader.
+    ///
+    /// * `reader` - The reader to read the archive from.
+    /// * `archive_encoding` - The encoding used for the archive.
+    /// * `config` - Extra configuration options.
+    /// * `filename` - The name of the file.
     pub fn new(
         mut reader: T,
         archive_encoding: Encoding,
