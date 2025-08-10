@@ -1494,10 +1494,14 @@ pub fn create_file(
             Some(output) => output.to_string(),
             None => {
                 let mut pb = std::path::PathBuf::from(input);
-                let ext = builder.extensions().first().unwrap_or(&"unk");
+                let ext = builder.extensions().first().unwrap_or(&"");
                 pb.set_extension(ext);
                 if pb.to_string_lossy() == input {
-                    pb.set_extension(format!("{}.{}", ext, ext));
+                    if ext.is_empty() {
+                        pb.set_extension("unk");
+                    } else {
+                        pb.set_extension(format!("{}.{}", ext, ext));
+                    }
                 }
                 pb.to_string_lossy().into_owned()
             }
@@ -1517,10 +1521,14 @@ pub fn create_file(
         Some(output) => output.to_string(),
         None => {
             let mut pb = std::path::PathBuf::from(input);
-            let ext = builder.extensions().first().unwrap_or(&"unk");
+            let ext = builder.extensions().first().unwrap_or(&"");
             pb.set_extension(ext);
             if pb.to_string_lossy() == input {
-                pb.set_extension(format!("{}.{}", ext, ext));
+                if ext.is_empty() {
+                    pb.set_extension("unk");
+                } else {
+                    pb.set_extension(format!("{}.{}", ext, ext));
+                }
             }
             pb.to_string_lossy().into_owned()
         }
