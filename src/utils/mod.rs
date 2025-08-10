@@ -12,7 +12,7 @@ pub mod escape;
 pub mod files;
 #[cfg(feature = "image")]
 pub mod img;
-pub mod macros;
+mod macros;
 pub mod name_replacement;
 #[cfg(feature = "utils-pcm")]
 pub mod pcm;

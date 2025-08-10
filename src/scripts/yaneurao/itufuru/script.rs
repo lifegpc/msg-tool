@@ -1,3 +1,4 @@
+//! Yaneurao Itufuru Script File
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -5,9 +6,11 @@ use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
 
 #[derive(Debug)]
+/// Yaneurao Itufuru Script Builder
 pub struct ItufuruScriptBuilder {}
 
 impl ItufuruScriptBuilder {
+    /// Creates a new instance of `ItufuruScriptBuilder`
     pub const fn new() -> Self {
         ItufuruScriptBuilder {}
     }
@@ -47,6 +50,7 @@ struct ItufuruString {
 }
 
 #[derive(Debug)]
+/// Yaneurao Itufuru Script
 pub struct ItufuruScript {
     data: MemReader,
     strings: Vec<ItufuruString>,
@@ -54,6 +58,11 @@ pub struct ItufuruScript {
 }
 
 impl ItufuruScript {
+    /// Creates a new `ItufuruScript`
+    ///
+    /// * `buf` - The buffer containing the script data
+    /// * `encoding` - The encoding used for the script
+    /// * `config` - Extra configuration options
     pub fn new(buf: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(buf);
         let mut strings = Vec::new();

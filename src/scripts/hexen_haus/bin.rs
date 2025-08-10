@@ -1,3 +1,4 @@
+//! HexenHaus Script File (.bin)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -7,9 +8,11 @@ use anyhow::Result;
 use std::io::Read;
 
 #[derive(Debug)]
+/// HexenHaus Script Builder
 pub struct BinScriptBuilder {}
 
 impl BinScriptBuilder {
+    /// Creates a new instance of `BinScriptBuilder`
     pub fn new() -> Self {
         BinScriptBuilder {}
     }
@@ -56,12 +59,18 @@ struct BinString {
 }
 
 #[derive(Debug)]
+/// HexenHaus Bin Script
 pub struct BinScript {
     data: MemReader,
     strs: Vec<BinString>,
 }
 
 impl BinScript {
+    /// Creates a new `BinScript`
+    ///
+    /// * `buf` - The buffer containing the bin script data
+    /// * `encoding` - The encoding of the script
+    /// * `config` - Extra configuration options
     pub fn new(buf: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut data = MemReader::new(buf);
         let mut header = [0; 4];

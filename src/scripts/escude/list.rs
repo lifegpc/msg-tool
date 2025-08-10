@@ -1,3 +1,4 @@
+//! Escu:de List File (.bin)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -9,9 +10,11 @@ use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug)]
+/// Escu:de List Builder
 pub struct EscudeBinListBuilder {}
 
 impl EscudeBinListBuilder {
+    /// Creates a new instance of `EscudeBinListBuilder`
     pub const fn new() -> Self {
         EscudeBinListBuilder {}
     }
@@ -68,11 +71,19 @@ impl ScriptBuilder for EscudeBinListBuilder {
 }
 
 #[derive(Debug)]
+/// Escu:de Binary List
 pub struct EscudeBinList {
+    /// List of entries in the Escu:de list
     pub entries: Vec<ListEntry>,
 }
 
 impl EscudeBinList {
+    /// Creates a new `EscudeBinList` from the given data
+    ///
+    /// * `data` - The reader to read the data from
+    /// * `filename` - The name of the file
+    /// * `encoding` - The encoding
+    /// * `config` - Extra configuration options
     pub fn new(
         data: Vec<u8>,
         filename: &str,
@@ -111,6 +122,10 @@ impl EscudeBinList {
         Ok(s)
     }
 
+    /// Attempts to decode the entries in the list based on the filename and encoding
+    ///
+    /// * `filename` - The name of the file
+    /// * `encoding` - The encoding to use for decoding
     pub fn try_decode(&mut self, filename: &str, encoding: Encoding) -> Result<()> {
         let filename = std::path::Path::new(filename);
         if let Some(filename) = filename.file_name() {
@@ -343,18 +358,22 @@ impl Script for EscudeBinList {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Script entry in the Escu:de list
 pub struct ScriptT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
     /// File name
     pub file: String,
+    /// Script ID
     pub source: u32,
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Script title
     pub title: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Name entry in the Escu:de list
 pub struct NameT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
@@ -369,6 +388,7 @@ pub struct NameT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Variable entry in the Escu:de list
 pub struct VarT {
     /// Variable name
     #[fstring = 32]
@@ -381,6 +401,7 @@ pub struct VarT {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Scene entry in the Escu:de list
 pub struct SceneT {
     /// The scene script ID
     pub script: u32,
@@ -398,14 +419,20 @@ pub struct SceneT {
 
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
+/// Enum for different types of script data in the Escu:de list (enum._scr.bin)
 pub enum EnumScr {
+    /// Scripts data
     Scripts(Vec<ScriptT>),
+    /// Names data
     Names(Vec<NameT>),
+    /// Variables data
     Vars(Vec<VarT>),
+    /// Scenes data
     Scenes(Vec<SceneT>),
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Background entry in the Escu:de list
 pub struct BgT {
     /// Background image name
     #[fstring = 32]
@@ -417,16 +444,24 @@ pub struct BgT {
     file: String,
     #[fstring = 128]
     #[fstring_pad = 0x20]
+    /// Background options
     option: String,
+    /// Background covered flag
     coverd: u32,
+    /// Background color
     color: u32,
+    /// Background ID
     id: u32,
+    /// Background location ID
     loc: u32,
+    /// Background order in the scene
     order: i32,
+    /// Background link ID
     link: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Event image entry in the Escu:de list
 pub struct EvT {
     /// Event image name
     #[fstring = 32]
@@ -438,35 +473,53 @@ pub struct EvT {
     file: String,
     #[fstring = 128]
     #[fstring_pad = 0x20]
+    /// Event image options
     option: String,
+    /// Event image covered flag
     coverd: u32,
+    /// Event image color
     color: u32,
+    /// Event image ID
     id: u32,
+    /// Event image location ID
     loc: u32,
+    /// Event image order in the scene
     order: i32,
+    /// Event image link ID
     link: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Stage entry in the Escu:de list
 pub struct StT {
     #[fstring = 32]
     #[fstring_pad = 0x20]
+    /// Stage name
     name: String,
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Stage file name
     file: String,
     #[fstring = 128]
     #[fstring_pad = 0x20]
+    /// Stage options
     option: String,
+    /// Stage covered flag
     coverd: u32,
+    /// Stage color
     color: u32,
+    /// Stage ID
     id: u32,
+    /// Stage location ID
     loc: u32,
+    /// Stage order in the scene
     order: i32,
+    /// Stage link ID
     link: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Effect image entry in the Escu:de list
 pub struct EfxT {
     /// Effect image name
     #[fstring = 32]
@@ -476,12 +529,17 @@ pub struct EfxT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
     file: String,
+    /// Effect image options
     spot: i32,
+    /// Effect image x position
     dx: i32,
+    /// Effect image y position
     dy: i32,
+    /// Effect image loop flag
     r#loop: bool,
     #[fvec = 3]
     #[serde(skip, default = "exft_padding")]
+    /// padding for alignment
     padding: Vec<u8>,
 }
 
@@ -490,91 +548,128 @@ fn exft_padding() -> Vec<u8> {
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Point
 pub struct Point {
+    /// X coordinate
     x: i16,
+    /// Y coordinate
     y: i16,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Location entry in the Escu:de list
 pub struct LocT {
+    /// List of points
     #[fvec = 8]
     pt: Vec<Point>,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
+/// Enum for different types of graphics data in the Escu:de list (enum_gfx.bin)
 pub enum EnumGfx {
+    /// Backgrounds data
     Bgs(Vec<BgT>),
+    /// Event images data
     Evs(Vec<EvT>),
+    /// Stages data
     Sts(Vec<StT>),
+    /// Effects data
     Efxs(Vec<EfxT>),
+    /// Locations data
     Locs(Vec<LocT>),
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Background music entry in the Escu:de list
 pub struct BgmT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Background music name
     pub name: String,
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Background music file name
     pub file: String,
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Background music title
     pub title: String,
+    /// Background music order in the scene
     pub order: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Ambient sound entry in the Escu:de list
 pub struct AmbT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Ambient sound name
     pub name: String,
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Ambient sound file name
     pub file: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Sound effect entry in the Escu:de list
 pub struct SeT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Sound effect name
     pub name: String,
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// Sound effect file name
     pub file: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Sound effect (SFX) entry in the Escu:de list
 pub struct SfxT {
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// SFX name
     pub name: String,
     #[fstring = 64]
     #[fstring_pad = 0x20]
+    /// SFX file name
     pub file: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
+/// Enum for different types of sound data in the Escu:de list (enum_snd.bin)
 pub enum EnumSnd {
+    /// Background music data
     Bgm(Vec<BgmT>),
+    /// Ambient sound data
     Amb(Vec<AmbT>),
+    /// Sound effect data
     Se(Vec<SeT>),
+    /// Sound effect (SFX) data
     Sfx(Vec<SfxT>),
 }
 
 #[derive(Debug, Serialize, Deserialize, StructPack)]
 #[serde(tag = "type", content = "data")]
+/// Enum for different types of data in the Escu:de list
 pub enum ListData {
+    /// Script data
     Scr(EnumScr),
+    /// Graphics data
     Gfx(EnumGfx),
+    /// Sound data
     Snd(EnumSnd),
+    /// Unknown data
     Unknown(Vec<u8>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Entry in the Escu:de list
 pub struct ListEntry {
     id: u32,
+    /// The data associated with the entry
     pub data: ListData,
 }

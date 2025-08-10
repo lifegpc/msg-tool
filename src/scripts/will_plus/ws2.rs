@@ -1,3 +1,4 @@
+//! WillPlus Script File (.ws2)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -7,9 +8,11 @@ use anyhow::Result;
 use std::io::{Seek, SeekFrom, Write};
 
 #[derive(Debug)]
+/// WillPlus Script Builder
 pub struct Ws2ScriptBuilder {}
 
 impl Ws2ScriptBuilder {
+    /// Creates a new instance of `Ws2ScriptBuilder`
     pub fn new() -> Self {
         Ws2ScriptBuilder {}
     }
@@ -131,6 +134,7 @@ struct Ws2String {
 }
 
 #[derive(Debug)]
+/// WillPlus Script (without disassembly)
 pub struct Ws2Script {
     data: MemReader,
     strs: Vec<Ws2String>,
@@ -139,6 +143,12 @@ pub struct Ws2Script {
 }
 
 impl Ws2Script {
+    /// Creates a new `Ws2Script`
+    ///
+    /// * `buf` - The buffer containing the script data
+    /// * `encoding` - The encoding used for the script
+    /// * `config` - Extra configuration options
+    /// * `decrypted` - Whether the script is decrypted or not
     pub fn new(
         buf: Vec<u8>,
         encoding: Encoding,

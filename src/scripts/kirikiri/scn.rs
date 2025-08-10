@@ -1,3 +1,4 @@
+//! Kirikiri Scene File (.scn)
 use super::mdf::Mdf;
 use crate::ext::io::*;
 use crate::ext::psb::*;
@@ -12,9 +13,11 @@ use std::path::Path;
 use std::sync::Arc;
 
 #[derive(Debug)]
+/// Kirikiri Scene Script Builder
 pub struct ScnScriptBuilder {}
 
 impl ScnScriptBuilder {
+    /// Creates a new instance of `ScnScriptBuilder`
     pub fn new() -> Self {
         Self {}
     }
@@ -102,6 +105,7 @@ impl ScriptBuilder for ScnScriptBuilder {
 }
 
 #[derive(Debug)]
+/// Kirikiri Scene Script
 pub struct ScnScript {
     psb: VirtualPsbFixed,
     language_index: usize,
@@ -111,6 +115,11 @@ pub struct ScnScript {
 }
 
 impl ScnScript {
+    /// Creates a new `ScnScript` from the given reader and filename
+    ///
+    /// * `reader` - The reader containing the PSB or MDF data
+    /// * `filename` - The name of the file (used for error reporting and extension detection)
+    /// * `config` - Extra configuration options
     pub fn new<R: Read + Seek>(
         mut reader: R,
         filename: &str,

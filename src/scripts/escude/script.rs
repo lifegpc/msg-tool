@@ -1,3 +1,4 @@
+//! Escu:de Script File (.bin)
 use super::list::{EnumScr, EscudeBinList, ListData, NameT};
 use super::ops::base::CustomOps;
 use crate::ext::io::*;
@@ -13,9 +14,11 @@ use std::io::{Read, Seek, SeekFrom};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
+/// Builder for Escu:de binary script files
 pub struct EscudeBinScriptBuilder {}
 
 impl EscudeBinScriptBuilder {
+    /// Creates a new instance of `EscudeBinScriptBuilder`
     pub const fn new() -> Self {
         EscudeBinScriptBuilder {}
     }
@@ -55,6 +58,7 @@ impl ScriptBuilder for EscudeBinScriptBuilder {
 }
 
 #[derive(Debug)]
+/// Escu:de binary script file
 pub struct EscudeBinScript {
     vms: Vec<u8>,
     unk1: u32,
@@ -84,6 +88,11 @@ fn load_enum_script(
 }
 
 impl EscudeBinScript {
+    /// Creates a new `EscudeBinScript`
+    ///
+    /// * `data` - The reader to read the data from
+    /// * `encoding` - The encoding of the script
+    /// * `config` - Extra configuration options
     pub fn new(data: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(data);
         let mut magic = [0u8; 8];
@@ -335,12 +344,12 @@ enum BaseOp {
     FileLine,
 }
 
-pub trait ReadParam<T> {
+pub(crate) trait ReadParam<T> {
     fn read_param(&mut self) -> Result<T>;
 }
 
 #[derive(Debug)]
-pub struct VM<'a, T: std::fmt::Debug> {
+pub(crate) struct VM<'a, T: std::fmt::Debug> {
     pub reader: MemReaderRef<'a>,
     pub data: Vec<T>,
     pub stack: Vec<u64>,

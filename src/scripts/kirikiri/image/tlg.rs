@@ -1,3 +1,4 @@
+//! Kirikiri TLG Image File (.tlg)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -6,9 +7,11 @@ use libtlg_rs::*;
 use std::io::{Read, Seek};
 
 #[derive(Debug)]
+/// Kirikiri TLG Script Builder
 pub struct TlgImageBuilder {}
 
 impl TlgImageBuilder {
+    /// Creates a new instance of `TlgImageBuilder`
     pub const fn new() -> Self {
         TlgImageBuilder {}
     }
@@ -54,11 +57,16 @@ impl ScriptBuilder for TlgImageBuilder {
 }
 
 #[derive(Debug)]
+/// Kirikiri TLG Script
 pub struct TlgImage {
     data: Tlg,
 }
 
 impl TlgImage {
+    /// Create a new TLG script
+    ///
+    /// * `data` - The reader containing the TLG script data
+    /// * `config` - Extra configuration options
     pub fn new<T: Read + Seek>(data: T, _config: &ExtraConfig) -> Result<Self> {
         let tlg = load_tlg(data)?;
         Ok(TlgImage { data: tlg })

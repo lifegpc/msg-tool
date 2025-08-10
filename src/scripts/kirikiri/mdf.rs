@@ -1,3 +1,4 @@
+//! Kirikiri Zlib-Compressed File
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -5,9 +6,11 @@ use anyhow::Result;
 use std::io::Read;
 
 #[derive(Debug)]
+/// Kirikiri MDF Script Builder
 pub struct MdfBuilder {}
 
 impl MdfBuilder {
+    /// Creates a new instance of `MdfBuilder`
     pub fn new() -> Self {
         Self {}
     }
@@ -48,12 +51,17 @@ impl ScriptBuilder for MdfBuilder {
 }
 
 #[derive(Debug)]
+/// Kirikiri MDF Script
 pub struct Mdf {
     data: MemReader,
     ext: String,
 }
 
 impl Mdf {
+    /// Creates a new `Mdf` script from the given buffer and filename
+    ///
+    /// * `buf` - The buffer containing the MDF data
+    /// * `filename` - The name of the file (used for extension detection)
     pub fn new(buf: Vec<u8>, filename: &str) -> Result<Self> {
         let mut data = MemReader::new(buf);
         let mut header = [0u8; 4];
@@ -71,7 +79,7 @@ impl Mdf {
         })
     }
 
-    pub fn unpack(mut data: MemReaderRef) -> Result<Vec<u8>> {
+    pub(crate) fn unpack(mut data: MemReaderRef) -> Result<Vec<u8>> {
         let size = data.read_u32()?;
         let mut decoder = flate2::read::ZlibDecoder::new(data);
         let mut result = Vec::new();

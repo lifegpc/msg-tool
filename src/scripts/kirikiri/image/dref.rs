@@ -1,3 +1,4 @@
+//! Kirikiri DPAK-referenced Image File (.dref)
 use crate::ext::io::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
@@ -12,9 +13,11 @@ use std::path::{Path, PathBuf};
 use url::Url;
 
 #[derive(Debug)]
+/// Kirikiri DREF Script Builder
 pub struct DrefBuilder {}
 
 impl DrefBuilder {
+    /// Creates a new instance of `DrefBuilder`
     pub fn new() -> Self {
         Self {}
     }
@@ -174,6 +177,7 @@ impl DpakLoader {
     }
 }
 
+/// Kirikiri DREF Script
 pub struct Dref {
     urls: Vec<Url>,
     dir: PathBuf,
@@ -190,6 +194,13 @@ impl std::fmt::Debug for Dref {
 }
 
 impl Dref {
+    /// Create a new dref script
+    ///
+    /// * `buf` - The buffer containing the dref script data
+    /// * `encoding` - The encoding of the script
+    /// * `filename` - The name of the file
+    /// * `config` - Extra configuration options
+    /// * `archive` - Optional archive containing additional resources
     pub fn new(
         buf: Vec<u8>,
         encoding: Encoding,

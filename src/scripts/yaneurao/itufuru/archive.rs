@@ -1,3 +1,4 @@
+//! Yaneurao Itufuru Archive File (.scd)
 use super::crypto::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -11,9 +12,11 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// Yaneurao Itufuru Archive Builder
 pub struct ItufuruArchiveBuilder {}
 
 impl ItufuruArchiveBuilder {
+    /// Creates a new instance of `ItufuruArchiveBuilder`
     pub const fn new() -> Self {
         ItufuruArchiveBuilder {}
     }
@@ -166,6 +169,7 @@ impl ArchiveContent for Entry {
 }
 
 #[derive(Debug)]
+/// Yaneurao Itufuru Archive Script
 pub struct ItufuruArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<Crypto<T>>>,
     first_file_offset: u32,
@@ -173,6 +177,11 @@ pub struct ItufuruArchive<T: Read + Seek + std::fmt::Debug> {
 }
 
 impl<T: Read + Seek + std::fmt::Debug> ItufuruArchive<T> {
+    /// Creates a new `ItufuruArchive`
+    ///
+    /// * `reader` - The reader to read the archive data from
+    /// * `archive_encoding` - The encoding used for the archive
+    /// * `config` - Extra configuration options
     pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut header = [0u8; 4];
         reader.read_exact(&mut header)?;
@@ -269,6 +278,7 @@ impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for ItufuruArchive
     }
 }
 
+/// Archive Writer for Itufuru Archive
 pub struct ItufuruArchiveWriter<T: Write + Seek> {
     writer: T,
     headers: HashMap<String, CustomHeader>,
@@ -277,6 +287,12 @@ pub struct ItufuruArchiveWriter<T: Write + Seek> {
 }
 
 impl<T: Write + Seek> ItufuruArchiveWriter<T> {
+    /// Creates a new `ItufuruArchiveWriter`
+    ///
+    /// * `writer` - The writer to write the archive data to
+    /// * `files` - List of file names to include in the archive
+    /// * `encoding` - The encoding used for the archive
+    /// * `config` - Extra configuration options
     pub fn new(
         mut writer: T,
         files: &[&str],
@@ -341,6 +357,7 @@ impl<T: Write + Seek> Archive for ItufuruArchiveWriter<T> {
     }
 }
 
+/// File Writer for Itufuru Archive
 pub struct ItufuruArchiveWriterEntry<'a, T: Write + Seek> {
     writer: Crypto<&'a mut T>,
     header: &'a mut CustomHeader,

@@ -1,3 +1,4 @@
+//! Kirikiri Simple Crypt Text File
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -6,9 +7,11 @@ use overf::wrapping;
 use std::io::Read;
 
 #[derive(Debug)]
+/// Kirikiri Simple Crypt Script Builder
 pub struct SimpleCryptBuilder {}
 
 impl SimpleCryptBuilder {
+    /// Creates a new instance of `SimpleCryptBuilder`
     pub fn new() -> Self {
         Self {}
     }
@@ -55,6 +58,7 @@ impl ScriptBuilder for SimpleCryptBuilder {
 }
 
 #[derive(Debug)]
+/// Kirikiri Simple Crypt Script
 pub struct SimpleCrypt {
     /// Crypt mode
     crypt: u8,
@@ -63,6 +67,10 @@ pub struct SimpleCrypt {
 }
 
 impl SimpleCrypt {
+    /// Creates a new `SimpleCrypt` script from the given buffer and filename
+    ///
+    /// * `buf` - The buffer containing the SimpleCrypt data
+    /// * `filename` - The name of the file
     pub fn new(buf: Vec<u8>, filename: &str) -> Result<Self> {
         let mut reader = MemReader::new(buf);
         let mut header = [0u8; 5];
@@ -86,7 +94,7 @@ impl SimpleCrypt {
         })
     }
 
-    pub fn unpack(crypt: u8, data: MemReaderRef) -> Result<Vec<u8>> {
+    pub(crate) fn unpack(crypt: u8, data: MemReaderRef) -> Result<Vec<u8>> {
         match crypt {
             0 => Self::unpack_mode0(data),
             1 => Self::unpack_mode1(data),

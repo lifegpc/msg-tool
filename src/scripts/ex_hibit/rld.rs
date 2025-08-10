@@ -1,3 +1,4 @@
+//! ExHibit Script File (.rld)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -11,9 +12,11 @@ use std::collections::BTreeMap;
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug)]
+/// Builder for ExHibit RLD script files
 pub struct RldScriptBuilder {}
 
 impl RldScriptBuilder {
+    /// Creates a new instance of `RldScriptBuilder`
     pub fn new() -> Self {
         Self {}
     }
@@ -170,6 +173,7 @@ impl StructUnpack for OpExt {
 }
 
 #[derive(Debug)]
+/// ExHibit RLD script file
 pub struct RldScript {
     data: MemReader,
     decrypted: bool,
@@ -183,6 +187,12 @@ pub struct RldScript {
 }
 
 impl RldScript {
+    /// Creates a new `RldScript`
+    ///
+    /// * `buf` - The buffer containing the RLD script data
+    /// * `filename` - The name of the file
+    /// * `encoding` - The encoding of the script
+    /// * `config` - Extra configuration options
     pub fn new(
         buf: Vec<u8>,
         filename: &str,
@@ -522,6 +532,7 @@ impl Script for RldScript {
     }
 }
 
+/// Load the keys from a file
 pub fn load_keys(path: Option<&String>) -> Result<Option<Box<[u32; 0x100]>>> {
     if let Some(path) = path {
         let f = crate::utils::files::read_file(path)?;

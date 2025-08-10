@@ -1,3 +1,4 @@
+//! Kirikiri Script File (.ks)
 use crate::ext::fancy_regex::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -11,9 +12,11 @@ use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::sync::Arc;
 
 #[derive(Debug)]
+/// Kirikiri Script Builder
 pub struct KsBuilder {}
 
 impl KsBuilder {
+    /// Creates a new instance of `KsBuilder`
     pub fn new() -> Self {
         Self {}
     }
@@ -45,12 +48,15 @@ impl ScriptBuilder for KsBuilder {
     }
 }
 
-trait Node {
+/// Kirikiri Script Node Trait
+pub trait Node {
+    /// Serializes the node to ks format
     fn serialize(&self) -> String;
 }
 
 #[derive(Clone, Debug)]
-struct CommentNode(String);
+/// Comment Node
+pub struct CommentNode(pub String);
 
 impl Node for CommentNode {
     fn serialize(&self) -> String {
@@ -59,9 +65,12 @@ impl Node for CommentNode {
 }
 
 #[derive(Clone, Debug)]
-struct LabelNode {
-    name: String,
-    page: Option<String>,
+/// Label Node
+pub struct LabelNode {
+    /// The name of the label
+    pub name: String,
+    /// The page of the label
+    pub page: Option<String>,
 }
 
 impl Node for LabelNode {
@@ -75,7 +84,8 @@ impl Node for LabelNode {
 }
 
 #[derive(Clone, Debug)]
-struct TextNode(String);
+/// Text Node
+pub struct TextNode(pub String);
 
 impl Node for TextNode {
     fn serialize(&self) -> String {
@@ -85,7 +95,8 @@ impl Node for TextNode {
 }
 
 #[derive(Clone, Debug)]
-struct EmptyLineNode;
+/// Empty Line Node
+pub struct EmptyLineNode;
 
 impl Node for EmptyLineNode {
     fn serialize(&self) -> String {
@@ -94,15 +105,21 @@ impl Node for EmptyLineNode {
 }
 
 #[derive(Clone, Debug)]
-enum TagAttr {
+/// Represents a tag attribute's value
+pub enum TagAttr {
+    /// true if no value is specified
     True,
+    /// String value of the attribute
     Str(String),
 }
 
 #[derive(Clone, Debug)]
-struct TagNode {
-    name: String,
-    attributes: Vec<(String, TagAttr)>,
+/// Tag Node
+pub struct TagNode {
+    /// The name of the tag
+    pub name: String,
+    /// The attributes of the tag
+    pub attributes: Vec<(String, TagAttr)>,
 }
 
 impl TagNode {
@@ -140,6 +157,7 @@ impl TagNode {
         parts.join(" ")
     }
 
+    /// Sets an attribute for the tag, replacing it if it already exists.
     pub fn set_attr(&mut self, key: &str, value: String) {
         if let Some(attr) = self.attributes.iter_mut().find(|(k, _)| k == key) {
             attr.1 = TagAttr::Str(value);
@@ -170,8 +188,10 @@ impl Node for TagNode {
 }
 
 #[derive(Clone)]
-struct CommandNode {
-    inner: TagNode,
+/// Command Node
+pub struct CommandNode {
+    /// Same as TagNode, but used for commands
+    pub inner: TagNode,
 }
 
 impl Deref for CommandNode {
@@ -209,7 +229,8 @@ impl Node for CommandNode {
 }
 
 #[derive(Clone, Debug)]
-struct ScriptBlockNode(String);
+/// Script Block Node
+pub struct ScriptBlockNode(pub String);
 
 impl Node for ScriptBlockNode {
     fn serialize(&self) -> String {
@@ -218,8 +239,11 @@ impl Node for ScriptBlockNode {
 }
 
 #[derive(Clone, Debug)]
-enum ParsedLineNode {
+/// Parsed Line Node
+pub enum ParsedLineNode {
+    /// Text node containing plain text
     Text(TextNode),
+    /// Tag node
     Tag(TagNode),
 }
 
@@ -252,7 +276,8 @@ impl Node for ParsedLineNode {
 }
 
 #[derive(Clone, Debug)]
-struct ParsedLine(Vec<ParsedLineNode>);
+/// Parsed Line
+pub struct ParsedLine(pub Vec<ParsedLineNode>);
 
 impl ParsedLine {
     fn to_xml(&self) -> String {
@@ -289,20 +314,29 @@ impl Node for ParsedLine {
 }
 
 #[derive(Clone, Debug)]
-enum ParsedScriptNode {
+/// Parsed Script Node
+pub enum ParsedScriptNode {
+    /// Comment node
     Comment(CommentNode),
+    /// Label node
     Label(LabelNode),
+    /// Command node
     Command(CommandNode),
+    /// Script block node
     ScriptBlock(ScriptBlockNode),
+    /// Line
     Line(ParsedLine),
+    /// Empty line node
     EmptyLine(EmptyLineNode),
 }
 
 impl ParsedScriptNode {
+    /// Returns true if the node is empty line node
     pub fn is_empty(&self) -> bool {
         matches!(self, ParsedScriptNode::EmptyLine(_))
     }
 
+    /// Sets an attribute for the command node, replacing it if it already exists.
     pub fn set_attr(&mut self, key: &str, value: String) {
         if let ParsedScriptNode::Command(command) = self {
             command.set_attr(key, value);
@@ -324,7 +358,8 @@ impl Node for ParsedScriptNode {
 }
 
 #[derive(Clone, Debug)]
-struct ParsedScript(Vec<ParsedScriptNode>);
+/// Parsed ks script
+pub struct ParsedScript(pub Vec<ParsedScriptNode>);
 
 impl Deref for ParsedScript {
     type Target = Vec<ParsedScriptNode>;
@@ -374,11 +409,15 @@ lazy_static::lazy_static! {
     static ref ATTR_RE: Regex = Regex::new("([a-zA-Z0-9_]+)(?:=(\"[^\"]*\"|'[^']*'|[^\\s\\]]+))?").unwrap();
 }
 
-struct Parser {
+/// Parser for Kirikiri Script (.ks)
+pub struct Parser {
     lines: Vec<String>,
 }
 
 impl Parser {
+    /// Creates a new parser for the given script
+    ///
+    /// * `script` - The script to parse
     pub fn new(script: &str) -> Self {
         let lines = script.lines().map(|s| s.to_string()).collect();
         Self { lines }
@@ -422,7 +461,10 @@ impl Parser {
         })
     }
 
-    fn parse(&self, preserve_empty_lines: bool) -> Result<ParsedScript> {
+    /// Parses the script and returns a `ParsedScript`
+    ///
+    /// * `preserve_empty_lines` - If true, empty lines will be preserved in the parsed script
+    pub fn parse(&self, preserve_empty_lines: bool) -> Result<ParsedScript> {
         let mut parsed_scripts = Vec::new();
         let mut in_script_block = false;
         let mut script_buffer = Vec::new();
@@ -657,6 +699,7 @@ impl XMLTextParser {
 }
 
 #[derive(Debug)]
+/// Kirikiri Script
 pub struct KsScript {
     bom: BomType,
     tree: ParsedScript,
@@ -666,6 +709,11 @@ pub struct KsScript {
 }
 
 impl KsScript {
+    /// Creates a new `KsScript` from the given reader and encoding
+    ///
+    /// * `reader` - The reader containing the script data
+    /// * `encoding` - The encoding of the script
+    /// * `config` - Extra configuration options
     pub fn new(reader: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let (text, bom) = decode_with_bom_detect(encoding, &reader, true)?;
         let parser = Parser::new(&text);

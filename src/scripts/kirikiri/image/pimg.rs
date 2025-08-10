@@ -1,3 +1,4 @@
+//! Kirikiri Multiple Image File (.pimg)
 use crate::ext::io::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
@@ -12,9 +13,11 @@ use std::io::{Read, Seek};
 use std::path::Path;
 
 #[derive(Debug)]
+/// Kirikiri PImg Script Builder
 pub struct PImgBuilder {}
 
 impl PImgBuilder {
+    /// Creates a new instance of `PImgBuilder`
     pub const fn new() -> Self {
         Self {}
     }
@@ -94,12 +97,18 @@ impl ScriptBuilder for PImgBuilder {
 }
 
 #[derive(Debug)]
+/// Kirikiri PImg Script
 pub struct PImg {
     psb: VirtualPsbFixed,
     overlay: Option<bool>,
 }
 
 impl PImg {
+    /// Create a new PImg script
+    ///
+    /// * `reader` - The reader containing the PImg script data
+    /// * `filename` - The name of the file
+    /// * `config` - Extra configuration options
     pub fn new<R: Read + Seek>(reader: R, filename: &str, config: &ExtraConfig) -> Result<Self> {
         let mut psb = PsbReader::open_psb(reader)
             .map_err(|e| anyhow::anyhow!("Failed to open PSB from {}: {:?}", filename, e))?;

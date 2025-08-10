@@ -1,3 +1,4 @@
+//! Escu:de Scripts
 #[cfg(feature = "escude-arc")]
 pub mod archive;
 #[cfg(feature = "escude-arc")]

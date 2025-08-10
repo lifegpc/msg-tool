@@ -1,3 +1,4 @@
+//! Escu:de Archive File (.bin)
 use super::crypto::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -10,9 +11,11 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+/// Escu:de Archive Builder
 pub struct EscudeBinArchiveBuilder {}
 
 impl EscudeBinArchiveBuilder {
+    /// Creates a new instance of `EscudeBinArchiveBuilder`
     pub const fn new() -> Self {
         EscudeBinArchiveBuilder {}
     }
@@ -161,6 +164,7 @@ impl ArchiveContent for Entry {
 }
 
 #[derive(Debug)]
+/// Escu:de Binary Archive
 pub struct EscudeBinArchive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     file_count: u32,
@@ -169,6 +173,11 @@ pub struct EscudeBinArchive<T: Read + Seek + std::fmt::Debug> {
 }
 
 impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
+    /// Creates a new `EscudeBinArchive` from a reader
+    ///
+    /// * `reader` - The reader to read the archive from
+    /// * `archive_encoding` - The encoding used for the archive filenames
+    /// * `config` - Extra configuration options
     pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         let mut header = [0u8; 8];
         reader.read_exact(&mut header)?;
@@ -289,6 +298,7 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
     }
 }
 
+/// Escu:de Binary Archive Writer
 pub struct EscudeBinArchiveWriter<T: Write + Seek> {
     writer: T,
     headers: HashMap<String, BinEntry>,
@@ -297,6 +307,12 @@ pub struct EscudeBinArchiveWriter<T: Write + Seek> {
 }
 
 impl<T: Write + Seek> EscudeBinArchiveWriter<T> {
+    /// Creates a new `EscudeBinArchiveWriter`
+    ///
+    /// * `writer` - The writer to write the archive to
+    /// * `files` - The list of files to include in the archive
+    /// * `encoding` - The encoding used for the archive filenames
+    /// * `config` - Extra configuration options
     pub fn new(
         mut writer: T,
         files: &[&str],
@@ -368,6 +384,7 @@ impl<T: Write + Seek> Archive for EscudeBinArchiveWriter<T> {
     }
 }
 
+/// Escu:de Binary Archive File with LZW Compression
 pub struct EscudeBinArchiveFileWithLzw<'a, T: Write + Seek> {
     writer: EscudeBinArchiveFile<'a, T>,
     buf: MemWriter,
@@ -435,6 +452,7 @@ impl<'a, T: Write + Seek> Drop for EscudeBinArchiveFileWithLzw<'a, T> {
     }
 }
 
+/// Escu:de Binary Archive File
 pub struct EscudeBinArchiveFile<'a, T: Write + Seek> {
     header: &'a mut BinEntry,
     writer: &'a mut T,
