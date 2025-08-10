@@ -1,6 +1,7 @@
 //! Utility functions and modules.
 #[cfg(feature = "utils-bit-stream")]
 pub mod bit_stream;
+#[cfg(feature = "utils-blowfish")]
 pub mod blowfish;
 pub mod counter;
 #[cfg(feature = "utils-crc32")]
