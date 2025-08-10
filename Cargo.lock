@@ -128,15 +128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blowfish"
-version = "0.9.1"
-source = "git+https://github.com/lifegpc/block-ciphers.git?branch=blowfish#2cf4c1413e03cd7f33f752fccbcf5864b6070936"
-dependencies = [
- "byteorder",
- "cipher",
-]
-
-[[package]]
 name = "bytemuck"
 version = "1.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,16 +161,6 @@ name = "cfg_aliases"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
-
-[[package]]
-name = "cipher"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
-dependencies = [
- "crypto-common",
- "inout",
-]
 
 [[package]]
 name = "clap"
@@ -617,15 +598,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "inout"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
-dependencies = [
- "generic-array",
-]
-
-[[package]]
 name = "int-enum"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -758,7 +730,7 @@ name = "msg_tool"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "blowfish",
+ "byteorder",
  "clap",
  "clap-num",
  "csv",
@@ -792,6 +764,8 @@ dependencies = [
 [[package]]
 name = "msg_tool_macro"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5977a64deff9e0d3a55e15533e8b35ee28dcb3699bbcf74c08fd0064f62a2afe"
 dependencies = [
  "quote",
  "syn",

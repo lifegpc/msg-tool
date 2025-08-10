@@ -3,11 +3,10 @@ use super::twister::MersenneTwister;
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
+use crate::utils::blowfish::Blowfish;
 use crate::utils::crc32::CRC32NORMAL_TABLE;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
-use blowfish::Blowfish;
-use blowfish::cipher::KeyInit;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 
@@ -285,7 +284,7 @@ impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
             let seed = reader.peek_u32_at(0x4C)?;
             let mut twister = MersenneTwister::new(seed);
             let blowfish_key = twister.rand().to_le_bytes();
-            let encrypt = match Blowfish::new_from_slice(&blowfish_key) {
+            let encrypt = match Blowfish::new(&blowfish_key) {
                 Ok(bf) => bf,
                 Err(e) => {
                     return Err(anyhow::anyhow!("Failed to create Blowfish cipher: {}", e));
