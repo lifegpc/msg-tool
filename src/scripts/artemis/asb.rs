@@ -64,9 +64,15 @@ impl ScriptBuilder for ArtemisAsbBuilder {
         writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         file_encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
     ) -> Result<()> {
-        create_file(filename, writer, encoding, file_encoding)
+        create_file(
+            filename,
+            writer,
+            encoding,
+            file_encoding,
+            config.custom_yaml,
+        )
     }
 }
 
@@ -414,6 +420,7 @@ impl<'a> TextParser<'a> {
 /// The Artemis ASB script.
 pub struct Asb {
     items: Vec<Item>,
+    custom_yaml: bool,
 }
 
 impl Asb {
@@ -422,7 +429,7 @@ impl Asb {
     /// * `buf` - The buffer containing the ASB data.
     /// * `encoding` - The encoding used for the ASB data.
     /// * `config` - Extra configuration options.
-    pub fn new(buf: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(buf: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let mut data = MemReader::new(buf);
         let mut magic = [0; 5];
         data.read_exact(&mut magic)?;
@@ -434,7 +441,10 @@ impl Asb {
         for _ in 0..nums {
             items.push(data.read_item(encoding)?);
         }
-        Ok(Asb { items })
+        Ok(Asb {
+            items,
+            custom_yaml: config.custom_yaml,
+        })
     }
 }
 
@@ -452,7 +462,7 @@ impl Script for Asb {
     }
 
     fn custom_output_extension<'a>(&'a self) -> &'a str {
-        "json"
+        if self.custom_yaml { "yaml" } else { "json" }
     }
 
     fn extract_messages(&self) -> Result<Vec<Message>> {
@@ -645,7 +655,11 @@ impl Script for Asb {
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
-        let s = serde_json::to_string_pretty(&self.items)?;
+        let s = if self.custom_yaml {
+            serde_yaml_ng::to_string(&self.items)?
+        } else {
+            serde_json::to_string_pretty(&self.items)?
+        };
         let s = encode_string(encoding, &s, false)?;
         let mut file = std::fs::File::create(filename)?;
         file.write_all(&s)?;
@@ -659,7 +673,13 @@ impl Script for Asb {
         encoding: Encoding,
         output_encoding: Encoding,
     ) -> Result<()> {
-        create_file(custom_filename, file, encoding, output_encoding)
+        create_file(
+            custom_filename,
+            file,
+            encoding,
+            output_encoding,
+            self.custom_yaml,
+        )
     }
 }
 
@@ -669,15 +689,21 @@ impl Script for Asb {
 /// * `writer` - The writer to write the ASB script.
 /// * `encoding` - The encoding used for the ASB script.
 /// * `output_encoding` - The encoding used for the input file.
+/// * `yaml` - Whether to use YAML format instead of JSON for the input file.
 pub fn create_file<'a>(
     custom_filename: &'a str,
     mut writer: Box<dyn WriteSeek + 'a>,
     encoding: Encoding,
     output_encoding: Encoding,
+    yaml: bool,
 ) -> Result<()> {
     let f = crate::utils::files::read_file(custom_filename)?;
     let s = decode_to_string(output_encoding, &f, true)?;
-    let items: Vec<Item> = serde_json::from_str(&s)?;
+    let items: Vec<Item> = if yaml {
+        serde_yaml_ng::from_str(&s)?
+    } else {
+        serde_json::from_str(&s)?
+    };
     writer.write_all(b"ASB\0\0")?;
     writer.write_u32(items.len() as u32)?;
     for item in items {

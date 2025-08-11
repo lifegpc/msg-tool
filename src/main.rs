@@ -1746,6 +1746,11 @@ fn main() {
         webp_quality: arg.webp_quality,
         #[cfg(feature = "circus-img")]
         circus_crx_canvas: arg.circus_crx_canvas,
+        custom_yaml: arg.custom_yaml.unwrap_or_else(|| {
+            arg.output_type
+                .map(|s| s == types::OutputScriptType::Yaml)
+                .unwrap_or(false)
+        }),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

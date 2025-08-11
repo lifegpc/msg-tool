@@ -53,9 +53,15 @@ impl ScriptBuilder for BGIBsiScriptBuilder {
         writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         file_encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
     ) -> Result<()> {
-        create_file(filename, writer, encoding, file_encoding)
+        create_file(
+            filename,
+            writer,
+            encoding,
+            file_encoding,
+            config.custom_yaml,
+        )
     }
 }
 
@@ -64,6 +70,7 @@ impl ScriptBuilder for BGIBsiScriptBuilder {
 pub struct BGIBsiScript {
     /// Section name and its data map.
     pub data: BTreeMap<String, BTreeMap<String, String>>,
+    custom_yaml: bool,
 }
 
 impl BGIBsiScript {
@@ -72,7 +79,7 @@ impl BGIBsiScript {
     /// * `buf` - The buffer containing the script data.
     /// * `encoding` - The encoding of the script.
     /// * `config` - Extra configuration options.
-    pub fn new(buf: Vec<u8>, encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(buf: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let mut data = BTreeMap::new();
         let mut reader = MemReader::new(buf);
         let section_count = reader.read_u32()?;
@@ -97,7 +104,10 @@ impl BGIBsiScript {
             );
             crate::COUNTER.inc_warning();
         }
-        Ok(BGIBsiScript { data })
+        Ok(BGIBsiScript {
+            data,
+            custom_yaml: config.custom_yaml,
+        })
     }
 }
 
@@ -115,12 +125,17 @@ impl Script for BGIBsiScript {
     }
 
     fn custom_output_extension(&self) -> &'static str {
-        "json"
+        if self.custom_yaml { "yaml" } else { "json" }
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
-        let s = serde_json::to_string_pretty(&self.data)
-            .map_err(|e| anyhow::anyhow!("Failed to write BSI Map data to JSON: {}", e))?;
+        let s = if self.custom_yaml {
+            serde_yaml_ng::to_string(&self.data)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
+        } else {
+            serde_json::to_string(&self.data)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
+        };
         let mut writer = crate::utils::files::write_file(filename)?;
         let s = encode_string(encoding, &s, false)?;
         writer.write_all(&s)?;
@@ -135,7 +150,13 @@ impl Script for BGIBsiScript {
         encoding: Encoding,
         output_encoding: Encoding,
     ) -> Result<()> {
-        create_file(custom_filename, file, encoding, output_encoding)
+        create_file(
+            custom_filename,
+            file,
+            encoding,
+            output_encoding,
+            self.custom_yaml,
+        )
     }
 }
 
@@ -144,11 +165,15 @@ fn create_file<'a>(
     mut writer: Box<dyn WriteSeek + 'a>,
     encoding: Encoding,
     output_encoding: Encoding,
+    yaml: bool,
 ) -> Result<()> {
     let input = crate::utils::files::read_file(custom_filename)?;
     let s = decode_to_string(output_encoding, &input, true)?;
-    let data: BTreeMap<String, BTreeMap<String, String>> = serde_json::from_str(&s)
-        .map_err(|e| anyhow::anyhow!("Failed to read BSI Map data from JSON: {}", e))?;
+    let data: BTreeMap<String, BTreeMap<String, String>> = if yaml {
+        serde_yaml_ng::from_str(&s).map_err(|e| anyhow::anyhow!("Failed to parse YAML: {}", e))?
+    } else {
+        serde_json::from_str(&s).map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))?
+    };
     writer.write_u32(data.len() as u32)?;
     for (section_name, section_data) in data {
         let section_name_bytes = encode_string(encoding, &section_name, false)?;

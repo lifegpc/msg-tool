@@ -329,6 +329,10 @@ pub struct Arg {
     #[arg(short = 'W', long, global = true, value_name = "QUALITY", group = "webp_qualityg", value_parser = parse_webp_quality, default_value_t = 80)]
     /// WebP quality for output images, 0-100. 100 means best quality.
     pub webp_quality: u8,
+    #[arg(long, global = true)]
+    /// Try use YAML format instead of JSON when custom exporting.
+    /// By default, this is based on output type. But can be overridden by this option.
+    pub custom_yaml: Option<bool>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

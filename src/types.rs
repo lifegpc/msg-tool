@@ -323,6 +323,8 @@ pub struct ExtraConfig {
     #[cfg(feature = "circus-img")]
     /// Draw Circus CRX images on canvas (if canvas width and height are specified in file)
     pub circus_crx_canvas: bool,
+    /// Try use YAML format instead of JSON when custom exporting.
+    pub custom_yaml: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

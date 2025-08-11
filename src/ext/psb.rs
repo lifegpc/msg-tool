@@ -8,13 +8,15 @@ use emote_psb::types::string::*;
 use emote_psb::types::*;
 #[cfg(feature = "json")]
 use json::JsonValue;
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
 
 const NONE: PsbValueFixed = PsbValueFixed::None;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 /// Represents of a PSB value.
 pub enum PsbValueFixed {
     /// No value.
@@ -448,7 +450,8 @@ impl PsbValueExt for PsbValue {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 /// Represents a PSB list of PSB values.
 pub struct PsbListFixed {
     /// The values in the list.
@@ -602,7 +605,8 @@ impl PsbListExt for PsbList {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 /// Represents a PSB object with key-value pairs.
 pub struct PsbObjectFixed {
     /// The key-value pairs in the object.
@@ -785,6 +789,26 @@ pub struct VirtualPsbFixed {
     root: PsbObjectFixed,
 }
 
+impl Serialize for VirtualPsbFixed {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("VirtualPsbFixed", 3)?;
+        state.serialize_field("version", &self.header.version)?;
+        state.serialize_field("encryption", &self.header.encryption)?;
+        state.serialize_field("data", &self.root)?;
+        state.end()
+    }
+}
+
+#[derive(Deserialize)]
+pub struct VirtualPsbFixedData {
+    version: u16,
+    encryption: u16,
+    data: PsbObjectFixed,
+}
+
 impl VirtualPsbFixed {
     /// Creates a new fixed virtual PSB.
     pub fn new(
@@ -865,6 +889,12 @@ impl VirtualPsbFixed {
         self.header.encryption = encryption;
         self.root = PsbObjectFixed::from_json(&obj["data"]);
         Ok(())
+    }
+
+    pub fn set_data(&mut self, data: VirtualPsbFixedData) {
+        self.header.version = data.version;
+        self.header.encryption = data.encryption;
+        self.root = data.data;
     }
 
     /// Converts this fixed PSB to a JSON object.

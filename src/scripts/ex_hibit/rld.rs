@@ -184,6 +184,7 @@ pub struct RldScript {
     ops: Vec<OpExt>,
     is_def_chara: bool,
     name_table: Option<BTreeMap<u32, String>>,
+    custom_yaml: bool,
 }
 
 impl RldScript {
@@ -283,6 +284,7 @@ impl RldScript {
             ops,
             is_def_chara,
             name_table,
+            custom_yaml: config.custom_yaml,
         })
     }
 
@@ -375,7 +377,7 @@ impl Script for RldScript {
     }
 
     fn custom_output_extension<'a>(&'a self) -> &'a str {
-        "json"
+        if self.custom_yaml { "yaml" } else { "json" }
     }
 
     fn extract_messages(&self) -> Result<Vec<Message>> {
@@ -472,9 +474,21 @@ impl Script for RldScript {
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
         let s = if self.is_def_chara {
             let names = self.name_table()?;
-            serde_json::to_string_pretty(&names)?
+            if self.custom_yaml {
+                serde_yaml_ng::to_string(&names)
+                    .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
+            } else {
+                serde_json::to_string(&names)
+                    .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
+            }
         } else {
-            serde_json::to_string_pretty(&self.ops)?
+            if self.custom_yaml {
+                serde_yaml_ng::to_string(&self.ops)
+                    .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
+            } else {
+                serde_json::to_string(&self.ops)
+                    .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
+            }
         };
         let s = encode_string(encoding, &s, false)?;
         let mut file = std::fs::File::create(filename)?;
@@ -493,7 +507,13 @@ impl Script for RldScript {
         let s = decode_to_string(output_encoding, &f, true)?;
         let ops: Vec<OpExt> = if self.is_def_chara {
             let mut ops = self.ops.clone();
-            let names: BTreeMap<u32, String> = serde_json::from_str(&s)?;
+            let names: BTreeMap<u32, String> = if self.custom_yaml {
+                serde_yaml_ng::from_str(&s)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse YAML: {}", e))?
+            } else {
+                serde_json::from_str(&s)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))?
+            };
             for op in ops.iter_mut() {
                 if op.op == 48 {
                     if op.strs.is_empty() {
@@ -516,7 +536,13 @@ impl Script for RldScript {
             }
             ops
         } else {
-            serde_json::from_str(&s)?
+            if self.custom_yaml {
+                serde_yaml_ng::from_str(&s)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse YAML: {}", e))?
+            } else {
+                serde_json::from_str(&s)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))?
+            }
         };
         if self.decrypted {
             let mut writer = MemWriter::new();

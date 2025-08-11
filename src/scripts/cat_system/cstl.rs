@@ -60,9 +60,15 @@ impl ScriptBuilder for CstlScriptBuilder {
         writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         file_encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
     ) -> Result<()> {
-        create_file(filename, writer, encoding, file_encoding)
+        create_file(
+            filename,
+            writer,
+            encoding,
+            file_encoding,
+            config.custom_yaml,
+        )
     }
 }
 
@@ -72,15 +78,21 @@ impl ScriptBuilder for CstlScriptBuilder {
 /// * `file` - The writer to write the CSTL file to.
 /// * `encoding` - The encoding of the CSTL file.
 /// * `output_encoding` - The encoding to use for the input file.
+/// * `yaml` - Whether to use YAML format.
 pub fn create_file<T: Write>(
     custom_filename: &str,
     mut file: T,
     encoding: Encoding,
     output_encoding: Encoding,
+    yaml: bool,
 ) -> Result<()> {
     let input = crate::utils::files::read_file(custom_filename)?;
     let s = decode_to_string(output_encoding, &input, true)?;
-    let data: BTreeMap<String, Vec<Message>> = serde_json::from_str(&s)?;
+    let data: BTreeMap<String, Vec<Message>> = if yaml {
+        serde_yaml_ng::from_str(&s)?
+    } else {
+        serde_json::from_str(&s)?
+    };
     let count = data
         .first_key_value()
         .ok_or(anyhow::anyhow!("No data found in JSON"))?
@@ -165,6 +177,7 @@ pub struct CstlScript {
     langs: Vec<String>,
     data: Vec<Vec<Message>>,
     lang_index: Option<usize>,
+    custom_yaml: bool,
 }
 
 impl CstlScript {
@@ -242,6 +255,7 @@ impl CstlScript {
             langs,
             data,
             lang_index,
+            custom_yaml: config.custom_yaml,
         })
     }
 }
@@ -260,7 +274,7 @@ impl Script for CstlScript {
     }
 
     fn custom_output_extension<'a>(&'a self) -> &'a str {
-        "json"
+        if self.custom_yaml { "yaml" } else { "json" }
     }
 
     fn extract_messages(&self) -> Result<Vec<Message>> {
@@ -348,7 +362,13 @@ impl Script for CstlScript {
         for (lang, data) in self.langs.iter().zip(&self.data) {
             d.insert(lang, data);
         }
-        let s = serde_json::to_string_pretty(&d)?;
+        let s = if self.custom_yaml {
+            serde_yaml_ng::to_string(&d)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
+        } else {
+            serde_json::to_string(&d)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
+        };
         let s = encode_string(encoding, &s, false)?;
         let mut file = std::fs::File::create(filename)?;
         file.write_all(&s)?;
@@ -362,6 +382,12 @@ impl Script for CstlScript {
         encoding: Encoding,
         output_encoding: Encoding,
     ) -> Result<()> {
-        create_file(custom_filename, file, encoding, output_encoding)
+        create_file(
+            custom_filename,
+            file,
+            encoding,
+            output_encoding,
+            self.custom_yaml,
+        )
     }
 }

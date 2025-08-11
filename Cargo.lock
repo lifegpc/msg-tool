@@ -320,6 +320,7 @@ dependencies = [
  "encoding",
  "flate2",
  "itertools",
+ "serde",
 ]
 
 [[package]]

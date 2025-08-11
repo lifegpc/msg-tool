@@ -64,9 +64,15 @@ impl ScriptBuilder for EscudeBinListBuilder {
         writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         file_encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
     ) -> Result<()> {
-        create_file(filename, writer, encoding, file_encoding)
+        create_file(
+            filename,
+            writer,
+            encoding,
+            file_encoding,
+            config.custom_yaml,
+        )
     }
 }
 
@@ -75,6 +81,7 @@ impl ScriptBuilder for EscudeBinListBuilder {
 pub struct EscudeBinList {
     /// List of entries in the Escu:de list
     pub entries: Vec<ListEntry>,
+    custom_yaml: bool,
 }
 
 impl EscudeBinList {
@@ -88,7 +95,7 @@ impl EscudeBinList {
         data: Vec<u8>,
         filename: &str,
         encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
     ) -> Result<Self> {
         let mut reader = MemReader::new(data);
         let mut magic = [0; 4];
@@ -111,7 +118,10 @@ impl EscudeBinList {
                 data: ListData::Unknown(data),
             });
         }
-        let mut s = EscudeBinList { entries };
+        let mut s = EscudeBinList {
+            entries,
+            custom_yaml: config.custom_yaml,
+        };
         match s.try_decode(filename, encoding) {
             Ok(_) => {}
             Err(e) => {
@@ -293,11 +303,15 @@ fn create_file<'a>(
     mut writer: Box<dyn WriteSeek + 'a>,
     encoding: Encoding,
     output_encoding: Encoding,
+    yaml: bool,
 ) -> Result<()> {
     let input = crate::utils::files::read_file(custom_filename)?;
     let s = decode_to_string(output_encoding, &input, true)?;
-    let entries: Vec<ListEntry> = serde_json::from_str(&s)
-        .map_err(|e| anyhow::anyhow!("Failed to read Escude list from JSON: {}", e))?;
+    let entries: Vec<ListEntry> = if yaml {
+        serde_yaml_ng::from_str(&s).map_err(|e| anyhow::anyhow!("Failed to parse YAML: {}", e))?
+    } else {
+        serde_json::from_str(&s).map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))?
+    };
     writer.write_all(b"LIST")?;
     writer.write_u32(0)?; // Placeholder for size
     let mut total_size = 0;
@@ -333,12 +347,17 @@ impl Script for EscudeBinList {
     }
 
     fn custom_output_extension(&self) -> &'static str {
-        "json"
+        if self.custom_yaml { "yaml" } else { "json" }
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
-        let s = serde_json::to_string_pretty(&self.entries)
-            .map_err(|e| anyhow::anyhow!("Failed to write Escude list to JSON: {}", e))?;
+        let s = if self.custom_yaml {
+            serde_yaml_ng::to_string(&self.entries)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
+        } else {
+            serde_json::to_string(&self.entries)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
+        };
         let mut writer = crate::utils::files::write_file(filename)?;
         let s = encode_string(encoding, &s, false)?;
         writer.write_all(&s)?;
@@ -353,7 +372,13 @@ impl Script for EscudeBinList {
         encoding: Encoding,
         output_encoding: Encoding,
     ) -> Result<()> {
-        create_file(custom_filename, writer, encoding, output_encoding)
+        create_file(
+            custom_filename,
+            writer,
+            encoding,
+            output_encoding,
+            self.custom_yaml,
+        )
     }
 }
 

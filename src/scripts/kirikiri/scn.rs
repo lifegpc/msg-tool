@@ -112,6 +112,7 @@ pub struct ScnScript {
     export_comumode: bool,
     filename: String,
     comumode_json: Option<Arc<HashMap<String, String>>>,
+    custom_yaml: bool,
 }
 
 impl ScnScript {
@@ -145,6 +146,7 @@ impl ScnScript {
             export_comumode: config.kirikiri_export_comumode,
             filename: filename.to_string(),
             comumode_json: config.kirikiri_comumode_json.clone(),
+            custom_yaml: config.custom_yaml,
         })
     }
 }
@@ -163,7 +165,7 @@ impl Script for ScnScript {
     }
 
     fn custom_output_extension<'a>(&'a self) -> &'a str {
-        "json"
+        if self.custom_yaml { "yaml" } else { "json" }
     }
 
     fn extract_messages(&self) -> Result<Vec<Message>> {
@@ -615,7 +617,12 @@ impl Script for ScnScript {
     }
 
     fn custom_export(&self, filename: &Path, encoding: Encoding) -> Result<()> {
-        let s = json::stringify_pretty(self.psb.to_json(), 2);
+        let s = if self.custom_yaml {
+            serde_yaml_ng::to_string(&self.psb)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
+        } else {
+            json::stringify_pretty(self.psb.to_json(), 2)
+        };
         let mut f = crate::utils::files::write_file(filename)?;
         let b = encode_string(encoding, &s, false)?;
         f.write_all(&b)?;
@@ -631,10 +638,18 @@ impl Script for ScnScript {
     ) -> Result<()> {
         let data = crate::utils::files::read_file(custom_filename)?;
         let s = decode_to_string(output_encoding, &data, true)?;
-        let json = json::parse(&s)?;
-        let mut psb = self.psb.clone();
-        psb.from_json(&json)?;
-        let psb = psb.to_psb();
+        let psb = if self.custom_yaml {
+            let data: VirtualPsbFixedData = serde_yaml_ng::from_str(&s)
+                .map_err(|e| anyhow::anyhow!("Failed to deserialize YAML: {}", e))?;
+            let mut psb = self.psb.clone();
+            psb.set_data(data);
+            psb.to_psb()
+        } else {
+            let json = json::parse(&s)?;
+            let mut psb = self.psb.clone();
+            psb.from_json(&json)?;
+            psb.to_psb()
+        };
         let writer = PsbWriter::new(psb, file);
         writer.finish().map_err(|e| {
             anyhow::anyhow!("Failed to write PSB to file {}: {:?}", self.filename, e)
