@@ -134,6 +134,9 @@ msg-tool create -t <script-type> <input> <output>
 |---|---|---|---|---|---|
 | `escude-arc` | `escude-arc` | Escu:de Archive File (.bin) | ✔️ | ✔️ | |
 ### Entis GLS engine
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `entis-gls` | `entis-gls` | Entis GLS engine XML Script (.srcxml) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
 ### ExHibit
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
