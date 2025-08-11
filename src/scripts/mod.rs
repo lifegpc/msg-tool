@@ -8,6 +8,8 @@ pub mod bgi;
 pub mod cat_system;
 #[cfg(feature = "circus")]
 pub mod circus;
+#[cfg(feature = "entis-gls")]
+pub mod entis_gls;
 #[cfg(feature = "escude")]
 pub mod escude;
 #[cfg(feature = "ex-hibit")]
@@ -102,6 +104,8 @@ lazy_static::lazy_static! {
         Box::new(circus::image::crxd::CrxdImageBuilder::new()),
         #[cfg(feature = "bgi-audio")]
         Box::new(bgi::audio::audio::BgiAudioBuilder::new()),
+        #[cfg(feature = "entis-gls")]
+        Box::new(entis_gls::srcxml::SrcXmlScriptBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

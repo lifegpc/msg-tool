@@ -133,6 +133,7 @@ msg-tool create -t <script-type> <input> <output>
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
 | `escude-arc` | `escude-arc` | Escu:de Archive File (.bin) | ✔️ | ✔️ | |
+### Entis GLS engine
 ### ExHibit
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

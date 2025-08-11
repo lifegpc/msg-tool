@@ -22,6 +22,8 @@ int-enum = { version = "1.2", optional = true }
 json = { version = "0.12", optional = true }
 lazy_static = "1.5.0"
 libtlg-rs = { version = "0.1", optional = true }
+markup5ever = { version = "0.35", optional = true }
+markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
 msg_tool_macro = { version = "0.1.0" }
@@ -36,12 +38,13 @@ unicode-segmentation = "1.12"
 url = { version = "2.5", optional = true }
 utf16string = "0.2"
 webp = { version = "0.3", default-features = false, optional = true }
+xml5ever = { version = "0.35", optional = true }
 zstd = { version = "0.13", optional = true }
 
 [features]
 default = ["all-fmt", "image-jpg", "image-webp"]
 all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
-all-script = ["artemis", "bgi", "cat-system", "circus", "escude", "ex-hibit", "hexen-haus", "kirikiri", "will-plus", "yaneurao", "yaneurao-itufuru"]
+all-script = ["artemis", "bgi", "cat-system", "circus", "entis-gls", "escude", "ex-hibit", "hexen-haus", "kirikiri", "will-plus", "yaneurao", "yaneurao-itufuru"]
 all-img = ["bgi-img", "cat-system-img", "circus-img", "kirikiri-img"]
 all-arc = ["artemis-arc", "bgi-arc", "cat-system-arc", "circus-arc", "escude-arc"]
 all-audio = ["bgi-audio", "circus-audio"]
@@ -58,6 +61,7 @@ circus = []
 circus-arc = ["circus"]
 circus-audio = ["circus", "flate2", "int-enum", "utils-pcm"]
 circus-img = ["circus", "image", "flate2", "zstd"]
+entis-gls = ["xml5ever", "markup5ever", "markup5ever_rcdom"]
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]
 ex-hibit = []

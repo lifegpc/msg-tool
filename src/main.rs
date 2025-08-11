@@ -1751,6 +1751,8 @@ fn main() {
                 .map(|s| s == types::OutputScriptType::Yaml)
                 .unwrap_or(false)
         }),
+        #[cfg(feature = "entis-gls")]
+        entis_gls_srcxml_lang: arg.entis_gls_srcxml_lang.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

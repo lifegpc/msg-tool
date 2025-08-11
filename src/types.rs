@@ -36,6 +36,16 @@ impl Encoding {
             _ => false,
         }
     }
+
+    /// Returns true if the encoding is UTF8.
+    pub fn is_utf8(&self) -> bool {
+        match self {
+            Self::Utf8 => true,
+            #[cfg(windows)]
+            Self::CodePage(code_page) => *code_page == 65001,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -325,6 +335,10 @@ pub struct ExtraConfig {
     pub circus_crx_canvas: bool,
     /// Try use YAML format instead of JSON when custom exporting.
     pub custom_yaml: bool,
+    #[cfg(feature = "entis-gls")]
+    /// Entis GLS srcxml script language, used to extract messages from srcxml script.
+    /// If not specified, the first language will be used.
+    pub entis_gls_srcxml_lang: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -409,6 +423,9 @@ pub enum ScriptType {
     #[cfg(feature = "circus-img")]
     /// Circus Differential Image
     CircusCrxd,
+    #[cfg(feature = "entis-gls")]
+    /// Entis GLS srcxml Script
+    EntisGls,
     #[cfg(feature = "escude-arc")]
     /// Escude bin archive
     EscudeArc,

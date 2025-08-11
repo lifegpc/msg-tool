@@ -333,6 +333,11 @@ pub struct Arg {
     /// Try use YAML format instead of JSON when custom exporting.
     /// By default, this is based on output type. But can be overridden by this option.
     pub custom_yaml: Option<bool>,
+    #[cfg(feature = "entis-gls")]
+    #[arg(long, global = true)]
+    /// Entis GLS srcxml script language, used to extract messages from srcxml script.
+    /// If not specified, the first language will be used.
+    pub entis_gls_srcxml_lang: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,
