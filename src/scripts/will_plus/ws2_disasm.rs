@@ -1,8 +1,7 @@
 use crate::ext::io::*;
-use crate::types::*;
-use crate::utils::encoding::*;
 use anyhow::Result;
 use std::any::Any;
+use std::ffi::CString;
 
 pub trait Disasm: Sized {
     fn disassmble(self) -> Result<(Vec<usize>, Vec<Ws2DString>)>;
@@ -36,7 +35,7 @@ pub enum StringType {
 
 #[derive(Debug, Clone)]
 pub struct Ws2DString {
-    pub text: String,
+    pub text: CString,
     pub offset: usize,
     pub len: usize,
     pub typ: StringType,
@@ -47,17 +46,15 @@ struct DisasmBase<'a> {
     opers: &'a [(u8, &'static [Oper])],
     addresses: Vec<usize>,
     texts: Vec<Ws2DString>,
-    encoding: Encoding,
 }
 
 impl<'a> DisasmBase<'a> {
-    pub fn new(data: &'a [u8], opers: &'a [(u8, &'static [Oper])], encoding: Encoding) -> Self {
+    pub fn new(data: &'a [u8], opers: &'a [(u8, &'static [Oper])]) -> Self {
         DisasmBase {
             reader: MemReaderRef::new(data),
             opers,
             addresses: Vec::new(),
             texts: Vec::new(),
-            encoding,
         }
     }
 
@@ -120,10 +117,9 @@ impl<'a> DisasmBase<'a> {
             S => {
                 let offset = self.reader.pos;
                 let s = self.reader.read_cstring()?;
-                let decoded = decode_to_string(self.encoding, s.as_bytes(), false)?;
                 let len = s.as_bytes_with_nul().len();
                 let str = Ws2DString {
-                    text: decoded,
+                    text: s,
                     offset,
                     len,
                     typ: StringType::Internal,
@@ -643,9 +639,9 @@ const V3_OPS: [(u8, &'static [Oper]); 165] = [
 
 const OPS: [&[(u8, &'static [Oper])]; 3] = [&V1_OPS, &V2_OPS, &V3_OPS];
 
-pub fn disassmble(data: &[u8], encoding: Encoding) -> Result<(Vec<usize>, Vec<Ws2DString>)> {
+pub fn disassmble(data: &[u8]) -> Result<(Vec<usize>, Vec<Ws2DString>)> {
     for op in &OPS {
-        let disasm = DisasmBase::new(data, op, encoding);
+        let disasm = DisasmBase::new(data, op);
         match disasm.disassmble() {
             Ok(result) => return Ok(result),
             Err(_) => continue, // Try the next version if this one fails

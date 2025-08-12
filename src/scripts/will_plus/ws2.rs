@@ -337,6 +337,7 @@ pub struct Ws2DisasmScript {
     addresses: Vec<usize>,
     /// Need encrypt when outputting
     encrypted: bool,
+    encoding: Encoding,
 }
 
 impl Ws2DisasmScript {
@@ -352,13 +353,14 @@ impl Ws2DisasmScript {
         config: &ExtraConfig,
         decrypted: bool,
     ) -> Result<Self> {
-        match disassmble(&buf, encoding) {
+        match disassmble(&buf) {
             Ok((addresses, texts)) => {
                 return Ok(Self {
                     data: MemReader::new(buf.to_vec()),
                     texts,
                     addresses,
                     encrypted: decrypted,
+                    encoding,
                 });
             }
             Err(e) => {
@@ -389,15 +391,16 @@ impl Script for Ws2DisasmScript {
         for text in &self.texts {
             match text.typ {
                 StringType::Name => {
-                    let text = text
-                        .text
+                    let text = decode_to_string(self.encoding, text.text.as_bytes(), false)?
                         .trim_start_matches("%LC")
                         .trim_start_matches("%LF")
                         .to_string();
                     name = Some(text);
                 }
                 StringType::Message => {
-                    let message = text.text.trim_end_matches("%K%P").to_string();
+                    let message = decode_to_string(self.encoding, text.text.as_bytes(), false)?
+                        .trim_end_matches("%K%P")
+                        .to_string();
                     messages.push(Message {
                         message,
                         name: name.take(),
@@ -431,11 +434,11 @@ impl Script for Ws2DisasmScript {
                 |s| Ok(s),
             )?;
             for s in &self.texts {
-                let text = match s.typ {
+                let mut encoded = match s.typ {
                     StringType::Name => {
-                        let prefix = if s.text.starts_with("%LC") {
+                        let prefix = if s.text.as_bytes().starts_with(b"%LC") {
                             "%LC"
-                        } else if s.text.starts_with("%LF") {
+                        } else if s.text.as_bytes().starts_with(b"%LF") {
                             "%LF"
                         } else {
                             ""
@@ -456,10 +459,14 @@ impl Script for Ws2DisasmScript {
                             }
                         }
                         name = prefix.to_owned() + &name;
-                        name
+                        encode_string(encoding, &name, false)?
                     }
                     StringType::Message => {
-                        let suffix = if s.text.ends_with("%K%P") { "%K%P" } else { "" };
+                        let suffix = if s.text.as_bytes().ends_with(b"%K%P") {
+                            "%K%P"
+                        } else {
+                            ""
+                        };
                         let m = match mess {
                             Some(m) => m,
                             None => {
@@ -473,11 +480,11 @@ impl Script for Ws2DisasmScript {
                             }
                         }
                         mess = mes.next();
-                        message + suffix
+                        message.push_str(suffix);
+                        encode_string(encoding, &message, false)?
                     }
-                    StringType::Internal => s.text.clone(),
+                    StringType::Internal => s.text.as_bytes().to_vec(),
                 };
-                let mut encoded = encode_string(encoding, &text, false)?;
                 encoded.push(0); // Null terminator
                 patcher.copy_up_to(s.offset as u64)?;
                 patcher.replace_bytes(s.len as u64, &encoded)?;

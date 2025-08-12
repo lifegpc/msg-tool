@@ -1,5 +1,8 @@
 //! Encoding Utilities
+use crate::ext::atomic::*;
 use crate::types::*;
+use encoding::{ByteWriter, DecoderTrap, EncoderTrap, Encoding as EncodingTrait, RawEncoder};
+use std::sync::atomic::AtomicBool;
 
 /// Decodes a byte slice to a string using the specified encoding with BOM detection.
 ///
@@ -13,19 +16,33 @@ pub fn decode_with_bom_detect(
 ) -> Result<(String, BomType), anyhow::Error> {
     if data.len() >= 2 {
         if data[0] == 0xFE && data[1] == 0xFF {
-            let result = encoding_rs::UTF_16BE.decode(&data[2..]);
-            if result.2 {
-                return Err(anyhow::anyhow!("Failed to decode UTF-16BE"));
-            } else {
-                return Ok((result.0.into_owned(), BomType::Utf16BE));
-            }
+            return Ok((
+                encoding::codec::utf_16::UTF_16BE_ENCODING
+                    .decode(
+                        &data[2..],
+                        if check {
+                            DecoderTrap::Strict
+                        } else {
+                            DecoderTrap::Replace
+                        },
+                    )
+                    .map_err(|_| anyhow::anyhow!("Failed to decode UTF-16BE"))?,
+                BomType::Utf16BE,
+            ));
         } else if data[0] == 0xFF && data[1] == 0xFE {
-            let result = encoding_rs::UTF_16LE.decode(&data[2..]);
-            if result.2 {
-                return Err(anyhow::anyhow!("Failed to decode UTF-16LE"));
-            } else {
-                return Ok((result.0.into_owned(), BomType::Utf16LE));
-            }
+            return Ok((
+                encoding::codec::utf_16::UTF_16LE_ENCODING
+                    .decode(
+                        &data[2..],
+                        if check {
+                            DecoderTrap::Strict
+                        } else {
+                            DecoderTrap::Replace
+                        },
+                    )
+                    .map_err(|_| anyhow::anyhow!("Failed to decode UTF-16LE"))?,
+                BomType::Utf16LE,
+            ));
         }
     }
     if data.len() >= 3 {
@@ -73,38 +90,77 @@ pub fn decode_to_string(
             .or_else(|_| decode_to_string(Encoding::Gb2312, data, check)),
         Encoding::Utf8 => Ok(String::from_utf8(data.to_vec())?),
         Encoding::Cp932 => {
-            let result = encoding_rs::SHIFT_JIS.decode(data);
-            if result.2 {
-                if check {
-                    return Err(anyhow::anyhow!("Failed to decode Shift-JIS"));
-                }
+            let result = encoding::codec::japanese::Windows31JEncoding
+                .decode(
+                    data,
+                    if check {
+                        DecoderTrap::Strict
+                    } else {
+                        DecoderTrap::Call(|_, d, out| {
+                            if d.len() == 1 && d[0] == 0xFF {
+                                out.write_char('\u{f8f3}'); // PUA character for U+F8F3
+                            } else {
+                                out.write_char('\u{FFFD}'); // Replacement character
+                            }
+                            true
+                        })
+                    },
+                )
+                .map_err(|_| anyhow::anyhow!("Failed to decode Shift-JIS"))?;
+            if result.contains('\u{FFFD}') {
                 eprintln!(
                     "Warning: Some characters could not be decoded in Shift-JIS: {:?}",
                     data
                 );
                 crate::COUNTER.inc_warning();
             }
-            Ok(result.0.to_string())
+            Ok(result)
         }
         Encoding::Gb2312 => {
-            let result = encoding_rs::GBK.decode(data);
-            if result.2 {
-                if check {
-                    return Err(anyhow::anyhow!("Failed to decode GB2312"));
-                }
+            let result = encoding::codec::simpchinese::GBK_ENCODING
+                .decode(
+                    data,
+                    if check {
+                        DecoderTrap::Strict
+                    } else {
+                        DecoderTrap::Replace
+                    },
+                )
+                .map_err(|_| anyhow::anyhow!("Failed to decode GB2312"))?;
+            if result.contains('\u{FFFD}') {
                 eprintln!(
                     "Warning: Some characters could not be decoded in GB2312: {:?}",
                     data
                 );
                 crate::COUNTER.inc_warning();
             }
-            Ok(result.0.to_string())
+            Ok(result)
         }
         #[cfg(windows)]
         Encoding::CodePage(code_page) => Ok(super::encoding_win::decode_to_string(
             code_page, data, check,
         )?),
     }
+}
+
+thread_local! {
+    static ENCODE_REPLACED: AtomicBool = AtomicBool::new(false);
+}
+
+fn jis_encoder_trap(_: &mut dyn RawEncoder, data: &str, out: &mut dyn ByteWriter) -> bool {
+    if data == "\u{f8f3}" {
+        out.write_byte(0xFF); // PUA character for U+F8F3
+    } else {
+        out.write_byte(b'?'); // Replacement character
+        ENCODE_REPLACED.with(|f| f.qsave(true));
+    }
+    true
+}
+
+fn gbk_encoder_trap(_: &mut dyn RawEncoder, _: &str, out: &mut dyn ByteWriter) -> bool {
+    out.write_byte(b'?'); // Replacement character
+    ENCODE_REPLACED.with(|f| f.qsave(true));
+    true
 }
 
 /// Encodes a string to a byte vector using the specified encoding.
@@ -119,32 +175,50 @@ pub fn encode_string(
         Encoding::Auto => Ok(data.as_bytes().to_vec()),
         Encoding::Utf8 => Ok(data.as_bytes().to_vec()),
         Encoding::Cp932 => {
-            let result = encoding_rs::SHIFT_JIS.encode(data);
-            if result.2 {
-                if check {
-                    return Err(anyhow::anyhow!("Failed to encode Shift-JIS"));
+            ENCODE_REPLACED.with(|f| f.qsave(false));
+            let result = encoding::codec::japanese::Windows31JEncoding
+                .encode(
+                    data,
+                    if check {
+                        EncoderTrap::Strict
+                    } else {
+                        EncoderTrap::Call(jis_encoder_trap)
+                    },
+                )
+                .map_err(|_| anyhow::anyhow!("Failed to encode Shift-JIS"))?;
+            ENCODE_REPLACED.with(|f| {
+                if f.qload() {
+                    eprintln!(
+                        "Warning: Some characters could not be encoded in Shift-JIS: {}",
+                        data
+                    );
+                    crate::COUNTER.inc_warning();
                 }
-                eprintln!(
-                    "Warning: Some characters could not be encoded in Shift-JIS: {}",
-                    data
-                );
-                crate::COUNTER.inc_warning();
-            }
-            Ok(result.0.to_vec())
+            });
+            Ok(result)
         }
         Encoding::Gb2312 => {
-            let result = encoding_rs::GBK.encode(data);
-            if result.2 {
-                if check {
-                    return Err(anyhow::anyhow!("Failed to encode GB2312"));
+            ENCODE_REPLACED.with(|f| f.qsave(false));
+            let result = encoding::codec::simpchinese::GBK_ENCODING
+                .encode(
+                    data,
+                    if check {
+                        EncoderTrap::Strict
+                    } else {
+                        EncoderTrap::Call(gbk_encoder_trap)
+                    },
+                )
+                .map_err(|_| anyhow::anyhow!("Failed to encode GB2312"))?;
+            ENCODE_REPLACED.with(|f| {
+                if f.qload() {
+                    eprintln!(
+                        "Warning: Some characters could not be encoded in GB2312: {}",
+                        data
+                    );
+                    crate::COUNTER.inc_warning();
                 }
-                eprintln!(
-                    "Warning: Some characters could not be encoded in GB2312: {}",
-                    data
-                );
-                crate::COUNTER.inc_warning();
-            }
-            Ok(result.0.to_vec())
+            });
+            Ok(result)
         }
         #[cfg(windows)]
         Encoding::CodePage(code_page) => {
@@ -313,5 +387,19 @@ fn test_encode_string_with_bom() {
     assert_eq!(
         encode_string_with_bom(Encoding::Utf8, "中文", true, BomType::None).unwrap(),
         vec![0xE4, 0xB8, 0xAD, 0xE6, 0x96, 0x87]
+    );
+}
+
+#[test]
+fn shift_jis_pua_test() {
+    let ff = [0xFF, 0x01];
+    #[cfg(windows)]
+    assert_eq!(
+        decode_to_string(Encoding::CodePage(932), &ff, false).unwrap(),
+        "\u{f8f3}\x01".to_string()
+    );
+    assert_eq!(
+        decode_to_string(Encoding::Cp932, &ff, false).unwrap(),
+        "\u{f8f3}\x01".to_string()
     );
 }
