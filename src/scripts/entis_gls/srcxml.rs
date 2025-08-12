@@ -56,7 +56,7 @@ pub struct SrcXmlScript {
 
 impl SrcXmlScript {
     /// Creates a new `SrcXmlScript` from the provided buffer and encoding.
-    /// 
+    ///
     /// * `buf` - The buffer containing the XML data.
     /// * `encoding` - The encoding of the XML data.
     /// * `config` - Additional configuration options.

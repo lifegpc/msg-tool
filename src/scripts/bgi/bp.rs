@@ -73,10 +73,14 @@ impl BGIBpScript {
         }
         let mut last_instr_pos = 0;
         reader.seek(SeekFrom::Start(header_size as u64))?;
-        for _ in 0..instr_size / 4 {
-            let instr = reader.read_u32()?;
+        let max_instr_len = reader.data.len() - 4;
+        while reader.pos < max_instr_len {
+            let instr = reader.cpeek_u32()?;
             if instr == 0x17 {
                 last_instr_pos = reader.pos;
+                reader.pos += 4;
+            } else {
+                reader.pos += 1;
             }
         }
         if last_instr_pos == 0 {
