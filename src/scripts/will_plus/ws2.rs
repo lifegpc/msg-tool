@@ -1,4 +1,5 @@
 //! WillPlus Script File (.ws2)
+use super::ws2_disasm::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -32,6 +33,16 @@ impl ScriptBuilder for Ws2ScriptBuilder {
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
+        match Ws2DisasmScript::new(&buf, encoding, config, false) {
+            Ok(script) => return Ok(Box::new(script)),
+            Err(e) => {
+                eprintln!(
+                    "WARNING: Failed to disassemble WS2 script: {}. An another parser is used.",
+                    e
+                );
+                crate::COUNTER.inc_warning();
+            }
+        }
         Ok(Box::new(Ws2Script::new(buf, encoding, config, false)?))
     }
 
@@ -314,6 +325,172 @@ impl Script for Ws2Script {
         if m.is_some() || mes.next().is_some() {
             return Err(anyhow::anyhow!("Too many messages provided."));
         }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+/// WillPlus Disassembled Script
+pub struct Ws2DisasmScript {
+    data: MemReader,
+    texts: Vec<Ws2DString>,
+    addresses: Vec<usize>,
+    /// Need encrypt when outputting
+    encrypted: bool,
+}
+
+impl Ws2DisasmScript {
+    /// Creates a new `Ws2DisasmScript`
+    ///
+    /// * `buf` - The buffer containing the script data
+    /// * `encoding` - The encoding used for the script
+    /// * `config` - Extra configuration options
+    /// * `decrypted` - Whether the script is decrypted or not
+    pub fn new(
+        buf: &[u8],
+        encoding: Encoding,
+        config: &ExtraConfig,
+        decrypted: bool,
+    ) -> Result<Self> {
+        match disassmble(&buf, encoding) {
+            Ok((addresses, texts)) => {
+                return Ok(Self {
+                    data: MemReader::new(buf.to_vec()),
+                    texts,
+                    addresses,
+                    encrypted: decrypted,
+                });
+            }
+            Err(e) => {
+                if decrypted {
+                    return Err(e);
+                } else {
+                    let mut data = buf.to_vec();
+                    Ws2Script::decrypt(&mut data);
+                    return Self::new(&data, encoding, config, true);
+                }
+            }
+        }
+    }
+}
+
+impl Script for Ws2DisasmScript {
+    fn default_output_script_type(&self) -> OutputScriptType {
+        OutputScriptType::Json
+    }
+
+    fn default_format_type(&self) -> FormatOptions {
+        FormatOptions::None
+    }
+
+    fn extract_messages(&self) -> Result<Vec<Message>> {
+        let mut messages = Vec::new();
+        let mut name = None;
+        for text in &self.texts {
+            match text.typ {
+                StringType::Name => {
+                    let text = text
+                        .text
+                        .trim_start_matches("%LC")
+                        .trim_start_matches("%LF")
+                        .to_string();
+                    name = Some(text);
+                }
+                StringType::Message => {
+                    let message = text.text.trim_end_matches("%K%P").to_string();
+                    messages.push(Message {
+                        message,
+                        name: name.take(),
+                    });
+                }
+                StringType::Internal => {}
+            }
+        }
+        Ok(messages)
+    }
+
+    fn import_messages<'a>(
+        &'a self,
+        messages: Vec<Message>,
+        file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        let mut output = if self.encrypted {
+            Box::new(EncryptWriter::new(file))
+        } else {
+            file
+        };
+        let mut mes = messages.iter();
+        let mut mess = mes.next();
+        {
+            let mut patcher = BinaryPatcher::new(
+                MemReaderRef::new(&self.data.data),
+                &mut output,
+                |s| Ok(s),
+                |s| Ok(s),
+            )?;
+            for s in &self.texts {
+                let text = match s.typ {
+                    StringType::Name => {
+                        let prefix = if s.text.starts_with("%LC") {
+                            "%LC"
+                        } else if s.text.starts_with("%LF") {
+                            "%LF"
+                        } else {
+                            ""
+                        };
+                        let m = match mess {
+                            Some(m) => m,
+                            None => {
+                                return Err(anyhow::anyhow!("No enough messages."));
+                            }
+                        };
+                        let mut name = match m.name.as_ref() {
+                            Some(name) => name.to_owned(),
+                            None => return Err(anyhow::anyhow!("Message without name.")),
+                        };
+                        if let Some(replacement) = replacement {
+                            for (k, v) in &replacement.map {
+                                name = name.replace(k, v);
+                            }
+                        }
+                        name = prefix.to_owned() + &name;
+                        name
+                    }
+                    StringType::Message => {
+                        let suffix = if s.text.ends_with("%K%P") { "%K%P" } else { "" };
+                        let m = match mess {
+                            Some(m) => m,
+                            None => {
+                                return Err(anyhow::anyhow!("No enough messages."));
+                            }
+                        };
+                        let mut message = m.message.clone();
+                        if let Some(replacement) = replacement {
+                            for (k, v) in &replacement.map {
+                                message = message.replace(k, v);
+                            }
+                        }
+                        mess = mes.next();
+                        message + suffix
+                    }
+                    StringType::Internal => s.text.clone(),
+                };
+                let mut encoded = encode_string(encoding, &text, false)?;
+                encoded.push(0); // Null terminator
+                patcher.copy_up_to(s.offset as u64)?;
+                patcher.replace_bytes(s.len as u64, &encoded)?;
+            }
+            if mess.is_some() || mes.next().is_some() {
+                return Err(anyhow::anyhow!("Too many messages provided."));
+            }
+            patcher.copy_up_to(self.data.data.len() as u64)?;
+            for offset in &self.addresses {
+                patcher.patch_u32_address(*offset as u64)?;
+            }
+        }
+        output.flush()?;
         Ok(())
     }
 }

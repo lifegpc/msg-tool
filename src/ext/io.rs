@@ -749,6 +749,14 @@ pub trait ReadExt {
     fn read_i128(&mut self) -> Result<i128>;
     /// Reads an [i128] from the reader in big-endian order.
     fn read_i128_be(&mut self) -> Result<i128>;
+    /// Reads a [f32] from the reader in little-endian order.
+    fn read_f32(&mut self) -> Result<f32>;
+    /// Reads a [f32] from the reader in big-endian order.
+    fn read_f32_be(&mut self) -> Result<f32>;
+    /// Reads a [f64] from the reader in little-endian order.
+    fn read_f64(&mut self) -> Result<f64>;
+    /// Reads a [f64] from the reader in big-endian order.
+    fn read_f64_be(&mut self) -> Result<f64>;
 
     /// Reads a C-style string (null-terminated) from the reader.
     fn read_cstring(&mut self) -> Result<CString>;
@@ -855,6 +863,26 @@ impl<T: Read> ReadExt for T {
         let mut buf = [0u8; 16];
         self.read_exact(&mut buf)?;
         Ok(i128::from_be_bytes(buf))
+    }
+    fn read_f32(&mut self) -> Result<f32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(f32::from_le_bytes(buf))
+    }
+    fn read_f32_be(&mut self) -> Result<f32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(f32::from_be_bytes(buf))
+    }
+    fn read_f64(&mut self) -> Result<f64> {
+        let mut buf = [0u8; 8];
+        self.read_exact(&mut buf)?;
+        Ok(f64::from_le_bytes(buf))
+    }
+    fn read_f64_be(&mut self) -> Result<f64> {
+        let mut buf = [0u8; 8];
+        self.read_exact(&mut buf)?;
+        Ok(f64::from_be_bytes(buf))
     }
 
     fn read_cstring(&mut self) -> Result<CString> {
@@ -1555,6 +1583,171 @@ impl<T: Seek> Seek for StreamRegion<T> {
     fn rewind(&mut self) -> Result<()> {
         self.cur_pos = 0;
         self.stream.seek(SeekFrom::Start(self.start_pos))?;
+        Ok(())
+    }
+}
+
+struct RangeMap {
+    original: (u64, u64),
+    new: (u64, u64),
+}
+
+/// A binary patcher that can be used to apply patches to binary data.
+pub struct BinaryPatcher<
+    R: Read + Seek,
+    W: Write + Seek,
+    A: Fn(u64) -> Result<u64>,
+    O: Fn(u64) -> Result<u64>,
+> {
+    pub input: R,
+    pub output: W,
+    input_len: u64,
+    address_to_offset: A,
+    offset_to_address: O,
+    range_maps: Vec<RangeMap>,
+}
+
+impl<R: Read + Seek, W: Write + Seek, A: Fn(u64) -> Result<u64>, O: Fn(u64) -> Result<u64>>
+    BinaryPatcher<R, W, A, O>
+{
+    /// Creates a new `BinaryPatcher` with the specified input and output streams.
+    pub fn new(
+        mut input: R,
+        output: W,
+        address_to_offset: A,
+        offset_to_address: O,
+    ) -> Result<Self> {
+        let input_len = input.stream_length()?;
+        Ok(BinaryPatcher {
+            input,
+            output,
+            input_len,
+            address_to_offset,
+            offset_to_address,
+            range_maps: Vec::new(),
+        })
+    }
+
+    /// Copies data from the input stream to the output stream up to the specified address of original stream.
+    pub fn copy_up_to(&mut self, original_offset: u64) -> Result<()> {
+        let cur_pos = self.input.stream_position()?;
+        if original_offset < cur_pos || original_offset > self.input_len {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Original offset is out of bounds",
+            ));
+        }
+        let bytes_to_copy = original_offset - cur_pos;
+        std::io::copy(&mut (&mut self.input).take(bytes_to_copy), &mut self.output)?;
+        Ok(())
+    }
+
+    /// Maps an original offset to a new offset in the output stream.
+    pub fn map_offset(&mut self, original_offset: u64) -> Result<u64> {
+        if original_offset > self.input_len {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Original offset is out of bounds",
+            ));
+        }
+        let cur_pos = self.input.stream_position()?;
+        if original_offset > cur_pos {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Original offset is beyond current position",
+            ));
+        }
+        let mut start = 0;
+        let mut end = self.range_maps.len();
+        while start < end {
+            let pivot = (start + end) / 2;
+            let range = &self.range_maps[pivot];
+            if original_offset < range.original.0 {
+                end = pivot;
+            } else if original_offset == range.original.0 {
+                return Ok(range.new.0);
+            } else if original_offset >= range.original.1 {
+                start = pivot + 1;
+            } else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Can't map an offset inside a changed section",
+                ));
+            }
+        }
+        if start == 0 {
+            return Ok(original_offset);
+        }
+        let index = start - 1;
+        let range = &self.range_maps[index];
+        let new_offset = original_offset + range.new.1 - range.original.1;
+        let out_len = self.output.stream_length()?;
+        if new_offset > out_len {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Mapped offset is beyond the end of the output stream",
+            ));
+        }
+        Ok(new_offset)
+    }
+
+    /// Replaces bytes in the output stream with new data, starting from the current position in the input stream.
+    ///
+    /// * `original_length` - The length of the original data to be replaced.
+    /// * `new_data` - The new data to write to the output stream.
+    pub fn replace_bytes(&mut self, original_length: u64, new_data: &[u8]) -> Result<()> {
+        self.replace_bytes_with_write(original_length, |writer| writer.write_all(new_data))
+    }
+
+    /// Replaces bytes in the output stream with new data, starting from the current position in the input stream.
+    ///
+    /// * `original_length` - The length of the original data to be replaced.
+    /// * `write` - A function that writes the new data to the output stream.
+    pub fn replace_bytes_with_write<F: Fn(&mut W) -> Result<()>>(
+        &mut self,
+        original_length: u64,
+        write: F,
+    ) -> Result<()> {
+        let cur_pos = self.input.stream_position()?;
+        if cur_pos + original_length > self.input_len {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Original length exceeds input length",
+            ));
+        }
+        let new_data_offset = self.output.stream_position()?;
+        write(&mut self.output)?;
+        let new_data_length = self.output.stream_position()? - new_data_offset;
+        if new_data_length != original_length {
+            self.range_maps.push(RangeMap {
+                original: (cur_pos, cur_pos + original_length),
+                new: (new_data_offset, new_data_offset + new_data_length),
+            });
+        }
+        self.input
+            .seek(SeekFrom::Start(cur_pos + original_length))?;
+        Ok(())
+    }
+
+    /// Patches a u32 address in the output stream at the specified original offset.
+    pub fn patch_u32_address(&mut self, original_offset: u64) -> Result<()> {
+        let input_pos = self.input.stream_position()?;
+        if input_pos < original_offset + 4 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Original offset is out of bounds for u32 address patching",
+            ));
+        }
+        self.input.seek(SeekFrom::Start(original_offset))?;
+        let original_address = self.input.read_u32()?;
+        self.input.seek(SeekFrom::Start(input_pos))?;
+        let new_offset = self.map_offset(original_offset)?;
+        let offset = (self.address_to_offset)(original_address as u64)?;
+        let offset = self.map_offset(offset)?;
+        let new_addr = (self.offset_to_address)(offset)?;
+        self.output.seek(SeekFrom::Start(new_offset))?;
+        self.output.write_u32(new_addr as u32)?;
+        self.output.seek(SeekFrom::End(0))?;
         Ok(())
     }
 }
