@@ -192,7 +192,21 @@ pub fn encode_string(
                 .encode(
                     data,
                     if check {
-                        EncoderTrap::Strict
+                        // Keep same behavior as Windows API (Code Page 932)
+                        EncoderTrap::Call(|_, data, out| {
+                            if data == "\u{f8f3}" {
+                                out.write_byte(0xFF); // PUA character for U+F8F3
+                                true
+                            } else if data == "\u{f8f2}" {
+                                out.write_byte(0xFE); // PUA character for U+F8F2
+                                true
+                            } else if data == "\u{f8f1}" {
+                                out.write_byte(0xFD); // PUA character for U+F8F1
+                                true
+                            } else {
+                                false
+                            }
+                        })
                     } else {
                         EncoderTrap::Call(jis_encoder_trap)
                     },
@@ -458,5 +472,50 @@ fn shift_jis_pua_test() {
         encode_string(Encoding::CodePage(932), ff, true).unwrap(),
         vec![0xFF, 0x01]
     );
-    assert!(encode_string(Encoding::Cp932, ff, true).is_err());
+    assert_eq!(
+        encode_string(Encoding::Cp932, ff, true).unwrap(),
+        vec![0xFF, 0x01]
+    );
+    let fe = "\u{f8f2}\x01";
+    #[cfg(windows)]
+    assert_eq!(
+        encode_string(Encoding::CodePage(932), fe, false).unwrap(),
+        vec![0xFE, 0x01]
+    );
+    assert_eq!(
+        encode_string(Encoding::Cp932, fe, false).unwrap(),
+        vec![0xFE, 0x01]
+    );
+    #[cfg(windows)]
+    assert_eq!(
+        encode_string(Encoding::CodePage(932), fe, true).unwrap(),
+        vec![0xFE, 0x01]
+    );
+    assert_eq!(
+        encode_string(Encoding::Cp932, fe, true).unwrap(),
+        vec![0xFE, 0x01]
+    );
+    let fd = "\u{f8f1}\x01";
+    #[cfg(windows)]
+    assert_eq!(
+        encode_string(Encoding::CodePage(932), fd, false).unwrap(),
+        vec![0xFD, 0x01]
+    );
+    assert_eq!(
+        encode_string(Encoding::Cp932, fd, false).unwrap(),
+        vec![0xFD, 0x01]
+    );
+    #[cfg(windows)]
+    assert_eq!(
+        encode_string(Encoding::CodePage(932), fd, true).unwrap(),
+        vec![0xFD, 0x01]
+    );
+    assert_eq!(
+        encode_string(Encoding::Cp932, fd, true).unwrap(),
+        vec![0xFD, 0x01]
+    );
+    let failed_test = "\u{f8f4}\x01";
+    #[cfg(windows)]
+    assert!(encode_string(Encoding::CodePage(932), failed_test, true).is_err());
+    assert!(encode_string(Encoding::Cp932, failed_test, true).is_err());
 }
