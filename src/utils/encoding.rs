@@ -97,8 +97,16 @@ pub fn decode_to_string(
                         DecoderTrap::Strict
                     } else {
                         DecoderTrap::Call(|_, d, out| {
-                            if d.len() == 1 && d[0] == 0xFF {
-                                out.write_char('\u{f8f3}'); // PUA character for U+F8F3
+                            if d.len() == 1 {
+                                if d[0] == 0xFF {
+                                    out.write_char('\u{f8f3}'); // PUA character for U+F8F3
+                                } else if d[0] == 0xFE {
+                                    out.write_char('\u{f8f2}'); // PUA character for U+F8F2
+                                } else if d[0] == 0xFD {
+                                    out.write_char('\u{f8f1}'); // PUA character for U+F8F1
+                                } else {
+                                    out.write_char('\u{FFFD}'); // Replacement character
+                                }
                             } else {
                                 out.write_char('\u{FFFD}'); // Replacement character
                             }
@@ -150,6 +158,10 @@ thread_local! {
 fn jis_encoder_trap(_: &mut dyn RawEncoder, data: &str, out: &mut dyn ByteWriter) -> bool {
     if data == "\u{f8f3}" {
         out.write_byte(0xFF); // PUA character for U+F8F3
+    } else if data == "\u{f8f2}" {
+        out.write_byte(0xFE); // PUA character for U+F8F2
+    } else if data == "\u{f8f1}" {
+        out.write_byte(0xFD); // PUA character for U+F8F1
     } else {
         out.write_byte(b'?'); // Replacement character
         ENCODE_REPLACED.with(|f| f.qsave(true));
@@ -402,4 +414,49 @@ fn shift_jis_pua_test() {
         decode_to_string(Encoding::Cp932, &ff, false).unwrap(),
         "\u{f8f3}\x01".to_string()
     );
+    #[cfg(windows)]
+    assert!(decode_to_string(Encoding::CodePage(932), &ff, true).is_err());
+    assert!(decode_to_string(Encoding::Cp932, &ff, true).is_err());
+    let fe = [0xFE, 0x01];
+    #[cfg(windows)]
+    assert_eq!(
+        decode_to_string(Encoding::CodePage(932), &fe, false).unwrap(),
+        "\u{f8f2}\x01".to_string()
+    );
+    assert_eq!(
+        decode_to_string(Encoding::Cp932, &fe, false).unwrap(),
+        "\u{f8f2}\x01".to_string()
+    );
+    #[cfg(windows)]
+    assert!(decode_to_string(Encoding::CodePage(932), &fe, true).is_err());
+    assert!(decode_to_string(Encoding::Cp932, &fe, true).is_err());
+    let fd = [0xFD, 0x01];
+    #[cfg(windows)]
+    assert_eq!(
+        decode_to_string(Encoding::CodePage(932), &fd, false).unwrap(),
+        "\u{f8f1}\x01".to_string()
+    );
+    assert_eq!(
+        decode_to_string(Encoding::Cp932, &fd, false).unwrap(),
+        "\u{f8f1}\x01".to_string()
+    );
+    #[cfg(windows)]
+    assert!(decode_to_string(Encoding::CodePage(932), &fd, true).is_err());
+    assert!(decode_to_string(Encoding::Cp932, &fd, true).is_err());
+    let ff = "\u{f8f3}\x01";
+    #[cfg(windows)]
+    assert_eq!(
+        encode_string(Encoding::CodePage(932), ff, false).unwrap(),
+        vec![0xFF, 0x01]
+    );
+    assert_eq!(
+        encode_string(Encoding::Cp932, ff, false).unwrap(),
+        vec![0xFF, 0x01]
+    );
+    #[cfg(windows)]
+    assert_eq!(
+        encode_string(Encoding::CodePage(932), ff, true).unwrap(),
+        vec![0xFF, 0x01]
+    );
+    assert!(encode_string(Encoding::Cp932, ff, true).is_err());
 }
