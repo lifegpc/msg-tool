@@ -90,22 +90,22 @@ impl Hg3Image {
         }
         let mut offset = 0xC;
         let mut entries = Vec::new();
-        let len = reader.data.len();
+        let len = reader.data.len() as u64;
         while offset + 0x14 < len && reader.cpeek_and_equal_at(offset + 8, b"stdinfo").is_ok() {
             let mut section_size = reader.cpeek_u32_at(offset)?;
             if section_size == 0 {
-                section_size = (len - offset as usize) as u32;
+                section_size = (len - offset) as u32;
             }
             let stdinfo_size = reader.cpeek_u32_at(offset + 0x10)?;
             if reader
-                .cpeek_and_equal_at(offset + 8 + stdinfo_size as usize, b"img")
+                .cpeek_and_equal_at(offset + 8 + stdinfo_size as u64, b"img")
                 .is_ok()
             {
-                reader.pos = offset + 16;
+                reader.pos = (offset + 16) as usize;
                 let entry = Hg3Entry::unpack(&mut reader, false, Encoding::Cp932)?;
-                entries.push((entry, offset + 8, section_size as usize - 8));
+                entries.push((entry, (offset + 8) as usize, section_size as usize - 8));
             }
-            offset += section_size as usize;
+            offset += section_size as u64;
         }
         if entries.is_empty() {
             return Err(anyhow::anyhow!("No valid entries found in HG-3 image"));

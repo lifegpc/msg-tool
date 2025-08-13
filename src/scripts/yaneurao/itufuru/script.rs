@@ -131,7 +131,7 @@ impl Script for ItufuruScript {
         let mut messages = Vec::new();
         for i in self.strings.iter() {
             let str_pos = i.len_pos + 2; // Skip the length bytes
-            let s = self.data.cpeek_cstring_at(str_pos)?;
+            let s = self.data.cpeek_cstring_at(str_pos as u64)?;
             let decoded = decode_to_string(self.encoding, s.as_bytes(), true)?;
             messages.push(Message {
                 name: None,

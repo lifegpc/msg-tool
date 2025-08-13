@@ -129,7 +129,7 @@ impl BGIScript {
 
     fn read_string(&self, offset: usize) -> Result<String> {
         let start = self.offset + offset;
-        let string_data = self.data.cpeek_cstring_at(start)?;
+        let string_data = self.data.cpeek_cstring_at(start as u64)?;
         // sometimes string has private use area characters, so we disable strict checking
         let string = decode_to_string(self.encoding, string_data.as_bytes(), false)?;
         Ok(string)
@@ -319,7 +319,7 @@ impl Script for BGIScript {
                 }
                 let old_str_len = self
                     .data
-                    .cpeek_cstring_at(bgi_str_old_offset)?
+                    .cpeek_cstring_at(bgi_str_old_offset as u64)?
                     .as_bytes_with_nul()
                     .len();
                 let nmess = encode_string(encoding, &nmes, false)?;
@@ -382,7 +382,7 @@ impl Script for BGIScript {
             }
             let old_str_len = self
                 .data
-                .cpeek_cstring_at(curs.address + self.offset)?
+                .cpeek_cstring_at((curs.address + self.offset) as u64)?
                 .as_bytes_with_nul()
                 .len();
             let nmes = match curs.typ {

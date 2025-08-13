@@ -15,13 +15,13 @@ pub trait Peek {
     fn peek_exact(&mut self, buf: &mut [u8]) -> Result<()>;
     /// Peeks data from the reader at a specific offset into the provided buffer.
     /// Returns the number of bytes read.
-    fn peek_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<usize>;
+    fn peek_at(&mut self, offset: u64, buf: &mut [u8]) -> Result<usize>;
     /// Peeks data from the reader at a specific offset into the provided buffer.
     /// Returns an error if the buffer is not filled completely.
-    fn peek_exact_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<()>;
+    fn peek_exact_at(&mut self, offset: u64, buf: &mut [u8]) -> Result<()>;
     /// Peeks data from the reader at a specific offset into a vector.
     /// Returns the vector containing the data read.
-    fn peek_at_vec(&mut self, offset: usize, len: usize) -> Result<Vec<u8>> {
+    fn peek_at_vec(&mut self, offset: u64, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         let bytes_read = self.peek_at(offset, &mut buf)?;
         if bytes_read < len {
@@ -31,7 +31,7 @@ pub trait Peek {
     }
     /// Peeks data from the reader at a specific offset into a vector.
     /// Returns an error if the buffer is not filled completely.
-    fn peek_exact_at_vec(&mut self, offset: usize, len: usize) -> Result<Vec<u8>> {
+    fn peek_exact_at_vec(&mut self, offset: u64, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(buf)
@@ -146,109 +146,109 @@ pub trait Peek {
         Ok(i128::from_be_bytes(buf))
     }
     /// Peeks a [u8] at a specific offset from the reader.
-    fn peek_u8_at(&mut self, offset: usize) -> Result<u8> {
+    fn peek_u8_at(&mut self, offset: u64) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(buf[0])
     }
     /// Peeks a [u16] at a specific offset from the reader in little-endian order.
-    fn peek_u16_at(&mut self, offset: usize) -> Result<u16> {
+    fn peek_u16_at(&mut self, offset: u64) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u16::from_le_bytes(buf))
     }
     /// Peeks a [u16] at a specific offset from the reader in big-endian order.
-    fn peek_u16_be_at(&mut self, offset: usize) -> Result<u16> {
+    fn peek_u16_be_at(&mut self, offset: u64) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u16::from_be_bytes(buf))
     }
     /// Peeks a [u32] at a specific offset from the reader in little-endian order.
-    fn peek_u32_at(&mut self, offset: usize) -> Result<u32> {
+    fn peek_u32_at(&mut self, offset: u64) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u32::from_le_bytes(buf))
     }
     /// Peeks a [u32] at a specific offset from the reader in big-endian order.
-    fn peek_u32_be_at(&mut self, offset: usize) -> Result<u32> {
+    fn peek_u32_be_at(&mut self, offset: u64) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u32::from_be_bytes(buf))
     }
     /// Peeks a [u64] at a specific offset from the reader in little-endian order.
-    fn peek_u64_at(&mut self, offset: usize) -> Result<u64> {
+    fn peek_u64_at(&mut self, offset: u64) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u64::from_le_bytes(buf))
     }
     /// Peeks a [u64] at a specific offset from the reader in big-endian order.
-    fn peek_u64_be_at(&mut self, offset: usize) -> Result<u64> {
+    fn peek_u64_be_at(&mut self, offset: u64) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u64::from_be_bytes(buf))
     }
     /// Peeks a [u128] at a specific offset from the reader in little-endian order.
-    fn peek_u128_at(&mut self, offset: usize) -> Result<u128> {
+    fn peek_u128_at(&mut self, offset: u64) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u128::from_le_bytes(buf))
     }
     /// Peeks a [u128] at a specific offset from the reader in big-endian order.
-    fn peek_u128_be_at(&mut self, offset: usize) -> Result<u128> {
+    fn peek_u128_be_at(&mut self, offset: u64) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(u128::from_be_bytes(buf))
     }
     /// Peeks an [i8] at a specific offset from the reader.
-    fn peek_i8_at(&mut self, offset: usize) -> Result<i8> {
+    fn peek_i8_at(&mut self, offset: u64) -> Result<i8> {
         let mut buf = [0u8; 1];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i8::from_le_bytes(buf))
     }
     /// Peeks an [i16] at a specific offset from the reader in little-endian order.
-    fn peek_i16_at(&mut self, offset: usize) -> Result<i16> {
+    fn peek_i16_at(&mut self, offset: u64) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i16::from_le_bytes(buf))
     }
     /// Peeks an [i16] at a specific offset from the reader in big-endian order.
-    fn peek_i16_be_at(&mut self, offset: usize) -> Result<i16> {
+    fn peek_i16_be_at(&mut self, offset: u64) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i16::from_be_bytes(buf))
     }
     /// Peeks an [i32] at a specific offset from the reader in little-endian order.
-    fn peek_i32_at(&mut self, offset: usize) -> Result<i32> {
+    fn peek_i32_at(&mut self, offset: u64) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i32::from_le_bytes(buf))
     }
     /// Peeks an [i32] at a specific offset from the reader in big-endian order.
-    fn peek_i32_be_at(&mut self, offset: usize) -> Result<i32> {
+    fn peek_i32_be_at(&mut self, offset: u64) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i32::from_be_bytes(buf))
     }
     /// Peeks an [i64] at a specific offset from the reader in little-endian order.
-    fn peek_i64_at(&mut self, offset: usize) -> Result<i64> {
+    fn peek_i64_at(&mut self, offset: u64) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i64::from_le_bytes(buf))
     }
     /// Peeks an [i64] at a specific offset from the reader in big-endian order.
-    fn peek_i64_be_at(&mut self, offset: usize) -> Result<i64> {
+    fn peek_i64_be_at(&mut self, offset: u64) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i64::from_be_bytes(buf))
     }
     /// Peeks an [i128] at a specific offset from the reader in little-endian order.
-    fn peek_i128_at(&mut self, offset: usize) -> Result<i128> {
+    fn peek_i128_at(&mut self, offset: u64) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i128::from_le_bytes(buf))
     }
     /// Peeks an [i128] at a specific offset from the reader in big-endian order.
-    fn peek_i128_be_at(&mut self, offset: usize) -> Result<i128> {
+    fn peek_i128_be_at(&mut self, offset: u64) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.peek_exact_at(offset, &mut buf)?;
         Ok(i128::from_be_bytes(buf))
@@ -257,7 +257,7 @@ pub trait Peek {
     /// Peeks a C-style string (null-terminated) from the reader.
     fn peek_cstring(&mut self) -> Result<CString>;
     /// Peeks a C-style string (null-terminated) from the reader at a specific offset.
-    fn peek_cstring_at(&mut self, offset: usize) -> Result<CString>;
+    fn peek_cstring_at(&mut self, offset: u64) -> Result<CString>;
 
     /// Reads a struct from the reader.
     /// The struct must implement the `StructUnpack` trait.
@@ -299,7 +299,7 @@ pub trait Peek {
         Ok(())
     }
     /// Peeks data at a specific offset and checks if it matches the provided data.
-    fn peek_and_equal_at(&mut self, offset: usize, data: &[u8]) -> Result<()> {
+    fn peek_and_equal_at(&mut self, offset: u64, data: &[u8]) -> Result<()> {
         let mut buf = vec![0u8; data.len()];
         self.peek_exact_at(offset, &mut buf)?;
         if buf != data {
@@ -327,17 +327,17 @@ impl<T: Read + Seek> Peek for T {
         Ok(())
     }
 
-    fn peek_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+    fn peek_at(&mut self, offset: u64, buf: &mut [u8]) -> Result<usize> {
         let current_pos = self.stream_position()?;
-        self.seek(SeekFrom::Start(offset as u64))?;
+        self.seek(SeekFrom::Start(offset))?;
         let bytes_read = self.read(buf)?;
         self.seek(SeekFrom::Start(current_pos))?;
         Ok(bytes_read)
     }
 
-    fn peek_exact_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<()> {
+    fn peek_exact_at(&mut self, offset: u64, buf: &mut [u8]) -> Result<()> {
         let current_pos = self.stream_position()?;
-        self.seek(SeekFrom::Start(offset as u64))?;
+        self.seek(SeekFrom::Start(offset))?;
         self.read_exact(buf)?;
         self.seek(SeekFrom::Start(current_pos))?;
         Ok(())
@@ -358,7 +358,7 @@ impl<T: Read + Seek> Peek for T {
         CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 
-    fn peek_cstring_at(&mut self, offset: usize) -> Result<CString> {
+    fn peek_cstring_at(&mut self, offset: u64) -> Result<CString> {
         let current_pos = self.stream_position()?;
         let mut buf = Vec::new();
         self.seek(SeekFrom::Start(offset as u64))?;
@@ -399,10 +399,10 @@ pub trait CPeek {
     }
     /// Peeks data from the reader at a specific offset into the provided buffer.
     /// Returns the number of bytes read.
-    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize>;
+    fn cpeek_at(&self, offset: u64, buf: &mut [u8]) -> Result<usize>;
     /// Peeks data from the reader at a specific offset into the provided buffer.
     /// Returns an error if the buffer is not filled completely.
-    fn cpeek_exact_at(&self, offset: usize, buf: &mut [u8]) -> Result<()> {
+    fn cpeek_exact_at(&self, offset: u64, buf: &mut [u8]) -> Result<()> {
         let bytes_read = self.cpeek_at(offset, buf)?;
         if bytes_read < buf.len() {
             return Err(std::io::Error::new(
@@ -414,7 +414,7 @@ pub trait CPeek {
     }
     /// Peeks data from the reader at a specific offset into a vector.
     /// Returns the vector containing the data read.
-    fn cpeek_at_vec(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
+    fn cpeek_at_vec(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         let bytes_read = self.cpeek_at(offset, &mut buf)?;
         if bytes_read < len {
@@ -424,7 +424,7 @@ pub trait CPeek {
     }
     /// Peeks data from the reader at a specific offset into a vector.
     /// Returns an error if the buffer is not filled completely.
-    fn cpeek_exact_at_vec(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
+    fn cpeek_exact_at_vec(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; len];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(buf)
@@ -539,109 +539,109 @@ pub trait CPeek {
         Ok(i128::from_be_bytes(buf))
     }
     /// Peeks a [u8] at a specific offset from the reader.
-    fn cpeek_u8_at(&self, offset: usize) -> Result<u8> {
+    fn cpeek_u8_at(&self, offset: u64) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(buf[0])
     }
     /// Peeks a [u16] at a specific offset from the reader in little-endian order.
-    fn cpeek_u16_at(&self, offset: usize) -> Result<u16> {
+    fn cpeek_u16_at(&self, offset: u64) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u16::from_le_bytes(buf))
     }
     /// Peeks a [u16] at a specific offset from the reader in big-endian order.
-    fn cpeek_u16_be_at(&self, offset: usize) -> Result<u16> {
+    fn cpeek_u16_be_at(&self, offset: u64) -> Result<u16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u16::from_be_bytes(buf))
     }
     /// Peeks a [u32] at a specific offset from the reader in little-endian order.
-    fn cpeek_u32_at(&self, offset: usize) -> Result<u32> {
+    fn cpeek_u32_at(&self, offset: u64) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u32::from_le_bytes(buf))
     }
     /// Peeks a [u32] at a specific offset from the reader in big-endian order.
-    fn cpeek_u32_be_at(&self, offset: usize) -> Result<u32> {
+    fn cpeek_u32_be_at(&self, offset: u64) -> Result<u32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u32::from_be_bytes(buf))
     }
     /// Peeks a [u64] at a specific offset from the reader in little-endian order.
-    fn cpeek_u64_at(&self, offset: usize) -> Result<u64> {
+    fn cpeek_u64_at(&self, offset: u64) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u64::from_le_bytes(buf))
     }
     /// Peeks a [u64] at a specific offset from the reader in big-endian order.
-    fn cpeek_u64_be_at(&self, offset: usize) -> Result<u64> {
+    fn cpeek_u64_be_at(&self, offset: u64) -> Result<u64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u64::from_be_bytes(buf))
     }
     /// Peeks a [u128] at a specific offset from the reader in little-endian order.
-    fn cpeek_u128_at(&self, offset: usize) -> Result<u128> {
+    fn cpeek_u128_at(&self, offset: u64) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u128::from_le_bytes(buf))
     }
     /// Peeks a [u128] at a specific offset from the reader in big-endian order.
-    fn cpeek_u128_be_at(&self, offset: usize) -> Result<u128> {
+    fn cpeek_u128_be_at(&self, offset: u64) -> Result<u128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(u128::from_be_bytes(buf))
     }
     /// Peeks an [i8] at a specific offset from the reader.
-    fn cpeek_i8_at(&self, offset: usize) -> Result<i8> {
+    fn cpeek_i8_at(&self, offset: u64) -> Result<i8> {
         let mut buf = [0u8; 1];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i8::from_le_bytes(buf))
     }
     /// Peeks an [i16] at a specific offset from the reader in little-endian order.
-    fn cpeek_i16_at(&self, offset: usize) -> Result<i16> {
+    fn cpeek_i16_at(&self, offset: u64) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i16::from_le_bytes(buf))
     }
     /// Peeks an [i16] at a specific offset from the reader in big-endian order.
-    fn cpeek_i16_be_at(&self, offset: usize) -> Result<i16> {
+    fn cpeek_i16_be_at(&self, offset: u64) -> Result<i16> {
         let mut buf = [0u8; 2];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i16::from_be_bytes(buf))
     }
     /// Peeks an [i32] at a specific offset from the reader in little-endian order.
-    fn cpeek_i32_at(&self, offset: usize) -> Result<i32> {
+    fn cpeek_i32_at(&self, offset: u64) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i32::from_le_bytes(buf))
     }
     /// Peeks an [i32] at a specific offset from the reader in big-endian order.
-    fn cpeek_i32_be_at(&self, offset: usize) -> Result<i32> {
+    fn cpeek_i32_be_at(&self, offset: u64) -> Result<i32> {
         let mut buf = [0u8; 4];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i32::from_be_bytes(buf))
     }
     /// Peeks an [i64] at a specific offset from the reader in little-endian order.
-    fn cpeek_i64_at(&self, offset: usize) -> Result<i64> {
+    fn cpeek_i64_at(&self, offset: u64) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i64::from_le_bytes(buf))
     }
     /// Peeks an [i64] at a specific offset from the reader in big-endian order.
-    fn cpeek_i64_be_at(&self, offset: usize) -> Result<i64> {
+    fn cpeek_i64_be_at(&self, offset: u64) -> Result<i64> {
         let mut buf = [0u8; 8];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i64::from_be_bytes(buf))
     }
     /// Peeks an [i128] at a specific offset from the reader in little-endian order.
-    fn cpeek_i128_at(&self, offset: usize) -> Result<i128> {
+    fn cpeek_i128_at(&self, offset: u64) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i128::from_le_bytes(buf))
     }
     /// Peeks an [i128] at a specific offset from the reader in big-endian order.
-    fn cpeek_i128_be_at(&self, offset: usize) -> Result<i128> {
+    fn cpeek_i128_be_at(&self, offset: u64) -> Result<i128> {
         let mut buf = [0u8; 16];
         self.cpeek_exact_at(offset, &mut buf)?;
         Ok(i128::from_be_bytes(buf))
@@ -651,13 +651,13 @@ pub trait CPeek {
     fn cpeek_cstring(&self) -> Result<CString>;
 
     /// Peeks a C-style string (null-terminated) from the reader at a specific offset.
-    fn cpeek_cstring_at(&self, offset: usize) -> Result<CString> {
+    fn cpeek_cstring_at(&self, offset: u64) -> Result<CString> {
         let mut buf = Vec::new();
         let mut byte = [0u8; 1];
         self.cpeek_at(offset, &mut byte)?;
         while byte[0] != 0 {
             buf.push(byte[0]);
-            self.cpeek_at(offset + buf.len(), &mut byte)?;
+            self.cpeek_at(offset + buf.len() as u64, &mut byte)?;
         }
         CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
@@ -675,7 +675,7 @@ pub trait CPeek {
         Ok(())
     }
     /// Peeks data at a specific offset and checks if it matches the provided data.
-    fn cpeek_and_equal_at(&self, offset: usize, data: &[u8]) -> Result<()> {
+    fn cpeek_and_equal_at(&self, offset: u64, data: &[u8]) -> Result<()> {
         let mut buf = vec![0u8; data.len()];
         self.cpeek_exact_at(offset, &mut buf)?;
         if buf != data {
@@ -696,7 +696,7 @@ impl<T: Peek> CPeek for Mutex<T> {
         lock.peek(buf)
     }
 
-    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+    fn cpeek_at(&self, offset: u64, buf: &mut [u8]) -> Result<usize> {
         let mut lock = self.lock().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
         })?;
@@ -1291,7 +1291,7 @@ impl CPeek for MemReader {
         self.to_ref().cpeek(buf)
     }
 
-    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+    fn cpeek_at(&self, offset: u64, buf: &mut [u8]) -> Result<usize> {
         self.to_ref().cpeek_at(offset, buf)
     }
 
@@ -1367,8 +1367,9 @@ impl<'a> CPeek for MemReaderRef<'a> {
         Ok(bytes_to_read)
     }
 
-    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+    fn cpeek_at(&self, offset: u64, buf: &mut [u8]) -> Result<usize> {
         let len = self.data.len();
+        let offset = offset as usize;
         if offset >= len {
             return Ok(0);
         }
@@ -1500,7 +1501,7 @@ impl CPeek for MemWriter {
         self.to_ref().cpeek(buf)
     }
 
-    fn cpeek_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+    fn cpeek_at(&self, offset: u64, buf: &mut [u8]) -> Result<usize> {
         self.to_ref().cpeek_at(offset, buf)
     }
 
@@ -1738,9 +1739,7 @@ impl<R: Read + Seek, W: Write + Seek, A: Fn(u64) -> Result<u64>, O: Fn(u64) -> R
                 "Original offset is out of bounds for u32 address patching",
             ));
         }
-        self.input.seek(SeekFrom::Start(original_offset))?;
-        let original_address = self.input.read_u32()?;
-        self.input.seek(SeekFrom::Start(input_pos))?;
+        let original_address = self.input.peek_u32_at(original_offset)?;
         let new_offset = self.map_offset(original_offset)?;
         let offset = (self.address_to_offset)(original_address as u64)?;
         let offset = self.map_offset(offset)?;

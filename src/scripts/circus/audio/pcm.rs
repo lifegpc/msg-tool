@@ -552,14 +552,14 @@ impl PcmDecoder {
         let mut v1 = a1;
         let mut v5 = 1;
         for _ in 0..0x1000 {
-            self.unk_6a16c8[v5] = self.encoded.cpeek_u8_at(v1)?;
+            self.unk_6a16c8[v5] = self.encoded.cpeek_u8_at(v1 as u64)?;
             v1 += 1;
             v5 += 2;
         }
         v5 = 0;
         for _ in 0..0x800 {
-            let v7 = self.encoded.cpeek_u8_at(v1 + 0x800)?;
-            let v8 = self.encoded.cpeek_u8_at(v1)?;
+            let v7 = self.encoded.cpeek_u8_at(v1 as u64 + 0x800)?;
+            let v8 = self.encoded.cpeek_u8_at(v1 as u64)?;
             self.unk_6a16c8[v5] = (v7 >> 4) | (v8 & 0xF0);
             self.unk_6a16c8[v5 + 2] = (v8 << 4) | (v7 & 0x0F);
             v5 += 4;

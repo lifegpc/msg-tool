@@ -257,9 +257,9 @@ impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for ItufuruArchive
             ));
         }
         let entry = &self.files[index];
-        let file_offset = entry.offset as usize;
+        let file_offset = entry.offset as u64;
         match self.reader.cpeek_exact_at_vec(
-            file_offset + self.first_file_offset as usize,
+            file_offset + self.first_file_offset as u64,
             entry.size as usize,
         ) {
             Ok(data) => {

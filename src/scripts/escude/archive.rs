@@ -249,11 +249,11 @@ impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for EscudeBinArchi
         let entry = &self.entries[index];
         let name = self
             .reader
-            .cpeek_cstring_at(entry.name_offset as usize + self.file_count as usize * 12 + 0x14)?;
+            .cpeek_cstring_at(entry.name_offset as u64 + self.file_count as u64 * 12 + 0x14)?;
         let name = decode_to_string(self.archive_encoding, name.as_bytes(), true)?;
         let mut data = self
             .reader
-            .cpeek_at_vec(entry.data_offset as usize, entry.length as usize)?;
+            .cpeek_at_vec(entry.data_offset as u64, entry.length as usize)?;
         if data.starts_with(b"acp") {
             let mut decoder = match super::lzw::LZWDecoder::new(&data) {
                 Ok(decoder) => decoder,
@@ -285,7 +285,7 @@ impl<'a, T: Iterator<Item = &'a BinEntry>, R: Read + Seek> Iterator
             Some(entry) => entry,
             None => return None,
         };
-        let name_offset = entry.name_offset as usize + self.file_count as usize * 12 + 0x14;
+        let name_offset = entry.name_offset as u64 + self.file_count as u64 * 12 + 0x14;
         let name = match self.reader.cpeek_cstring_at(name_offset) {
             Ok(name) => name,
             Err(e) => return Some(Err(e.into())),

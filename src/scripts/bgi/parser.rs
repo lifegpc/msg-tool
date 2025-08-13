@@ -451,13 +451,13 @@ impl<'a> V1Parser<'a> {
 
     pub fn is_empty_string(&self, address: usize) -> Result<bool> {
         let start = self.offset + address;
-        let data = self.buf.cpeek_u8_at(start)?;
+        let data = self.buf.cpeek_u8_at(start as u64)?;
         Ok(data == 0)
     }
 
     pub fn read_string_at_address(&mut self, address: usize) -> Result<String> {
         let start = self.offset + address;
-        let buf = self.buf.peek_cstring_at(start)?;
+        let buf = self.buf.peek_cstring_at(start as u64)?;
         // Sometimes string has private use area characters, so we disable strict checking
         Ok(decode_to_string(self.encoding, buf.as_bytes(), false)?)
     }

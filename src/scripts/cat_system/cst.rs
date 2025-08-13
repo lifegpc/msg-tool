@@ -151,8 +151,7 @@ impl CstScript {
         let string_count = (strings_offset - string_address_offset) / 4;
         let mut strings = Vec::with_capacity(string_count as usize);
         for i in 0..string_count {
-            let offset = file.cpeek_u32_at(string_address_offset as usize + i as usize * 4)?
-                as usize
+            let offset = file.cpeek_u32_at(string_address_offset as u64 + i as u64 * 4)? as usize
                 + strings_offset as usize;
             file.pos = offset;
             let start_marker = file.read_u8()?;

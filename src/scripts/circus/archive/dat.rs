@@ -229,12 +229,12 @@ impl<T: Read + Seek + std::fmt::Debug> DatArchive<T> {
         let index_size = (name_len + 4) * count as usize;
         count -= 1;
         let mut entries = Vec::with_capacity(count as usize);
-        let mut next_offset = reader.peek_u32_at(4 + name_len)?;
+        let mut next_offset = reader.peek_u32_at(4 + name_len as u64)?;
         if (next_offset as usize) < index_size + 4 {
             return Err(anyhow::anyhow!("Invalid next_offset"));
         }
-        let first_size = reader.peek_u32_at(name_len)?;
-        let second_offset = reader.peek_u32_at(8 + name_len * 2)?;
+        let first_size = reader.peek_u32_at(name_len as u64)?;
+        let second_offset = reader.peek_u32_at(8 + name_len as u64 * 2)?;
         if second_offset - next_offset == first_size {
             return Err(anyhow::anyhow!("Invalid second_offset"));
         }
@@ -248,7 +248,7 @@ impl<T: Read + Seek + std::fmt::Debug> DatArchive<T> {
             if i + 1 == count {
                 next_offset = file_len as u32;
             } else {
-                next_offset = reader.peek_u32_at((name_len + 4) * (i as usize + 2))?;
+                next_offset = reader.peek_u32_at((name_len as u64 + 4) * (i as u64 + 2))?;
             }
             if next_offset < offset {
                 return Err(anyhow::anyhow!("Invalid offset in DAT archive"));
@@ -348,12 +348,12 @@ fn is_this_format_name_len(buf: &[u8], name_len: usize) -> Result<u8> {
     if mcount == 0 {
         return Err(anyhow::anyhow!("No entries found in DAT archive"));
     }
-    let mut next_offset = reader.cpeek_u32_at(4 + name_len)?;
+    let mut next_offset = reader.cpeek_u32_at(4 + name_len as u64)?;
     if (next_offset as usize) < index_size + 4 {
         return Err(anyhow::anyhow!("Invalid next_offset in DAT archive"));
     }
-    let first_size = reader.cpeek_u32_at(name_len)?;
-    let second_offset = reader.cpeek_u32_at(8 + name_len * 2)?;
+    let first_size = reader.cpeek_u32_at(name_len as u64)?;
+    let second_offset = reader.cpeek_u32_at(8 + name_len as u64 * 2)?;
     if second_offset - next_offset == first_size {
         return Err(anyhow::anyhow!("Invalid second_offset in DAT archive"));
     }
@@ -362,7 +362,7 @@ fn is_this_format_name_len(buf: &[u8], name_len: usize) -> Result<u8> {
         if i + 1 == mcount {
             break;
         } else {
-            next_offset = reader.cpeek_u32_at((name_len + 4) * (i + 2))?;
+            next_offset = reader.cpeek_u32_at((name_len as u64 + 4) * (i as u64 + 2))?;
         }
         if next_offset < offset {
             return Err(anyhow::anyhow!("Invalid offset in DAT archive"));

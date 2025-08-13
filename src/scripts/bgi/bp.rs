@@ -129,7 +129,7 @@ impl Script for BGIBpScript {
         for i in self.strings.iter() {
             let text_address = i.offset_pos + i.text_offset as usize - 1;
             // println!("offset: {}, text address: {}, text_offset: {}", i.offset_pos, text_address, i.text_offset);
-            let str = self.data.cpeek_cstring_at(text_address)?;
+            let str = self.data.cpeek_cstring_at(text_address as u64)?;
             let str = decode_to_string(self.encoding, str.as_bytes(), true)?;
             messages.push(Message {
                 name: None,
@@ -157,7 +157,7 @@ impl Script for BGIBpScript {
             let text_address = i.offset_pos + i.text_offset as usize - 1;
             let old_str_len = self
                 .data
-                .cpeek_cstring_at(text_address)?
+                .cpeek_cstring_at(text_address as u64)?
                 .as_bytes_with_nul()
                 .len();
             let mut str = mes.message;
