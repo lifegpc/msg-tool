@@ -1753,6 +1753,8 @@ fn main() {
         }),
         #[cfg(feature = "entis-gls")]
         entis_gls_srcxml_lang: arg.entis_gls_srcxml_lang.clone(),
+        #[cfg(feature = "will-plus")]
+        will_plus_ws2_no_disasm: arg.will_plus_ws2_no_disasm,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

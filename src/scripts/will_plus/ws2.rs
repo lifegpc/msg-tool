@@ -33,14 +33,16 @@ impl ScriptBuilder for Ws2ScriptBuilder {
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        match Ws2DisasmScript::new(&buf, encoding, config, false) {
-            Ok(script) => return Ok(Box::new(script)),
-            Err(e) => {
-                eprintln!(
-                    "WARNING: Failed to disassemble WS2 script: {}. An another parser is used.",
-                    e
-                );
-                crate::COUNTER.inc_warning();
+        if !config.will_plus_ws2_no_disasm {
+            match Ws2DisasmScript::new(&buf, encoding, config, false) {
+                Ok(script) => return Ok(Box::new(script)),
+                Err(e) => {
+                    eprintln!(
+                        "WARNING: Failed to disassemble WS2 script: {}. An another parser is used.",
+                        e
+                    );
+                    crate::COUNTER.inc_warning();
+                }
             }
         }
         Ok(Box::new(Ws2Script::new(buf, encoding, config, false)?))

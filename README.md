@@ -158,10 +158,10 @@ msg-tool create -t <script-type> <input> <output>
 | `kirikiri-tlg`/`kr-tlg` | `kirikiri-img` | Kirikiri TLG Image File (.tlg) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
 | `kirikiri-pimg`/`kr-pimg` | `kirikiri-img` | Kirikiri Multiple Image File (.pimg) | ❌ | ❌ | ✔️ | ❌ | ❌ | |
 | `kirikiri-dref`/`kr-dref` | `kirikiri-img` | Kirikiri DPAK-referenced Image File (.dref) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
-### WillPlus
+### WillPlus / AdvHD
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
-| `will-plus-ws2` | `will-plus` | WillPlus Script File (.ws2) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
+| `will-plus-ws2`/`adv-hd-ws2` | `will-plus` | WillPlus/AdvHD Script File (.ws2) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
 ### Yaneurao Itufuru
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

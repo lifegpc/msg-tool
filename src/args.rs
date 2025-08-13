@@ -338,6 +338,12 @@ pub struct Arg {
     /// Entis GLS srcxml script language, used to extract messages from srcxml script.
     /// If not specified, the first language will be used.
     pub entis_gls_srcxml_lang: Option<String>,
+    #[cfg(feature = "will-plus")]
+    #[arg(long, global = true)]
+    /// Disable disassembly for WillPlus ws2 script.
+    /// Use another parser to parse the script.
+    /// Should only be used when the default parser not works well.
+    pub will_plus_ws2_no_disasm: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

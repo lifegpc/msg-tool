@@ -339,6 +339,11 @@ pub struct ExtraConfig {
     /// Entis GLS srcxml script language, used to extract messages from srcxml script.
     /// If not specified, the first language will be used.
     pub entis_gls_srcxml_lang: Option<String>,
+    #[cfg(feature = "will-plus")]
+    /// Disable disassembly for WillPlus ws2 script.
+    /// Use another parser to parse the script.
+    /// Should only be used when the default parser not works well.
+    pub will_plus_ws2_no_disasm: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -470,6 +475,7 @@ pub enum ScriptType {
     /// Kirikiri MDF (zlib compressed) file
     KirikiriMdf,
     #[cfg(feature = "will-plus")]
+    #[value(alias("adv-hd-ws2"))]
     /// WillPlus ws2 script
     WillPlusWs2,
     #[cfg(feature = "yaneurao-itufuru")]
