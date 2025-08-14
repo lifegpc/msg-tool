@@ -155,7 +155,7 @@ msg-tool create -t <script-type> <input> <output>
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
-| `kirikiri-tlg`/`kr-tlg` | `kirikiri-img` | Kirikiri TLG Image File (.tlg) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
+| `kirikiri-tlg`/`kr-tlg` | `kirikiri-img` | Kirikiri TLG Image File (.tlg) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | tlg6 is not supported when importing/creating image |
 | `kirikiri-pimg`/`kr-pimg` | `kirikiri-img` | Kirikiri Multiple Image File (.pimg) | ❌ | ❌ | ✔️ | ❌ | ❌ | |
 | `kirikiri-dref`/`kr-dref` | `kirikiri-img` | Kirikiri DPAK-referenced Image File (.dref) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
 ### WillPlus / AdvHD

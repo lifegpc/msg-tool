@@ -2,6 +2,7 @@
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
+use crate::utils::img::*;
 use anyhow::Result;
 use libtlg_rs::*;
 use std::io::{Read, Seek};
@@ -54,6 +55,44 @@ impl ScriptBuilder for TlgImageBuilder {
         }
         None
     }
+
+    fn can_create_image_file(&self) -> bool {
+        true
+    }
+
+    fn create_image_file<'a>(
+        &'a self,
+        mut data: ImageData,
+        writer: Box<dyn WriteSeek + 'a>,
+        _options: &ExtraConfig,
+    ) -> Result<()> {
+        if data.depth != 8 {
+            return Err(anyhow::anyhow!("Unsupported image depth: {}", data.depth));
+        }
+        let color_type = match data.color_type {
+            ImageColorType::Bgr => TlgColorType::Bgr24,
+            ImageColorType::Bgra => TlgColorType::Bgra32,
+            ImageColorType::Grayscale => TlgColorType::Grayscale8,
+            ImageColorType::Rgb => {
+                convert_rgb_to_bgr(&mut data)?;
+                TlgColorType::Bgr24
+            }
+            ImageColorType::Rgba => {
+                convert_rgba_to_bgra(&mut data)?;
+                TlgColorType::Bgra32
+            }
+        };
+        let tlg = Tlg {
+            width: data.width,
+            height: data.height,
+            color: color_type,
+            data: data.data,
+            tags: Default::default(),
+            version: 5, // Currently only version 5 is supported
+        };
+        save_tlg(&tlg, writer)?;
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -98,5 +137,38 @@ impl Script for TlgImage {
             depth: 8,
             data: self.data.data.clone(),
         })
+    }
+
+    fn import_image<'a>(
+        &'a self,
+        mut data: ImageData,
+        file: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
+        if data.depth != 8 {
+            return Err(anyhow::anyhow!("Unsupported image depth: {}", data.depth));
+        }
+        let color_type = match data.color_type {
+            ImageColorType::Bgr => TlgColorType::Bgr24,
+            ImageColorType::Bgra => TlgColorType::Bgra32,
+            ImageColorType::Grayscale => TlgColorType::Grayscale8,
+            ImageColorType::Rgb => {
+                convert_rgb_to_bgr(&mut data)?;
+                TlgColorType::Bgr24
+            }
+            ImageColorType::Rgba => {
+                convert_rgba_to_bgra(&mut data)?;
+                TlgColorType::Bgra32
+            }
+        };
+        let tlg = Tlg {
+            width: data.width,
+            height: data.height,
+            color: color_type,
+            data: data.data,
+            tags: self.data.tags.clone(),
+            version: 5, // Currently only version 5 is supported
+        };
+        save_tlg(&tlg, file)?;
+        Ok(())
     }
 }
