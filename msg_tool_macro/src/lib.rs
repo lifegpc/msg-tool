@@ -1,3 +1,4 @@
+#![feature(doc_auto_cfg)]
 use proc_macro::TokenStream;
 use syn::parse::discouraged::Speculative;
 use syn::spanned::Spanned;
@@ -197,10 +198,10 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                     }
                                 });
                             } else if let Some(pstring_type) = pstring_type {
-                                let write_fn = syn::Ident::new(format!("write_{}", pstring_type).as_str(), pstring_type.span());
                                 cur = Some(quote::quote! {
                                     let encoded = crate::utils::encoding::encode_string(encoding, &self.#field_name, true)?;
-                                    writer.#write_fn(encoded.len() as #pstring_type)?;
+                                    let len = encoded.len() as #pstring_type;
+                                    len.pack(writer, big, encoding)?;
                                     writer.write_all(&encoded)?;
                                 });
                             }
@@ -218,10 +219,9 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                     }
                                 });
                             } else if let Some(pvec_type) = pvec_type {
-                                let write_fn = syn::Ident::new(format!("write_{}", pvec_type).as_str(), pvec_type.span());
                                 cur = Some(quote::quote! {
                                     let len = self.#field_name.len() as #pvec_type;
-                                    writer.#write_fn(len)?;
+                                    len.pack(writer, big, encoding)?;
                                     for item in &self.#field_name {
                                         item.pack(writer, big, encoding)?;
                                     }
@@ -381,10 +381,10 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                         }
                                     });
                                 } else if let Some(pstring_type) = pstring_type {
-                                    let write_fn = syn::Ident::new(format!("write_{}", pstring_type).as_str(), pstring_type.span());
                                     cur = Some(quote::quote! {
                                         let encoded = crate::utils::encoding::encode_string(encoding, &#field_name, true)?;
-                                        writer.#write_fn(encoded.len() as #pstring_type)?;
+                                        let len = encoded.len() as #pstring_type;
+                                        len.pack(writer, big, encoding)?;
                                         writer.write_all(&encoded)?;
                                     });
                                 }
@@ -402,10 +402,9 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                         }
                                     });
                                 } else if let Some(pvec_type) = pvec_type {
-                                    let write_fn = syn::Ident::new(format!("write_{}", pvec_type).as_str(), pvec_type.span());
                                     cur = Some(quote::quote! {
                                         let len = #field_name.len() as #pvec_type;
-                                        writer.#write_fn(len)?;
+                                        len.pack(writer, big, encoding)?;
                                         for item in &#field_name {
                                             item.pack(writer, big, encoding)?;
                                         }
@@ -587,9 +586,8 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                             let #field_name = reader.read_fstring(#fixed_string, encoding, #trim)?;
                         });
                     } else if let Some(pstring_type) = pstring_type {
-                        let read_fn = syn::Ident::new(format!("read_{}", pstring_type).as_str(), pstring_type.span());
                         cur = Some(quote::quote! {
-                            let len = reader.#read_fn()? as usize;
+                            let len = <#pstring_type>::unpack(&mut reader, big, encoding)? as usize;
                             let #field_name = reader.read_exact_vec(len)?;
                             let #field_name = crate::utils::encoding::decode_to_string(encoding, &#field_name, true)?;
                         });
@@ -603,9 +601,8 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                             let #field_name = reader.read_struct_vec(#fixed_vec, big, encoding)?;
                         });
                     } else if let Some(pvec_type) = pvec_type {
-                        let read_fn = syn::Ident::new(format!("read_{}", pvec_type).as_str(), pvec_type.span());
                         cur = Some(quote::quote! {
-                            let len = reader.#read_fn()? as usize;
+                            let len = <#pvec_type>::unpack(&mut reader, big, encoding)? as usize;
                             let #field_name = reader.read_struct_vec(len, big, encoding)?;
                         });
                     }

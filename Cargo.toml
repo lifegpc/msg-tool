@@ -1,6 +1,6 @@
 [package]
 name = "msg_tool"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 repository = "https://github.com/lifegpc/msg-tool"
 description = "A command-line tool for exporting, importing, packing, and unpacking script files."
@@ -26,7 +26,7 @@ markup5ever = { version = "0.35", optional = true }
 markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
-msg_tool_macro = { version = "0.1.0" }
+msg_tool_macro = { version = "0.1.4" }
 overf = "0.1"
 png = { version = "0.17", optional = true }
 rand = { version = "0.9", optional = true }
