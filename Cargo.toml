@@ -26,7 +26,7 @@ markup5ever = { version = "0.35", optional = true }
 markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
-msg_tool_macro = { version = "0.1.4" }
+msg_tool_macro = { version = "0.1.5" }
 overf = "0.1"
 png = { version = "0.17", optional = true }
 rand = { version = "0.9", optional = true }
@@ -75,6 +75,7 @@ yaneurao-itufuru = ["yaneurao"]
 image = ["png"]
 image-jpg = ["mozjpeg"]
 image-webp = ["webp"]
+unstable = ["msg_tool_macro/unstable"]
 # utils feature
 utils-bit-stream = []
 utils-blowfish = ["byteorder"]

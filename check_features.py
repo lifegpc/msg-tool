@@ -7,6 +7,8 @@ def filter_name(name):
         return False
     if name.startswith("all-"):
         return False
+    if name == "unstable":
+        return False
     return True
 
 

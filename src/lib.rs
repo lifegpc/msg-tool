@@ -1,7 +1,8 @@
 //! A Rust library for exporting, importing, packing, and unpacking script files.
 //!
 //! For more information, please visit the [GitHub repository](https://github.com/lifegpc/msg-tool).
-#![feature(doc_auto_cfg)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(feature = "unstable", feature(doc_auto_cfg))]
 pub mod ext;
 pub mod format;
 pub mod output_scripts;

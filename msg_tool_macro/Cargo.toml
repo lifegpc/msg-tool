@@ -1,6 +1,6 @@
 [package]
 name = "msg_tool_macro"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 repository = "https://github.com/lifegpc/msg-tool"
 description = "A procedural macro for the msg-tool project."
@@ -11,6 +11,7 @@ proc-macro = true
 
 [features]
 artemis-arc = []
+unstable = []
 
 [dependencies]
 syn = { version = "2", features = ["full"] }
