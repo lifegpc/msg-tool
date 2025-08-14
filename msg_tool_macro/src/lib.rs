@@ -1,5 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![cfg_attr(feature = "unstable", feature(doc_auto_cfg))]
+#![cfg_attr(any(docsrs, feature = "unstable"), feature(doc_auto_cfg))]
 use proc_macro::TokenStream;
 use syn::parse::discouraged::Speculative;
 use syn::spanned::Spanned;

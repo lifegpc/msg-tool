@@ -1,3 +1,4 @@
+#![cfg_attr(any(docsrs, feature = "unstable"), feature(doc_auto_cfg))]
 pub mod args;
 pub mod ext;
 pub mod format;
