@@ -55,7 +55,7 @@ jobs:
           curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
       - name: Document
         run: |
-          cargo doc --features unstable --bins -vv || exit 1
+          cargo doc --features unstable --document-private-items -vv || exit 1
       - name: Add index files
         run: |
           echo '<!DOCTYPE HTML><html><head><script>window.location.href="msg_tool/"</script></head><body><a href="msg_tool/">Content Moved</a></body></html>' > target/doc/index.html
