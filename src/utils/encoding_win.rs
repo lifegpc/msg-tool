@@ -1,7 +1,6 @@
 use windows_sys::Win32::Foundation::{ERROR_NO_UNICODE_TRANSLATION, GetLastError};
 use windows_sys::Win32::Globalization::{
-    CP_UTF7, CP_UTF8, MB_ERR_INVALID_CHARS, MultiByteToWideChar, WC_ERR_INVALID_CHARS,
-    WideCharToMultiByte,
+    CP_UTF7, CP_UTF8, MB_ERR_INVALID_CHARS, MultiByteToWideChar, WideCharToMultiByte,
 };
 use windows_sys::Win32::System::Diagnostics::Debug::{
     FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS, FormatMessageW,
@@ -100,16 +99,11 @@ pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinErr
     if data.is_empty() {
         return Ok(Vec::new());
     }
-    let dwflags = if check && cp == 65001 {
-        WC_ERR_INVALID_CHARS
-    } else {
-        0
-    };
     let wstr = data.encode_utf16().collect::<Vec<u16>>();
     let needed_len = unsafe {
         WideCharToMultiByte(
             cp,
-            dwflags,
+            0,
             wstr.as_ptr(),
             wstr.len() as i32,
             std::ptr::null_mut(),
@@ -127,7 +121,7 @@ pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinErr
     let result = unsafe {
         WideCharToMultiByte(
             cp,
-            dwflags,
+            0,
             wstr.as_ptr(),
             wstr.len() as i32,
             mb.as_mut_ptr(),
