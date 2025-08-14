@@ -7,6 +7,7 @@ use crate::utils::blowfish::Blowfish;
 use crate::utils::crc32::CRC32NORMAL_TABLE;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
+use overf::wrapping;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 
@@ -352,7 +353,7 @@ impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
     }
 
     fn decrypt_name(name: &mut [u8; 0x40], key: u32, encoding: Encoding) -> Result<String> {
-        let mut k = ((key >> 24) + (key >> 16) + (key >> 8) + key) & 0xFF;
+        let mut k = wrapping! {((key >> 24) + (key >> 16) + (key >> 8) + key) & 0xFF};
         let mut i = 0;
         while i < 0x40 && name[i] != 0 {
             let v = name[i];

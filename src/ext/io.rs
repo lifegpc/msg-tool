@@ -1535,6 +1535,15 @@ impl<T: Seek> StreamRegion<T> {
         })
     }
 
+    /// Creates a new `StreamRegion` with the specified stream and size.
+    ///
+    /// The start position is the current position of the stream, and the end position is calculated as `start_pos + size`.
+    pub fn with_size(mut stream: T, size: u64) -> Result<Self> {
+        let start_pos = stream.stream_position()?;
+        let end_pos = start_pos + size;
+        Self::new(stream, start_pos, end_pos)
+    }
+
     /// Creates a new `StreamRegion` with the specified stream and start position.
     /// The end position is determined by the length of the stream.
     pub fn with_start_pos(mut stream: T, start_pos: u64) -> Result<Self> {

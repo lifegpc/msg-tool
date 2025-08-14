@@ -9,6 +9,7 @@ use anyhow::Result;
 use flate2::{Decompress, FlushDecompress};
 use msg_tool_macro::*;
 use overf::wrapping;
+use std::collections::HashMap;
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug)]
@@ -360,6 +361,8 @@ impl<'a> Hg3Reader<'a> {
         self.m_input.read_exact(&mut image_type)?;
         if &image_type == b"img0000\0" {
             return self.unpack_img0000();
+        } else if &image_type == b"img_jpg\0" {
+            return self.unpack_jpeg();
         } else {
             return Err(anyhow::anyhow!("Unsupported image type: {:?}", image_type));
         }
@@ -417,5 +420,95 @@ impl<'a> Hg3Reader<'a> {
         };
         flip_image(&mut img)?;
         Ok(img)
+    }
+
+    fn unpack_jpeg(&mut self) -> Result<ImageData> {
+        let toc = self.read_sections()?;
+        self.m_input.pos = (*toc
+            .get("img_jpg")
+            .ok_or(anyhow::anyhow!("Missing img_jpg section"))?)
+            as usize
+            + 12;
+        let jpeg_size = self.m_input.read_u32()?;
+        let mut data = {
+            let jpeg = StreamRegion::with_size(&mut self.m_input, jpeg_size as u64)?;
+            load_jpg(jpeg)?
+        };
+        if data.color_type.bpp(1) < 3 {
+            return Err(anyhow::anyhow!(
+                "Unsupported JPEG color type: {:?} in HG-3 image",
+                data.color_type
+            ));
+        }
+        let src_pixel_size = data.color_type.bpp(1) as usize;
+        let alpha = if let Some(&alpha_offset) = toc.get("img_al") {
+            Some(self.read_alpha(alpha_offset as u32)?)
+        } else {
+            None
+        };
+        let target_color_type = if alpha.is_some() {
+            ImageColorType::Rgba
+        } else {
+            data.color_type
+        };
+        let pixel_size = target_color_type.bpp(1) as usize;
+        let stride = self.m_info.width as usize * pixel_size;
+        let mut pixels = vec![0; stride * self.m_info.height as usize];
+        let mut src = 0;
+        let mut dst = 0;
+        let mut src_a = 0;
+        let src_g = 1;
+        let (src_b, src_r) = if toc.contains_key("imgmode") {
+            (2, 0)
+        } else {
+            (0, 2)
+        };
+        for _ in 0..self.m_info.width as usize * self.m_info.height as usize {
+            pixels[dst] = data.data[src + src_b];
+            pixels[dst + 1] = data.data[src + src_g];
+            pixels[dst + 2] = data.data[src + src_r];
+            if let Some(ref alpha_data) = alpha {
+                pixels[dst + 3] = alpha_data[src_a];
+                src_a += 1;
+            }
+            dst += pixel_size;
+            src += src_pixel_size;
+        }
+        data.data = pixels;
+        data.color_type = target_color_type;
+        Ok(data)
+    }
+
+    fn read_alpha(&mut self, start_pos: u32) -> Result<Vec<u8>> {
+        self.m_input.pos = start_pos as usize + 0x10;
+        let packed_size = self.m_input.read_u32()?;
+        let alpha_size = self.m_input.read_u32()?;
+        let alpha_in = StreamRegion::with_size(&mut self.m_input, packed_size as u64)?;
+        let mut alpha = Vec::new();
+        flate2::read::ZlibDecoder::new(alpha_in).read_to_end(&mut alpha)?;
+        if alpha.len() != alpha_size as usize {
+            return Err(anyhow::anyhow!(
+                "Alpha data size {} does not match expected size {}",
+                alpha.len(),
+                alpha_size
+            ));
+        }
+        Ok(alpha)
+    }
+
+    fn read_sections(&mut self) -> Result<HashMap<String, u32>> {
+        let mut sections = HashMap::new();
+        let mut next_offset = self.m_info.header_size;
+        loop {
+            self.m_input.pos = next_offset as usize;
+            let section_name = self.m_input.read_fstring(8, Encoding::Cp932, true)?;
+            let section_size = self.m_input.read_u32()?;
+            sections.insert(section_name, next_offset);
+            next_offset += section_size;
+            if section_size == 0 {
+                break;
+            }
+        }
+        Ok(sections)
     }
 }
