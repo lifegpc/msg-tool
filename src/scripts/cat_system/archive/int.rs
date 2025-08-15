@@ -11,6 +11,8 @@ use overf::wrapping;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 
+pub use super::int_password::get_password_from_exe;
+
 #[derive(Debug)]
 /// Builder for CatSystem2 Archive scripts.
 pub struct CSIntArcBuilder {}

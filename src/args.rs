@@ -55,6 +55,7 @@ fn parse_webp_quality(quality: &str) -> Result<u8, String> {
     group = ArgGroup::new("ex_hibit_rld_xor_keyg").multiple(false),
     group = ArgGroup::new("ex_hibit_rld_def_xor_keyg").multiple(false),
     group = ArgGroup::new("webp_qualityg").multiple(false),
+    group = ArgGroup::new("cat_system_int_encrypt_passwordg").multiple(false),
 )]
 #[command(
     version,
@@ -155,9 +156,13 @@ pub struct Arg {
     /// When in creation mode, it is not enabled by default.
     pub bgi_img_scramble: Option<bool>,
     #[cfg(feature = "cat-system-arc")]
-    #[arg(long, global = true)]
+    #[arg(long, global = true, group = "cat_system_int_encrypt_passwordg")]
     /// CatSystem2 engine int archive password
     pub cat_system_int_encrypt_password: Option<String>,
+    #[cfg(feature = "cat-system-arc")]
+    #[arg(long, global = true, group = "cat_system_int_encrypt_passwordg")]
+    /// The path to the CatSystem2 engine executable file. Used to get the int archive password.
+    pub cat_system_int_exe: Option<String>,
     #[cfg(feature = "cat-system-img")]
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Draw CatSystem2 image on canvas (if canvas width and height are specified in file)
@@ -466,6 +471,19 @@ pub fn load_ex_hibit_rld_def_xor_key(arg: &crate::args::Arg) -> anyhow::Result<O
         } else {
             return Ok(Some(u32::from_str_radix(&key, 16)?));
         }
+    }
+    Ok(None)
+}
+
+#[cfg(feature = "cat-system-arc")]
+pub fn get_cat_system_int_encrypt_password(arg: &Arg) -> anyhow::Result<Option<String>> {
+    if let Some(exe) = &arg.cat_system_int_exe {
+        return Ok(Some(
+            crate::scripts::cat_system::archive::int::get_password_from_exe(exe)?,
+        ));
+    }
+    if let Some(password) = &arg.cat_system_int_encrypt_password {
+        return Ok(Some(password.clone()));
     }
     Ok(None)
 }

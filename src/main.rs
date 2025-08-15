@@ -1673,7 +1673,8 @@ fn main() {
         #[cfg(feature = "bgi-img")]
         bgi_img_scramble: arg.bgi_img_scramble.clone(),
         #[cfg(feature = "cat-system-arc")]
-        cat_system_int_encrypt_password: arg.cat_system_int_encrypt_password.clone(),
+        cat_system_int_encrypt_password: args::get_cat_system_int_encrypt_password(&arg)
+            .expect("Failed to get CatSystem2 int encrypt password"),
         #[cfg(feature = "cat-system-img")]
         cat_system_image_canvas: arg.cat_system_image_canvas,
         #[cfg(feature = "kirikiri")]

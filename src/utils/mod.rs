@@ -21,3 +21,6 @@ pub mod pcm;
 #[cfg(feature = "utils-str")]
 pub mod str;
 pub mod struct_pack;
+
+#[cfg(windows)]
+pub use encoding_win::WinError;

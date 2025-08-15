@@ -269,6 +269,17 @@ impl<T: ByteOrder> Blowfish<T> {
         [r, l]
     }
 
+    /// Decrypts a block of data in-place.
+    pub fn decrypt_block(&self, buf: &mut [u8]) {
+        for i in 0..buf.len() / 8 {
+            let mut l = T::read_u32(&buf[i * 8..]);
+            let mut r = T::read_u32(&buf[i * 8 + 4..]);
+            [l, r] = self.decrypt([l, r]);
+            T::write_u32(&mut buf[i * 8..], l);
+            T::write_u32(&mut buf[i * 8 + 4..], r);
+        }
+    }
+
     /// Creates a new Blowfish cipher instance with the given key.
     pub fn new(key: &[u8]) -> Result<Self> {
         if key.len() < 4 || key.len() > 56 {

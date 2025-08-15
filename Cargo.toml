@@ -28,6 +28,7 @@ memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
 msg_tool_macro = { version = "0.1.6" }
 overf = "0.1"
+pelite = { version = "0.10", optional = true }
 png = { version = "0.17", optional = true }
 rand = { version = "0.9", optional = true }
 serde = { version = "1", features = ["derive"] }
@@ -55,7 +56,7 @@ bgi-arc = ["bgi", "rand", "utils-bit-stream"]
 bgi-audio = ["bgi"]
 bgi-img = ["bgi", "image", "rand", "utils-bit-stream"]
 cat-system = ["fancy-regex", "flate2", "int-enum"]
-cat-system-arc = ["cat-system", "utils-blowfish", "utils-crc32"]
+cat-system-arc = ["cat-system", "pelite", "utils-blowfish", "utils-crc32"]
 cat-system-img = ["cat-system", "flate2", "image", "mozjpeg", "utils-bit-stream"]
 circus = []
 circus-arc = ["circus"]
