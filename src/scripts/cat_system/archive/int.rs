@@ -279,7 +279,7 @@ impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
                 Some(password) => Self::get_key(password)?,
                 None => {
                     return Err(anyhow::anyhow!(
-                        "CatSystem2 archive requires encryption password. Please use --cat-system-int-encrypt-password option."
+                        "CatSystem2 archive requires encryption password. Please use --cat-system-int-encrypt-password/--cat-system-int-exe option."
                     ));
                 }
             };
