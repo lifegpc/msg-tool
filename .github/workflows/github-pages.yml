@@ -52,7 +52,10 @@ jobs:
           submodules: true
       - name: Install Nightly Rust
         run: |
-          curl.exe "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe" -o "rustup-init.exe" && ./rustup-init.exe --default-toolchain nightly -y && rm rustup-init.exe
+          rustup toolchain install nightly-2025-07-18-x86_64-pc-windows-msvc --allow-downgrade && rustup default nightly-2025-07-18-x86_64-pc-windows-msvc
+      # - name: Install Nightly Rust
+      #   run: |
+      #     curl.exe "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe" -o "rustup-init.exe" && ./rustup-init.exe --default-toolchain nightly -y && rm rustup-init.exe
       - name: Document
         run: |
           cargo doc --features unstable --bins -vv || exit 1
