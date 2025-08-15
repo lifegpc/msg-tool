@@ -36,7 +36,7 @@ concurrency:
 jobs:
   deploy:
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     
     environment:
       name: github-pages
@@ -52,13 +52,13 @@ jobs:
           submodules: true
       - name: Install Nightly Rust
         run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
+          curl.exe "https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe" -o "rustup-init.exe" && ./rustup-init.exe --default-toolchain nightly -y && rm rustup-init.exe
       - name: Document
         run: |
           cargo doc --features unstable --bins -vv || exit 1
       - name: Add index files
         run: |
-          echo '<!DOCTYPE HTML><html><head><script>window.location.href="msg_tool/"</script></head><body><a href="msg_tool/">Content Moved</a></body></html>' > target/doc/index.html
+          echo '<!DOCTYPE HTML><html><head><script>window.location.href="msg_tool/"</script></head><body><a href="msg_tool/">Content Moved</a></body></html>' | Out-File -Encoding utf8 target/doc/index.html
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload documents
