@@ -143,6 +143,7 @@ impl Script for BGIBpScript {
         &'a self,
         messages: Vec<Message>,
         mut file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
@@ -172,10 +173,10 @@ impl Script for BGIBpScript {
             if new_str_len > old_str_len {
                 file.write_all(&str)?;
                 let new_text_offset = (new_pos - i.offset_pos + 1) as u16;
-                file.write_u16_at(i.offset_pos, new_text_offset)?;
+                file.write_u16_at(i.offset_pos as u64, new_text_offset)?;
                 new_pos += new_str_len;
             } else {
-                file.write_all_at(text_address, &str)?;
+                file.write_all_at(text_address as u64, &str)?;
             }
         }
         let new_instr_size = (new_pos - self.header_size as usize) as u32;

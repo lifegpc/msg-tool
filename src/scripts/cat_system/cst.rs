@@ -233,6 +233,7 @@ impl Script for CstScript {
         &'a self,
         messages: Vec<Message>,
         mut file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
@@ -264,7 +265,7 @@ impl Script for CstScript {
                     let pos = writer.write_patched_string(s, &data)?;
                     if pos != s.address {
                         writer.write_u32_at(
-                            strings_address_offset + i * 4,
+                            strings_address_offset as u64 + i as u64 * 4,
                             (pos - strings_offset) as u32,
                         )?;
                     }
@@ -290,7 +291,7 @@ impl Script for CstScript {
                     let pos = writer.write_patched_string(s, &data)?;
                     if pos != s.address {
                         writer.write_u32_at(
-                            strings_address_offset + i * 4,
+                            strings_address_offset as u64 + i as u64 * 4,
                             (pos - strings_offset) as u32,
                         )?;
                     }
@@ -316,7 +317,7 @@ impl Script for CstScript {
                             let pos = writer.write_patched_string(s, &data)?;
                             if pos != s.address {
                                 writer.write_u32_at(
-                                    strings_address_offset + i * 4,
+                                    strings_address_offset as u64 + i as u64 * 4,
                                     (pos - strings_offset) as u32,
                                 )?;
                             }

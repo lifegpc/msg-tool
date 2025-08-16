@@ -540,6 +540,7 @@ impl Script for Asb {
         &'a self,
         messages: Vec<Message>,
         mut file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {

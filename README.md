@@ -161,7 +161,7 @@ msg-tool create -t <script-type> <input> <output>
 ### Softpal
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
-| `softpal` | `softpal` | Softpal Script File (.src) | ✔️ | ❌ | ✔️ | ❌ | ❌ | |
+| `softpal` | `softpal` | Softpal Script File (.src) | ✔️ | ✔️ | ✔️ | ❌ | ❌ | |
 ### WillPlus / AdvHD
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

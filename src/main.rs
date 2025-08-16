@@ -1183,7 +1183,13 @@ pub fn import_script(
                     None => {}
                 }
                 format::fmt_message(&mut mes, fmt, *builder.script_type());
-                if let Err(e) = script_file.import_messages(mes, writer, encoding, repl) {
+                if let Err(e) = script_file.import_messages(
+                    mes,
+                    writer,
+                    &out_path.to_string_lossy(),
+                    encoding,
+                    repl,
+                ) {
                     eprintln!("Error importing messages: {}", e);
                     COUNTER.inc_error();
                     continue;

@@ -183,6 +183,7 @@ impl Script for BinScript {
         &'a self,
         mut messages: Vec<Message>,
         mut file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
@@ -223,7 +224,7 @@ impl Script for BinScript {
                 while encoded.len() < str.len {
                     encoded.push(32); // Fill with spaces
                 }
-                data.write_all_at(str.pos, &encoded)?;
+                data.write_all_at(str.pos as u64, &encoded)?;
                 i += 1;
             } else {
                 let mut target = if let Some(name) = messages[i].name.take() {
@@ -247,7 +248,7 @@ impl Script for BinScript {
                 while encoded.len() < str.len {
                     encoded.push(32); // Fill with spaces
                 }
-                data.write_all_at(str.pos, &encoded)?;
+                data.write_all_at(str.pos as u64, &encoded)?;
             }
         }
         let mut data = data.into_inner();

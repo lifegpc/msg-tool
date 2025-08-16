@@ -257,6 +257,7 @@ impl Script for Ws2Script {
         &'a self,
         messages: Vec<Message>,
         file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
@@ -300,7 +301,7 @@ impl Script for Ws2Script {
                     encoded = truncate_string(&name, target_len, encoding, true)?;
                 }
                 encoded.resize(target_len, 0x20); // Fill with spaces
-                file.write_all_at(actor.pos + prefix.len(), &encoded)?;
+                file.write_all_at(actor.pos as u64 + prefix.len() as u64, &encoded)?;
             }
             let suffix = if str.str.ends_with("%K%P") {
                 "%K%P"
@@ -321,7 +322,7 @@ impl Script for Ws2Script {
                 encoded = truncate_string(&message, target_len, encoding, true)?;
             }
             encoded.resize(target_len, 0x20); // Fill with spaces
-            file.write_all_at(str.pos, &encoded)?;
+            file.write_all_at(str.pos as u64, &encoded)?;
             m = mes.next();
         }
         if m.is_some() || mes.next().is_some() {
@@ -418,6 +419,7 @@ impl Script for Ws2DisasmScript {
         &'a self,
         messages: Vec<Message>,
         file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {

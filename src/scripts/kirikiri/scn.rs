@@ -349,6 +349,7 @@ impl Script for ScnScript {
         &'a self,
         messages: Vec<Message>,
         file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         _encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {

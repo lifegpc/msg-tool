@@ -7,7 +7,8 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
 use disasm::*;
-use std::io::Read;
+use std::collections::HashMap;
+use std::io::{Read, Write};
 
 #[derive(Debug)]
 /// Softpal script builder
@@ -74,7 +75,7 @@ impl SoftpalScript {
         _config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
     ) -> Result<Self> {
-        let texts = MemReader::new(Self::load_file(filename, archive, "TEXT.DAT")?);
+        let texts = Self::load_texts_data(Self::load_file(filename, archive, "TEXT.DAT")?)?;
         let points_data = MemReader::new(Self::load_file(filename, archive, "POINT.DAT")?);
         let label_offsets = Self::load_point_data(points_data)?;
         let strs = Disasm::new(&buf, &label_offsets)?.disassemble::<MemWriter>(None)?;
@@ -98,6 +99,27 @@ impl SoftpalScript {
             path.set_file_name(name);
             std::fs::read(path).map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", name, e))
         }
+    }
+
+    fn load_texts_data(data: Vec<u8>) -> Result<MemReader> {
+        let mut writer = MemWriter::from_vec(data);
+        if writer.data.len() >= 0x14 {
+            let ind = writer.cpeek_u32_at(0x10)?;
+            writer.pos = 0x10;
+            if ind != 0 {
+                let mut shift = 4;
+                for _ in 0..(writer.data.len() / 4 - 4) {
+                    let mut data = writer.cpeek_u32()?;
+                    let mut add = data.to_le_bytes();
+                    add[0] = add[0].rotate_left(shift);
+                    shift = (shift + 1) % 8;
+                    data = u32::from_le_bytes(add);
+                    data ^= 0x084DF873 ^ 0xFF987DEE;
+                    writer.write_u32(data)?;
+                }
+            }
+        }
+        Ok(MemReader::new(writer.into_inner()))
     }
 
     fn load_point_data(mut data: MemReader) -> Result<Vec<u32>> {
@@ -150,6 +172,92 @@ impl Script for SoftpalScript {
             }
         }
         Ok(messages)
+    }
+
+    fn import_messages<'a>(
+        &'a self,
+        messages: Vec<Message>,
+        mut file: Box<dyn WriteSeek + 'a>,
+        filename: &str,
+        encoding: Encoding,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        let mut texts_filename = std::path::PathBuf::from(filename);
+        texts_filename.set_file_name("TEXT.DAT");
+        let mut texts = Vec::new();
+        let mut reader = self.texts.to_ref();
+        reader.pos = 0x10;
+        while !reader.is_eof() {
+            reader.pos += 4; // Skip index
+            texts.push(reader.read_cstring()?)
+        }
+        let mut texts_file = std::fs::File::create(&texts_filename)
+            .map_err(|e| anyhow::anyhow!("Failed to create TEXT.DAT file: {}", e))?;
+        file.write_all(&self.data.data)?;
+        let mut mes = messages.iter();
+        let mut mess = mes.next();
+        let texts_data_len = self.texts.data.len() as u32;
+        let mut num_offset_map: HashMap<u32, u32> = HashMap::new();
+        for str in &self.strs {
+            let addr = self.data.cpeek_u32_at(str.offset as u64)?;
+            if addr + 4 > texts_data_len {
+                continue;
+            }
+            let m = match mess {
+                Some(m) => m,
+                None => return Err(anyhow::anyhow!("Not enough messages.")),
+            };
+            let mut text = match str.typ {
+                StringType::Name => match &m.name {
+                    Some(name) => name.clone(),
+                    None => return Err(anyhow::anyhow!("Missing name for message.")),
+                },
+                StringType::Message => {
+                    let m = m.message.clone();
+                    mess = mes.next();
+                    m
+                }
+            };
+            if let Some(repl) = replacement {
+                for (from, to) in repl.map.iter() {
+                    text = text.replace(from, to);
+                }
+            }
+            text = text.replace("\n", "<br>");
+            let encoded = encode_string(encoding, &text, false)?;
+            let s = std::ffi::CString::new(encoded)?;
+            let num = texts.len() as u32;
+            num_offset_map.insert(num, str.offset);
+            texts.push(s);
+        }
+        if mess.is_some() || mes.next().is_some() {
+            return Err(anyhow::anyhow!("Some messages were not processed."));
+        }
+        texts_file.write_all(b"$TEXT_LIST__")?;
+        texts_file.write_u32(texts.len() as u32)?;
+        let mut nf = MemWriter::new();
+        for (num, text) in texts.into_iter().enumerate() {
+            let num = num as u32;
+            let newaddr = nf.pos as u32 + 0x10;
+            if let Some(offset) = num_offset_map.get(&num) {
+                file.write_u32_at(*offset as u64, newaddr)?;
+            }
+            nf.write_u32(num)?;
+            nf.write_cstring(&text)?;
+        }
+        nf.pos = 0;
+        let mut shift = 4;
+        for _ in 0..(nf.data.len() / 4) {
+            let mut data = nf.cpeek_u32()?;
+            data ^= 0x084DF873 ^ 0xFF987DEE;
+            let mut add = data.to_le_bytes();
+            add[0] = add[0].rotate_right(shift);
+            shift = (shift + 1) % 8;
+            data = u32::from_le_bytes(add);
+            nf.write_u32(data)?;
+        }
+        texts_file.write_all(&nf.data)?;
+        Ok(())
     }
 
     fn custom_output_extension<'a>(&'a self) -> &'a str {

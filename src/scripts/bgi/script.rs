@@ -204,6 +204,7 @@ impl Script for BGIScript {
         &'a self,
         mut messages: Vec<Message>,
         mut file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
@@ -228,7 +229,7 @@ impl Script for BGIScript {
                 }
                 if used.contains_key(&curs.address) && curs.is_internal() {
                     let (_, new_address) = used.get(&curs.address).unwrap();
-                    file.write_u32_at(curs.offset, *new_address as u32)?;
+                    file.write_u32_at(curs.offset as u64, *new_address as u32)?;
                     continue;
                 }
                 let nmes = match curs.typ {
@@ -300,11 +301,11 @@ impl Script for BGIScript {
                 let in_used = match used.get(&curs.address) {
                     Some((s, address)) => {
                         if s == &nmes {
-                            file.write_u32_at(curs.offset, *address as u32)?;
+                            file.write_u32_at(curs.offset as u64, *address as u32)?;
                             continue;
                         }
                         if let Some(address) = extra.get(&nmes) {
-                            file.write_u32_at(curs.offset, *address as u32)?;
+                            file.write_u32_at(curs.offset as u64, *address as u32)?;
                             continue;
                         }
                         true
@@ -325,8 +326,8 @@ impl Script for BGIScript {
                 let nmess = encode_string(encoding, &nmes, false)?;
                 let write_to_original = self.append && !in_used && nmess.len() + 1 <= old_str_len;
                 if write_to_original {
-                    file.write_all_at(bgi_str_old_offset, &nmess)?;
-                    file.write_u8_at(bgi_str_old_offset + nmess.len(), 0)?; // null terminator
+                    file.write_all_at(bgi_str_old_offset as u64, &nmess)?;
+                    file.write_u8_at(bgi_str_old_offset as u64 + nmess.len() as u64, 0)?; // null terminator
                 } else {
                     file.write_all(&nmess)?;
                     file.write_u8(0)?; // null terminator
@@ -336,7 +337,7 @@ impl Script for BGIScript {
                 } else {
                     new_offset - self.offset
                 };
-                file.write_u32_at(curs.offset, new_address as u32)?;
+                file.write_u32_at(curs.offset as u64, new_address as u32)?;
                 if in_used {
                     extra.insert(nmes, new_address);
                 } else {
@@ -469,7 +470,7 @@ impl Script for BGIScript {
             return Err(anyhow::anyhow!("Some messages were not processed."));
         }
         for str in nstrs {
-            file.write_u32_at(str.offset, str.address as u32)?;
+            file.write_u32_at(str.offset as u64, str.address as u32)?;
         }
         if !self.append && old_offset < self.data.data.len() {
             file.write_all(&self.data.data[old_offset..])?;

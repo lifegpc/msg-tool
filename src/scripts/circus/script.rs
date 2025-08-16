@@ -235,6 +235,7 @@ impl Script for CircusMesScript {
         &'a self,
         messages: Vec<Message>,
         mut writer: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {

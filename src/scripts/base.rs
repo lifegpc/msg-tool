@@ -284,12 +284,14 @@ pub trait Script: std::fmt::Debug + std::any::Any {
     ///
     /// * `messages` - The messages to import.
     /// * `file` - A writer with seek capabilities to write the patched scripts.
+    /// * `filename` - The path of the file to write the patched scripts.
     /// * `encoding` - The encoding to use for the patched scripts.
     /// * `replacement` - An optional replacement table for message replacements.
     fn import_messages<'a>(
         &'a self,
         _messages: Vec<Message>,
         _file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
         _encoding: Encoding,
         _replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
@@ -309,14 +311,14 @@ pub trait Script: std::fmt::Debug + std::any::Any {
     /// * `replacement` - An optional replacement table for message replacements.
     fn import_messages_filename(
         &self,
-        _messages: Vec<Message>,
-        _filename: &str,
-        _encoding: Encoding,
-        _replacement: Option<&ReplacementTable>,
+        messages: Vec<Message>,
+        filename: &str,
+        encoding: Encoding,
+        replacement: Option<&ReplacementTable>,
     ) -> Result<()> {
-        let f = std::fs::File::create(_filename)?;
+        let f = std::fs::File::create(filename)?;
         let f = std::io::BufWriter::new(f);
-        self.import_messages(_messages, Box::new(f), _encoding, _replacement)
+        self.import_messages(messages, Box::new(f), filename, encoding, replacement)
     }
 
     /// Exports data from this script.

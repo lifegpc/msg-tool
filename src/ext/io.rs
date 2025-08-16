@@ -1038,92 +1038,92 @@ impl<T: Write> WriteExt for T {
 pub trait WriteAt {
     /// Writes data to the writer at a specific offset.
     /// Returns the number of bytes written.
-    fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<usize>;
+    fn write_at(&mut self, offset: u64, buf: &[u8]) -> Result<usize>;
     /// Writes all data to the writer at a specific offset.
     /// Returns an error if the write fails.
-    fn write_all_at(&mut self, offset: usize, buf: &[u8]) -> Result<()>;
+    fn write_all_at(&mut self, offset: u64, buf: &[u8]) -> Result<()>;
 
     /// Writes a [u8] at a specific offset.
-    fn write_u8_at(&mut self, offset: usize, value: u8) -> Result<()> {
+    fn write_u8_at(&mut self, offset: u64, value: u8) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes a [u16] at a specific offset in little-endian order.
-    fn write_u16_at(&mut self, offset: usize, value: u16) -> Result<()> {
+    fn write_u16_at(&mut self, offset: u64, value: u16) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes a [u16] at a specific offset in big-endian order.
-    fn write_u16_be_at(&mut self, offset: usize, value: u16) -> Result<()> {
+    fn write_u16_be_at(&mut self, offset: u64, value: u16) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
     /// Writes a [u32] at a specific offset in little-endian order.
-    fn write_u32_at(&mut self, offset: usize, value: u32) -> Result<()> {
+    fn write_u32_at(&mut self, offset: u64, value: u32) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes a [u32] at a specific offset in big-endian order.
-    fn write_u32_be_at(&mut self, offset: usize, value: u32) -> Result<()> {
+    fn write_u32_be_at(&mut self, offset: u64, value: u32) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
     /// Writes a [u64] at a specific offset in little-endian order.
-    fn write_u64_at(&mut self, offset: usize, value: u64) -> Result<()> {
+    fn write_u64_at(&mut self, offset: u64, value: u64) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes a [u64] at a specific offset in big-endian order.
-    fn write_u64_be_at(&mut self, offset: usize, value: u64) -> Result<()> {
+    fn write_u64_be_at(&mut self, offset: u64, value: u64) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
     /// Writes a [u128] at a specific offset in little-endian order.
-    fn write_u128_at(&mut self, offset: usize, value: u128) -> Result<()> {
+    fn write_u128_at(&mut self, offset: u64, value: u128) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes a [u128] at a specific offset in big-endian order.
-    fn write_u128_be_at(&mut self, offset: usize, value: u128) -> Result<()> {
+    fn write_u128_be_at(&mut self, offset: u64, value: u128) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
     /// Writes an [i8] at a specific offset.
-    fn write_i8_at(&mut self, offset: usize, value: i8) -> Result<()> {
+    fn write_i8_at(&mut self, offset: u64, value: i8) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes an [i16] at a specific offset in little-endian order.
-    fn write_i16_at(&mut self, offset: usize, value: i16) -> Result<()> {
+    fn write_i16_at(&mut self, offset: u64, value: i16) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes an [i16] at a specific offset in big-endian order.
-    fn write_i16_be_at(&mut self, offset: usize, value: i16) -> Result<()> {
+    fn write_i16_be_at(&mut self, offset: u64, value: i16) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
     /// Writes an [i32] at a specific offset in little-endian order.
-    fn write_i32_at(&mut self, offset: usize, value: i32) -> Result<()> {
+    fn write_i32_at(&mut self, offset: u64, value: i32) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes an [i32] at a specific offset in big-endian order.
-    fn write_i32_be_at(&mut self, offset: usize, value: i32) -> Result<()> {
+    fn write_i32_be_at(&mut self, offset: u64, value: i32) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
     /// Writes an [i64] at a specific offset in little-endian order.
-    fn write_i64_at(&mut self, offset: usize, value: i64) -> Result<()> {
+    fn write_i64_at(&mut self, offset: u64, value: i64) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes an [i64] at a specific offset in big-endian order.
-    fn write_i64_be_at(&mut self, offset: usize, value: i64) -> Result<()> {
+    fn write_i64_be_at(&mut self, offset: u64, value: i64) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
     /// Writes an [i128] at a specific offset in little-endian order.
-    fn write_i128_at(&mut self, offset: usize, value: i128) -> Result<()> {
+    fn write_i128_at(&mut self, offset: u64, value: i128) -> Result<()> {
         self.write_all_at(offset, &value.to_le_bytes())
     }
     /// Writes an [i128] at a specific offset in big-endian order.
-    fn write_i128_be_at(&mut self, offset: usize, value: i128) -> Result<()> {
+    fn write_i128_be_at(&mut self, offset: u64, value: i128) -> Result<()> {
         self.write_all_at(offset, &value.to_be_bytes())
     }
 
     /// Writes a C-style string (null-terminated) at a specific offset.
-    fn write_cstring_at(&mut self, offset: usize, value: &CString) -> Result<()> {
+    fn write_cstring_at(&mut self, offset: u64, value: &CString) -> Result<()> {
         self.write_all_at(offset, value.as_bytes_with_nul())
     }
 }
 
 impl<T: Write + Seek> WriteAt for T {
-    fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<usize> {
+    fn write_at(&mut self, offset: u64, buf: &[u8]) -> Result<usize> {
         let current_pos = self.stream_position()?;
         self.seek(SeekFrom::Start(offset as u64))?;
         let bytes_written = self.write(buf)?;
@@ -1131,7 +1131,7 @@ impl<T: Write + Seek> WriteAt for T {
         Ok(bytes_written)
     }
 
-    fn write_all_at(&mut self, offset: usize, buf: &[u8]) -> Result<()> {
+    fn write_all_at(&mut self, offset: u64, buf: &[u8]) -> Result<()> {
         let current_pos = self.stream_position()?;
         self.seek(SeekFrom::Start(offset as u64))?;
         self.write_all(buf)?;
