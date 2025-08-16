@@ -18,6 +18,8 @@ pub mod ex_hibit;
 pub mod hexen_haus;
 #[cfg(feature = "kirikiri")]
 pub mod kirikiri;
+#[cfg(feature = "softpal")]
+pub mod softpal;
 #[cfg(feature = "will-plus")]
 pub mod will_plus;
 #[cfg(feature = "yaneurao")]
@@ -106,6 +108,8 @@ lazy_static::lazy_static! {
         Box::new(bgi::audio::audio::BgiAudioBuilder::new()),
         #[cfg(feature = "entis-gls")]
         Box::new(entis_gls::srcxml::SrcXmlScriptBuilder::new()),
+        #[cfg(feature = "softpal")]
+        Box::new(softpal::scr::SoftpalScriptBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

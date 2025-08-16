@@ -474,6 +474,9 @@ pub enum ScriptType {
     #[value(alias("kr-mdf"))]
     /// Kirikiri MDF (zlib compressed) file
     KirikiriMdf,
+    #[cfg(feature = "softpal")]
+    /// Softpal src script
+    Softpal,
     #[cfg(feature = "will-plus")]
     #[value(alias("adv-hd-ws2"))]
     /// WillPlus ws2 script
