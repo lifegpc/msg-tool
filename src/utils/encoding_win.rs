@@ -1,6 +1,8 @@
+use anyhow::Result;
 use windows_sys::Win32::Foundation::{ERROR_NO_UNICODE_TRANSLATION, GetLastError};
 use windows_sys::Win32::Globalization::{
-    CP_UTF7, CP_UTF8, MB_ERR_INVALID_CHARS, MultiByteToWideChar, WideCharToMultiByte,
+    CP_UTF7, CP_UTF8, MB_ERR_INVALID_CHARS, MultiByteToWideChar, WC_ERR_INVALID_CHARS,
+    WideCharToMultiByte,
 };
 use windows_sys::Win32::System::Diagnostics::Debug::{
     FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS, FormatMessageW,
@@ -47,11 +49,22 @@ impl std::fmt::Display for WinError {
     }
 }
 
-pub fn decode_to_string(cp: u32, data: &[u8], check: bool) -> Result<String, WinError> {
+fn is_special_code_page(cp: u32) -> bool {
+    matches!(
+        cp,
+        50220 | 50221 | 50222 | 50225 | 50227 | 50229 | 57002..=57011 | 65000 | 42
+    )
+}
+
+pub fn decode_to_string(cp: u32, data: &[u8], check: bool) -> Result<String> {
     if data.is_empty() {
         return Ok(String::new());
     }
-    let dwflags = if check { MB_ERR_INVALID_CHARS } else { 0 };
+    let dwflags = if check && !is_special_code_page(cp) {
+        MB_ERR_INVALID_CHARS
+    } else {
+        0
+    };
     let needed_len = unsafe {
         MultiByteToWideChar(
             cp,
@@ -63,12 +76,12 @@ pub fn decode_to_string(cp: u32, data: &[u8], check: bool) -> Result<String, Win
         )
     };
     if needed_len == 0 {
-        return Err(WinError::from_last_error());
+        return Err(WinError::from_last_error().into());
     }
     let last_error = unsafe { GetLastError() };
     if last_error == ERROR_NO_UNICODE_TRANSLATION {
         if check {
-            return Err(WinError::new(last_error));
+            return Err(WinError::new(last_error).into());
         } else {
             eprintln!(
                 "Warning: Some characters could not be decoded in code page {}: {:?}",
@@ -90,20 +103,25 @@ pub fn decode_to_string(cp: u32, data: &[u8], check: bool) -> Result<String, Win
         )
     };
     if result == 0 {
-        return Err(WinError::from_last_error());
+        return Err(WinError::from_last_error().into());
     }
     Ok(String::from_utf16_lossy(&wc))
 }
 
-pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinError> {
+pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>> {
     if data.is_empty() {
         return Ok(Vec::new());
     }
+    let dwflags = if check && (cp == 65001 || cp == 54936) {
+        WC_ERR_INVALID_CHARS
+    } else {
+        0
+    };
     let wstr = data.encode_utf16().collect::<Vec<u16>>();
     let needed_len = unsafe {
         WideCharToMultiByte(
             cp,
-            0,
+            dwflags,
             wstr.as_ptr(),
             wstr.len() as i32,
             std::ptr::null_mut(),
@@ -113,7 +131,7 @@ pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinErr
         )
     };
     if needed_len == 0 {
-        return Err(WinError::from_last_error());
+        return Err(WinError::from_last_error().into());
     }
     let mut mb = Vec::with_capacity(needed_len as usize);
     mb.resize(needed_len as usize, 0);
@@ -121,7 +139,7 @@ pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinErr
     let result = unsafe {
         WideCharToMultiByte(
             cp,
-            0,
+            dwflags,
             wstr.as_ptr(),
             wstr.len() as i32,
             mb.as_mut_ptr(),
@@ -136,7 +154,11 @@ pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinErr
     };
     if used_default_char != 0 {
         if check {
-            return Err(WinError::new(0));
+            return Err(anyhow::anyhow!(
+                "Some characters could not be encoded in code page {}: {}",
+                cp,
+                data
+            ));
         } else {
             eprintln!(
                 "Warning: Some characters could not be encoded in code page {}: {}",
@@ -146,7 +168,7 @@ pub fn encode_string(cp: u32, data: &str, check: bool) -> Result<Vec<u8>, WinErr
         }
     }
     if result == 0 {
-        return Err(WinError::from_last_error());
+        return Err(WinError::from_last_error().into());
     }
     Ok(mb)
 }
