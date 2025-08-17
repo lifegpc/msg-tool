@@ -88,8 +88,7 @@ pub fn decode_to_string(
         Encoding::Auto => decode_to_string(Encoding::Utf8, data, check)
             .or_else(|_| decode_to_string(Encoding::Cp932, data, check))
             .or_else(|_| decode_to_string(Encoding::Gb2312, data, check)),
-        // Keep same behavior as Windows API (Code Page 65001)
-        Encoding::Utf8 => Ok(String::from_utf8_lossy(data).into_owned()),
+        Encoding::Utf8 => Ok(String::from_utf8(data.to_vec())?),
         Encoding::Cp932 => {
             let result = encoding::codec::japanese::Windows31JEncoding
                 .decode(

@@ -124,6 +124,15 @@ msg-tool create -t <script-type> <input> <output>
 |---|---|---|---|---|---|---|---|---|
 | `circus-crx` | `circus-img` | Circus Image File (.crx) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | |
 | `circus-crxd` | `circus-img` | Circus Differential Image File (.crx) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
+### Emote
+| Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `emote-pimg`/`pimg` | `emote-img` | Emote Multiple Image File (.pimg) | ❌ | ❌ | ✔️ | ❌ | ❌ | |
+| `emote-dref`/`dref` | `emote-img` | Emote DPAK-referenced Image File (.dref) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
+### Entis GLS engine
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `entis-gls` | `entis-gls` | Entis GLS engine XML Script (.srcxml) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
 ### Escu:de
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
@@ -133,10 +142,6 @@ msg-tool create -t <script-type> <input> <output>
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
 | `escude-arc` | `escude-arc` | Escu:de Archive File (.bin) | ✔️ | ✔️ | |
-### Entis GLS engine
-| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
-|---|---|---|---|---|---|---|---|---|
-| `entis-gls` | `entis-gls` | Entis GLS engine XML Script (.srcxml) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
 ### ExHibit
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
@@ -156,8 +161,6 @@ msg-tool create -t <script-type> <input> <output>
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `kirikiri-tlg`/`kr-tlg` | `kirikiri-img` | Kirikiri TLG Image File (.tlg) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | tlg6 is not supported when importing/creating image |
-| `kirikiri-pimg`/`kr-pimg` | `kirikiri-img` | Kirikiri Multiple Image File (.pimg) | ❌ | ❌ | ✔️ | ❌ | ❌ | |
-| `kirikiri-dref`/`kr-dref` | `kirikiri-img` | Kirikiri DPAK-referenced Image File (.dref) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
 ### Softpal
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

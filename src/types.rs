@@ -428,6 +428,14 @@ pub enum ScriptType {
     #[cfg(feature = "circus-img")]
     /// Circus Differential Image
     CircusCrxd,
+    #[cfg(feature = "emote-img")]
+    #[value(alias("pimg"))]
+    /// Emote PIMG image
+    EmotePimg,
+    #[cfg(feature = "emote-img")]
+    #[value(alias("dref"))]
+    /// Emote DREF(DPAK-referenced) image
+    EmoteDref,
     #[cfg(feature = "entis-gls")]
     /// Entis GLS srcxml Script
     EntisGls,
@@ -462,14 +470,6 @@ pub enum ScriptType {
     #[value(alias("kr-tlg"))]
     /// Kirikiri TLG image
     KirikiriTlg,
-    #[cfg(feature = "kirikiri-img")]
-    #[value(alias("kr-pimg"))]
-    /// Kirikiri PIMG image
-    KirikiriPimg,
-    #[cfg(feature = "kirikiri-img")]
-    #[value(alias("kr-dref"))]
-    /// Kirikiri DREF(DPAK-referenced) image
-    KirikiriDref,
     #[cfg(feature = "kirikiri")]
     #[value(alias("kr-mdf"))]
     /// Kirikiri MDF (zlib compressed) file

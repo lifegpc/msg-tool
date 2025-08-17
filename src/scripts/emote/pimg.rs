@@ -1,4 +1,4 @@
-//! Kirikiri Multiple Image File (.pimg)
+//! Emote Multiple Image File (.pimg)
 use crate::ext::io::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
@@ -13,7 +13,7 @@ use std::io::{Read, Seek};
 use std::path::Path;
 
 #[derive(Debug)]
-/// Kirikiri PImg Script Builder
+/// Emote PImg Script Builder
 pub struct PImgBuilder {}
 
 impl PImgBuilder {
@@ -75,7 +75,7 @@ impl ScriptBuilder for PImgBuilder {
     }
 
     fn script_type(&self) -> &'static ScriptType {
-        &ScriptType::KirikiriPimg
+        &ScriptType::EmotePimg
     }
 
     fn is_this_format(&self, filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
@@ -97,7 +97,7 @@ impl ScriptBuilder for PImgBuilder {
 }
 
 #[derive(Debug)]
-/// Kirikiri PImg Script
+/// Emote PImg Script
 pub struct PImg {
     psb: VirtualPsbFixed,
     overlay: Option<bool>,

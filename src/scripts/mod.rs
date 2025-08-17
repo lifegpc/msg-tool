@@ -8,6 +8,8 @@ pub mod bgi;
 pub mod cat_system;
 #[cfg(feature = "circus")]
 pub mod circus;
+#[cfg(feature = "emote-img")]
+pub mod emote;
 #[cfg(feature = "entis-gls")]
 pub mod entis_gls;
 #[cfg(feature = "escude")]
@@ -70,10 +72,10 @@ lazy_static::lazy_static! {
         Box::new(kirikiri::ks::KsBuilder::new()),
         #[cfg(feature = "kirikiri-img")]
         Box::new(kirikiri::image::tlg::TlgImageBuilder::new()),
-        #[cfg(feature = "kirikiri-img")]
-        Box::new(kirikiri::image::pimg::PImgBuilder::new()),
-        #[cfg(feature = "kirikiri-img")]
-        Box::new(kirikiri::image::dref::DrefBuilder::new()),
+        #[cfg(feature = "emote-img")]
+        Box::new(emote::pimg::PImgBuilder::new()),
+        #[cfg(feature = "emote-img")]
+        Box::new(emote::dref::DrefBuilder::new()),
         #[cfg(feature = "kirikiri")]
         Box::new(kirikiri::mdf::MdfBuilder::new()),
         #[cfg(feature = "will-plus")]

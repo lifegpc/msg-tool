@@ -1,4 +1,4 @@
-//! Kirikiri DPAK-referenced Image File (.dref)
+//! Emote DPAK-referenced Image File (.dref)
 use crate::ext::io::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use url::Url;
 
 #[derive(Debug)]
-/// Kirikiri DREF Script Builder
+/// Emote DREF Script Builder
 pub struct DrefBuilder {}
 
 impl DrefBuilder {
@@ -47,7 +47,7 @@ impl ScriptBuilder for DrefBuilder {
     }
 
     fn script_type(&self) -> &'static ScriptType {
-        &ScriptType::KirikiriDref
+        &ScriptType::EmoteDref
     }
 
     fn is_image(&self) -> bool {
@@ -177,7 +177,7 @@ impl DpakLoader {
     }
 }
 
-/// Kirikiri DREF Script
+/// Emote DREF Script
 pub struct Dref {
     urls: Vec<Url>,
     dir: PathBuf,
