@@ -67,6 +67,7 @@ msg-tool create -t <script-type> <input> <output>
 |---|---|---|---|---|---|---|---|---|
 | `artemis` | `artemis` | Artemis Engine AST file (.ast) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
 | `artemis-asb` | `artemis` | Artemis Engine ASB file (.asb) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | |
+| `artemis-txt` | `artemis` | Artemis Engine TXT file (.txt) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|

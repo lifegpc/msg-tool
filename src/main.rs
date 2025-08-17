@@ -1763,6 +1763,12 @@ fn main() {
         entis_gls_srcxml_lang: arg.entis_gls_srcxml_lang.clone(),
         #[cfg(feature = "will-plus")]
         will_plus_ws2_no_disasm: arg.will_plus_ws2_no_disasm,
+        #[cfg(feature = "artemis")]
+        artemis_txt_blacklist_names: std::sync::Arc::new(std::collections::HashSet::from_iter(
+            arg.artemis_txt_blacklist_names.iter().cloned(),
+        )),
+        #[cfg(feature = "artemis")]
+        artemis_txt_lang: arg.artemis_txt_lang.clone(),
     };
     match &arg.command {
         args::Command::Export { input, output } => {

@@ -240,6 +240,21 @@ pub struct Arg {
     /// Specify the language of Artemis AST script.
     /// If not specified, the first language will be used.
     pub artemis_ast_lang: Option<String>,
+    #[cfg(feature = "artemis")]
+    #[arg(
+        long,
+        global = true,
+        value_delimiter = ',',
+        default_value = "遅延イベントCG,遅延背景,bgv_in,イベントCG,遅延ポップアップ"
+    )]
+    /// Artemis Engine blacklist tag names for TXT script.
+    /// This is used to ignore these tags when finding names in Artemis TXT script.
+    pub artemis_txt_blacklist_names: Vec<String>,
+    #[cfg(feature = "artemis")]
+    #[arg(long, global = true)]
+    /// Specify the language of Artemis TXT script.
+    /// If not specified, the first language will be used.
+    pub artemis_txt_lang: Option<String>,
     #[cfg(feature = "cat-system")]
     #[arg(long, global = true)]
     /// CatSystem2 CSTL script language, used to extract messages from CSTL script.
