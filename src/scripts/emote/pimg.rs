@@ -118,7 +118,7 @@ impl PImg {
             .to_psb_fixed();
         Ok(Self {
             psb,
-            overlay: config.kirikiri_pimg_overlay,
+            overlay: config.emote_pimg_overlay,
         })
     }
 

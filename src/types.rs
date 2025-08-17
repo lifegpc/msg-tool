@@ -266,9 +266,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "bgi-arc")]
     /// Minimum length of match size for DSC compression. Possible values are 2-256.
     pub bgi_compress_min_len: usize,
-    #[cfg(feature = "kirikiri-img")]
+    #[cfg(feature = "emote-img")]
     /// Whether to overlay PIMG images. (By default, true if all layers are not group layers.)
-    pub kirikiri_pimg_overlay: Option<bool>,
+    pub emote_pimg_overlay: Option<bool>,
     #[cfg(feature = "artemis-arc")]
     /// Disable Artemis archive (.pfs) XOR encryption when packing.
     pub artemis_arc_disable_xor: bool,

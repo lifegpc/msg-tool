@@ -214,10 +214,10 @@ pub struct Arg {
     #[arg(long, global = true, default_value_t = 3, value_parser = crate::scripts::bgi::archive::dsc::parse_min_length)]
     /// Minimum length of match size for DSC compression. Possible values are 2-256.
     pub bgi_compress_min_len: usize,
-    #[cfg(feature = "kirikiri-img")]
+    #[cfg(feature = "emote-img")]
     #[arg(long, global = true)]
     /// Whether to overlay PIMG images. (By default, true if all layers are not group layers.)
-    pub kirikiri_pimg_overlay: Option<bool>,
+    pub emote_pimg_overlay: Option<bool>,
     #[cfg(feature = "artemis-arc")]
     #[arg(long, global = true)]
     /// Disable Artemis archive (.pfs) XOR encryption when packing.
