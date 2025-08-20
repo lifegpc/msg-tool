@@ -167,6 +167,7 @@ impl Script for BGIScript {
             FormatOptions::Fixed {
                 length: 32,
                 keep_original: false,
+                break_words: false,
             }
         }
     }

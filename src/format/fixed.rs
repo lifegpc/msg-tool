@@ -6,15 +6,23 @@ const SPACE_STR_LIST: [&str; 2] = [" ", "　"];
 pub struct FixedFormatter {
     length: usize,
     keep_original: bool,
+    /// Whether to break words (ASCII only) at the end of the line.
+    break_words: bool,
     #[allow(unused)]
     typ: Option<ScriptType>,
 }
 
 impl FixedFormatter {
-    pub fn new(length: usize, keep_original: bool, typ: Option<ScriptType>) -> Self {
+    pub fn new(
+        length: usize,
+        keep_original: bool,
+        break_words: bool,
+        typ: Option<ScriptType>,
+    ) -> Self {
         FixedFormatter {
             length,
             keep_original,
+            break_words,
             typ,
         }
     }
@@ -38,7 +46,11 @@ impl FixedFormatter {
         let mut is_ruby = false;
         let mut is_ruby_rt = false;
         let mut last_command = None;
-        for grapheme in vec {
+        let mut i = 0;
+
+        while i < vec.len() {
+            let grapheme = vec[i];
+
             if grapheme == "\n" {
                 if self.keep_original
                     || (self.is_circus() && last_command.as_ref().is_some_and(|cmd| cmd == "@n"))
@@ -47,16 +59,57 @@ impl FixedFormatter {
                     current_length = 0;
                 }
                 pre_is_lf = true;
+                i += 1;
                 continue;
             }
+
+            // Check if we need to break and handle word breaking
             if current_length >= self.length {
-                result.push('\n');
-                current_length = 0;
+                if !self.break_words && !is_command && !is_ruby_rt {
+                    // Look back to find a good break point (space or non-ASCII)
+                    let mut break_pos = None;
+                    let mut temp_length = current_length;
+                    let mut j = result.len();
+
+                    // Find the last space or non-ASCII character position
+                    for ch in result.chars().rev() {
+                        if ch == ' ' || ch == '　' || !ch.is_ascii() {
+                            break_pos = Some(j);
+                            break;
+                        }
+                        if ch.is_ascii_alphabetic() {
+                            temp_length -= 1;
+                            if temp_length == 0 {
+                                break;
+                            }
+                        }
+                        j -= ch.len_utf8();
+                    }
+
+                    // If we found a good break point, move content after it to next line
+                    if let Some(pos) = break_pos {
+                        let remaining = result[pos..].trim_start().to_string();
+                        result.truncate(pos);
+                        result.push('\n');
+                        result.push_str(&remaining);
+                        current_length = remaining.chars().count();
+                    } else {
+                        result.push('\n');
+                        current_length = 0;
+                    }
+                } else {
+                    result.push('\n');
+                    current_length = 0;
+                }
             }
+
             if (current_length == 0 || pre_is_lf) && SPACE_STR_LIST.contains(&grapheme) {
+                i += 1;
                 continue;
             }
+
             result.push_str(grapheme);
+
             if self.is_circus() {
                 if grapheme == "@" {
                     is_command = true;
@@ -75,29 +128,36 @@ impl FixedFormatter {
                     is_ruby_rt = true;
                 } else if is_ruby && grapheme == "／" {
                     is_ruby_rt = false;
+                    i += 1;
                     continue;
                 } else if is_ruby && grapheme == "｝" {
                     is_ruby = false;
+                    i += 1;
                     continue;
                 }
             }
+
             if is_command {
                 if let Some(ref mut cmd) = last_command {
                     cmd.push_str(grapheme);
                 }
             }
+
             if !is_command && !is_ruby_rt {
                 current_length += 1;
             }
+
             pre_is_lf = false;
+            i += 1;
         }
+
         return result;
     }
 }
 
 #[test]
 fn test_format() {
-    let formatter = FixedFormatter::new(10, false, None);
+    let formatter = FixedFormatter::new(10, false, true, None);
     let message = "This is a test message.\nThis is another line.";
     let formatted_message = formatter.format(message);
     assert_eq!(
@@ -109,14 +169,40 @@ fn test_format() {
         formatter.format("● This is 　a test."),
         "● This is \na test."
     );
-    let fommater2 = FixedFormatter::new(10, true, None);
+    let fommater2 = FixedFormatter::new(10, true, true, None);
     assert_eq!(
         fommater2.format("● Th\n is is a te st."),
         "● Th\nis is a te\nst."
     );
+
+    // Test break_words = false
+    let no_break_formatter = FixedFormatter::new(10, false, false, None);
+    assert_eq!(
+        no_break_formatter.format("Example text."),
+        "Example \ntext."
+    );
+
+    let no_break_formatter2 = FixedFormatter::new(6, false, false, None);
+    assert_eq!(
+        no_break_formatter2.format("Example text."),
+        "Exampl\ne \ntext."
+    );
+
+    let no_break_formatter3 = FixedFormatter::new(7, false, false, None);
+    assert_eq!(
+        no_break_formatter3.format("Example text."),
+        "Example\ntext."
+    );
+
+    let real_world_no_break_formatter = FixedFormatter::new(32, false, false, None);
+    assert_eq!(
+        real_world_no_break_formatter.format("○咕噜咕噜（Temporary Magnetic Pattern Linkage）"),
+        "○咕噜咕噜（Temporary Magnetic \nPattern Linkage）"
+    );
+
     #[cfg(feature = "circus")]
     {
-        let circus_formatter = FixedFormatter::new(10, false, Some(ScriptType::Circus));
+        let circus_formatter = FixedFormatter::new(10, false, true, Some(ScriptType::Circus));
         assert_eq!(
             circus_formatter.format("● @cmd1@cmd2@cmd3中文字数是一\n　二三　四五六七八九十"),
             "● @cmd1@cmd2@cmd3中文字数是一二三\n四五六七八九十"
@@ -126,7 +212,7 @@ fn test_format() {
                 .format("● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一\n　二三　四五六七八九十"),
             "● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一二三\n四五六七八九十"
         );
-        let circus_formatter2 = FixedFormatter::new(32, false, Some(ScriptType::Circus));
+        let circus_formatter2 = FixedFormatter::new(32, false, true, Some(ScriptType::Circus));
         assert_eq!(
             circus_formatter2.format("@re1@re2@b1@t30@w1「当然现在我很幸福哦？\n　因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？\n　因为有敦也君在身边」"),
             "@re1@re2@b1@t30@w1「当然现在我很幸福哦？因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？因为有敦也君在身边」"

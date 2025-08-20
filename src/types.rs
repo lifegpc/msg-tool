@@ -545,6 +545,8 @@ pub enum FormatOptions {
         length: usize,
         /// Whether to keep original line breaks
         keep_original: bool,
+        /// Whether to break words(ASCII only) at the end of the line
+        break_words: bool,
     },
     /// Do not wrap line
     None,

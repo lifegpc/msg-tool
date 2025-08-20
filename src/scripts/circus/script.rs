@@ -193,6 +193,7 @@ impl Script for CircusMesScript {
         FormatOptions::Fixed {
             length: 32,
             keep_original: false,
+            break_words: false,
         }
     }
 

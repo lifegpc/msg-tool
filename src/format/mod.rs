@@ -9,8 +9,10 @@ pub fn fmt_message(mes: &mut Vec<Message>, opt: FormatOptions, typ: ScriptType) 
         FormatOptions::Fixed {
             length,
             keep_original,
+            break_words,
         } => {
-            let formatter = fixed::FixedFormatter::new(length, keep_original, Some(typ));
+            let formatter =
+                fixed::FixedFormatter::new(length, keep_original, break_words, Some(typ));
             for message in mes.iter_mut() {
                 message.message = formatter.format(&message.message);
             }

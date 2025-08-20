@@ -1171,6 +1171,7 @@ pub fn import_script(
                         types::FormatType::Fixed => types::FormatOptions::Fixed {
                             length: imp_cfg.patched_fixed_length.unwrap_or(32),
                             keep_original: imp_cfg.patched_keep_original,
+                            break_words: imp_cfg.patched_break_words,
                         },
                         types::FormatType::None => types::FormatOptions::None,
                     },
@@ -1361,6 +1362,7 @@ pub fn import_script(
             types::FormatType::Fixed => types::FormatOptions::Fixed {
                 length: imp_cfg.patched_fixed_length.unwrap_or(32),
                 keep_original: imp_cfg.patched_keep_original,
+                break_words: imp_cfg.patched_break_words,
             },
             types::FormatType::None => types::FormatOptions::None,
         },

@@ -401,6 +401,9 @@ pub struct ImportArgs {
     #[arg(long, action = ArgAction::SetTrue)]
     /// Keep original line breaks in patched script (for fixed format)
     pub patched_keep_original: bool,
+    #[arg(long, action = ArgAction::SetTrue)]
+    /// Break words in patched script (for fixed format)
+    pub patched_break_words: bool,
     #[arg(long)]
     /// Name table file
     pub name_csv: Option<String>,
