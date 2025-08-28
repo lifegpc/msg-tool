@@ -82,7 +82,7 @@ image = ["png"]
 image-jpg = ["mozjpeg"]
 image-webp = ["webp"]
 lossless-audio = ["utils-pcm"]
-audio-flac = ["libflac-sys"]
+audio-flac = ["libflac-sys", "utils-pcm"]
 unstable = ["msg_tool_macro/unstable"]
 # utils feature
 utils-bit-stream = []
