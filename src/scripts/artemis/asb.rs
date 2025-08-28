@@ -1,4 +1,4 @@
-//! Artemis Engine ASB file (.asb)
+//! Artemis Engine ASB file (.asb/.iet)
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -30,17 +30,17 @@ impl ScriptBuilder for ArtemisAsbBuilder {
     fn build_script(
         &self,
         buf: Vec<u8>,
-        _filename: &str,
+        filename: &str,
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(Asb::new(buf, encoding, config)?))
+        Ok(Box::new(Asb::new(buf, encoding, config, filename)?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["asb"]
+        &["asb", "iet"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
@@ -421,6 +421,7 @@ impl<'a> TextParser<'a> {
 pub struct Asb {
     items: Vec<Item>,
     custom_yaml: bool,
+    is_iet: bool,
 }
 
 impl Asb {
@@ -429,7 +430,12 @@ impl Asb {
     /// * `buf` - The buffer containing the ASB data.
     /// * `encoding` - The encoding used for the ASB data.
     /// * `config` - Extra configuration options.
-    pub fn new(buf: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
+    pub fn new(
+        buf: Vec<u8>,
+        encoding: Encoding,
+        config: &ExtraConfig,
+        filename: &str,
+    ) -> Result<Self> {
         let mut data = MemReader::new(buf);
         let mut magic = [0; 5];
         data.read_exact(&mut magic)?;
@@ -444,17 +450,28 @@ impl Asb {
         Ok(Asb {
             items,
             custom_yaml: config.custom_yaml,
+            is_iet: std::path::Path::new(filename)
+                .extension()
+                .map_or(false, |ext| ext.eq_ignore_ascii_case("iet")),
         })
     }
 }
 
 impl Script for Asb {
     fn default_output_script_type(&self) -> OutputScriptType {
-        OutputScriptType::Json
+        if self.is_iet {
+            OutputScriptType::Custom
+        } else {
+            OutputScriptType::Json
+        }
     }
 
-    fn is_output_supported(&self, _: OutputScriptType) -> bool {
-        true
+    fn is_output_supported(&self, out: OutputScriptType) -> bool {
+        if self.is_iet {
+            matches!(out, OutputScriptType::Custom)
+        } else {
+            true
+        }
     }
 
     fn default_format_type(&self) -> FormatOptions {

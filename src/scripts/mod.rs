@@ -112,8 +112,8 @@ lazy_static::lazy_static! {
         Box::new(entis_gls::srcxml::SrcXmlScriptBuilder::new()),
         #[cfg(feature = "softpal")]
         Box::new(softpal::scr::SoftpalScriptBuilder::new()),
-        #[cfg(feature = "artemis")]
-        Box::new(artemis::txt::TxtBuilder::new()),
+        #[cfg(feature = "artemis-panmimisoft")]
+        Box::new(artemis::panmimisoft::txt::TxtBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

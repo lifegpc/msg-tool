@@ -240,21 +240,26 @@ pub struct Arg {
     /// Specify the language of Artemis AST script.
     /// If not specified, the first language will be used.
     pub artemis_ast_lang: Option<String>,
-    #[cfg(feature = "artemis")]
+    // Default value is from tagFilters in macro.iet
+    #[cfg(feature = "artemis-panmimisoft")]
     #[arg(
         long,
         global = true,
         value_delimiter = ',',
-        default_value = "遅延イベントCG,遅延背景,bgv_in,イベントCG,遅延ポップアップ"
+        default_value = "背景,イベントCG,遅延背景,遅延背景予約,背景予約,遅延イベントCG,遅延イベントCG予約,イベントCG予約,遅延ポップアップ,遅延bgm_in,遅延bgm_out,遅延se_in,遅延se_out,遅延bgs_in,遅延bgs_out,立ち絵face非連動,セーブサムネイル置換終了,シネスコ"
     )]
     /// Artemis Engine blacklist tag names for TXT script.
-    /// This is used to ignore these tags when finding names in Artemis TXT script.
-    pub artemis_txt_blacklist_names: Vec<String>,
-    #[cfg(feature = "artemis")]
+    /// This is used to ignore these tags when finding names in Artemis TXT script (ぱんみみそふと).
+    pub artemis_panmimisoft_txt_blacklist_names: Vec<String>,
+    #[cfg(feature = "artemis-panmimisoft")]
     #[arg(long, global = true)]
-    /// Specify the language of Artemis TXT script.
+    /// Specify the language of Artemis TXT (ぱんみみそふと) script.
     /// If not specified, the first language will be used.
-    pub artemis_txt_lang: Option<String>,
+    pub artemis_panmimisoft_txt_lang: Option<String>,
+    #[cfg(feature = "artemis-panmimisoft")]
+    #[arg(long, global = true)]
+    /// The path to the tag.ini file, which contains the tags to be ignored when finding names in Artemis TXT script (ぱんみみそふと).
+    pub artemis_panmimisoft_txt_tag_ini: Option<String>,
     #[cfg(feature = "cat-system")]
     #[arg(long, global = true)]
     /// CatSystem2 CSTL script language, used to extract messages from CSTL script.
@@ -504,4 +509,24 @@ pub fn get_cat_system_int_encrypt_password(arg: &Arg) -> anyhow::Result<Option<S
         return Ok(Some(password.clone()));
     }
     Ok(None)
+}
+
+#[cfg(feature = "artemis-panmimisoft")]
+pub fn get_artemis_panmimisoft_txt_blacklist_names(
+    arg: &Arg,
+) -> anyhow::Result<std::collections::HashSet<String>> {
+    match &arg.artemis_panmimisoft_txt_tag_ini {
+        Some(path) => {
+            let mut set = crate::scripts::artemis::panmimisoft::txt::read_tags_from_ini(path)?;
+            for name in &arg.artemis_panmimisoft_txt_blacklist_names {
+                set.insert(name.clone());
+            }
+            Ok(set)
+        }
+        None => Ok(arg
+            .artemis_panmimisoft_txt_blacklist_names
+            .iter()
+            .cloned()
+            .collect()),
+    }
 }

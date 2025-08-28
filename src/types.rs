@@ -344,14 +344,14 @@ pub struct ExtraConfig {
     /// Use another parser to parse the script.
     /// Should only be used when the default parser not works well.
     pub will_plus_ws2_no_disasm: bool,
-    #[cfg(feature = "artemis")]
+    #[cfg(feature = "artemis-panmimisoft")]
     /// Artemis Engine blacklist tag names for TXT script.
-    /// This is used to ignore these tags when finding names in Artemis TXT script.
-    pub artemis_txt_blacklist_names: std::sync::Arc<std::collections::HashSet<String>>,
-    #[cfg(feature = "artemis")]
-    /// Specify the language of Artemis TXT script.
+    /// This is used to ignore these tags when finding names in Artemis TXT (ぱんみみそふと) script.
+    pub artemis_panmimisoft_txt_blacklist_names: std::sync::Arc<std::collections::HashSet<String>>,
+    #[cfg(feature = "artemis-panmimisoft")]
+    /// Specify the language of Artemis TXT (ぱんみみそふと) script.
     /// If not specified, the first language will be used.
-    pub artemis_txt_lang: Option<String>,
+    pub artemis_panmimisoft_txt_lang: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -363,9 +363,9 @@ pub enum ScriptType {
     #[cfg(feature = "artemis")]
     /// Artemis Engine ASB script
     ArtemisAsb,
-    #[cfg(feature = "artemis")]
-    /// Artemis Engine TXT script
-    ArtemisTxt,
+    #[cfg(feature = "artemis-panmimisoft")]
+    /// Artemis Engine TXT (ぱんみみそふと) script
+    ArtemisPanmimisoftTxt,
     #[cfg(feature = "artemis-arc")]
     #[value(alias("pfs"))]
     /// Artemis archive (pfs)

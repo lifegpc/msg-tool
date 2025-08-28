@@ -3,4 +3,5 @@
 pub mod archive;
 pub mod asb;
 pub mod ast;
-pub mod txt;
+#[cfg(feature = "artemis-panmimisoft")]
+pub mod panmimisoft;

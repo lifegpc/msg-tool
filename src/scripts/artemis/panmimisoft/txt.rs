@@ -41,7 +41,7 @@ impl ScriptBuilder for TxtBuilder {
     }
 
     fn script_type(&self) -> &'static ScriptType {
-        &ScriptType::ArtemisTxt
+        &ScriptType::ArtemisPanmimisoftTxt
     }
 }
 
@@ -138,7 +138,7 @@ impl TagNode {
 
     /// Returns true if the tag is not suitable for name.
     pub fn is_blocked_name(&self, set: &HashSet<String>) -> bool {
-        set.contains(&self.name)
+        self.name.is_ascii() || set.contains(&self.name)
     }
 
     /// Checks if the tag has a specific attribute.
@@ -814,8 +814,8 @@ impl TxtScript {
         let tree = parser.parse(true)?;
         Ok(Self {
             tree,
-            blacklist_names: config.artemis_txt_blacklist_names.clone(),
-            lang: config.artemis_txt_lang.clone(),
+            blacklist_names: config.artemis_panmimisoft_txt_blacklist_names.clone(),
+            lang: config.artemis_panmimisoft_txt_lang.clone(),
         })
     }
 }
@@ -873,23 +873,13 @@ impl Script for TxtScript {
                         let mes = message.to_xml();
                         message.clear();
                         if !mes.is_empty() {
-                            let name = if mes.starts_with("「") {
-                                match &last_tag_block {
-                                    Some(block) => {
-                                        Some(if let Some(name) = block.get_attr("name") {
-                                            name.to_string()
-                                        } else {
-                                            block.name.clone()
-                                        })
-                                    }
-                                    _ => {
-                                        eprintln!("Warn: Name block not found.");
-                                        crate::COUNTER.inc_warning();
-                                        None
-                                    }
-                                }
-                            } else {
-                                None
+                            let name = match &last_tag_block {
+                                Some(block) => Some(if let Some(name) = block.get_attr("name") {
+                                    name.to_string()
+                                } else {
+                                    block.name.clone()
+                                }),
+                                _ => None,
                             };
                             messages.push(Message { name, message: mes });
                         }
@@ -1175,6 +1165,17 @@ impl Script for TxtScript {
         file.flush()?;
         Ok(())
     }
+}
+
+/// Reads tags list from tag.ini file.
+pub fn read_tags_from_ini<P: AsRef<std::path::Path>>(path: P) -> Result<HashSet<String>> {
+    let conf = ini::Ini::load_from_file(path)?;
+    let set = HashSet::from_iter(conf.sections().flat_map(|s| s.map(|s| s.to_string())));
+    eprintln!(
+        "Read tags from ini: {}",
+        set.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(",")
+    );
+    Ok(set)
 }
 
 #[test]
