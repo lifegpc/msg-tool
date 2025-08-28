@@ -45,6 +45,19 @@ fn parse_webp_quality(quality: &str) -> Result<u8, String> {
     clap_num::number_range(quality, 0, 100)
 }
 
+#[cfg(feature = "audio-flac")]
+fn parse_flac_compression_level(level: &str) -> Result<u32, String> {
+    let lower = level.to_ascii_lowercase();
+    if lower == "fast" {
+        return Ok(0);
+    } else if lower == "best" {
+        return Ok(8);
+    } else if lower == "default" {
+        return Ok(5);
+    }
+    clap_num::number_range(level, 0, 8)
+}
+
 /// Tools for export and import scripts
 #[derive(Parser, Debug)]
 #[clap(
@@ -369,6 +382,14 @@ pub struct Arg {
     /// Use another parser to parse the script.
     /// Should only be used when the default parser not works well.
     pub will_plus_ws2_no_disasm: bool,
+    #[cfg(feature = "lossless-audio")]
+    #[arg(short = 'l', long, global = true, value_enum, default_value_t = LosslessAudioFormat::Wav)]
+    /// Audio format for output lossless audio files.
+    pub lossless_audio_fmt: LosslessAudioFormat,
+    #[cfg(feature = "audio-flac")]
+    #[arg(short = 'L', long, global = true, default_value_t = 5, value_parser = parse_flac_compression_level)]
+    /// FLAC compression level for output FLAC audio files. 0 means fastest compression, 8 means best compression.
+    pub flac_compression_level: u32,
     #[command(subcommand)]
     /// Command
     pub command: Command,

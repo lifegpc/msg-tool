@@ -21,12 +21,13 @@ flate2 = { version = "1.1", optional = true }
 int-enum = { version = "1.2", optional = true }
 json = { version = "0.12", optional = true }
 lazy_static = "1.5.0"
+libflac-sys = { version = "0.3", optional = true }
 libtlg-rs = { version = "0.2", optional = true, features = ["encode"] }
 markup5ever = { version = "0.35", optional = true }
 markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
-msg_tool_macro = { version = "0.1.6" }
+msg_tool_macro = { path = "./msg_tool_macro" }
 overf = "0.1"
 pelite = { version = "0.10", optional = true }
 png = { version = "0.17", optional = true }
@@ -44,7 +45,7 @@ xml5ever = { version = "0.35", optional = true }
 zstd = { version = "0.13", optional = true }
 
 [features]
-default = ["all-fmt", "image-jpg", "image-webp"]
+default = ["all-fmt", "image-jpg", "image-webp", "audio-flac"]
 all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
 all-script = ["artemis", "artemis-panmimisoft", "bgi", "cat-system", "circus", "entis-gls", "escude", "ex-hibit", "hexen-haus", "kirikiri", "softpal", "will-plus", "yaneurao", "yaneurao-itufuru"]
 all-img = ["bgi-img", "cat-system-img", "circus-img", "emote-img", "kirikiri-img"]
@@ -62,7 +63,7 @@ cat-system-arc = ["cat-system", "pelite", "utils-blowfish", "utils-crc32"]
 cat-system-img = ["cat-system", "flate2", "image", "mozjpeg", "utils-bit-stream"]
 circus = []
 circus-arc = ["circus"]
-circus-audio = ["circus", "flate2", "int-enum", "utils-pcm"]
+circus-audio = ["circus", "flate2", "int-enum", "lossless-audio"]
 circus-img = ["circus", "image", "flate2", "zstd"]
 emote-img = ["emote-psb", "image", "libtlg-rs", "url"]
 entis-gls = ["xml5ever", "markup5ever", "markup5ever_rcdom"]
@@ -80,6 +81,8 @@ yaneurao-itufuru = ["yaneurao"]
 image = ["png"]
 image-jpg = ["mozjpeg"]
 image-webp = ["webp"]
+lossless-audio = ["utils-pcm"]
+audio-flac = ["libflac-sys"]
 unstable = ["msg_tool_macro/unstable"]
 # utils feature
 utils-bit-stream = []

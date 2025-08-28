@@ -2,6 +2,7 @@
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
+use crate::utils::lossless_audio::*;
 use crate::utils::pcm::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
@@ -117,6 +118,7 @@ impl Header {
 pub struct Pcm {
     header: Header,
     data: MemReader,
+    config: ExtraConfig,
 }
 
 impl Pcm {
@@ -124,7 +126,7 @@ impl Pcm {
     ///
     /// * `reader` - The reader to read the PCM data from.
     /// * `config` - Extra configuration options.
-    pub fn new<R: Read + Seek>(mut reader: R, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new<R: Read + Seek>(mut reader: R, config: &ExtraConfig) -> Result<Self> {
         let mut magic = [0u8; 4];
         reader.read_exact(&mut magic)?;
         if &magic != b"XPCM" {
@@ -155,6 +157,7 @@ impl Pcm {
         Ok(Self {
             header,
             data: MemReader::new(data),
+            config: config.clone(),
         })
     }
 
@@ -205,7 +208,7 @@ impl Script for Pcm {
         if self.header.mode() == 5 {
             "ogg"
         } else {
-            "wav"
+            self.config.lossless_audio_fmt.as_ref()
         }
     }
 
@@ -219,7 +222,7 @@ impl Script for Pcm {
                 .pcm
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("PCM format not found in header"))?;
-            write_pcm(fmt, self.data.to_ref(), writer)?;
+            write_audio(fmt, self.data.to_ref(), writer, &self.config)?;
         }
         Ok(())
     }

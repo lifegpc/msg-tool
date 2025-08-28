@@ -1771,6 +1771,10 @@ fn main() {
         ),
         #[cfg(feature = "artemis-panmimisoft")]
         artemis_panmimisoft_txt_lang: arg.artemis_panmimisoft_txt_lang.clone(),
+        #[cfg(feature = "lossless-audio")]
+        lossless_audio_fmt: arg.lossless_audio_fmt,
+        #[cfg(feature = "audio-flac")]
+        flac_compression_level: arg.flac_compression_level,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

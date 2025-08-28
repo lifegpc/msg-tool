@@ -12,8 +12,12 @@ mod encoding_win;
 #[cfg(feature = "utils-escape")]
 pub mod escape;
 pub mod files;
+#[cfg(feature = "audio-flac")]
+pub mod flac;
 #[cfg(feature = "image")]
 pub mod img;
+#[cfg(feature = "lossless-audio")]
+pub mod lossless_audio;
 mod macros;
 pub mod name_replacement;
 #[cfg(feature = "utils-pcm")]

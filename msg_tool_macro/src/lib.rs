@@ -660,3 +660,120 @@ pub fn gen_artemis_arc_ext(_: TokenStream) -> TokenStream {
     };
     output.into()
 }
+
+/// A procedural macro for `#[derive(Default)]` that supports a `#[default(expr)]` attribute.
+///
+/// This macro automatically implements the `Default` trait for a struct or an enum.
+/// If a field or enum variant does not have the `#[default(expr)]` attribute, it will
+/// use `Default::default()`. If the attribute is present, it will use the specified
+/// expression as the default value.
+#[proc_macro_derive(Default, attributes(default))]
+pub fn default_macro_derive(input: TokenStream) -> TokenStream {
+    // Parse the input tokens into a syntax tree
+    let ast = syn::parse_macro_input!(input as syn::DeriveInput);
+    let name = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    let default_body = match &ast.data {
+        syn::Data::Struct(data_struct) => {
+            // Handle struct fields
+            let field_defaults = data_struct.fields.iter().map(|f| {
+                let name = &f.ident;
+                // Find the `#[default(...)]` attribute
+                let default_value = if let Some(default_attr) =
+                    f.attrs.iter().find(|attr| attr.path().is_ident("default"))
+                {
+                    // Parse the expression inside the attribute's parentheses
+                    if let Ok(value) = default_attr.parse_args::<syn::Expr>() {
+                        quote::quote! { #value }
+                    } else {
+                        // If parsing fails, panic with a descriptive error
+                        panic!("Invalid `#[default]` attribute syntax");
+                    }
+                } else {
+                    // If no `#[default]` attribute is present, fall back to `Default::default()`
+                    quote::quote! { Default::default() }
+                };
+                quote::quote! {
+                    #name: #default_value,
+                }
+            });
+
+            match &data_struct.fields {
+                syn::Fields::Named(_) => quote::quote! { Self { #(#field_defaults)* } },
+                syn::Fields::Unnamed(_) => quote::quote! { Self(#(#field_defaults)*) },
+                syn::Fields::Unit => quote::quote! { Self },
+            }
+        }
+        syn::Data::Enum(data_enum) => {
+            // Handle enum variants
+            // Find the single variant with the `#[default]` attribute
+            if let Some(default_variant) = data_enum
+                .variants
+                .iter()
+                .find(|v| v.attrs.iter().any(|attr| attr.path().is_ident("default")))
+            {
+                let variant_name = &default_variant.ident;
+                match &default_variant.fields {
+                    syn::Fields::Unit => quote::quote! { Self::#variant_name },
+                    syn::Fields::Unnamed(fields_unnamed) => {
+                        let field_defaults = fields_unnamed.unnamed.iter().map(|f| {
+                            let default_value = if let Some(default_attr) =
+                                f.attrs.iter().find(|attr| attr.path().is_ident("default"))
+                            {
+                                // Parse the expression inside the attribute's parentheses
+                                if let Ok(value) = default_attr.parse_args::<syn::Expr>() {
+                                    quote::quote! { #value }
+                                } else {
+                                    // If parsing fails, panic with a descriptive error
+                                    panic!("Invalid `#[default]` attribute syntax");
+                                }
+                            } else {
+                                // If no `#[default]` attribute is present, fall back to `Default::default()`
+                                quote::quote! { Default::default() }
+                            };
+                            quote::quote! { #default_value }
+                        });
+                        quote::quote! { Self::#variant_name(#(#field_defaults)*) }
+                    }
+                    syn::Fields::Named(fields_named) => {
+                        let field_defaults = fields_named.named.iter().map(|f| {
+                            let name = &f.ident;
+                            let default_value = if let Some(default_attr) =
+                                f.attrs.iter().find(|attr| attr.path().is_ident("default"))
+                            {
+                                // Parse the expression inside the attribute's parentheses
+                                if let Ok(value) = default_attr.parse_args::<syn::Expr>() {
+                                    quote::quote! { #value }
+                                } else {
+                                    // If parsing fails, panic with a descriptive error
+                                    panic!("Invalid `#[default]` attribute syntax");
+                                }
+                            } else {
+                                // If no `#[default]` attribute is present, fall back to `Default::default()`
+                                quote::quote! { Default::default() }
+                            };
+                            quote::quote! { #name: #default_value }
+                        });
+                        quote::quote! { Self::#variant_name { #(#field_defaults)* } }
+                    }
+                }
+            } else {
+                // Enums must have exactly one default variant
+                panic!("Enum must have one variant with `#[default]` attribute.");
+            }
+        }
+        syn::Data::Union(_) => panic!("`Default` macro cannot be derived for unions"),
+    };
+
+    // Construct the final `impl Default for ...` block
+    quote::quote! {
+        #[automatically_derived]
+        impl #impl_generics Default for #name #ty_generics #where_clause {
+            fn default() -> Self {
+                #default_body
+            }
+        }
+    }
+    .into()
+}

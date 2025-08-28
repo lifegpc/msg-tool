@@ -206,7 +206,7 @@ impl AsRef<str> for CircusMesType {
 }
 
 /// Extra configuration options for the script.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, msg_tool_macro::Default)]
 pub struct ExtraConfig {
     #[cfg(feature = "circus")]
     /// Circus Game for circus MES script.
@@ -291,6 +291,7 @@ pub struct ExtraConfig {
     /// If not specified, the first language will be used.
     pub cat_system_cstl_lang: Option<String>,
     #[cfg(feature = "flate2")]
+    #[default(6)]
     /// Zlib compression level. 0 means no compression, 9 means best compression.
     pub zlib_compression_level: u32,
     #[cfg(feature = "image")]
@@ -303,6 +304,7 @@ pub struct ExtraConfig {
     /// Use zstd compression for Circus CRX images. (CIRCUS Engine don't support this. Hook is required.)
     pub circus_crx_zstd: bool,
     #[cfg(feature = "zstd")]
+    #[default(3)]
     /// Zstd compression level. 0 means default compression level (3), 22 means best compression.
     pub zstd_compression_level: i32,
     #[cfg(feature = "circus-img")]
@@ -322,12 +324,14 @@ pub struct ExtraConfig {
     /// ExHibit def.rld xor keys.
     pub ex_hibit_rld_def_keys: Option<Box<[u32; 0x100]>>,
     #[cfg(feature = "mozjpeg")]
+    #[default(80)]
     /// JPEG quality for output images, 0-100. 100 means best quality.
     pub jpeg_quality: u8,
     #[cfg(feature = "webp")]
     /// Use WebP lossless compression for output images.
     pub webp_lossless: bool,
     #[cfg(feature = "webp")]
+    #[default(80)]
     /// WebP quality for output images, 0-100. 100 means best quality.
     pub webp_quality: u8,
     #[cfg(feature = "circus-img")]
@@ -352,6 +356,13 @@ pub struct ExtraConfig {
     /// Specify the language of Artemis TXT (ぱんみみそふと) script.
     /// If not specified, the first language will be used.
     pub artemis_panmimisoft_txt_lang: Option<String>,
+    #[cfg(feature = "lossless-audio")]
+    /// Audio format for output lossless audio files.
+    pub lossless_audio_fmt: LosslessAudioFormat,
+    #[cfg(feature = "audio-flac")]
+    #[default(5)]
+    /// FLAC compression level for output FLAC audio files. 0 means fastest compression, 8 means best compression. Default level is 5.
+    pub flac_compression_level: u32,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -750,6 +761,66 @@ impl PngCompressionLevel {
             PngCompressionLevel::Default => png::Compression::Default,
             PngCompressionLevel::Fast => png::Compression::Fast,
             PngCompressionLevel::Best => png::Compression::Best,
+        }
+    }
+}
+
+#[cfg(feature = "lossless-audio")]
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+/// Lossless audio format
+pub enum LosslessAudioFormat {
+    /// Wav
+    Wav,
+    #[cfg(feature = "audio-flac")]
+    /// FLAC Format
+    Flac,
+}
+
+impl Default for LosslessAudioFormat {
+    fn default() -> Self {
+        LosslessAudioFormat::Wav
+    }
+}
+
+#[cfg(feature = "lossless-audio")]
+impl TryFrom<&str> for LosslessAudioFormat {
+    type Error = anyhow::Error;
+    /// Try to convert a extension string to an `LosslessAudioFormat`.
+    /// Extensions are case-insensitive.
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.to_ascii_lowercase().as_str() {
+            "wav" => Ok(LosslessAudioFormat::Wav),
+            #[cfg(feature = "audio-flac")]
+            "flac" => Ok(LosslessAudioFormat::Flac),
+            _ => Err(anyhow::anyhow!(
+                "Unsupported lossless audio format: {}",
+                value
+            )),
+        }
+    }
+}
+
+#[cfg(feature = "lossless-audio")]
+impl TryFrom<&std::path::Path> for LosslessAudioFormat {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &std::path::Path) -> Result<Self, Self::Error> {
+        if let Some(ext) = value.extension() {
+            Self::try_from(ext.to_string_lossy().as_ref())
+        } else {
+            Err(anyhow::anyhow!("No extension found in path"))
+        }
+    }
+}
+
+#[cfg(feature = "lossless-audio")]
+impl AsRef<str> for LosslessAudioFormat {
+    /// Returns the extension for the lossless audio format.
+    fn as_ref(&self) -> &str {
+        match self {
+            LosslessAudioFormat::Wav => "wav",
+            #[cfg(feature = "audio-flac")]
+            LosslessAudioFormat::Flac => "flac",
         }
     }
 }
