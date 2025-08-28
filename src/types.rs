@@ -776,6 +776,7 @@ pub enum LosslessAudioFormat {
     Flac,
 }
 
+#[cfg(feature = "lossless-audio")]
 impl Default for LosslessAudioFormat {
     fn default() -> Self {
         LosslessAudioFormat::Wav
