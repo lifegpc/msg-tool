@@ -9,5 +9,5 @@ fn main() {
     #[cfg(target_env = "msvc")]
     println!("cargo:rustc-link-arg=/STACK:{}", stack_size);
     #[cfg(target_env = "gnu")]
-    println!("cargo:rustc-link-arg=-Wl,--stack,{}", stack_size);
+    println!("cargo:rustc-link-arg=-Wl,-z,stack-size={}", stack_size);
 }
