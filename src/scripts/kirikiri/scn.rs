@@ -79,7 +79,7 @@ impl ScriptBuilder for ScnScriptBuilder {
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["ks.scn"]
+        &["scn"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
@@ -92,7 +92,7 @@ impl ScriptBuilder for ScnScriptBuilder {
             .map(|name| {
                 name.to_ascii_lowercase()
                     .to_string_lossy()
-                    .ends_with(".ks.scn")
+                    .ends_with(".scn")
             })
             .unwrap_or(false)
             && buf_len >= 4

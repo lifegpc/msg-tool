@@ -595,7 +595,7 @@ pub fn export_script(
                             }
                         }
                     }
-                    types::OutputScriptType::M3t => {
+                    types::OutputScriptType::M3t | types::OutputScriptType::M3ta => {
                         let enc = get_output_encoding(arg);
                         let s = output_scripts::m3t::M3tDumper::dump(&mes);
                         let b = match utils::encoding::encode_string(enc, &s, false) {
@@ -888,7 +888,7 @@ pub fn export_script(
             let mut f = utils::files::write_file(&f)?;
             f.write_all(&b)?;
         }
-        types::OutputScriptType::M3t => {
+        types::OutputScriptType::M3t | types::OutputScriptType::M3ta => {
             let enc = get_output_encoding(arg);
             let s = output_scripts::m3t::M3tDumper::dump(&mes);
             let b = utils::encoding::encode_string(enc, &s, false)?;
@@ -1083,7 +1083,7 @@ pub fn import_script(
                             }
                         }
                     }
-                    types::OutputScriptType::M3t => {
+                    types::OutputScriptType::M3t | types::OutputScriptType::M3ta => {
                         let enc = get_output_encoding(arg);
                         let b = match utils::files::read_file(&out_path) {
                             Ok(b) => b,
@@ -1314,7 +1314,7 @@ pub fn import_script(
             let s = utils::encoding::decode_to_string(enc, &b, true)?;
             serde_json::from_str::<Vec<types::Message>>(&s)?
         }
-        types::OutputScriptType::M3t => {
+        types::OutputScriptType::M3t | types::OutputScriptType::M3ta => {
             let enc = get_output_encoding(arg);
             let b = utils::files::read_file(&out_f)?;
             let s = utils::encoding::decode_to_string(enc, &b, true)?;

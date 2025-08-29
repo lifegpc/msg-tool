@@ -70,6 +70,8 @@ pub enum TextEncoding {
 pub enum OutputScriptType {
     /// Text script
     M3t,
+    /// Same as M3t, buf different extension
+    M3ta,
     /// JSON which can be used for GalTransl
     Json,
     /// YAML (same as JSON, but with YAML syntax)
@@ -90,6 +92,7 @@ impl AsRef<str> for OutputScriptType {
     fn as_ref(&self) -> &str {
         match self {
             OutputScriptType::M3t => "m3t",
+            OutputScriptType::M3ta => "m3ta",
             OutputScriptType::Json => "json",
             OutputScriptType::Yaml => "yaml",
             OutputScriptType::Custom => "",
