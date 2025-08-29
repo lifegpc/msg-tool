@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::ops::Index;
+use stylua_lib::{Config as LuaFormatterConfig, OutputVerification, format_code};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
@@ -422,6 +423,7 @@ pub struct Asb {
     items: Vec<Item>,
     custom_yaml: bool,
     is_iet: bool,
+    format_lua: bool,
 }
 
 impl Asb {
@@ -453,7 +455,25 @@ impl Asb {
             is_iet: std::path::Path::new(filename)
                 .extension()
                 .map_or(false, |ext| ext.eq_ignore_ascii_case("iet")),
+            format_lua: config.artemis_asb_format_lua,
         })
+    }
+
+    fn to_string(&self, items: &[Item]) -> Result<String> {
+        if self.custom_yaml {
+            Ok(serde_yaml_ng::to_string(items)?)
+        } else {
+            Ok(serde_json::to_string_pretty(items)?)
+        }
+    }
+
+    fn format_lua(&self, script: &str) -> Result<String> {
+        let mut config = LuaFormatterConfig::new();
+        config.indent_type = stylua_lib::IndentType::Spaces;
+        config.indent_width = 2;
+        config.column_width = 120;
+        config.line_endings = stylua_lib::LineEndings::Unix;
+        Ok(format_code(script, config, None, OutputVerification::None)?)
     }
 }
 
@@ -673,10 +693,36 @@ impl Script for Asb {
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
-        let s = if self.custom_yaml {
-            serde_yaml_ng::to_string(&self.items)?
+        let s = if self.format_lua {
+            let items: Vec<_> = self
+                .items
+                .iter()
+                .map(|s| {
+                    if let Item::Command(cmd) = s {
+                        if cmd.name == "lua" {
+                            if let Some(script) = cmd.attributes.get("script") {
+                                let mut cmd = cmd.clone();
+                                cmd.attributes.insert(
+                                    "script".to_string(),
+                                    match self.format_lua(script) {
+                                        Ok(s) => s,
+                                        Err(_) => {
+                                            eprintln!("Warning: Failed to format Lua script.");
+                                            crate::COUNTER.inc_warning();
+                                            script.clone()
+                                        }
+                                    },
+                                );
+                                return Item::Command(cmd);
+                            }
+                        }
+                    }
+                    s.clone()
+                })
+                .collect();
+            self.to_string(&items)?
         } else {
-            serde_json::to_string_pretty(&self.items)?
+            self.to_string(&self.items)?
         };
         let s = encode_string(encoding, &s, false)?;
         let mut file = std::fs::File::create(filename)?;

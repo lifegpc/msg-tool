@@ -37,6 +37,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml_ng = "0.10"
 sha1 = { version = "0.10", optional = true }
+stylua = { version = "2.1", optional = true, default-features = false}
 unicode-segmentation = "1.12"
 url = { version = "2.5", optional = true }
 utf16string = "0.2"
@@ -51,7 +52,7 @@ all-script = ["artemis", "artemis-panmimisoft", "bgi", "cat-system", "circus", "
 all-img = ["bgi-img", "cat-system-img", "circus-img", "emote-img", "kirikiri-img"]
 all-arc = ["artemis-arc", "bgi-arc", "cat-system-arc", "circus-arc", "escude-arc"]
 all-audio = ["bgi-audio", "circus-audio"]
-artemis = ["utils-escape"]
+artemis = ["stylua", "utils-escape"]
 artemis-panmimisoft = ["artemis", "rust-ini"]
 artemis-arc = ["artemis", "msg_tool_macro/artemis-arc", "sha1"]
 bgi = ["fancy-regex"]
@@ -94,3 +95,6 @@ utils-str = []
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0", features = ["Win32_Globalization", "Win32_System_Diagnostics_Debug"] }
+
+[build-dependencies]
+parse-size = "1.1"

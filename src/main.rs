@@ -1775,6 +1775,8 @@ fn main() {
         lossless_audio_fmt: arg.lossless_audio_fmt,
         #[cfg(feature = "audio-flac")]
         flac_compression_level: arg.flac_compression_level,
+        #[cfg(feature = "artemis")]
+        artemis_asb_format_lua: !arg.artemis_asb_no_format_lua,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

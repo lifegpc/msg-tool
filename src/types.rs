@@ -264,6 +264,7 @@ pub struct ExtraConfig {
     /// Whether to compress files in BGI archive when packing BGI archive.
     pub bgi_compress_file: bool,
     #[cfg(feature = "bgi-arc")]
+    #[default(3)]
     /// Minimum length of match size for DSC compression. Possible values are 2-256.
     pub bgi_compress_min_len: usize,
     #[cfg(feature = "emote-img")]
@@ -280,6 +281,7 @@ pub struct ExtraConfig {
     /// Disable Artemis script indent, used to format Artemis script.
     pub artemis_no_indent: bool,
     #[cfg(feature = "artemis")]
+    #[default(100)]
     /// Max line width in Artemis script, used to format Artemis script.
     pub artemis_max_line_width: usize,
     #[cfg(feature = "artemis")]
@@ -363,6 +365,10 @@ pub struct ExtraConfig {
     #[default(5)]
     /// FLAC compression level for output FLAC audio files. 0 means fastest compression, 8 means best compression. Default level is 5.
     pub flac_compression_level: u32,
+    #[cfg(feature = "artemis")]
+    #[default(true)]
+    /// Format lua code in Artemis ASB script(.asb/.iet) when exporting.
+    pub artemis_asb_format_lua: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

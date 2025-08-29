@@ -253,6 +253,10 @@ pub struct Arg {
     /// Specify the language of Artemis AST script.
     /// If not specified, the first language will be used.
     pub artemis_ast_lang: Option<String>,
+    #[cfg(feature = "artemis")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Do not format lua code in Artemis ASB script(.asb/.iet) when exporting.
+    pub artemis_asb_no_format_lua: bool,
     // Default value is from tagFilters in macro.iet
     #[cfg(feature = "artemis-panmimisoft")]
     #[arg(
