@@ -259,7 +259,7 @@ pub struct Arg {
         long,
         global = true,
         value_delimiter = ',',
-        default_value = "背景,イベントCG,遅延背景,遅延背景予約,背景予約,遅延イベントCG,遅延イベントCG予約,イベントCG予約,遅延ポップアップ,遅延bgm_in,遅延bgm_out,遅延se_in,遅延se_out,遅延bgs_in,遅延bgs_out,立ち絵face非連動,セーブサムネイル置換終了,シネスコ"
+        default_value = "背景,イベントCG,遅延背景,遅延背景予約,背景予約,遅延イベントCG,遅延イベントCG予約,イベントCG予約,遅延ポップアップ,遅延bgm_in,遅延bgm_out,遅延se_in,遅延se_out,遅延bgs_in,遅延bgs_out,立ち絵face非連動,セーブサムネイル置換終了,シネスコ,ポップアップ"
     )]
     /// Artemis Engine blacklist tag names for TXT script.
     /// This is used to ignore these tags when finding names in Artemis TXT script (ぱんみみそふと).
