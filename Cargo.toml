@@ -27,7 +27,7 @@ markup5ever = { version = "0.35", optional = true }
 markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
-msg_tool_macro = { version = "0.2.0" }
+msg_tool_macro = { path = "./msg_tool_macro" }
 overf = "0.1"
 pelite = { version = "0.10", optional = true }
 png = { version = "0.17", optional = true }

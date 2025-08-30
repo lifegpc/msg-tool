@@ -15,6 +15,8 @@ pub enum Encoding {
     Cp932,
     /// GB2312 encoding
     Gb2312,
+    /// UTF-16 Little Endian encoding
+    Utf16LE,
     /// Code page encoding (Windows only)
     #[cfg(windows)]
     CodePage(u32),
@@ -33,6 +35,16 @@ impl Encoding {
             Self::Cp932 => true,
             #[cfg(windows)]
             Self::CodePage(code_page) => *code_page == 932,
+            _ => false,
+        }
+    }
+
+    /// Returns true if the encoding is UTF-16LE.
+    pub fn is_utf16le(&self) -> bool {
+        match self {
+            Self::Utf16LE => true,
+            #[cfg(windows)]
+            Self::CodePage(code_page) => *code_page == 1200,
             _ => false,
         }
     }
@@ -505,6 +517,10 @@ pub enum ScriptType {
     #[value(alias("kr-mdf"))]
     /// Kirikiri MDF (zlib compressed) file
     KirikiriMdf,
+    #[cfg(feature = "kirikiri")]
+    #[value(alias("kr-tjs-ns0"))]
+    /// Kirikiri TJS NS0 binary encoded script
+    KirikiriTjsNs0,
     #[cfg(feature = "softpal")]
     /// Softpal src script
     Softpal,

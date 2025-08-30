@@ -155,11 +155,11 @@ impl StructPack for OpExt {
 }
 
 impl StructUnpack for OpExt {
-    fn unpack<R: Read + Seek>(mut reader: R, big: bool, encoding: Encoding) -> Result<Self> {
-        let op = Op::unpack(&mut reader, big, encoding)?;
+    fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<Self> {
+        let op = Op::unpack(reader, big, encoding)?;
         let mut ints = Vec::with_capacity(op.init_count as usize);
         for _ in 0..op.init_count {
-            let i = u32::unpack(&mut reader, big, encoding)?;
+            let i = u32::unpack(reader, big, encoding)?;
             ints.push(i);
         }
         let mut strs = Vec::with_capacity(op.str_count() as usize);

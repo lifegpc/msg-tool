@@ -11,7 +11,7 @@ pub trait StructUnpack: Sized {
     /// * `reader` - The reader to read the binary data from.
     /// * `big` - Whether the data is in big-endian format.
     /// * `encoding` - The encoding to use for string fields.
-    fn unpack<R: Read + Seek>(reader: R, big: bool, encoding: Encoding) -> Result<Self>;
+    fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<Self>;
 }
 
 /// Trait for packing a struct into a binary stream.
@@ -47,7 +47,7 @@ struct_unpack_impl_for_num!(f32);
 struct_unpack_impl_for_num!(f64);
 
 impl StructUnpack for bool {
-    fn unpack<R: Read + Seek>(mut reader: R, _big: bool, _encoding: Encoding) -> Result<Self> {
+    fn unpack<R: Read + Seek>(reader: &mut R, _big: bool, _encoding: Encoding) -> Result<Self> {
         let mut buf = [0u8; 1];
         reader.read_exact(&mut buf)?;
         Ok(buf[0] != 0)
@@ -71,7 +71,7 @@ impl<T: StructPack> StructPack for Option<T> {
 }
 
 impl<T: StructUnpack> StructUnpack for Option<T> {
-    fn unpack<R: Read + Seek>(reader: R, big: bool, encoding: Encoding) -> Result<Self> {
+    fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<Self> {
         let value = T::unpack(reader, big, encoding)?;
         Ok(Some(value))
     }

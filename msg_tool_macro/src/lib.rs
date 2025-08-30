@@ -35,7 +35,7 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
     let i = syn::parse_macro_input!(item as syn::Ident);
     let output = quote::quote! {
         impl StructUnpack for #i {
-            fn unpack<R: Read + Seek>(mut reader: R, big: bool, _encoding: Encoding) -> Result<Self> {
+            fn unpack<R: Read + Seek>(reader: &mut R, big: bool, _encoding: Encoding) -> Result<Self> {
                 let mut buf = [0u8; std::mem::size_of::<#i>()];
                 reader.read_exact(&mut buf)?;
                 Ok(if big {
@@ -587,7 +587,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                         });
                     } else if let Some(pstring_type) = pstring_type {
                         cur = Some(quote::quote! {
-                            let len = <#pstring_type>::unpack(&mut reader, big, encoding)? as usize;
+                            let len = <#pstring_type>::unpack(reader, big, encoding)? as usize;
                             let #field_name = reader.read_exact_vec(len)?;
                             let #field_name = crate::utils::encoding::decode_to_string(encoding, &#field_name, true)?;
                         });
@@ -602,7 +602,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                         });
                     } else if let Some(pvec_type) = pvec_type {
                         cur = Some(quote::quote! {
-                            let len = <#pvec_type>::unpack(&mut reader, big, encoding)? as usize;
+                            let len = <#pvec_type>::unpack(reader, big, encoding)? as usize;
                             let #field_name = reader.read_struct_vec(len, big, encoding)?;
                         });
                     }
@@ -611,7 +611,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         }
         let p = cur.unwrap_or_else(|| {
             quote::quote! {
-                let #field_name = <#field_type>::unpack(&mut reader, big, encoding)?;
+                let #field_name = <#field_type>::unpack(reader, big, encoding)?;
             }
         });
         if let Some(skip_if) = skip_if {
@@ -634,7 +634,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
     };
     let output = quote::quote! {
         impl StructUnpack for #name {
-            fn unpack<R: Read + Seek>(mut reader: R, big: bool, encoding: Encoding) -> Result<Self> {
+            fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<Self> {
                 #(#smts)*
                 Ok(Self #fields)
             }
