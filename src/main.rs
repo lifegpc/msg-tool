@@ -1172,6 +1172,8 @@ pub fn import_script(
                             length: imp_cfg.patched_fixed_length.unwrap_or(32),
                             keep_original: imp_cfg.patched_keep_original,
                             break_words: imp_cfg.patched_break_words,
+                            insert_fullwidth_space_at_line_start: imp_cfg
+                                .patched_insert_fullwidth_space_at_line_start,
                         },
                         types::FormatType::None => types::FormatOptions::None,
                     },
@@ -1363,6 +1365,8 @@ pub fn import_script(
                 length: imp_cfg.patched_fixed_length.unwrap_or(32),
                 keep_original: imp_cfg.patched_keep_original,
                 break_words: imp_cfg.patched_break_words,
+                insert_fullwidth_space_at_line_start: imp_cfg
+                    .patched_insert_fullwidth_space_at_line_start,
             },
             types::FormatType::None => types::FormatOptions::None,
         },

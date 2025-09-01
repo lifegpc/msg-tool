@@ -434,6 +434,9 @@ pub struct ImportArgs {
     #[arg(long, action = ArgAction::SetTrue)]
     /// Break words in patched script (for fixed format)
     pub patched_break_words: bool,
+    #[arg(long, action = ArgAction::SetTrue)]
+    /// Insert fullwidth space at the start of line in patched script (for fixed format)
+    pub patched_insert_fullwidth_space_at_line_start: bool,
     #[arg(long)]
     /// Name table file
     pub name_csv: Option<String>,

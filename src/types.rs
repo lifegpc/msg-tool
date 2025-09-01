@@ -583,6 +583,8 @@ pub enum FormatOptions {
         keep_original: bool,
         /// Whether to break words(ASCII only) at the end of the line
         break_words: bool,
+        /// Whether to insert a full-width space after a line break when a sentence starts with a full-width quotation mark.
+        insert_fullwidth_space_at_line_start: bool,
     },
     /// Do not wrap line
     None,
