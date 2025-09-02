@@ -518,6 +518,10 @@ pub enum ScriptType {
     /// Kirikiri MDF (zlib compressed) file
     KirikiriMdf,
     #[cfg(feature = "kirikiri")]
+    #[value(alias("kr-tjs2"))]
+    /// Kirikiri compiled TJS2 script
+    KirikiriTjs2,
+    #[cfg(feature = "kirikiri")]
     #[value(alias("kr-tjs-ns0"))]
     /// Kirikiri TJS NS0 binary encoded script
     KirikiriTjsNs0,

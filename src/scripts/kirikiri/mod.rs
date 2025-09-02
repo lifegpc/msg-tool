@@ -5,6 +5,7 @@ pub mod ks;
 pub mod mdf;
 pub mod scn;
 pub mod simple_crypt;
+pub mod tjs2;
 pub mod tjs_ns0;
 use std::collections::HashMap;
 use std::sync::Arc;

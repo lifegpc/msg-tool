@@ -1,6 +1,7 @@
 //!Extensions for IO operations.
+use crate::types::Encoding;
 use crate::utils::encoding::decode_to_string;
-use crate::{types::Encoding, utils::struct_pack::StructUnpack};
+use crate::utils::struct_pack::{StructPack, StructUnpack};
 use std::ffi::CString;
 use std::io::*;
 use std::sync::Mutex;
@@ -971,6 +972,13 @@ pub trait WriteExt {
 
     /// Writes a C-style string (null-terminated) to the writer.
     fn write_cstring(&mut self, value: &CString) -> Result<()>;
+    /// Write a struct to the writer.
+    fn write_struct<T: StructPack>(
+        &mut self,
+        value: &T,
+        big: bool,
+        encoding: Encoding,
+    ) -> Result<()>;
 }
 
 impl<T: Write> WriteExt for T {
@@ -1031,6 +1039,17 @@ impl<T: Write> WriteExt for T {
 
     fn write_cstring(&mut self, value: &CString) -> Result<()> {
         self.write_all(value.as_bytes_with_nul())
+    }
+
+    fn write_struct<V: StructPack>(
+        &mut self,
+        value: &V,
+        big: bool,
+        encoding: Encoding,
+    ) -> Result<()> {
+        value
+            .pack(self, big, encoding)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 }
 
@@ -1144,6 +1163,9 @@ impl<T: Write + Seek> WriteAt for T {
 pub trait SeekExt {
     /// Returns the length of the stream.
     fn stream_length(&mut self) -> Result<u64>;
+    /// Aligns the current position to the given alignment.
+    /// Returns the new position after alignment.
+    fn align(&mut self, align: u64) -> Result<u64>;
 }
 
 impl<T: Seek> SeekExt for T {
@@ -1152,6 +1174,15 @@ impl<T: Seek> SeekExt for T {
         let length = self.seek(SeekFrom::End(0))?;
         self.seek(SeekFrom::Start(current_pos))?;
         Ok(length)
+    }
+
+    fn align(&mut self, align: u64) -> Result<u64> {
+        let current_pos = self.stream_position()?;
+        let aligned_pos = (current_pos + align - 1) & !(align - 1);
+        if aligned_pos != current_pos {
+            self.seek(SeekFrom::Start(aligned_pos))?;
+        }
+        Ok(aligned_pos)
     }
 }
 
@@ -1457,6 +1488,9 @@ impl Write for MemWriter {
 }
 
 impl Seek for MemWriter {
+    /// Seeks to a new position in the writer.
+    /// If the new position is beyond the current length of the data, the data is resized when writing.
+    /// (This means that seeking beyond the end does not immediately resize the data.)
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         match pos {
             SeekFrom::Start(offset) => {

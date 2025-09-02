@@ -116,6 +116,8 @@ lazy_static::lazy_static! {
         Box::new(artemis::panmimisoft::txt::TxtBuilder::new()),
         #[cfg(feature = "kirikiri")]
         Box::new(kirikiri::tjs_ns0::TjsNs0Builder::new()),
+        #[cfg(feature = "kirikiri")]
+        Box::new(kirikiri::tjs2::Tjs2Builder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =
