@@ -155,7 +155,7 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `kirikiri`/`kr`/`kr-ks`/`kirikiri-ks` | `kirikiri` | Kirikiri Script File (.ks) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
-| `kirikiri-scn`/`kr-scn` | `kirikiri` | Kirikiri Scene File (.scn) | ✔️ | ✔️ | ✔️ | ✔️ | ❌ | Patched script may be broken |
+| `kirikiri-scn`/`kr-scn` | `kirikiri` | Kirikiri Scene File (.scn) | ✔️ | ✔️ | ✔️ | ✔️ | ❌ | |
 | `kirikiri-simple-crypt`/`kr-simple-crypt` | `kirikiri` | Kirikiri Simple Crypt Text File | ❌ | ❌ | ✔️ | ❌ | ❌ | |
 | `kirikiri-mdf`/`kr-mdf` | `kirikiri` | Kirikiri Zlib-Compressed File | ❌ | ❌ | ✔️ | ❌ | ❌ | |
 | `kirikiri-tjs-ns0`/`kr-tjs-ns0` | `kirikiri` | Kirikiri TJS NS0 binary encoded script | ❌ | ❌ | ✔️ | ❌ | ❌ | |

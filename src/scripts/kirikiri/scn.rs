@@ -369,208 +369,232 @@ impl Script for ScnScript {
             if !scene.is_object() {
                 return Err(anyhow::anyhow!("scene at {} is not an object", i));
             }
-            for (j, text) in scene["texts"].members_mut().enumerate() {
-                if text.is_list() {
-                    if text.len() <= 1 {
-                        continue; // Skip if there are not enough values
-                    }
-                    if cur_mes.is_none() {
-                        cur_mes = mes.next();
-                    }
-                    if !text[0].is_string_or_null() {
-                        return Err(anyhow::anyhow!("name is not a string or null"));
-                    }
-                    let has_name = text[0].is_string();
-                    let mut has_display_name;
-                    if text[1].is_list() {
-                        if text[1].is_string() {
-                            let m = match cur_mes.take() {
-                                Some(m) => m,
-                                None => {
-                                    return Err(anyhow::anyhow!(
-                                        "No enough messages. (text {j} at scene {i})"
-                                    ));
-                                }
-                            };
-                            if has_name {
-                                if let Some(name) = &m.name {
-                                    let mut name = name.clone();
-                                    if let Some(replacement) = replacement {
-                                        for (key, value) in replacement.map.iter() {
-                                            name = name.replace(key, value);
-                                        }
+            if scene["texts"].is_list() {
+                for (j, text) in scene["texts"].members_mut().enumerate() {
+                    if text.is_list() {
+                        if text.len() <= 1 {
+                            continue; // Skip if there are not enough values
+                        }
+                        if cur_mes.is_none() {
+                            cur_mes = mes.next();
+                        }
+                        if !text[0].is_string_or_null() {
+                            return Err(anyhow::anyhow!("name is not a string or null"));
+                        }
+                        let has_name = text[0].is_string();
+                        let mut has_display_name;
+                        if text[1].is_list() {
+                            if text[1].is_string() {
+                                let m = match cur_mes.take() {
+                                    Some(m) => m,
+                                    None => {
+                                        return Err(anyhow::anyhow!(
+                                            "No enough messages. (text {j} at scene {i})"
+                                        ));
                                     }
-                                    text[0].set_string(name);
-                                } else {
-                                    return Err(anyhow::anyhow!(
-                                        "Name is missing for message. (text {j} at scene {i})"
-                                    ));
-                                }
-                            }
-                            let mut message = m.message.clone();
-                            if let Some(replacement) = replacement {
-                                for (key, value) in replacement.map.iter() {
-                                    message = message.replace(key, value);
-                                }
-                            }
-                            text[1].set_string(message.replace("\n", "\\n"));
-                        } else if text[1].is_list() {
-                            if text[1].len() > self.language_index
-                                && text[1][self.language_index].is_list()
-                                && text[1][self.language_index].len() >= 2
-                            {
-                                if !text[1][self.language_index][0].is_string_or_null() {
-                                    return Err(anyhow::anyhow!(
-                                        "display name is not a string or null"
-                                    ));
-                                }
-                                has_display_name = text[1][self.language_index][0].is_string();
-                                if text[1][self.language_index][1].is_string() {
-                                    let m = match cur_mes.take() {
-                                        Some(m) => m,
-                                        None => {
-                                            return Err(anyhow::anyhow!(
-                                                "No enough messages. (text {j} at scene {i})"
-                                            ));
-                                        }
-                                    };
-                                    if has_name {
-                                        if let Some(name) = &m.name {
-                                            let mut name = name.clone();
-                                            if let Some(replacement) = replacement {
-                                                for (key, value) in replacement.map.iter() {
-                                                    name = name.replace(key, value);
-                                                }
+                                };
+                                if has_name {
+                                    if let Some(name) = &m.name {
+                                        let mut name = name.clone();
+                                        if let Some(replacement) = replacement {
+                                            for (key, value) in replacement.map.iter() {
+                                                name = name.replace(key, value);
                                             }
-                                            if has_display_name {
-                                                text[1][self.language_index][0].set_string(name);
-                                            } else {
-                                                text[0].set_string(name);
-                                            }
-                                        } else {
-                                            return Err(anyhow::anyhow!(
-                                                "Name is missing for message. (text {j} at scene {i})"
-                                            ));
                                         }
-                                    }
-                                    let mut message = m.message.clone();
-                                    if let Some(replacement) = replacement {
-                                        for (key, value) in replacement.map.iter() {
-                                            message = message.replace(key, value);
-                                        }
-                                    }
-                                    text[1][self.language_index][1]
-                                        .set_string(message.replace("\n", "\\n"));
-                                }
-                            }
-                        }
-                    } else {
-                        if text.len() <= 2 {
-                            continue; // Skip if there is no message
-                        }
-                        if !text[1].is_string_or_null() {
-                            return Err(anyhow::anyhow!("display name is not a string or null"));
-                        }
-                        has_display_name = text[1].is_string();
-                        if text[2].is_string() {
-                            let m = match cur_mes.take() {
-                                Some(m) => m,
-                                None => {
-                                    return Err(anyhow::anyhow!(
-                                        "No enough messages.(text {j} at scene {i})"
-                                    ));
-                                }
-                            };
-                            if has_name {
-                                if let Some(name) = &m.name {
-                                    let mut name = name.clone();
-                                    if let Some(replacement) = replacement {
-                                        for (key, value) in replacement.map.iter() {
-                                            name = name.replace(key, value);
-                                        }
-                                    }
-                                    if has_display_name {
-                                        text[1].set_string(name);
-                                    } else {
                                         text[0].set_string(name);
+                                    } else {
+                                        return Err(anyhow::anyhow!(
+                                            "Name is missing for message. (text {j} at scene {i})"
+                                        ));
                                     }
-                                } else {
-                                    return Err(anyhow::anyhow!(
-                                        "Name is missing for message.(text {j} at scene {i})"
-                                    ));
                                 }
-                            }
-                            let mut message = m.message.clone();
-                            if let Some(replacement) = replacement {
-                                for (key, value) in replacement.map.iter() {
-                                    message = message.replace(key, value);
+                                let mut message = m.message.clone();
+                                if let Some(replacement) = replacement {
+                                    for (key, value) in replacement.map.iter() {
+                                        message = message.replace(key, value);
+                                    }
                                 }
-                            }
-                            text[2].set_string(message.replace("\n", "\\n"));
-                        } else if text[2].is_list() {
-                            if text[2].len() > self.language_index
-                                && text[2][self.language_index].is_list()
-                                && text[2][self.language_index].len() >= 2
-                            {
-                                if !text[2][self.language_index][0].is_string_or_null() {
-                                    return Err(anyhow::anyhow!(
-                                        "display name is not a string or null"
-                                    ));
-                                }
-                                has_display_name = text[2][self.language_index][0].is_string();
-                                if text[2][self.language_index][1].is_string() {
-                                    let m = match cur_mes.take() {
-                                        Some(m) => m,
-                                        None => {
-                                            return Err(anyhow::anyhow!(
-                                                "No enough messages.(text {j} at scene {i})"
-                                            ));
-                                        }
-                                    };
-                                    if has_name {
-                                        if let Some(name) = &m.name {
-                                            let mut name = name.clone();
-                                            if let Some(replacement) = replacement {
-                                                for (key, value) in replacement.map.iter() {
-                                                    name = name.replace(key, value);
+                                text[1].set_string(message.replace("\n", "\\n"));
+                            } else if text[1].is_list() {
+                                if text[1].len() > self.language_index
+                                    && text[1][self.language_index].is_list()
+                                    && text[1][self.language_index].len() >= 2
+                                {
+                                    if !text[1][self.language_index][0].is_string_or_null() {
+                                        return Err(anyhow::anyhow!(
+                                            "display name is not a string or null"
+                                        ));
+                                    }
+                                    has_display_name = text[1][self.language_index][0].is_string();
+                                    if text[1][self.language_index][1].is_string() {
+                                        let m = match cur_mes.take() {
+                                            Some(m) => m,
+                                            None => {
+                                                return Err(anyhow::anyhow!(
+                                                    "No enough messages. (text {j} at scene {i})"
+                                                ));
+                                            }
+                                        };
+                                        if has_name {
+                                            if let Some(name) = &m.name {
+                                                let mut name = name.clone();
+                                                if let Some(replacement) = replacement {
+                                                    for (key, value) in replacement.map.iter() {
+                                                        name = name.replace(key, value);
+                                                    }
                                                 }
-                                            }
-                                            if has_display_name {
-                                                text[2][self.language_index][0].set_string(name);
+                                                if has_display_name {
+                                                    text[1][self.language_index][0]
+                                                        .set_string(name);
+                                                } else {
+                                                    text[0].set_string(name);
+                                                }
                                             } else {
-                                                text[0].set_string(name);
+                                                return Err(anyhow::anyhow!(
+                                                    "Name is missing for message. (text {j} at scene {i})"
+                                                ));
                                             }
+                                        }
+                                        let mut message = m.message.clone();
+                                        if let Some(replacement) = replacement {
+                                            for (key, value) in replacement.map.iter() {
+                                                message = message.replace(key, value);
+                                            }
+                                        }
+                                        text[1][self.language_index][1]
+                                            .set_string(message.replace("\n", "\\n"));
+                                    }
+                                }
+                            }
+                        } else {
+                            if text.len() <= 2 {
+                                continue; // Skip if there is no message
+                            }
+                            if !text[1].is_string_or_null() {
+                                return Err(anyhow::anyhow!(
+                                    "display name is not a string or null"
+                                ));
+                            }
+                            has_display_name = text[1].is_string();
+                            if text[2].is_string() {
+                                let m = match cur_mes.take() {
+                                    Some(m) => m,
+                                    None => {
+                                        return Err(anyhow::anyhow!(
+                                            "No enough messages.(text {j} at scene {i})"
+                                        ));
+                                    }
+                                };
+                                if has_name {
+                                    if let Some(name) = &m.name {
+                                        let mut name = name.clone();
+                                        if let Some(replacement) = replacement {
+                                            for (key, value) in replacement.map.iter() {
+                                                name = name.replace(key, value);
+                                            }
+                                        }
+                                        if has_display_name {
+                                            text[1].set_string(name);
                                         } else {
-                                            return Err(anyhow::anyhow!(
-                                                "Name is missing for message.(text {j} at scene {i})"
-                                            ));
+                                            text[0].set_string(name);
                                         }
+                                    } else {
+                                        return Err(anyhow::anyhow!(
+                                            "Name is missing for message.(text {j} at scene {i})"
+                                        ));
                                     }
-                                    let mut message = m.message.clone();
-                                    if let Some(replacement) = replacement {
-                                        for (key, value) in replacement.map.iter() {
-                                            message = message.replace(key, value);
+                                }
+                                let mut message = m.message.clone();
+                                if let Some(replacement) = replacement {
+                                    for (key, value) in replacement.map.iter() {
+                                        message = message.replace(key, value);
+                                    }
+                                }
+                                text[2].set_string(message.replace("\n", "\\n"));
+                            } else if text[2].is_list() {
+                                if text[2].len() > self.language_index
+                                    && text[2][self.language_index].is_list()
+                                    && text[2][self.language_index].len() >= 2
+                                {
+                                    if !text[2][self.language_index][0].is_string_or_null() {
+                                        return Err(anyhow::anyhow!(
+                                            "display name is not a string or null"
+                                        ));
+                                    }
+                                    has_display_name = text[2][self.language_index][0].is_string();
+                                    if text[2][self.language_index][1].is_string() {
+                                        let m = match cur_mes.take() {
+                                            Some(m) => m,
+                                            None => {
+                                                return Err(anyhow::anyhow!(
+                                                    "No enough messages.(text {j} at scene {i})"
+                                                ));
+                                            }
+                                        };
+                                        if has_name {
+                                            if let Some(name) = &m.name {
+                                                let mut name = name.clone();
+                                                if let Some(replacement) = replacement {
+                                                    for (key, value) in replacement.map.iter() {
+                                                        name = name.replace(key, value);
+                                                    }
+                                                }
+                                                if has_display_name {
+                                                    text[2][self.language_index][0]
+                                                        .set_string(name);
+                                                } else {
+                                                    text[0].set_string(name);
+                                                }
+                                            } else {
+                                                return Err(anyhow::anyhow!(
+                                                    "Name is missing for message.(text {j} at scene {i})"
+                                                ));
+                                            }
                                         }
+                                        let mut message = m.message.clone();
+                                        if let Some(replacement) = replacement {
+                                            for (key, value) in replacement.map.iter() {
+                                                message = message.replace(key, value);
+                                            }
+                                        }
+                                        text[2][self.language_index][1]
+                                            .set_string(message.replace("\n", "\\n"));
                                     }
-                                    text[2][self.language_index][1]
-                                        .set_string(message.replace("\n", "\\n"));
                                 }
                             }
                         }
                     }
                 }
             }
-            for select in scene["selects"].members_mut() {
-                if select.is_object() {
-                    if cur_mes.is_none() {
-                        cur_mes = mes.next();
-                    }
-                    if select["language"].is_list()
-                        && select["language"].len() > self.language_index
-                        && select["language"][self.language_index].is_object()
-                    {
-                        let lang_obj = &mut select["language"][self.language_index];
-                        if lang_obj["text"].is_string() {
+            if scene["selects"].is_list() {
+                for select in scene["selects"].members_mut() {
+                    if select.is_object() {
+                        if cur_mes.is_none() {
+                            cur_mes = mes.next();
+                        }
+                        if select["language"].is_list()
+                            && select["language"].len() > self.language_index
+                            && select["language"][self.language_index].is_object()
+                        {
+                            let lang_obj = &mut select["language"][self.language_index];
+                            if lang_obj["text"].is_string() {
+                                let m = match cur_mes.take() {
+                                    Some(m) => m,
+                                    None => {
+                                        return Err(anyhow::anyhow!("No enough messages."));
+                                    }
+                                };
+                                let mut text = m.message.clone();
+                                if let Some(replacement) = replacement {
+                                    for (key, value) in replacement.map.iter() {
+                                        text = text.replace(key, value);
+                                    }
+                                }
+                                lang_obj["text"].set_string(text.replace("\n", "\\n"));
+                                continue;
+                            }
+                        }
+                        if select["text"].is_string() {
                             let m = match cur_mes.take() {
                                 Some(m) => m,
                                 None => {
@@ -583,24 +607,8 @@ impl Script for ScnScript {
                                     text = text.replace(key, value);
                                 }
                             }
-                            lang_obj["text"].set_string(text.replace("\n", "\\n"));
-                            continue;
+                            select["text"].set_string(text.replace("\n", "\\n"));
                         }
-                    }
-                    if select["text"].is_string() {
-                        let m = match cur_mes.take() {
-                            Some(m) => m,
-                            None => {
-                                return Err(anyhow::anyhow!("No enough messages."));
-                            }
-                        };
-                        let mut text = m.message.clone();
-                        if let Some(replacement) = replacement {
-                            for (key, value) in replacement.map.iter() {
-                                text = text.replace(key, value);
-                            }
-                        }
-                        select["text"].set_string(text.replace("\n", "\\n"));
                     }
                 }
             }
@@ -609,7 +617,7 @@ impl Script for ScnScript {
         if cur_mes.is_some() || mes.next().is_some() {
             return Err(anyhow::anyhow!("Some messages were not processed."));
         }
-        let psb = psb.to_psb();
+        let psb = psb.to_psb(true);
         let writer = PsbWriter::new(psb, file);
         writer.finish().map_err(|e| {
             anyhow::anyhow!("Failed to write PSB to file {}: {:?}", self.filename, e)
@@ -644,12 +652,12 @@ impl Script for ScnScript {
                 .map_err(|e| anyhow::anyhow!("Failed to deserialize YAML: {}", e))?;
             let mut psb = self.psb.clone();
             psb.set_data(data);
-            psb.to_psb()
+            psb.to_psb(true)
         } else {
             let json = json::parse(&s)?;
             let mut psb = self.psb.clone();
             psb.from_json(&json)?;
-            psb.to_psb()
+            psb.to_psb(true)
         };
         let writer = PsbWriter::new(psb, file);
         writer.finish().map_err(|e| {

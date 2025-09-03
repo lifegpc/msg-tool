@@ -57,16 +57,22 @@ pub enum PsbValueFixed {
 
 impl PsbValueFixed {
     /// Converts this value to original PSB value type.
-    pub fn to_psb(self) -> PsbValue {
+    pub fn to_psb(self, warn_on_none: bool) -> PsbValue {
         match self {
-            PsbValueFixed::None => PsbValue::None,
+            PsbValueFixed::None => {
+                if warn_on_none {
+                    eprintln!("Warning: PSB value is None, output script may broken.");
+                    crate::COUNTER.inc_warning();
+                }
+                PsbValue::None
+            }
             PsbValueFixed::Null => PsbValue::Null,
             PsbValueFixed::Bool(b) => PsbValue::Bool(b),
             PsbValueFixed::Number(n) => PsbValue::Number(n),
             PsbValueFixed::IntArray(arr) => PsbValue::IntArray(arr),
             PsbValueFixed::String(s) => PsbValue::String(s),
-            PsbValueFixed::List(l) => PsbValue::List(l.to_psb()),
-            PsbValueFixed::Object(o) => PsbValue::Object(o.to_psb()),
+            PsbValueFixed::List(l) => PsbValue::List(l.to_psb(warn_on_none)),
+            PsbValueFixed::Object(o) => PsbValue::Object(o.to_psb(warn_on_none)),
             PsbValueFixed::Resource(r) => PsbValue::Resource(r),
             PsbValueFixed::ExtraResource(er) => PsbValue::ExtraResource(er),
             PsbValueFixed::CompilerNumber => PsbValue::CompilerNumber,
@@ -460,8 +466,12 @@ pub struct PsbListFixed {
 
 impl PsbListFixed {
     /// Converts this PSB list to a original PSB list.
-    pub fn to_psb(self) -> PsbList {
-        let v: Vec<_> = self.values.into_iter().map(|v| v.to_psb()).collect();
+    pub fn to_psb(self, warn_on_none: bool) -> PsbList {
+        let v: Vec<_> = self
+            .values
+            .into_iter()
+            .map(|v| v.to_psb(warn_on_none))
+            .collect();
         PsbList::from(v)
     }
 
@@ -615,10 +625,10 @@ pub struct PsbObjectFixed {
 
 impl PsbObjectFixed {
     /// Creates a new empty PSB object.
-    pub fn to_psb(self) -> PsbObject {
+    pub fn to_psb(self, warn_on_none: bool) -> PsbObject {
         let mut hash_map = HashMap::new();
         for (key, value) in self.values {
-            hash_map.insert(key, value.to_psb());
+            hash_map.insert(key, value.to_psb(warn_on_none));
         }
         PsbObject::from(hash_map)
     }
@@ -871,9 +881,9 @@ impl VirtualPsbFixed {
     }
 
     /// Converts this fixed PSB to a virtual PSB.
-    pub fn to_psb(self) -> VirtualPsb {
+    pub fn to_psb(self, warn_on_none: bool) -> VirtualPsb {
         let (header, resources, extra, root) = self.unwrap();
-        VirtualPsb::new(header, resources, extra, root.to_psb())
+        VirtualPsb::new(header, resources, extra, root.to_psb(warn_on_none))
     }
 
     /// Converts json object to a fixed PSB.
