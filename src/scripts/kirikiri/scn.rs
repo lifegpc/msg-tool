@@ -392,8 +392,10 @@ impl Script for ScnScript {
                         let has_name = text[0].is_string();
                         let mut has_display_name;
                         if text[1].is_list() {
-                            if text[1].len() > self.language_index
-                                && text[1][self.language_index].is_list()
+                            while text[1].len() <= self.language_index {
+                                text[1][self.language_index] = text[1][0].clone();
+                            }
+                            if text[1][self.language_index].is_list()
                                 && text[1][self.language_index].len() >= 2
                             {
                                 if !text[1][self.language_index][0].is_string_or_null() {
@@ -495,8 +497,10 @@ impl Script for ScnScript {
                                 }
                                 text[2].set_string(message.replace("\n", "\\n"));
                             } else if text[2].is_list() {
-                                if text[2].len() > self.language_index
-                                    && text[2][self.language_index].is_list()
+                                while text[2].len() <= self.language_index {
+                                    text[2][self.language_index] = text[2][0].clone();
+                                }
+                                if text[2][self.language_index].is_list()
                                     && text[2][self.language_index].len() >= 2
                                 {
                                     if !text[2][self.language_index][0].is_string_or_null() {
@@ -565,7 +569,13 @@ impl Script for ScnScript {
                             cur_mes = mes.next();
                         }
                         if select["language"].is_list()
-                            && select["language"].len() > self.language_index
+                            && {
+                                while select["language"].len() <= self.language_index {
+                                    select["language"][self.language_index] =
+                                        select["language"][0].clone();
+                                }
+                                true
+                            }
                             && select["language"][self.language_index].is_object()
                         {
                             let lang_obj = &mut select["language"][self.language_index];
