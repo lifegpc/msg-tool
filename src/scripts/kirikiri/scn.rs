@@ -110,9 +110,10 @@ impl ScriptBuilder for ScnScriptBuilder {
 pub struct ScnScript {
     psb: VirtualPsbFixed,
     language_index: usize,
-    export_comumode: bool,
+    export_chat: bool,
     filename: String,
-    comumode_json: Option<Arc<HashMap<String, String>>>,
+    chat_key: Option<String>,
+    chat_json: Option<Arc<HashMap<String, String>>>,
     custom_yaml: bool,
 }
 
@@ -144,9 +145,10 @@ impl ScnScript {
         Ok(Self {
             psb: psb.to_psb_fixed(),
             language_index: config.kirikiri_language_index.unwrap_or(0),
-            export_comumode: config.kirikiri_export_comumode,
+            export_chat: config.kirikiri_export_chat,
             filename: filename.to_string(),
-            comumode_json: config.kirikiri_comumode_json.clone(),
+            chat_key: config.kirikiri_chat_key.clone(),
+            chat_json: config.kirikiri_chat_json.clone(),
             custom_yaml: config.custom_yaml,
         })
     }
@@ -179,8 +181,10 @@ impl Script for ScnScript {
             PsbValueFixed::List(list) => list,
             _ => return Err(anyhow::anyhow!("scenes is not a list")),
         };
-        let mut comu = if self.export_comumode {
-            Some(ExportComuMes::new())
+        let mut comu = if self.export_chat {
+            Some(ExportMes::new(
+                self.chat_key.clone().unwrap_or("comumode".to_string()),
+            ))
         } else {
             None
         };
@@ -322,19 +326,19 @@ impl Script for ScnScript {
                 let filename = pb
                     .file_stem()
                     .map(|s| s.to_string_lossy())
-                    .unwrap_or(std::borrow::Cow::from("comumode"));
-                pb.set_file_name(format!("{}_comumode.json", filename));
+                    .unwrap_or(std::borrow::Cow::from(comu.key.as_str()));
+                pb.set_file_name(format!("{}_{}.json", filename, comu.key));
                 match std::fs::File::create(&pb) {
                     Ok(mut f) => {
                         let messages: Vec<String> = comu.messages.into_iter().collect();
                         if let Err(e) = serde_json::to_writer_pretty(&mut f, &messages) {
-                            eprintln!("Failed to write COMU messages to {}: {:?}", pb.display(), e);
+                            eprintln!("Failed to write chat messages to {}: {:?}", pb.display(), e);
                             crate::COUNTER.inc_warning();
                         }
                     }
                     Err(e) => {
                         eprintln!(
-                            "Failed to create COMU messages file {}: {:?}",
+                            "Failed to create chat messages file {}: {:?}",
                             pb.display(),
                             e
                         );
@@ -362,10 +366,13 @@ impl Script for ScnScript {
         if !scenes.is_list() {
             return Err(anyhow::anyhow!("scenes is not an array"));
         }
-        let comu = self
-            .comumode_json
-            .as_ref()
-            .map(|json| ImportComuMes::new(json, replacement));
+        let comu = self.chat_json.as_ref().map(|json| {
+            ImportMes::new(
+                json,
+                replacement,
+                self.chat_key.clone().unwrap_or("comumode".to_string()),
+            )
+        });
         for (i, scene) in scenes.members_mut().enumerate() {
             if !scene.is_object() {
                 return Err(anyhow::anyhow!("scene at {} is not an object", i));
@@ -653,14 +660,16 @@ impl Script for ScnScript {
 }
 
 #[derive(Debug)]
-struct ExportComuMes {
+struct ExportMes {
     pub messages: HashSet<String>,
+    pub key: String,
 }
 
-impl ExportComuMes {
-    pub fn new() -> Self {
+impl ExportMes {
+    pub fn new(key: String) -> Self {
         Self {
             messages: HashSet::new(),
+            key: key,
         }
     }
 
@@ -668,7 +677,7 @@ impl ExportComuMes {
         match value {
             PsbValueFixed::Object(obj) => {
                 for (k, v) in obj.iter() {
-                    if k == "comumode" {
+                    if k == &self.key {
                         if let PsbValueFixed::List(list) = v {
                             for item in list.iter() {
                                 if let PsbValueFixed::Object(obj) = item {
@@ -687,7 +696,7 @@ impl ExportComuMes {
                 let list = list.values();
                 if list.len() > 1 {
                     if let PsbValueFixed::String(s) = &list[0] {
-                        if s.string() == "comumode" {
+                        if s.string() == &self.key {
                             for i in 1..list.len() {
                                 if let PsbValueFixed::String(s) = &list[i - 1] {
                                     if s.string() == "text" {
@@ -712,19 +721,22 @@ impl ExportComuMes {
 }
 
 #[derive(Debug)]
-struct ImportComuMes<'a> {
+struct ImportMes<'a> {
     messages: &'a Arc<HashMap<String, String>>,
     replacement: Option<&'a ReplacementTable>,
+    key: String,
 }
 
-impl<'a> ImportComuMes<'a> {
+impl<'a> ImportMes<'a> {
     pub fn new(
         messages: &'a Arc<HashMap<String, String>>,
         replacement: Option<&'a ReplacementTable>,
+        key: String,
     ) -> Self {
         Self {
             messages,
             replacement,
+            key: key,
         }
     }
 
@@ -732,7 +744,7 @@ impl<'a> ImportComuMes<'a> {
         match value {
             PsbValueFixed::Object(obj) => {
                 for (k, v) in obj.iter_mut() {
-                    if k == "comumode" {
+                    if k == &self.key {
                         for obj in v.members_mut() {
                             if let Some(text) = obj["text"].as_str() {
                                 if let Some(replace_text) = self.messages.get(text) {
@@ -745,7 +757,7 @@ impl<'a> ImportComuMes<'a> {
                                     obj["text"].set_string(text.replace("\n", "\\n"));
                                 } else {
                                     eprintln!(
-                                        "Warning: COMU message '{}' not found in translation table.",
+                                        "Warning: chat message '{}' not found in translation table.",
                                         text
                                     );
                                     crate::COUNTER.inc_warning();
@@ -759,7 +771,7 @@ impl<'a> ImportComuMes<'a> {
             }
             PsbValueFixed::List(list) => {
                 if list.len() > 1 {
-                    if list[0] == "comumode" {
+                    if list[0] == self.key {
                         for i in 1..list.len() {
                             if list[i - 1] == "text" {
                                 if let Some(text) = list[i].as_str() {
@@ -773,7 +785,7 @@ impl<'a> ImportComuMes<'a> {
                                         list[i].set_string(text.replace("\n", "\\n"));
                                     } else {
                                         eprintln!(
-                                            "Warning: COMU message '{}' not found in translation table.",
+                                            "Warning: chat message '{}' not found in translation table.",
                                             text
                                         );
                                         crate::COUNTER.inc_warning();

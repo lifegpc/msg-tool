@@ -1698,10 +1698,12 @@ fn main() {
         #[cfg(feature = "kirikiri")]
         kirikiri_language_index: arg.kirikiri_language_index.clone(),
         #[cfg(feature = "kirikiri")]
-        kirikiri_export_comumode: arg.kirikiri_export_comumode,
+        kirikiri_export_chat: arg.kirikiri_export_chat,
         #[cfg(feature = "kirikiri")]
-        kirikiri_comumode_json: arg
-            .kirikiri_comumode_json
+        kirikiri_chat_key: arg.kirikiri_chat_key.clone(),
+        #[cfg(feature = "kirikiri")]
+        kirikiri_chat_json: arg
+            .kirikiri_chat_json
             .as_ref()
             .map(|s| scripts::kirikiri::read_kirikiri_comu_json(s).unwrap()),
         #[cfg(feature = "kirikiri")]

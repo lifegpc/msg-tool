@@ -260,12 +260,16 @@ pub struct ExtraConfig {
     /// Kirikiri language index in script. If not specified, the first language will be used.
     pub kirikiri_language_index: Option<usize>,
     #[cfg(feature = "kirikiri")]
-    /// Export COMU message to extra json file. (for Kirikiri SCN script.)
-    /// Only CIRCUS's game have COMU message.
-    pub kirikiri_export_comumode: bool,
+    /// Export chat message to extra json file. (for Kirikiri SCN script.)
+    /// For example, CIRCUS's comu message. Yuzusoft's phone chat message.
+    pub kirikiri_export_chat: bool,
     #[cfg(feature = "kirikiri")]
-    /// Kirikiri COMU message translation. key is original text, value is translated text.
-    pub kirikiri_comumode_json: Option<std::sync::Arc<HashMap<String, String>>>,
+    /// Kirikiri chat message key. For example, CIRCUS's key is "comumode". Yuzusoft's key is "phonechat".
+    /// If not specified, "comumode" will be used.
+    pub kirikiri_chat_key: Option<String>,
+    #[cfg(feature = "kirikiri")]
+    /// Kirikiri chat message translation. key is original text, value is translated text.
+    pub kirikiri_chat_json: Option<std::sync::Arc<HashMap<String, String>>>,
     #[cfg(feature = "kirikiri")]
     /// Remove empty lines in Kirikiri KS script.
     pub kirikiri_remove_empty_lines: bool,
