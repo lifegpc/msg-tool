@@ -8,6 +8,8 @@
 //! △ LLM message
 //! ● Translated message
 //! ```
+use std::collections::HashMap;
+
 use crate::types::Message;
 use anyhow::Result;
 
@@ -46,6 +48,75 @@ impl<'a> M3tParser<'a> {
                 }
             }
         }
+    }
+
+    pub fn parse_as_map(&mut self) -> Result<HashMap<String, String>> {
+        let mut map = HashMap::new();
+        let mut ori = None;
+        let mut llm = None;
+        while let Some(line) = self.next_line() {
+            if line.is_empty() {
+                continue;
+            }
+            if line.starts_with("○") {
+                let line = line[3..].trim();
+                if !line.starts_with("NAME:") {
+                    ori = Some(line.to_string());
+                }
+            } else if line.starts_with("△") {
+                let line = line[3..].trim();
+                llm = Some(line);
+            } else if line.starts_with("●") {
+                let message = line[3..].trim();
+                let message = if message
+                    .trim_start_matches("「")
+                    .trim_end_matches("」")
+                    .is_empty()
+                {
+                    llm.take()
+                        .map(|s| {
+                            let mut s = s.to_string();
+                            if let Some(mark) = self.llm_mark {
+                                s.push_str(mark);
+                            }
+                            s
+                        })
+                        .unwrap_or_else(|| {
+                            String::from(if message.starts_with("「") {
+                                "「」"
+                            } else {
+                                ""
+                            })
+                        })
+                        .replace("\\n", "\n")
+                } else {
+                    let mut tmp = message.replace("\\n", "\n");
+                    if let Some(llm) = llm.take() {
+                        if tmp == llm {
+                            if let Some(mark) = self.llm_mark {
+                                tmp.push_str(mark);
+                            }
+                        }
+                    }
+                    tmp
+                };
+                if let Some(ori) = ori.take() {
+                    map.insert(ori, message);
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Missing original message before translated message at line {}",
+                        self.line
+                    ));
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Invalid line format at line {}: {}",
+                    self.line,
+                    line
+                ));
+            }
+        }
+        Ok(map)
     }
 
     /// Parses the M3T format and returns a vector of messages.

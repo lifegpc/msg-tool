@@ -1748,10 +1748,8 @@ fn main() {
         #[cfg(feature = "kirikiri")]
         kirikiri_chat_key: arg.kirikiri_chat_key.clone(),
         #[cfg(feature = "kirikiri")]
-        kirikiri_chat_json: arg
-            .kirikiri_chat_json
-            .as_ref()
-            .map(|s| scripts::kirikiri::read_kirikiri_comu_json(s).unwrap()),
+        kirikiri_chat_json: args::load_kirikiri_chat_json(&arg)
+            .expect("Failed to load Kirikiri chat JSON"),
         #[cfg(feature = "kirikiri")]
         kirikiri_remove_empty_lines: arg.kirikiri_remove_empty_lines,
         #[cfg(feature = "kirikiri")]

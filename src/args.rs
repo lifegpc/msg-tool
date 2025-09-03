@@ -203,6 +203,10 @@ pub struct Arg {
     /// Kirikiri chat message translation file. (Map<String, String>, key is original text, value is translated text.)
     pub kirikiri_chat_json: Option<String>,
     #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true, group = "kirikiri_chat_jsong")]
+    /// Kirikiri chat message translation directory. All json files in this directory will be merged. (Only m3t files are supported.)
+    pub kirikiri_chat_dir: Option<String>,
+    #[cfg(feature = "kirikiri")]
     #[arg(long, global = true, action = ArgAction::SetTrue, alias = "kr-no-empty-lines", alias = "kirikiri-no-empty-lines")]
     /// Remove empty lines in Kirikiri KS script.
     pub kirikiri_remove_empty_lines: bool,
@@ -570,4 +574,46 @@ pub fn get_artemis_panmimisoft_txt_blacklist_names(
             .cloned()
             .collect()),
     }
+}
+
+#[cfg(feature = "kirikiri")]
+pub fn load_kirikiri_chat_json(
+    arg: &Arg,
+) -> anyhow::Result<Option<std::sync::Arc<std::collections::HashMap<String, String>>>> {
+    if let Some(path) = &arg.kirikiri_chat_json {
+        return Ok(Some(crate::scripts::kirikiri::read_kirikiri_comu_json(
+            path,
+        )?));
+    }
+    if let Some(dir) = &arg.kirikiri_chat_dir {
+        let mut outt = arg.output_type.unwrap_or(OutputScriptType::M3t);
+        if !matches!(
+            outt,
+            OutputScriptType::M3t | OutputScriptType::M3ta | OutputScriptType::M3tTxt
+        ) {
+            outt = OutputScriptType::M3t;
+        }
+        let files = crate::utils::files::find_ext_files(dir, arg.recursive, &[outt.as_ref()])?;
+        if !files.is_empty() {
+            let mut map = std::collections::HashMap::new();
+            for file in files {
+                let f = crate::utils::files::read_file(&file)?;
+                let data = crate::utils::encoding::decode_to_string(
+                    crate::get_output_encoding(arg),
+                    &f,
+                    true,
+                )?;
+                let m3t = crate::output_scripts::m3t::M3tParser::new(
+                    &data,
+                    arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                )
+                .parse_as_map()?;
+                for (k, v) in m3t {
+                    map.insert(k, v);
+                }
+            }
+            return Ok(Some(std::sync::Arc::new(map)));
+        }
+    }
+    Ok(None)
 }
