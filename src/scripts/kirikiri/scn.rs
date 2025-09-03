@@ -7,6 +7,7 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
 use emote_psb::{PsbReader, PsbWriter};
+use fancy_regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek};
 use std::path::Path;
@@ -384,85 +385,60 @@ impl Script for ScnScript {
                         let has_name = text[0].is_string();
                         let mut has_display_name;
                         if text[1].is_list() {
-                            if text[1].is_string() {
-                                let m = match cur_mes.take() {
-                                    Some(m) => m,
-                                    None => {
-                                        return Err(anyhow::anyhow!(
-                                            "No enough messages. (text {j} at scene {i})"
-                                        ));
-                                    }
-                                };
-                                if has_name {
-                                    if let Some(name) = &m.name {
-                                        let mut name = name.clone();
-                                        if let Some(replacement) = replacement {
-                                            for (key, value) in replacement.map.iter() {
-                                                name = name.replace(key, value);
-                                            }
+                            if text[1].len() > self.language_index
+                                && text[1][self.language_index].is_list()
+                                && text[1][self.language_index].len() >= 2
+                            {
+                                if !text[1][self.language_index][0].is_string_or_null() {
+                                    return Err(anyhow::anyhow!(
+                                        "display name is not a string or null"
+                                    ));
+                                }
+                                has_display_name = text[1][self.language_index][0].is_string();
+                                if text[1][self.language_index][1].is_string() {
+                                    let m = match cur_mes.take() {
+                                        Some(m) => m,
+                                        None => {
+                                            return Err(anyhow::anyhow!(
+                                                "No enough messages. (text {j} at scene {i})"
+                                            ));
                                         }
-                                        text[0].set_string(name);
-                                    } else {
-                                        return Err(anyhow::anyhow!(
-                                            "Name is missing for message. (text {j} at scene {i})"
-                                        ));
-                                    }
-                                }
-                                let mut message = m.message.clone();
-                                if let Some(replacement) = replacement {
-                                    for (key, value) in replacement.map.iter() {
-                                        message = message.replace(key, value);
-                                    }
-                                }
-                                text[1].set_string(message.replace("\n", "\\n"));
-                            } else if text[1].is_list() {
-                                if text[1].len() > self.language_index
-                                    && text[1][self.language_index].is_list()
-                                    && text[1][self.language_index].len() >= 2
-                                {
-                                    if !text[1][self.language_index][0].is_string_or_null() {
-                                        return Err(anyhow::anyhow!(
-                                            "display name is not a string or null"
-                                        ));
-                                    }
-                                    has_display_name = text[1][self.language_index][0].is_string();
-                                    if text[1][self.language_index][1].is_string() {
-                                        let m = match cur_mes.take() {
-                                            Some(m) => m,
-                                            None => {
-                                                return Err(anyhow::anyhow!(
-                                                    "No enough messages. (text {j} at scene {i})"
-                                                ));
+                                    };
+                                    if has_name {
+                                        if let Some(name) = &m.name {
+                                            let mut name = name.clone();
+                                            if let Some(replacement) = replacement {
+                                                for (key, value) in replacement.map.iter() {
+                                                    name = name.replace(key, value);
+                                                }
                                             }
-                                        };
-                                        if has_name {
-                                            if let Some(name) = &m.name {
-                                                let mut name = name.clone();
-                                                if let Some(replacement) = replacement {
-                                                    for (key, value) in replacement.map.iter() {
-                                                        name = name.replace(key, value);
-                                                    }
-                                                }
-                                                if has_display_name {
-                                                    text[1][self.language_index][0]
-                                                        .set_string(name);
-                                                } else {
-                                                    text[0].set_string(name);
-                                                }
+                                            if has_display_name {
+                                                text[1][self.language_index][0].set_string(name);
                                             } else {
-                                                return Err(anyhow::anyhow!(
-                                                    "Name is missing for message. (text {j} at scene {i})"
-                                                ));
+                                                text[0].set_string(name);
                                             }
+                                        } else {
+                                            return Err(anyhow::anyhow!(
+                                                "Name is missing for message. (text {j} at scene {i})"
+                                            ));
                                         }
-                                        let mut message = m.message.clone();
-                                        if let Some(replacement) = replacement {
-                                            for (key, value) in replacement.map.iter() {
-                                                message = message.replace(key, value);
-                                            }
+                                    }
+                                    let mut message = m.message.clone();
+                                    if let Some(replacement) = replacement {
+                                        for (key, value) in replacement.map.iter() {
+                                            message = message.replace(key, value);
                                         }
-                                        text[1][self.language_index][1]
-                                            .set_string(message.replace("\n", "\\n"));
+                                    }
+                                    text[1][self.language_index][1]
+                                        .set_string(message.replace("\n", "\\n"));
+                                    // Modify save message if exists
+                                    if text[1][self.language_index][3].is_string() {
+                                        text[1][self.language_index][3]
+                                            .set_string(get_save_message(&message, true));
+                                    }
+                                    if text[1][self.language_index][4].is_string() {
+                                        text[1][self.language_index][4]
+                                            .set_string(get_save_message(&message, false));
                                     }
                                 }
                             }
@@ -559,6 +535,15 @@ impl Script for ScnScript {
                                         }
                                         text[2][self.language_index][1]
                                             .set_string(message.replace("\n", "\\n"));
+                                        // Modify save message if exists
+                                        if text[2][self.language_index][3].is_string() {
+                                            text[2][self.language_index][3]
+                                                .set_string(get_save_message(&message, true));
+                                        }
+                                        if text[2][self.language_index][4].is_string() {
+                                            text[2][self.language_index][4]
+                                                .set_string(get_save_message(&message, false));
+                                        }
                                     }
                                 }
                             }
@@ -806,4 +791,25 @@ impl<'a> ImportComuMes<'a> {
             _ => {}
         }
     }
+}
+
+lazy_static::lazy_static! {
+    static ref CONTROL: Regex = Regex::new("%[^;]*;").unwrap();
+    static ref RUBY: Regex = Regex::new(r"\[([^\]]*)\](.?)").unwrap();
+}
+
+fn get_save_message(s: &str, in_ruby: bool) -> String {
+    let mut s = s.replace("\n", "");
+    s = CONTROL.replace_all(&s, "").to_string();
+    s = RUBY
+        .replace_all(&s, if in_ruby { "$1" } else { "$2" })
+        .to_string();
+    s
+}
+
+#[test]
+fn test_get_save_message() {
+    let s = "%n;Test\n[ruby]测[test\\]试%ok;[ok]";
+    assert_eq!(get_save_message(s, true), "Testrubytest\\ok");
+    assert_eq!(get_save_message(s, false), "Test测试");
 }

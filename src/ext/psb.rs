@@ -303,7 +303,7 @@ impl Index<usize> for PsbValueFixed {
 
     fn index(&self, index: usize) -> &Self::Output {
         match self {
-            PsbValueFixed::List(l) => &l.values[index],
+            PsbValueFixed::List(l) => &l[index],
             _ => &NONE,
         }
     }
