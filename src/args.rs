@@ -394,6 +394,10 @@ pub struct Arg {
     #[arg(short = 'L', long, global = true, default_value_t = 5, value_parser = parse_flac_compression_level)]
     /// FLAC compression level for output FLAC audio files. 0 means fastest compression, 8 means best compression.
     pub flac_compression_level: u32,
+    #[arg(long, global = true)]
+    /// Add a mark to the end of each message for LLM translation.
+    /// Only works on m3t format.
+    pub llm_trans_mark: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

@@ -15,12 +15,17 @@ use anyhow::Result;
 pub struct M3tParser<'a> {
     str: &'a str,
     line: usize,
+    llm_mark: Option<&'a str>,
 }
 
 impl<'a> M3tParser<'a> {
     /// Creates a new M3tParser with the given string.
-    pub fn new(str: &'a str) -> Self {
-        M3tParser { str, line: 1 }
+    pub fn new(str: &'a str, llm_mark: Option<&'a str>) -> Self {
+        M3tParser {
+            str,
+            line: 1,
+            llm_mark,
+        }
     }
 
     fn next_line(&mut self) -> Option<&'a str> {
@@ -68,16 +73,31 @@ impl<'a> M3tParser<'a> {
                     .is_empty()
                 {
                     llm.take()
+                        .map(|s| {
+                            let mut s = s.to_string();
+                            if let Some(mark) = self.llm_mark {
+                                s.push_str(mark);
+                            }
+                            s
+                        })
                         .unwrap_or_else(|| {
-                            if message.starts_with("「") {
+                            String::from(if message.starts_with("「") {
                                 "「」"
                             } else {
                                 ""
-                            }
+                            })
                         })
                         .replace("\\n", "\n")
                 } else {
-                    message.replace("\\n", "\n")
+                    let mut tmp = message.replace("\\n", "\n");
+                    if let Some(llm) = llm.take() {
+                        if tmp == llm {
+                            if let Some(mark) = self.llm_mark {
+                                tmp.push_str(mark);
+                            }
+                        }
+                    }
+                    tmp
                 };
                 messages.push(Message::new(message, name.take()));
             } else {

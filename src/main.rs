@@ -1101,7 +1101,10 @@ pub fn import_script(
                                 continue;
                             }
                         };
-                        let mut parser = output_scripts::m3t::M3tParser::new(&s);
+                        let mut parser = output_scripts::m3t::M3tParser::new(
+                            &s,
+                            arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                        );
                         match parser.parse() {
                             Ok(mes) => mes,
                             Err(e) => {
@@ -1320,7 +1323,10 @@ pub fn import_script(
             let enc = get_output_encoding(arg);
             let b = utils::files::read_file(&out_f)?;
             let s = utils::encoding::decode_to_string(enc, &b, true)?;
-            let mut parser = output_scripts::m3t::M3tParser::new(&s);
+            let mut parser = output_scripts::m3t::M3tParser::new(
+                &s,
+                arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+            );
             parser.parse()?
         }
         types::OutputScriptType::Yaml => {
