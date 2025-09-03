@@ -83,6 +83,9 @@ pub struct Arg {
     #[arg(short = 'T', long, value_enum, global = true)]
     /// Output script type
     pub output_type: Option<OutputScriptType>,
+    #[arg(short = 'n', long, global = true)]
+    /// Disable extra extension when locating/export output script
+    pub output_no_extra_ext: bool,
     #[cfg(feature = "image")]
     #[arg(short = 'i', long, value_enum, global = true)]
     /// Output image type

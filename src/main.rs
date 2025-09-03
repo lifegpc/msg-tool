@@ -7,6 +7,7 @@ pub mod scripts;
 pub mod types;
 pub mod utils;
 
+use ext::path::PathBufExt;
 use scripts::base::ArchiveContent;
 
 fn get_encoding(
@@ -542,6 +543,9 @@ pub fn export_script(
                     continue;
                 }
                 let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                if arg.output_no_extra_ext {
+                    out_path.remove_all_extensions();
+                }
                 out_path.set_extension(if of.is_custom() {
                     script_file.custom_output_extension()
                 } else {
@@ -729,7 +733,11 @@ pub fn export_script(
                             if !arg.image_output_flat {
                                 if let Some(fname) = f.file_name() {
                                     pb.push(fname);
-                                    pb.set_extension("");
+                                    if arg.output_no_extra_ext {
+                                        pb.remove_all_extensions();
+                                    } else {
+                                        pb.set_extension("");
+                                    }
                                 }
                                 pb.push(img_data.name);
                             } else {
@@ -752,6 +760,11 @@ pub fn export_script(
                                 ));
                             } else {
                                 pb.push(img_data.name);
+                                if arg.output_no_extra_ext {
+                                    pb.remove_all_extensions();
+                                } else {
+                                    pb.set_extension("");
+                                }
                             }
                             pb.set_extension(out_type.as_ref());
                             pb.to_string_lossy().into_owned()
@@ -767,7 +780,11 @@ pub fn export_script(
                                 img_data.name
                             ));
                         } else {
-                            pb.set_extension("");
+                            if arg.output_no_extra_ext {
+                                pb.remove_all_extensions();
+                            } else {
+                                pb.set_extension("");
+                            }
                             pb.push(img_data.name);
                         }
                         pb.set_extension(out_type.as_ref());
@@ -813,6 +830,9 @@ pub fn export_script(
                         if let Some(fname) = f.file_name() {
                             pb.push(fname);
                         }
+                        if arg.output_no_extra_ext {
+                            pb.remove_all_extensions();
+                        }
                         pb.set_extension(out_type.as_ref());
                         pb.to_string_lossy().into_owned()
                     } else {
@@ -821,6 +841,9 @@ pub fn export_script(
                 }
                 None => {
                     let mut pb = std::path::PathBuf::from(filename);
+                    if arg.output_no_extra_ext {
+                        pb.remove_all_extensions();
+                    }
                     pb.set_extension(out_type.as_ref());
                     pb.to_string_lossy().into_owned()
                 }
@@ -866,6 +889,9 @@ pub fn export_script(
                     if let Some(fname) = f.file_name() {
                         pb.push(fname);
                     }
+                    if arg.output_no_extra_ext {
+                        pb.remove_all_extensions();
+                    }
                     pb.set_extension(ext);
                     pb.to_string_lossy().into_owned()
                 } else {
@@ -874,6 +900,9 @@ pub fn export_script(
             }
             None => {
                 let mut pb = std::path::PathBuf::from(filename);
+                if arg.output_no_extra_ext {
+                    pb.remove_all_extensions();
+                }
                 pb.set_extension(ext);
                 pb.to_string_lossy().into_owned()
             }
@@ -1007,6 +1036,9 @@ pub fn import_script(
                     of = script_file.default_output_script_type();
                 }
                 let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                if arg.output_no_extra_ext {
+                    out_path.remove_all_extensions();
+                }
                 let ext = if of.is_custom() {
                     script_file.custom_output_extension()
                 } else {
@@ -1261,6 +1293,9 @@ pub fn import_script(
             if let Some(fname) = f.file_name() {
                 pb.push(fname);
             }
+            if arg.output_no_extra_ext {
+                pb.remove_all_extensions();
+            }
             pb.set_extension(out_type.as_ref());
             pb.to_string_lossy().into_owned()
         } else {
@@ -1302,6 +1337,9 @@ pub fn import_script(
         }
         if let Some(fname) = f.file_name() {
             pb.push(fname);
+        }
+        if arg.output_no_extra_ext {
+            pb.remove_all_extensions();
         }
         pb.set_extension(of.as_ref());
         pb.to_string_lossy().into_owned()
