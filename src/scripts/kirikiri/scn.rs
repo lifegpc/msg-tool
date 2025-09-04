@@ -110,6 +110,7 @@ impl ScriptBuilder for ScnScriptBuilder {
 pub struct ScnScript {
     psb: VirtualPsbFixed,
     language_index: usize,
+    languages: Option<Arc<Vec<String>>>,
     export_chat: bool,
     filename: String,
     chat_key: Option<String>,
@@ -145,6 +146,7 @@ impl ScnScript {
         Ok(Self {
             psb: psb.to_psb_fixed(),
             language_index: config.kirikiri_language_index.unwrap_or(0),
+            languages: config.kirikiri_languages.clone(),
             export_chat: config.kirikiri_export_chat,
             filename: filename.to_string(),
             chat_key: config.kirikiri_chat_key.clone(),
@@ -181,9 +183,36 @@ impl Script for ScnScript {
             PsbValueFixed::List(list) => list,
             _ => return Err(anyhow::anyhow!("scenes is not a list")),
         };
+        let language = if self.language_index != 0 {
+            let index = self.language_index - 1;
+            if let Some(lang) = root["languages"][index].as_str() {
+                Some(lang.to_owned())
+            } else if let Some(languages) = self.languages.as_ref() {
+                if index < languages.len() {
+                    eprintln!(
+                        "WARN: Language code not found in PSB, using from config. Chat messages may not be extracted correctly."
+                    );
+                    crate::COUNTER.inc_warning();
+                    Some(languages[index].to_owned())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if self.language_index != 0 && language.is_none() {
+            eprintln!(
+                "WARN: Language index is set but language code not found in PSB. Chat messages may not be extracted correctly."
+            );
+            crate::COUNTER.inc_warning();
+        }
         let mut comu = if self.export_chat {
             Some(ExportMes::new(
                 self.chat_key.clone().unwrap_or("comumode".to_string()),
+                language.clone(),
             ))
         } else {
             None
@@ -362,6 +391,29 @@ impl Script for ScnScript {
         let mut cur_mes = mes.next();
         let mut psb = self.psb.clone();
         let root = psb.root_mut();
+        if let Some(lang) = &self.languages {
+            let lang = (**lang).clone();
+            root["languages"] = PsbValueFixed::List(PsbListFixed {
+                values: lang
+                    .into_iter()
+                    .map(|s| PsbValueFixed::String(s.into()))
+                    .collect(),
+            });
+        }
+        let language = if self.language_index != 0 {
+            let index = self.language_index - 1;
+            if let Some(lang) = root["languages"][index].as_str() {
+                Some(lang.to_owned())
+            } else {
+                eprintln!(
+                    "WARN: language code not found in PSB. Some functions may not work correctly. Use --kirikiri-languages to specify language codes."
+                );
+                crate::COUNTER.inc_warning();
+                None
+            }
+        } else {
+            None
+        };
         let scenes = &mut root["scenes"];
         if !scenes.is_list() {
             return Err(anyhow::anyhow!("scenes is not an array"));
@@ -371,6 +423,7 @@ impl Script for ScnScript {
                 json,
                 replacement,
                 self.chat_key.clone().unwrap_or("comumode".to_string()),
+                language.clone(),
             )
         });
         for (i, scene) in scenes.members_mut().enumerate() {
@@ -421,7 +474,7 @@ impl Script for ScnScript {
                                                     name = name.replace(key, value);
                                                 }
                                             }
-                                            if has_display_name {
+                                            if has_display_name || self.language_index != 0 {
                                                 text[1][self.language_index][0].set_string(name);
                                             } else {
                                                 text[0].set_string(name);
@@ -526,11 +579,15 @@ impl Script for ScnScript {
                                                         name = name.replace(key, value);
                                                     }
                                                 }
-                                                if has_display_name {
+                                                if has_display_name || self.language_index != 0 {
                                                     text[2][self.language_index][0]
                                                         .set_string(name);
                                                 } else {
-                                                    text[0].set_string(name);
+                                                    if text[1].is_string() {
+                                                        text[1].set_string(name);
+                                                    } else {
+                                                        text[0].set_string(name);
+                                                    }
                                                 }
                                             } else {
                                                 return Err(anyhow::anyhow!(
@@ -673,13 +730,15 @@ impl Script for ScnScript {
 struct ExportMes {
     pub messages: HashSet<String>,
     pub key: String,
+    text_key: String,
 }
 
 impl ExportMes {
-    pub fn new(key: String) -> Self {
+    pub fn new(key: String, language: Option<String>) -> Self {
         Self {
             messages: HashSet::new(),
             key: key,
+            text_key: language.map_or_else(|| String::from("text"), |s| format!("text_{}", s)),
         }
     }
 
@@ -691,8 +750,10 @@ impl ExportMes {
                         if let PsbValueFixed::List(list) = v {
                             for item in list.iter() {
                                 if let PsbValueFixed::Object(obj) = item {
-                                    if let Some(PsbValueFixed::String(s)) = obj.get_value("text") {
-                                        self.messages.insert(s.string().replace("\\n", "\n"));
+                                    if let Some(s) = obj[&self.text_key].as_str() {
+                                        self.messages.insert(s.replace("\\n", "\n"));
+                                    } else if let Some(s) = obj["text"].as_str() {
+                                        self.messages.insert(s.replace("\\n", "\n"));
                                     }
                                 }
                             }
@@ -707,6 +768,19 @@ impl ExportMes {
                 if list.len() > 1 {
                     if let PsbValueFixed::String(s) = &list[0] {
                         if s.string() == &self.key {
+                            for i in 1..list.len() {
+                                if let PsbValueFixed::String(s) = &list[i - 1] {
+                                    if s.string() == &self.text_key {
+                                        if let PsbValueFixed::String(text) = &list[i] {
+                                            self.messages
+                                                .insert(text.string().replace("\\n", "\n"));
+                                        }
+                                    }
+                                }
+                            }
+                            if self.text_key == "text" {
+                                return;
+                            }
                             for i in 1..list.len() {
                                 if let PsbValueFixed::String(s) = &list[i - 1] {
                                     if s.string() == "text" {
@@ -735,6 +809,7 @@ struct ImportMes<'a> {
     messages: &'a Arc<HashMap<String, String>>,
     replacement: Option<&'a ReplacementTable>,
     key: String,
+    text_key: String,
 }
 
 impl<'a> ImportMes<'a> {
@@ -742,11 +817,13 @@ impl<'a> ImportMes<'a> {
         messages: &'a Arc<HashMap<String, String>>,
         replacement: Option<&'a ReplacementTable>,
         key: String,
+        lang: Option<String>,
     ) -> Self {
         Self {
             messages,
             replacement,
             key: key,
+            text_key: lang.map_or_else(|| String::from("text"), |s| format!("text_{}", s)),
         }
     }
 
@@ -756,6 +833,23 @@ impl<'a> ImportMes<'a> {
                 for (k, v) in obj.iter_mut() {
                     if k == &self.key {
                         for obj in v.members_mut() {
+                            if let Some(text) = obj[&self.text_key].as_str() {
+                                if let Some(replace_text) = self.messages.get(text) {
+                                    let mut text = replace_text.clone();
+                                    if let Some(replacement) = self.replacement {
+                                        for (key, value) in replacement.map.iter() {
+                                            text = text.replace(key, value);
+                                        }
+                                    }
+                                    obj[&self.text_key].set_string(text.replace("\n", "\\n"));
+                                } else {
+                                    eprintln!(
+                                        "Warning: chat message '{}' not found in translation table.",
+                                        text
+                                    );
+                                    crate::COUNTER.inc_warning();
+                                }
+                            }
                             if let Some(text) = obj["text"].as_str() {
                                 if let Some(replace_text) = self.messages.get(text) {
                                     let mut text = replace_text.clone();
@@ -764,7 +858,7 @@ impl<'a> ImportMes<'a> {
                                             text = text.replace(key, value);
                                         }
                                     }
-                                    obj["text"].set_string(text.replace("\n", "\\n"));
+                                    obj[&self.text_key].set_string(text.replace("\n", "\\n"));
                                 } else {
                                     eprintln!(
                                         "Warning: chat message '{}' not found in translation table.",
@@ -783,7 +877,7 @@ impl<'a> ImportMes<'a> {
                 if list.len() > 1 {
                     if list[0] == self.key {
                         for i in 1..list.len() {
-                            if list[i - 1] == "text" {
+                            if list[i - 1] == self.text_key {
                                 if let Some(text) = list[i].as_str() {
                                     if let Some(replace_text) = self.messages.get(text) {
                                         let mut text = replace_text.clone();
@@ -793,6 +887,33 @@ impl<'a> ImportMes<'a> {
                                             }
                                         }
                                         list[i].set_string(text.replace("\n", "\\n"));
+                                    } else {
+                                        eprintln!(
+                                            "Warning: chat message '{}' not found in translation table.",
+                                            text
+                                        );
+                                        crate::COUNTER.inc_warning();
+                                    }
+                                }
+                            }
+                        }
+                        if self.text_key == "text" {
+                            return;
+                        }
+                        for i in 1..list.len() {
+                            if list[i - 1] == "text" {
+                                if let Some(text) = list[i].as_str() {
+                                    if let Some(replace_text) = self.messages.get(text) {
+                                        let mut text = replace_text.clone();
+                                        if let Some(replacement) = self.replacement {
+                                            for (key, value) in replacement.map.iter() {
+                                                text = text.replace(key, value);
+                                            }
+                                        }
+                                        let len = list.len();
+                                        list[len].set_str(&self.text_key);
+                                        list[len + 1].set_string(text.replace("\n", "\\n"));
+                                        return;
                                     } else {
                                         eprintln!(
                                             "Warning: chat message '{}' not found in translation table.",

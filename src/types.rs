@@ -274,6 +274,9 @@ pub struct ExtraConfig {
     /// Kirikiri chat message translation. key is original text, value is translated text.
     pub kirikiri_chat_json: Option<std::sync::Arc<HashMap<String, String>>>,
     #[cfg(feature = "kirikiri")]
+    /// Kirikiri language list. First language code is code for language index 1.
+    pub kirikiri_languages: Option<std::sync::Arc<Vec<String>>>,
+    #[cfg(feature = "kirikiri")]
     /// Remove empty lines in Kirikiri KS script.
     pub kirikiri_remove_empty_lines: bool,
     #[cfg(feature = "kirikiri")]

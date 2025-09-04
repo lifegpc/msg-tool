@@ -207,6 +207,10 @@ pub struct Arg {
     /// Kirikiri chat message translation directory. All json files in this directory will be merged. (Only m3t files are supported.)
     pub kirikiri_chat_dir: Option<String>,
     #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true, value_delimiter = ',')]
+    /// Kirikiri language list. First language code is code for language index 1.
+    pub kirikiri_languages: Option<Vec<String>>,
+    #[cfg(feature = "kirikiri")]
     #[arg(long, global = true, action = ArgAction::SetTrue, alias = "kr-no-empty-lines", alias = "kirikiri-no-empty-lines")]
     /// Remove empty lines in Kirikiri KS script.
     pub kirikiri_remove_empty_lines: bool,

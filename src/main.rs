@@ -1751,6 +1751,11 @@ fn main() {
         kirikiri_chat_json: args::load_kirikiri_chat_json(&arg)
             .expect("Failed to load Kirikiri chat JSON"),
         #[cfg(feature = "kirikiri")]
+        kirikiri_languages: arg
+            .kirikiri_languages
+            .clone()
+            .map(|s| std::sync::Arc::new(s)),
+        #[cfg(feature = "kirikiri")]
         kirikiri_remove_empty_lines: arg.kirikiri_remove_empty_lines,
         #[cfg(feature = "kirikiri")]
         kirikiri_name_commands: std::sync::Arc::new(std::collections::HashSet::from_iter(

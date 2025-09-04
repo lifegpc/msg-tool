@@ -3,3 +3,4 @@
 /output
 /patched
 *.log
+.vscode/
