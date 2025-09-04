@@ -90,7 +90,7 @@ impl<'a> M3tParser<'a> {
                         })
                         .replace("\\n", "\n")
                 } else {
-                    let mut tmp = message.replace("\\n", "\n");
+                    let mut tmp = message.to_owned();
                     if let Some(llm) = llm.take() {
                         if tmp == llm {
                             if let Some(mark) = self.llm_mark {
@@ -98,7 +98,7 @@ impl<'a> M3tParser<'a> {
                             }
                         }
                     }
-                    tmp
+                    tmp.replace("\\n", "\n")
                 };
                 if let Some(ori) = ori.take() {
                     map.insert(ori, message);
@@ -160,7 +160,7 @@ impl<'a> M3tParser<'a> {
                         })
                         .replace("\\n", "\n")
                 } else {
-                    let mut tmp = message.replace("\\n", "\n");
+                    let mut tmp = message.to_owned();
                     if let Some(llm) = llm.take() {
                         if tmp == llm {
                             if let Some(mark) = self.llm_mark {
@@ -168,7 +168,7 @@ impl<'a> M3tParser<'a> {
                             }
                         }
                     }
-                    tmp
+                    tmp.replace("\\n", "\n")
                 };
                 messages.push(Message::new(message, name.take()));
             } else {
