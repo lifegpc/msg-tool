@@ -474,11 +474,7 @@ impl Script for ScnScript {
                                                     name = name.replace(key, value);
                                                 }
                                             }
-                                            if has_display_name || self.language_index != 0 {
-                                                text[1][self.language_index][0].set_string(name);
-                                            } else {
-                                                text[0].set_string(name);
-                                            }
+                                            text[1][self.language_index][0].set_string(name);
                                         } else {
                                             return Err(anyhow::anyhow!(
                                                 "Name is missing for message. (text {j} at scene {i})"
@@ -579,16 +575,7 @@ impl Script for ScnScript {
                                                         name = name.replace(key, value);
                                                     }
                                                 }
-                                                if has_display_name || self.language_index != 0 {
-                                                    text[2][self.language_index][0]
-                                                        .set_string(name);
-                                                } else {
-                                                    if text[1].is_string() {
-                                                        text[1].set_string(name);
-                                                    } else {
-                                                        text[0].set_string(name);
-                                                    }
-                                                }
+                                                text[2][self.language_index][0].set_string(name);
                                             } else {
                                                 return Err(anyhow::anyhow!(
                                                     "Name is missing for message.(text {j} at scene {i})"
