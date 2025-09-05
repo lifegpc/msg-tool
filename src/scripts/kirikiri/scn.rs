@@ -443,7 +443,7 @@ impl Script for ScnScript {
                             return Err(anyhow::anyhow!("name is not a string or null"));
                         }
                         let has_name = text[0].is_string();
-                        let mut has_display_name;
+                        let has_display_name;
                         if text[1].is_list() {
                             while text[1].len() <= self.language_index {
                                 text[1][self.language_index] = text[1][0].clone();
@@ -456,7 +456,6 @@ impl Script for ScnScript {
                                         "display name is not a string or null"
                                     ));
                                 }
-                                has_display_name = text[1][self.language_index][0].is_string();
                                 if text[1][self.language_index][1].is_string() {
                                     let m = match cur_mes.take() {
                                         Some(m) => m,
@@ -557,7 +556,6 @@ impl Script for ScnScript {
                                             "display name is not a string or null"
                                         ));
                                     }
-                                    has_display_name = text[2][self.language_index][0].is_string();
                                     if text[2][self.language_index][1].is_string() {
                                         let m = match cur_mes.take() {
                                             Some(m) => m,
