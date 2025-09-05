@@ -265,8 +265,9 @@ impl Script for SoftpalScript {
     }
 
     fn custom_export(&self, filename: &std::path::Path, _encoding: Encoding) -> Result<()> {
-        let mut file = std::fs::File::create(filename)
+        let file = std::fs::File::create(filename)
             .map_err(|e| anyhow::anyhow!("Failed to create file {}: {}", filename.display(), e))?;
+        let mut file = std::io::BufWriter::new(file);
         Disasm::new(&self.data.data, &self.label_offsets)?.disassemble(Some(&mut file))?;
         Ok(())
     }
