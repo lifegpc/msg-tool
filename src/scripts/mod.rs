@@ -20,6 +20,8 @@ pub mod ex_hibit;
 pub mod hexen_haus;
 #[cfg(feature = "kirikiri")]
 pub mod kirikiri;
+#[cfg(feature = "silky")]
+pub mod silky;
 #[cfg(feature = "softpal")]
 pub mod softpal;
 #[cfg(feature = "will-plus")]
@@ -118,6 +120,8 @@ lazy_static::lazy_static! {
         Box::new(kirikiri::tjs_ns0::TjsNs0Builder::new()),
         #[cfg(feature = "kirikiri")]
         Box::new(kirikiri::tjs2::Tjs2Builder::new()),
+        #[cfg(feature = "silky")]
+        Box::new(silky::mes::MesBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

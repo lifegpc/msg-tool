@@ -259,6 +259,40 @@ pub trait Peek {
     fn peek_cstring(&mut self) -> Result<CString>;
     /// Peeks a C-style string (null-terminated) from the reader at a specific offset.
     fn peek_cstring_at(&mut self, offset: u64) -> Result<CString>;
+    /// Peeks a fixed-length string from the reader.
+    fn peek_fstring(&mut self, len: usize, encoding: Encoding, trim: bool) -> Result<String> {
+        let mut buf = vec![0u8; len];
+        self.peek_exact(&mut buf)?;
+        if trim {
+            let first_zero = buf.iter().position(|&b| b == 0);
+            if let Some(pos) = first_zero {
+                buf.truncate(pos);
+            }
+        }
+        let s = decode_to_string(encoding, &buf, true)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        Ok(s)
+    }
+    /// Peeks a fixed-length string from the reader at a specific offset.
+    fn peek_fstring_at(
+        &mut self,
+        offset: u64,
+        len: usize,
+        encoding: Encoding,
+        trim: bool,
+    ) -> Result<String> {
+        let mut buf = vec![0u8; len];
+        self.peek_exact_at(offset, &mut buf)?;
+        if trim {
+            let first_zero = buf.iter().position(|&b| b == 0);
+            if let Some(pos) = first_zero {
+                buf.truncate(pos);
+            }
+        }
+        let s = decode_to_string(encoding, &buf, true)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        Ok(s)
+    }
 
     /// Reads a struct from the reader.
     /// The struct must implement the `StructUnpack` trait.
@@ -661,6 +695,41 @@ pub trait CPeek {
             self.cpeek_at(offset + buf.len() as u64, &mut byte)?;
         }
         CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+
+    /// Peeks a fixed-length string from the reader.
+    fn cpeek_fstring(&self, len: usize, encoding: Encoding, trim: bool) -> Result<String> {
+        let mut buf = vec![0u8; len];
+        self.cpeek_exact(&mut buf)?;
+        if trim {
+            let first_zero = buf.iter().position(|&b| b == 0);
+            if let Some(pos) = first_zero {
+                buf.truncate(pos);
+            }
+        }
+        let s = decode_to_string(encoding, &buf, true)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        Ok(s)
+    }
+    /// Peeks a fixed-length string from the reader at a specific offset.
+    fn cpeek_fstring_at(
+        &self,
+        offset: u64,
+        len: usize,
+        encoding: Encoding,
+        trim: bool,
+    ) -> Result<String> {
+        let mut buf = vec![0u8; len];
+        self.cpeek_exact_at(offset, &mut buf)?;
+        if trim {
+            let first_zero = buf.iter().position(|&b| b == 0);
+            if let Some(pos) = first_zero {
+                buf.truncate(pos);
+            }
+        }
+        let s = decode_to_string(encoding, &buf, true)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        Ok(s)
     }
 
     /// Peeks data and checks if it matches the provided data.
@@ -1186,6 +1255,7 @@ impl<T: Seek> SeekExt for T {
     }
 }
 
+#[derive(Clone)]
 /// A memory reader that can read data from a vector of bytes.
 pub struct MemReader {
     /// The data to read from.
@@ -1770,6 +1840,38 @@ impl<R: Read + Seek, W: Write + Seek, A: Fn(u64) -> Result<u64>, O: Fn(u64) -> R
         }
         self.input
             .seek(SeekFrom::Start(cur_pos + original_length))?;
+        Ok(())
+    }
+
+    /// Patches a u32 value in the output stream at the specified original offset.
+    pub fn patch_u32(&mut self, original_offset: u64, value: u32) -> Result<()> {
+        let input_pos = self.input.stream_position()?;
+        if input_pos < original_offset + 4 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Original offset is out of bounds for u32 patching",
+            ));
+        }
+        let new_offset = self.map_offset(original_offset)?;
+        self.output.seek(SeekFrom::Start(new_offset))?;
+        self.output.write_u32(value)?;
+        self.output.seek(SeekFrom::End(0))?;
+        Ok(())
+    }
+
+    /// Patches a u32 value in big-endian order in the output stream at the specified original offset.
+    pub fn patch_u32_be(&mut self, original_offset: u64, value: u32) -> Result<()> {
+        let input_pos = self.input.stream_position()?;
+        if input_pos < original_offset + 4 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Original offset is out of bounds for u32 patching",
+            ));
+        }
+        let new_offset = self.map_offset(original_offset)?;
+        self.output.seek(SeekFrom::Start(new_offset))?;
+        self.output.write_u32_be(value)?;
+        self.output.seek(SeekFrom::End(0))?;
         Ok(())
     }
 

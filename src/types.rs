@@ -535,6 +535,9 @@ pub enum ScriptType {
     #[value(alias("kr-tjs-ns0"))]
     /// Kirikiri TJS NS0 binary encoded script
     KirikiriTjsNs0,
+    #[cfg(feature = "silky")]
+    /// Silky Engine Mes script
+    Silky,
     #[cfg(feature = "softpal")]
     /// Softpal src script
     Softpal,

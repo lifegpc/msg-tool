@@ -164,6 +164,10 @@ msg-tool create -t <script-type> <input> <output>
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `kirikiri-tlg`/`kr-tlg` | `kirikiri-img` | Kirikiri TLG Image File (.tlg) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | tlg6 is not supported when importing/creating image |
+### Silky Engine
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `silky` | `silky` | Silky Engine Mes Script File (.mes) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
 ### Softpal
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
