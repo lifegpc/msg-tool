@@ -1,5 +1,6 @@
 //! Circus Script File (.mes)
 use super::info::*;
+use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
@@ -40,6 +41,29 @@ impl ScriptBuilder for CircusMesScriptBuilder {
     fn script_type(&self) -> &'static ScriptType {
         &ScriptType::Circus
     }
+
+    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+        try_parse_header(MemReaderRef::new(&buf[..buf_len])).ok()
+    }
+}
+
+fn try_parse_header(mut data: MemReaderRef<'_>) -> Result<u8> {
+    let head0 = data.read_i32()?;
+    let head1 = data.read_i32()?;
+    if head1 == 0x3 {
+        let offset = head0 as u64 * 0x6 + 0x4;
+        let version = data.peek_u16_at(offset)?;
+        if ScriptInfo::query_by_version(version).is_some() {
+            return Ok(10);
+        }
+    } else {
+        let offset = head0 as u64 * 0x4 + 0x4;
+        let version = data.peek_u16_at(offset)?;
+        if ScriptInfo::query_by_version(version).is_some() {
+            return Ok(10);
+        }
+    }
+    Err(anyhow::anyhow!("Not a Circus MES script"))
 }
 
 #[derive(Debug)]
