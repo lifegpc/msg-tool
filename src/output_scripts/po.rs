@@ -604,7 +604,7 @@ impl<'a> PoParser<'a> {
                     if s.starts_with("NAME:") {
                         name = Some(s[5..].trim().to_string());
                     } else if s.starts_with("LLM:") {
-                        llm = Some(s[4..].trim().to_string());
+                        llm = Some(s[4..].trim().replace("\\n", "\n"));
                     }
                 }
             }
