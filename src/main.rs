@@ -664,6 +664,41 @@ pub fn export_script(
                             }
                         }
                     }
+                    types::OutputScriptType::Pot | types::OutputScriptType::Po => {
+                        let enc = get_output_encoding(arg);
+                        let s = match output_scripts::po::PoDumper::new().dump(&mes, enc) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                eprintln!("Error dumping messages to PO format: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let b = match utils::encoding::encode_string(enc, &s, false) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                eprintln!("Error encoding string: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let mut f = match utils::files::write_file(&out_path) {
+                            Ok(f) => f,
+                            Err(e) => {
+                                eprintln!("Error writing file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        match f.write_all(&b) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                    }
                     types::OutputScriptType::Custom => {
                         let enc = get_output_encoding(arg);
                         if let Err(e) = script_file.custom_export(&out_path, enc) {
@@ -935,6 +970,13 @@ pub fn export_script(
             let mut f = utils::files::write_file(&f)?;
             f.write_all(&b)?;
         }
+        types::OutputScriptType::Pot | types::OutputScriptType::Po => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::po::PoDumper::new().dump(&mes, enc)?;
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            let mut f = utils::files::write_file(&f)?;
+            f.write_all(&b)?;
+        }
         types::OutputScriptType::Custom => {
             let enc = get_output_encoding(arg);
             script.custom_export(f.as_ref(), enc)?;
@@ -1179,6 +1221,37 @@ pub fn import_script(
                             }
                         }
                     }
+                    types::OutputScriptType::Pot | types::OutputScriptType::Po => {
+                        let enc = get_output_encoding(arg);
+                        let b = match utils::files::read_file(&out_path) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                eprintln!("Error reading file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let s = match utils::encoding::decode_to_string(enc, &b, true) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                eprintln!("Error decoding string: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let mut parser = output_scripts::po::PoParser::new(
+                            &s,
+                            arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                        );
+                        match parser.parse() {
+                            Ok(mes) => mes,
+                            Err(e) => {
+                                eprintln!("Error parsing PO: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                    }
                     types::OutputScriptType::Custom => {
                         Vec::new() // Custom scripts handle their own messages
                     }
@@ -1380,6 +1453,16 @@ pub fn import_script(
             let b = utils::files::read_file(&out_f)?;
             let s = utils::encoding::decode_to_string(enc, &b, true)?;
             serde_yaml_ng::from_str::<Vec<types::Message>>(&s)?
+        }
+        types::OutputScriptType::Pot | types::OutputScriptType::Po => {
+            let enc = get_output_encoding(arg);
+            let b = utils::files::read_file(&out_f)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
+            let mut parser = output_scripts::po::PoParser::new(
+                &s,
+                arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+            );
+            parser.parse()?
         }
         types::OutputScriptType::Custom => {
             Vec::new() // Custom scripts handle their own messages

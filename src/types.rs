@@ -58,6 +58,25 @@ impl Encoding {
             _ => false,
         }
     }
+
+    /// Returns the charset name
+    pub fn charset(&self) -> Option<&'static str> {
+        match self {
+            Self::Auto => None,
+            Self::Utf8 => Some("UTF-8"),
+            Self::Cp932 => Some("shift_jis"),
+            Self::Gb2312 => Some("gbk"),
+            Self::Utf16LE => Some("utf-16le"),
+            #[cfg(windows)]
+            Self::CodePage(code_page) => match *code_page {
+                932 => Some("shift_jis"),
+                65001 => Some("utf-8"),
+                1200 => Some("utf-16le"),
+                936 => Some("gbk"),
+                _ => None,
+            },
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -90,6 +109,10 @@ pub enum OutputScriptType {
     Json,
     /// YAML (same as JSON, but with YAML syntax)
     Yaml,
+    /// Gettext .pot file
+    Pot,
+    /// Gettext .po file
+    Po,
     /// Custom output
     Custom,
 }
@@ -110,6 +133,8 @@ impl AsRef<str> for OutputScriptType {
             OutputScriptType::M3tTxt => "txt",
             OutputScriptType::Json => "json",
             OutputScriptType::Yaml => "yaml",
+            OutputScriptType::Pot => "pot",
+            OutputScriptType::Po => "po",
             OutputScriptType::Custom => "",
         }
     }
