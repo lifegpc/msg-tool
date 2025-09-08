@@ -58,6 +58,8 @@ impl<'a> M3tParser<'a> {
             if line.is_empty() {
                 continue;
             }
+            // Remove zero-width space characters
+            let line = line.trim().trim_matches('\u{200b}');
             if line.starts_with("○") {
                 let line = line[3..].trim();
                 if !line.starts_with("NAME:") {
@@ -128,6 +130,8 @@ impl<'a> M3tParser<'a> {
             if line.is_empty() {
                 continue;
             }
+            // Remove zero-width space characters
+            let line = line.trim().trim_matches('\u{200b}');
             if line.starts_with("○") {
                 let line = line[3..].trim();
                 if line.starts_with("NAME:") {
@@ -203,4 +207,14 @@ impl M3tDumper {
         }
         result
     }
+}
+
+#[test]
+fn test_zero_width_space() {
+    let input = "○ NAME: Example\n\n○ Original message\n\u{200b}● 「」\n\n";
+    let mut parser = M3tParser::new(input, None);
+    let messages = parser.parse().unwrap();
+    assert_eq!(messages.len(), 1);
+    let map = M3tParser::new(input, None).parse_as_map().unwrap();
+    assert_eq!(map.len(), 1);
 }
