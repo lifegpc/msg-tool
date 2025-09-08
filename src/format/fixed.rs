@@ -71,6 +71,16 @@ impl FixedFormatter {
         false
     }
 
+    #[cfg(feature = "kirikiri")]
+    fn is_scn(&self) -> bool {
+        matches!(self.typ, Some(ScriptType::KirikiriScn))
+    }
+
+    #[cfg(not(feature = "kirikiri"))]
+    fn is_scn(&self) -> bool {
+        false
+    }
+
     pub fn format(&self, message: &str) -> String {
         let mut result = String::new();
         let vec: Vec<_> = UnicodeSegmentation::graphemes(message, true).collect();
@@ -235,6 +245,27 @@ impl FixedFormatter {
                 }
             }
 
+            if self.is_scn() {
+                if grapheme == "%" {
+                    is_command = true;
+                } else if is_command && grapheme == ";" {
+                    is_command = false;
+                    i += 1;
+                    continue;
+                }
+                if grapheme == "[" {
+                    is_ruby = true;
+                    is_ruby_rt = true;
+                    i += 1;
+                    continue;
+                } else if is_ruby && grapheme == "]" {
+                    is_ruby = false;
+                    is_ruby_rt = false;
+                    i += 1;
+                    continue;
+                }
+            }
+
             if is_command {
                 if let Some(ref mut cmd) = last_command {
                     cmd.push_str(grapheme);
@@ -338,6 +369,16 @@ fn test_format() {
         assert_eq!(
             circus_formatter2.format("@re1@re2@b1@t30@w1「当然现在我很幸福哦？\n　因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？\n　因为有敦也君在身边」"),
             "@re1@re2@b1@t30@w1「当然现在我很幸福哦？因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？因为有敦也君在身边」"
+        );
+    }
+
+    #[cfg(feature = "kirikiri")]
+    {
+        let scn_formatter =
+            FixedFormatter::new(3, false, false, false, Some(ScriptType::KirikiriScn));
+        assert_eq!(
+            scn_formatter.format("%test;[ruby]测[test]试打断。"),
+            "%test;[ruby]测[test]试打\n断。"
         );
     }
 }
