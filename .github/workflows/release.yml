@@ -20,8 +20,7 @@ jobs:
           arch=${{ matrix.arch }}
           arch=${arch/-unknown/}
           curl -L "https://github.com/lifegpc/musl-toolchain/releases/download/gcc-9.4/${arch}-x86_64-linux-static.7z" -o musl-toolchain.7z
-          sudo 7z x musl-toolchain.7z -o./musl-toolchain
-          exit 0
+          sudo 7z x musl-toolchain.7z -o./musl-toolchain || true
       - name: Build project
         run: |
           arch=${{ matrix.arch }}
