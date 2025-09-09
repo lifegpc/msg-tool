@@ -116,6 +116,7 @@ pub struct ScnScript {
     chat_key: Option<String>,
     chat_json: Option<Arc<HashMap<String, String>>>,
     custom_yaml: bool,
+    title: bool,
 }
 
 impl ScnScript {
@@ -152,6 +153,7 @@ impl ScnScript {
             chat_key: config.kirikiri_chat_key.clone(),
             chat_json: config.kirikiri_chat_json.clone(),
             custom_yaml: config.custom_yaml,
+            title: config.kirikiri_title,
         })
     }
 }
@@ -222,6 +224,22 @@ impl Script for ScnScript {
                 PsbValueFixed::Object(obj) => obj,
                 _ => return Err(anyhow::anyhow!("scene at index {} is not an object", i)),
             };
+            if self.title {
+                if let Some(title) = scene["title"].as_str() {
+                    messages.push(Message {
+                        name: None,
+                        message: title.to_string(),
+                    });
+                }
+                if scene["title"].is_list() {
+                    if let Some(title) = scene["title"][self.language_index].as_str() {
+                        messages.push(Message {
+                            name: None,
+                            message: title.to_string(),
+                        });
+                    }
+                }
+            }
             if let Some(PsbValueFixed::List(texts)) = scene.get_value("texts") {
                 for (j, text) in texts.iter().enumerate() {
                     if let PsbValueFixed::List(text) = text {
@@ -429,6 +447,55 @@ impl Script for ScnScript {
         for (i, scene) in scenes.members_mut().enumerate() {
             if !scene.is_object() {
                 return Err(anyhow::anyhow!("scene at {} is not an object", i));
+            }
+            if self.title {
+                if scene["title"].is_string() {
+                    let m = match cur_mes {
+                        Some(m) => m,
+                        None => {
+                            return Err(anyhow::anyhow!(
+                                "No enough messages. (title at scene {i})"
+                            ));
+                        }
+                    };
+                    let mut title = m.message.clone();
+                    if let Some(replacement) = replacement {
+                        for (key, value) in replacement.map.iter() {
+                            title = title.replace(key, value);
+                        }
+                    }
+                    if self.language_index == 0 {
+                        scene["title"].set_string(title);
+                    } else {
+                        let ori_title = scene["title"].as_str().unwrap_or("").to_string();
+                        while scene["title"].len() < self.language_index {
+                            scene["title"].push_member(ori_title.clone());
+                        }
+                        scene["title"].push_member(title);
+                    }
+                    cur_mes = mes.next();
+                } else if scene["title"].is_list() {
+                    let m = match cur_mes {
+                        Some(m) => m,
+                        None => {
+                            return Err(anyhow::anyhow!(
+                                "No enough messages. (title at scene {i})"
+                            ));
+                        }
+                    };
+                    let mut title = m.message.clone();
+                    if let Some(replacement) = replacement {
+                        for (key, value) in replacement.map.iter() {
+                            title = title.replace(key, value);
+                        }
+                    }
+                    let ori_title = scene["title"][0].as_str().unwrap_or("").to_string();
+                    while scene["title"].len() <= self.language_index {
+                        scene["title"].push_member(ori_title.clone());
+                    }
+                    scene["title"][self.language_index].set_string(title);
+                    cur_mes = mes.next();
+                }
             }
             if scene["texts"].is_list() {
                 for (j, text) in scene["texts"].members_mut().enumerate() {

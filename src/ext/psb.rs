@@ -55,6 +55,36 @@ pub enum PsbValueFixed {
     CompilerBinaryTree,
 }
 
+impl From<String> for PsbValueFixed {
+    fn from(value: String) -> Self {
+        PsbValueFixed::String(PsbString::from(value))
+    }
+}
+
+impl From<bool> for PsbValueFixed {
+    fn from(value: bool) -> Self {
+        PsbValueFixed::Bool(value)
+    }
+}
+
+impl From<i64> for PsbValueFixed {
+    fn from(value: i64) -> Self {
+        PsbValueFixed::Number(PsbNumber::Integer(value))
+    }
+}
+
+impl From<f64> for PsbValueFixed {
+    fn from(value: f64) -> Self {
+        PsbValueFixed::Number(PsbNumber::Double(value))
+    }
+}
+
+impl From<f32> for PsbValueFixed {
+    fn from(value: f32) -> Self {
+        PsbValueFixed::Number(PsbNumber::Float(value))
+    }
+}
+
 impl PsbValueFixed {
     /// Converts this value to original PSB value type.
     pub fn to_psb(self, warn_on_none: bool) -> PsbValue {
@@ -201,6 +231,20 @@ impl PsbValueFixed {
         match self {
             PsbValueFixed::List(l) => l.iter_mut(),
             _ => ListIterMut::empty(),
+        }
+    }
+
+    /// Pushes a new member to a list. If this value is not a list, it will be converted to a list.
+    pub fn push_member<T: Into<PsbValueFixed>>(&mut self, value: T) {
+        match self {
+            PsbValueFixed::List(l) => {
+                l.values.push(value.into());
+            }
+            _ => {
+                *self = PsbValueFixed::List(PsbListFixed {
+                    values: vec![value.into()],
+                });
+            }
         }
     }
 

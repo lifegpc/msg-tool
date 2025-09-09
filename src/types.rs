@@ -419,6 +419,9 @@ pub struct ExtraConfig {
     #[default(true)]
     /// Format lua code in Artemis ASB script(.asb/.iet) when exporting.
     pub artemis_asb_format_lua: bool,
+    #[cfg(feature = "kirikiri")]
+    /// Whether to handle title in Kirikiri SCN script.
+    pub kirikiri_title: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
