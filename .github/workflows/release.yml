@@ -1,0 +1,66 @@
+name: Build release
+on:
+  release:
+    types: [published]
+jobs:
+  build-musl:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [aarch64-unknown-linux-musl, x86_64-unknown-linux-musl]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up Rust
+        run: |
+          rustup update
+          rustup target add ${{ matrix.arch }}
+      - name: Download musl toolchain
+        run: |
+          arch=${{ matrix.arch }}
+          arch=${arch/-unknown/}
+          curl -L "https://github.com/lifegpc/musl-toolchain/releases/download/gcc-9.4/${arch}-x86_64-linux-static.7z" -o musl-toolchain.7z
+          sudo 7z x musl-toolchain.7z -o./musl-toolchain
+          exit 0
+      - name: Build project
+        run: |
+          arch=${{ matrix.arch }}
+          arch=${arch/-unknown/}
+          export PATH="$PWD/musl-toolchain/bin:$PATH"
+          export CC="${arch}-cc"
+          export CXX="${arch}-g++"
+          export AR="${arch}-ar"
+          export RUSTFLAGS="-C linker=${CC}"
+          cargo build --release --target ${{ matrix.arch }}
+          version=${{ github.event.release.tag_name }}
+          cd target/${{ matrix.arch }}/release
+          7z a -mx9 "../../../msg_tool-${version}-${{ matrix.arch }}.zip" "msg_tool"
+      - name: Upload to release
+        run: |
+          version=${{ github.event.release.tag_name }}
+          gh release upload "${version}" msg_tool-${version}-${{ matrix.arch }}.zip --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [aarch64-pc-windows-msvc, x86_64-pc-windows-msvc]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up Rust
+        run: |
+          rustup update
+          rustup target add ${{ matrix.arch }}
+      - name: Build project
+        run: |
+          cargo build --release --target ${{ matrix.arch }}
+          cd target/${{ matrix.arch }}/release
+          7z a -mx9 "../../../msg_tool-${{ github.event.release.tag_name }}-${{ matrix.arch }}.zip" "msg_tool.exe" "msg_tool.pdb"
+      - name: Upload to release
+        run: gh release upload "${{ github.event.release.tag_name }}" msg_tool-${{ github.event.release.tag_name }}-${{ matrix.arch }}.zip --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
