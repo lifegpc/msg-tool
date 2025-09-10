@@ -419,6 +419,10 @@ pub struct Arg {
     /// Add a mark to the end of each message for LLM translation.
     /// Only works on m3t format.
     pub llm_trans_mark: Option<String>,
+    #[cfg(feature = "favorite")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Do not filter ascii strings in Favorite HCB script.
+    pub favorite_hcb_no_filter_ascii: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

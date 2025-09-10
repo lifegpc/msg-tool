@@ -16,6 +16,8 @@ pub mod entis_gls;
 pub mod escude;
 #[cfg(feature = "ex-hibit")]
 pub mod ex_hibit;
+#[cfg(feature = "favorite")]
+pub mod favorite;
 #[cfg(feature = "hexen-haus")]
 pub mod hexen_haus;
 #[cfg(feature = "kirikiri")]
@@ -122,6 +124,8 @@ lazy_static::lazy_static! {
         Box::new(kirikiri::tjs2::Tjs2Builder::new()),
         #[cfg(feature = "silky")]
         Box::new(silky::mes::MesBuilder::new()),
+        #[cfg(feature = "favorite")]
+        Box::new(favorite::hcb::HcbScriptBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

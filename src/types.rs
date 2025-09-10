@@ -422,6 +422,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri")]
     /// Whether to handle title in Kirikiri SCN script.
     pub kirikiri_title: bool,
+    #[cfg(feature = "favorite")]
+    #[default(true)]
+    /// Whether to filter ascii strings in Favorite HCB script.
+    pub favorite_hcb_filter_ascii: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -532,6 +536,9 @@ pub enum ScriptType {
     #[cfg(feature = "ex-hibit")]
     /// ExHibit rld script
     ExHibit,
+    #[cfg(feature = "favorite")]
+    /// Favorite hcb script
+    Favorite,
     #[cfg(feature = "hexen-haus")]
     /// HexenHaus bin script
     HexenHaus,

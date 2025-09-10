@@ -147,6 +147,10 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `ex-hibit` | `ex-hibit` | ExHibit Script File (.rld) | ✔️ | ✔️ | ✔️ | ✔️ | ❌ | |
+### Favorite
+| Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `favorite` | `favorite` | Favorite Hcb Script (.hcb) | ✔️ | ✔️ | ✔️ | ❌ | ❌ | |
 ### HexenHaus
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

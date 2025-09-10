@@ -1923,6 +1923,8 @@ fn main() {
         artemis_asb_format_lua: !arg.artemis_asb_no_format_lua,
         #[cfg(feature = "kirikiri")]
         kirikiri_title: arg.kirikiri_title,
+        #[cfg(feature = "favorite")]
+        favorite_hcb_filter_ascii: !arg.favorite_hcb_no_filter_ascii,
     };
     match &arg.command {
         args::Command::Export { input, output } => {
