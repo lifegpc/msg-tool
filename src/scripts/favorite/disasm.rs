@@ -15,17 +15,20 @@ enum Oper {
     D,
     // String
     S,
+    // Float
+    F,
 }
 
 use Oper::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", content = "c")]
 pub enum Operand {
     B(u8),
     W(u16),
     D(u32),
     S(String),
+    F(f32),
 }
 
 impl Operand {
@@ -39,51 +42,52 @@ impl Operand {
                 // null terminator + length byte
                 bytes.len() + 2
             }
+            Operand::F(_) => 4,
         })
     }
 }
 
 const OPS: [(u8, &[Oper]); 49] = [
-    (0x00, &[]),
-    (0x01, &[B, B]), //unknown
-    (0x02, &[D]),    //call function
-    (0x03, &[W]),    //unknown
-    (0x04, &[]),     //retn?
-    (0x05, &[]),     //retn?
-    (0x06, &[D]),    //jump?
-    (0x07, &[D]),    //cond jump?
-    (0x08, &[]),     //unknown
-    (0x09, &[]),     //unknown
-    (0x0a, &[D]),    //unknown
-    (0x0b, &[W]),    //unknown
-    (0x0c, &[B]),    //unknown
-    (0x0d, &[]),     //empty
-    (0x0e, &[S]),    //string
-    (0x0f, &[W]),    //unknown
-    (0x10, &[B]),    //unknown
+    (0x00, &[]),     //noop
+    (0x01, &[B, B]), //initstack
+    (0x02, &[D]),    //call
+    (0x03, &[W]),    //syscall
+    (0x04, &[]),     //ret
+    (0x05, &[]),     //ret2
+    (0x06, &[D]),    //jmp
+    (0x07, &[D]),    //jmpcond
+    (0x08, &[]),     //pushtrue
+    (0x09, &[]),     //pushfalse
+    (0x0a, &[D]),    //pushint
+    (0x0b, &[W]),    //pushint
+    (0x0c, &[B]),    //pushint
+    (0x0d, &[F]),    //pushfloat * unused
+    (0x0e, &[S]),    //pushstring
+    (0x0f, &[W]),    //pushglobal
+    (0x10, &[B]),    //pushstack
     (0x11, &[W]),    //unknown
     (0x12, &[B]),    //unknown
-    (0x13, &[]),
-    (0x14, &[]),  //unknown
-    (0x15, &[W]), //unknown
-    (0x16, &[B]), //unknown
-    (0x17, &[W]), //unknown
-    (0x18, &[B]), //unknown
-    (0x19, &[]),  //unknown
-    (0x1a, &[]),  //unknown
-    (0x1b, &[]),  //unknown
-    (0x1c, &[]),  //unknown
-    (0x1d, &[]),  //unknown
-    (0x1e, &[]),  //unknown
-    (0x1f, &[]),  //unknown
-    (0x20, &[]),  //unknown
-    (0x21, &[]),  //unknown
-    (0x22, &[]),  //unknown
-    (0x23, &[]),  //unknown
-    (0x24, &[]),  //unknown
-    (0x25, &[]),  //unknown
-    (0x26, &[]),  //unknown
-    (0x27, &[]),  //unknown
+    (0x13, &[]),     //pushtop
+    (0x14, &[]),     //pushtmp
+    (0x15, &[W]),    //popglobal
+    (0x16, &[B]),    //copystack
+    (0x17, &[W]),    //unknown
+    (0x18, &[B]),    //unknown
+    (0x19, &[]),     //neg
+    (0x1a, &[]),     //add
+    (0x1b, &[]),     //sub
+    (0x1c, &[]),     //mul
+    (0x1d, &[]),     //div
+    (0x1e, &[]),     //mod
+    (0x1f, &[]),     //test
+    (0x20, &[]),     //logand
+    (0x21, &[]),     //logor
+    (0x22, &[]),     //eq
+    (0x23, &[]),     //neq
+    (0x24, &[]),     //gt
+    (0x25, &[]),     //le
+    (0x26, &[]),     //lt
+    (0x27, &[]),     //ge
     (0x33, &[]),
     (0x3f, &[]),
     (0x40, &[]),
@@ -158,12 +162,17 @@ impl Data {
                         let s = decode_to_string(encoding, s.as_bytes(), true)?;
                         Operand::S(s)
                     }
+                    F => Operand::F(reader.read_f32()?),
                 };
                 operands.push(operand);
             }
             operands
         } else {
-            return Err(anyhow::anyhow!("Unknown opcode: {:#x} at {:#x}", opcode, pos))
+            return Err(anyhow::anyhow!(
+                "Unknown opcode: {:#x} at {:#x}",
+                opcode,
+                pos
+            ));
         };
         Ok(Func {
             pos,
