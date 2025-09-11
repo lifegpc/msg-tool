@@ -894,7 +894,7 @@ impl<'a> ImportMes<'a> {
                                         }
                                     }
                                     obj[&self.text_key].set_string(text.replace("\n", "\\n"));
-                                    return;
+                                    continue;
                                 } else {
                                     eprintln!(
                                         "Warning: chat message '{}' not found in translation table.",
