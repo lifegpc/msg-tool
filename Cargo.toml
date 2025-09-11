@@ -1,6 +1,6 @@
 [package]
 name = "msg_tool"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2024"
 repository = "https://github.com/lifegpc/msg-tool"
 description = "A command-line tool for exporting, importing, packing, and unpacking script files."
@@ -30,7 +30,7 @@ mozjpeg = { version = "0.10", optional = true }
 msg_tool_macro = { version = "0.2.1" }
 overf = "0.1"
 pelite = { version = "0.10", optional = true }
-png = { version = "0.17", optional = true }
+png = { version = "0.18", optional = true }
 rand = { version = "0.9", optional = true }
 rust-ini = { version = "0.21", optional = true }
 serde = { version = "1", features = ["derive"] }
