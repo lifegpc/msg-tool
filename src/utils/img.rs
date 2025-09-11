@@ -1,4 +1,5 @@
 //! Image Utilities
+use crate::ext::io::*;
 use crate::types::*;
 use anyhow::Result;
 
@@ -288,8 +289,8 @@ pub fn encode_img(
 }
 
 /// Loads a PNG image from the given reader and returns its data.
-pub fn load_png<R: std::io::Read>(data: R) -> Result<ImageData> {
-    let decoder = png::Decoder::new(data);
+pub fn load_png<R: std::io::Read + std::io::Seek>(data: R) -> Result<ImageData> {
+    let decoder = png::Decoder::new(std::io::BufReader::new(data));
     let mut reader = decoder.read_info()?;
     let bit_depth = match reader.info().bit_depth {
         png::BitDepth::One => 1,
@@ -360,7 +361,8 @@ pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
     match typ {
         ImageOutputType::Png => {
             let file = crate::utils::files::read_file(filename)?;
-            load_png(&file[..])
+            let reader = MemReader::new(file);
+            load_png(reader)
         }
         #[cfg(feature = "image-jpg")]
         ImageOutputType::Jpg => {

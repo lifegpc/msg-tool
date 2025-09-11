@@ -810,19 +810,27 @@ impl BomType {
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
 /// PNG compression level
 pub enum PngCompressionLevel {
+    #[value(alias = "n")]
+    /// No compression whatsoever. Fastest, but results in large files.
+    NoCompression,
     #[value(alias = "d")]
-    /// Default level
+    /// Default level (usually balanced)
     Default,
+    /// Extremely fast but light compression.
+    ///
+    /// Note: When used in streaming mode, this compression level can actually result in files
+    /// *larger* than would be produced by `NoCompression` on incompressible data because
+    /// it doesn't do any buffering of the output stream to detect whether the data is being compressed or not.
+    Fastest,
     #[value(alias = "f")]
     /// Fast minimal compression
     Fast,
     #[value(alias = "b")]
-    /// Higher compression level
-    ///
-    /// Best in this context isn't actually the highest possible level
-    /// the encoder can do, but is meant to emulate the `Best` setting in the `Flate2`
-    /// library.
+    /// Higher compression level. Same as high
     Best,
+    #[value(alias = "h")]
+    /// Spend much more time to produce a slightly smaller file than with `Balanced`.
+    High,
 }
 
 #[cfg(feature = "image")]
@@ -837,9 +845,12 @@ impl PngCompressionLevel {
     /// Converts the [PngCompressionLevel] to a [png::Compression] enum.
     pub fn to_compression(&self) -> png::Compression {
         match self {
-            PngCompressionLevel::Default => png::Compression::Default,
+            PngCompressionLevel::NoCompression => png::Compression::NoCompression,
+            PngCompressionLevel::Fastest => png::Compression::Fastest,
+            PngCompressionLevel::Default => png::Compression::Balanced,
             PngCompressionLevel::Fast => png::Compression::Fast,
-            PngCompressionLevel::Best => png::Compression::Best,
+            PngCompressionLevel::Best => png::Compression::High,
+            PngCompressionLevel::High => png::Compression::High,
         }
     }
 }
