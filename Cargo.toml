@@ -85,7 +85,7 @@ yaneurao-itufuru = ["yaneurao"]
 # basic feature
 image = ["png"]
 image-jpg = ["mozjpeg"]
-image-jxl = ["jpegxl-sys"]
+image-jxl = ["image", "jpegxl-sys"]
 image-webp = ["webp"]
 lossless-audio = ["utils-pcm"]
 audio-flac = ["libflac-sys", "utils-pcm"]

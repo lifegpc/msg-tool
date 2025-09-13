@@ -1,4 +1,5 @@
 //! JPEG XL image support
+use super::img::*;
 use crate::types::*;
 use anyhow::Result;
 use jpegxl_sys::common::types::*;
@@ -144,7 +145,7 @@ pub fn decode_jxl<R: Read>(mut r: R) -> Result<ImageData> {
 }
 
 /// Encode image data to JXL format
-pub fn encode_jxl(img: ImageData, _config: &ExtraConfig) -> Result<Vec<u8>> {
+pub fn encode_jxl(mut img: ImageData, _config: &ExtraConfig) -> Result<Vec<u8>> {
     let encoder = unsafe { JxlEncoderCreate(std::ptr::null()) };
     if encoder.is_null() {
         return Err(anyhow::anyhow!("Failed to create JXL encoder"));
@@ -193,6 +194,15 @@ pub fn encode_jxl(img: ImageData, _config: &ExtraConfig) -> Result<Vec<u8>> {
         },
         endianness: JxlEndianness::Little,
         align: 0,
+    };
+    match img.color_type {
+        ImageColorType::Bgr => {
+            convert_bgr_to_rgb(&mut img)?;
+        }
+        ImageColorType::Bgra => {
+            convert_bgra_to_rgba(&mut img)?;
+        }
+        _ => {}
     };
     check_encoder_status(unsafe {
         JxlEncoderAddImageFrame(
