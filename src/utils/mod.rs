@@ -25,6 +25,8 @@ pub mod pcm;
 #[cfg(feature = "utils-str")]
 pub mod str;
 pub mod struct_pack;
+#[cfg(feature = "utils-threadpool")]
+pub mod threadpool;
 
 #[cfg(windows)]
 pub use encoding_win::WinError;

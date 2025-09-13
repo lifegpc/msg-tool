@@ -172,6 +172,11 @@ pub struct Arg {
     /// Whether to create scrambled SysGrp images. When in import mode, the default value depends on the original image.
     /// When in creation mode, it is not enabled by default.
     pub bgi_img_scramble: Option<bool>,
+    #[cfg(feature = "bgi-img")]
+    #[arg(long, global = true, default_value_t = crate::types::get_default_threads())]
+    /// Workers count for decode BGI compressed images v2 in parallel. Default is half of CPU cores.
+    /// Set this to 1 to disable parallel decoding. 0 means same as 1.
+    pub bgi_img_workers: usize,
     #[cfg(feature = "cat-system-arc")]
     #[arg(long, global = true, group = "cat_system_int_encrypt_passwordg")]
     /// CatSystem2 engine int archive password

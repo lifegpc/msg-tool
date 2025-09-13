@@ -1169,6 +1169,7 @@ dependencies = [
  "memchr",
  "mozjpeg",
  "msg_tool_macro",
+ "num_cpus",
  "overf",
  "parse-size",
  "pelite",

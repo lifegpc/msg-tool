@@ -28,6 +28,7 @@ markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
 msg_tool_macro = { version = "0.2.1" }
+num_cpus = { version = "1.17", optional = true }
 overf = "0.1"
 pelite = { version = "0.10", optional = true }
 png = { version = "0.18", optional = true }
@@ -58,7 +59,7 @@ artemis-arc = ["artemis", "msg_tool_macro/artemis-arc", "sha1"]
 bgi = ["fancy-regex"]
 bgi-arc = ["bgi", "rand", "utils-bit-stream"]
 bgi-audio = ["bgi"]
-bgi-img = ["bgi", "image", "rand", "utils-bit-stream"]
+bgi-img = ["bgi", "image", "rand", "utils-threadpool", "utils-bit-stream"]
 cat-system = ["fancy-regex", "flate2", "int-enum"]
 cat-system-arc = ["cat-system", "pelite", "utils-blowfish", "utils-crc32"]
 cat-system-img = ["cat-system", "flate2", "image", "mozjpeg", "utils-bit-stream"]
@@ -94,6 +95,7 @@ utils-crc32 = []
 utils-escape = ["fancy-regex"]
 utils-pcm = []
 utils-str = []
+utils-threadpool = ["num_cpus"]
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0", features = ["Win32_Globalization", "Win32_System_Diagnostics_Debug"] }

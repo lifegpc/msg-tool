@@ -426,6 +426,11 @@ pub struct ExtraConfig {
     #[default(true)]
     /// Whether to filter ascii strings in Favorite HCB script.
     pub favorite_hcb_filter_ascii: bool,
+    #[cfg(feature = "bgi-img")]
+    #[default(get_default_threads())]
+    /// Workers count for decode BGI compressed images v2 in parallel. Default is half of CPU cores.
+    /// Set this to 1 to disable parallel decoding. 0 means same as 1.
+    pub bgi_img_workers: usize,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -914,4 +919,10 @@ impl AsRef<str> for LosslessAudioFormat {
             LosslessAudioFormat::Flac => "flac",
         }
     }
+}
+
+#[cfg(feature = "utils-threadpool")]
+#[allow(unused)]
+pub(crate) fn get_default_threads() -> usize {
+    num_cpus::get().max(2) / 2
 }

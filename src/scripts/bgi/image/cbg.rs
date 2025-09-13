@@ -6,6 +6,7 @@ use crate::types::*;
 use crate::utils::bit_stream::*;
 use crate::utils::img::*;
 use crate::utils::struct_pack::*;
+use crate::utils::threadpool::*;
 use anyhow::Result;
 use msg_tool_macro::*;
 use std::io::{Read, Seek, Write};
@@ -133,6 +134,7 @@ pub struct BgiCBG {
     header: BgiCBGHeader,
     data: MemReader,
     color_type: CbgColorType,
+    decode_workers: usize,
 }
 
 impl BgiCBG {
@@ -140,7 +142,7 @@ impl BgiCBG {
     ///
     /// * `data` - The buffer containing the script data.
     /// * `config` - Extra configuration options.
-    pub fn new(data: Vec<u8>, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(data: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         let mut reader = MemReader::new(data);
         let mut magic = [0u8; 16];
         reader.read_exact(&mut magic)?;
@@ -167,6 +169,7 @@ impl BgiCBG {
             header,
             data: reader,
             color_type,
+            decode_workers: config.bgi_img_workers.max(1),
         })
     }
 }
@@ -185,7 +188,12 @@ impl Script for BgiCBG {
     }
 
     fn export_image(&self) -> Result<ImageData> {
-        let decoder = CbgDecoder::new(self.data.to_ref(), &self.header, self.color_type)?;
+        let decoder = CbgDecoder::new(
+            self.data.to_ref(),
+            &self.header,
+            self.color_type,
+            self.decode_workers,
+        )?;
         Ok(decoder.unpack()?)
     }
 
@@ -209,6 +217,7 @@ struct CbgDecoder<'a> {
     magic: u32,
     pixel_size: u8,
     stride: usize,
+    workers: usize,
 }
 
 impl<'a> CbgDecoder<'a> {
@@ -216,6 +225,7 @@ impl<'a> CbgDecoder<'a> {
         reader: MemReaderRef<'a>,
         info: &'a BgiCBGHeader,
         color_type: CbgColorType,
+        workers: usize,
     ) -> Result<Self> {
         let magic = 0;
         let key = info.key;
@@ -230,6 +240,7 @@ impl<'a> CbgDecoder<'a> {
             color_type,
             pixel_size,
             stride,
+            workers,
         })
     }
 
@@ -334,7 +345,7 @@ impl<'a> CbgDecoder<'a> {
             has_alpha: AtomicBool::new(false),
         });
 
-        let mut tasks = Vec::new();
+        let thread_pool = ThreadPool::new(self.workers, Some("cbg-decoder-worker-"));
         let mut dst = 0i32;
 
         for i in 0..y_blocks {
@@ -347,23 +358,27 @@ impl<'a> CbgDecoder<'a> {
             let closure_dst = dst;
             let decoder_ref = Arc::clone(&decoder);
 
-            let task = std::thread::spawn(move || {
-                decoder_ref.unpack_block(block_offset, next_offset - block_offset, closure_dst)
-            });
-            tasks.push(task);
+            thread_pool.execute(
+                move || {
+                    decoder_ref.unpack_block(block_offset, next_offset - block_offset, closure_dst)
+                },
+                true,
+            )?;
             dst += width * 32;
         }
 
         if self.info.bpp == 32 {
             let decoder_ref = Arc::clone(&decoder);
-            let task =
-                std::thread::spawn(move || decoder_ref.unpack_alpha(offsets[y_blocks as usize]));
-            tasks.push(task);
+            thread_pool.execute(
+                move || decoder_ref.unpack_alpha(offsets[y_blocks as usize]),
+                true,
+            )?;
         }
 
+        let tasks = thread_pool.into_results();
+
         for task in tasks {
-            task.join()
-                .map_err(|e| anyhow::anyhow!("Thread join failed: {:?}", e))??;
+            task?;
         }
 
         let has_alpha = decoder.has_alpha.qload();

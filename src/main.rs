@@ -1925,6 +1925,8 @@ fn main() {
         kirikiri_title: arg.kirikiri_title,
         #[cfg(feature = "favorite")]
         favorite_hcb_filter_ascii: !arg.favorite_hcb_no_filter_ascii,
+        #[cfg(feature = "bgi-img")]
+        bgi_img_workers: arg.bgi_img_workers,
     };
     match &arg.command {
         args::Command::Export { input, output } => {
