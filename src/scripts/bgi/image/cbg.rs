@@ -409,13 +409,25 @@ impl<'a> CbgDecoder<'a> {
             ImageColorType::Bgr
         };
 
-        Ok(ImageData {
+        let img = ImageData {
             width: decoder.width as u32,
             height: decoder.height as u32,
             color_type,
             depth: 8,
             data: output,
-        })
+        };
+
+        if decoder.width != self.info.width as i32 || decoder.height != self.info.height as i32 {
+            return Ok(draw_on_canvas(
+                img,
+                self.info.width as u32,
+                self.info.height as u32,
+                0,
+                0,
+            )?);
+        }
+
+        Ok(img)
     }
 
     fn read_encoded(&mut self) -> Result<Vec<u8>> {
