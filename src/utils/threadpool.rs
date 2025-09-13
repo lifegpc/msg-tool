@@ -51,6 +51,7 @@ impl std::fmt::Display for ExecuteError {
 }
 
 impl<T: Send + 'static> ThreadPool<T> {
+    /// Get the number of worker threads in the pool.
     pub fn size(&self) -> usize {
         self.size
     }
@@ -60,8 +61,13 @@ impl<T: Send + 'static> ThreadPool<T> {
     /// the channel is full, further submissions will block or return error depending on the flag.
     ///
     /// * `name` - Optional base name for worker threads. If None, "threadpool-worker-" is used.
-    pub fn new<'a>(size: usize, name: Option<&'a str>) -> Self {
-        assert!(size > 0, "size must be > 0");
+    pub fn new<'a>(size: usize, name: Option<&'a str>) -> Result<Self, std::io::Error> {
+        if size == 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "worker size must be > 0",
+            ));
+        }
 
         let (tx, rx) = sync_channel::<Job<T>>(size);
         let receiver = Arc::new(Mutex::new(rx));
@@ -110,13 +116,12 @@ impl<T: Send + 'static> ThreadPool<T> {
                             }
                         }
                     }
-                })
-                .expect("failed to spawn worker thread");
+                })?;
 
             workers.push(handle);
         }
 
-        ThreadPool {
+        Ok(ThreadPool {
             sender: Some(tx),
             receiver,
             workers,
@@ -124,7 +129,7 @@ impl<T: Send + 'static> ThreadPool<T> {
             pending,
             pending_pair,
             size,
-        }
+        })
     }
 
     /// Execute a task. If `block_if_full` is true, this call will block when the internal

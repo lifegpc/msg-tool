@@ -345,7 +345,7 @@ impl<'a> CbgDecoder<'a> {
             has_alpha: AtomicBool::new(false),
         });
 
-        let thread_pool = ThreadPool::new(self.workers, Some("cbg-decoder-worker-"));
+        let thread_pool = ThreadPool::new(self.workers, Some("cbg-decoder-worker-"))?;
         let mut dst = 0i32;
 
         for i in 0..y_blocks {
