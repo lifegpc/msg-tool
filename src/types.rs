@@ -711,6 +711,9 @@ pub enum ImageOutputType {
     #[cfg(feature = "image-webp")]
     /// WebP image
     Webp,
+    #[cfg(feature = "image-jxl")]
+    /// JPEG XL image
+    Jxl,
 }
 
 #[cfg(feature = "image")]
@@ -728,6 +731,8 @@ impl TryFrom<&str> for ImageOutputType {
             "jpeg" => Ok(ImageOutputType::Jpg),
             #[cfg(feature = "image-webp")]
             "webp" => Ok(ImageOutputType::Webp),
+            #[cfg(feature = "image-jxl")]
+            "jxl" => Ok(ImageOutputType::Jxl),
             _ => Err(anyhow::anyhow!("Unsupported image output type: {}", value)),
         }
     }
@@ -756,6 +761,8 @@ impl AsRef<str> for ImageOutputType {
             ImageOutputType::Jpg => "jpg",
             #[cfg(feature = "image-webp")]
             ImageOutputType::Webp => "webp",
+            #[cfg(feature = "image-jxl")]
+            ImageOutputType::Jxl => "jxl",
         }
     }
 }

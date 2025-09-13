@@ -16,6 +16,8 @@ pub mod files;
 pub mod flac;
 #[cfg(feature = "image")]
 pub mod img;
+#[cfg(feature = "image-jxl")]
+pub mod jxl;
 #[cfg(feature = "lossless-audio")]
 pub mod lossless_audio;
 mod macros;

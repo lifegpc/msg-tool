@@ -1146,6 +1146,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "msg-tool-jpegxl-src"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5b6b09d7b013a95614b62ef2bf668b268853d9a3d90b93ada715f2007c815b8"
+dependencies = [
+ "cmake",
+]
+
+[[package]]
+name = "msg-tool-jpegxl-sys"
+version = "0.11.2+libjxl-0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb3d4c72bd5bb5a7d6d9e902365bae80088479c05e651947bc285cdfd384f201"
+dependencies = [
+ "msg-tool-jpegxl-src",
+ "pkg-config",
+]
+
+[[package]]
 name = "msg_tool"
 version = "0.2.3"
 dependencies = [
@@ -1168,6 +1187,7 @@ dependencies = [
  "markup5ever_rcdom",
  "memchr",
  "mozjpeg",
+ "msg-tool-jpegxl-sys",
  "msg_tool_macro",
  "num_cpus",
  "overf",

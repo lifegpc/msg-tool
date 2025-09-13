@@ -20,6 +20,7 @@ fancy-regex = { version = "0.16", optional = true }
 flate2 = { version = "1.1", optional = true }
 int-enum = { version = "1.2", optional = true }
 json = { version = "0.12", optional = true }
+jpegxl-sys = { package = "msg-tool-jpegxl-sys", version = "0.11", optional = true, features = ["vendored"] }
 lazy_static = "1.5.0"
 libflac-sys = { version = "0.3", optional = true }
 libtlg-rs = { version = "0.2", optional = true, features = ["encode"] }
@@ -47,7 +48,7 @@ xml5ever = { version = "0.35", optional = true }
 zstd = { version = "0.13", optional = true }
 
 [features]
-default = ["all-fmt", "image-jpg", "image-webp", "audio-flac"]
+default = ["all-fmt", "image-jpg", "image-jxl", "image-webp", "audio-flac"]
 all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
 all-script = ["artemis", "artemis-panmimisoft", "bgi", "cat-system", "circus", "entis-gls", "escude", "ex-hibit", "favorite", "hexen-haus", "kirikiri", "silky", "softpal", "will-plus", "yaneurao", "yaneurao-itufuru"]
 all-img = ["bgi-img", "cat-system-img", "circus-img", "emote-img", "kirikiri-img"]
@@ -84,6 +85,7 @@ yaneurao-itufuru = ["yaneurao"]
 # basic feature
 image = ["png"]
 image-jpg = ["mozjpeg"]
+image-jxl = ["jpegxl-sys"]
 image-webp = ["webp"]
 lossless-audio = ["utils-pcm"]
 audio-flac = ["libflac-sys", "utils-pcm"]

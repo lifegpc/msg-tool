@@ -1,4 +1,6 @@
 //! Image Utilities
+#[cfg(feature = "image-jxl")]
+use super::jxl::*;
 use crate::ext::io::*;
 use crate::types::*;
 use anyhow::Result;
@@ -285,6 +287,13 @@ pub fn encode_img(
             file.write_all(&re)?;
             Ok(())
         }
+        #[cfg(feature = "image-jxl")]
+        ImageOutputType::Jxl => {
+            let mut file = crate::utils::files::write_file(filename)?;
+            let data = encode_jxl(data, config)?;
+            file.write_all(&data)?;
+            Ok(())
+        }
     }
 }
 
@@ -400,6 +409,11 @@ pub fn decode_img(typ: ImageOutputType, filename: &str) -> Result<ImageData> {
                 color_type,
                 data,
             })
+        }
+        #[cfg(feature = "image-jxl")]
+        ImageOutputType::Jxl => {
+            let file = crate::utils::files::read_file(filename)?;
+            decode_jxl(&file[..])
         }
     }
 }
