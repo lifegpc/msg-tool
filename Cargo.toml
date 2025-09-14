@@ -4,7 +4,7 @@ version = "0.2.4"
 edition = "2024"
 repository = "https://github.com/lifegpc/msg-tool"
 description = "A command-line tool for exporting, importing, packing, and unpacking script files."
-license = "MIT"
+license = "GPL-3.0-or-later"
 exclude = [".github", "*.py"]
 
 [dependencies]
