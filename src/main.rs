@@ -1875,9 +1875,11 @@ pub fn create_file(
 lazy_static::lazy_static! {
     static ref COUNTER: utils::counter::Counter = utils::counter::Counter::new();
     static ref EXIT_LISTENER: std::sync::Mutex<std::collections::BTreeMap<usize, Box<dyn Fn() + Send + Sync>>> = std::sync::Mutex::new(std::collections::BTreeMap::new());
+    #[allow(unused)]
     static ref EXIT_LISTENER_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 }
 
+#[allow(dead_code)]
 fn add_exit_listener<F: Fn() + Send + Sync + 'static>(f: F) -> usize {
     let id = EXIT_LISTENER_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     EXIT_LISTENER
@@ -1887,6 +1889,7 @@ fn add_exit_listener<F: Fn() + Send + Sync + 'static>(f: F) -> usize {
     id
 }
 
+#[allow(dead_code)]
 fn remove_exit_listener(id: usize) {
     EXIT_LISTENER
         .lock()
