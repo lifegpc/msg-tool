@@ -1,4 +1,6 @@
 use crate::types::*;
+#[allow(unused)]
+use crate::utils::num_range::*;
 use clap::{ArgAction, ArgGroup, Parser, Subcommand};
 
 #[cfg(feature = "flate2")]
@@ -13,7 +15,7 @@ fn parse_compression_level(level: &str) -> Result<u32, String> {
     } else if lower == "fast" {
         return Ok(1);
     }
-    clap_num::number_range(level, 0, 9)
+    number_range(level, 0, 9)
 }
 
 #[cfg(feature = "mozjpeg")]
@@ -22,7 +24,7 @@ fn parse_jpeg_quality(quality: &str) -> Result<u8, String> {
     if lower == "best" {
         return Ok(100);
     }
-    clap_num::number_range(quality, 0, 100)
+    number_range(quality, 0, 100)
 }
 
 #[cfg(feature = "zstd")]
@@ -33,7 +35,7 @@ fn parse_zstd_compression_level(level: &str) -> Result<i32, String> {
     } else if lower == "best" {
         return Ok(22);
     }
-    clap_num::number_range(level, 0, 22)
+    number_range(level, 0, 22)
 }
 
 #[cfg(feature = "webp")]
@@ -42,7 +44,7 @@ fn parse_webp_quality(quality: &str) -> Result<u8, String> {
     if lower == "best" {
         return Ok(100);
     }
-    clap_num::number_range(quality, 0, 100)
+    number_range(quality, 0, 100)
 }
 
 #[cfg(feature = "audio-flac")]
@@ -55,7 +57,18 @@ fn parse_flac_compression_level(level: &str) -> Result<u32, String> {
     } else if lower == "default" {
         return Ok(5);
     }
-    clap_num::number_range(level, 0, 8)
+    number_range(level, 0, 8)
+}
+
+#[cfg(feature = "image-jxl")]
+fn parse_jxl_distance(s: &str) -> Result<f32, String> {
+    let lower = s.to_ascii_lowercase();
+    if lower == "lossless" {
+        return Ok(0.0);
+    } else if lower == "visually-lossless" {
+        return Ok(1.0);
+    }
+    number_range(s, 0.0, 25.0)
 }
 
 /// Tools for export and import scripts
@@ -428,6 +441,20 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Do not filter ascii strings in Favorite HCB script.
     pub favorite_hcb_no_filter_ascii: bool,
+    #[cfg(feature = "image-jxl")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, alias = "jxl-no-lossless")]
+    /// Disable JXL lossless compression for output images
+    pub jxl_lossy: bool,
+    #[cfg(feature = "image-jxl")]
+    #[arg(long, global = true, default_value_t = 1.0, value_parser = parse_jxl_distance)]
+    /// JXL distance for output images. 0 means mathematically lossless compression. 1.0 means visually lossless compression.
+    /// Allowed range is 0.0-25.0. Recommended range is 0.5-3.0. Default value is 1
+    pub jxl_distance: f32,
+    #[cfg(feature = "image-jxl")]
+    #[arg(long, global = true, default_value_t = 1)]
+    /// Workers count for encode JXL images in parallel. Default is 1.
+    /// Set this to 1 to disable parallel encoding. 0 means same as 1
+    pub jxl_workers: usize,
     #[command(subcommand)]
     /// Command
     pub command: Command,

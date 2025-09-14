@@ -22,6 +22,7 @@ pub mod jxl;
 pub mod lossless_audio;
 mod macros;
 pub mod name_replacement;
+pub mod num_range;
 #[cfg(feature = "utils-pcm")]
 pub mod pcm;
 #[cfg(feature = "utils-str")]

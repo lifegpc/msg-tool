@@ -1927,6 +1927,12 @@ fn main() {
         favorite_hcb_filter_ascii: !arg.favorite_hcb_no_filter_ascii,
         #[cfg(feature = "bgi-img")]
         bgi_img_workers: arg.bgi_img_workers,
+        #[cfg(feature = "image-jxl")]
+        jxl_lossless: !arg.jxl_lossy,
+        #[cfg(feature = "image-jxl")]
+        jxl_distance: arg.jxl_distance,
+        #[cfg(feature = "image-jxl")]
+        jxl_workers: arg.jxl_workers,
     };
     match &arg.command {
         args::Command::Export { input, output } => {

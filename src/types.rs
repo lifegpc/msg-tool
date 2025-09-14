@@ -431,6 +431,20 @@ pub struct ExtraConfig {
     /// Workers count for decode BGI compressed images v2 in parallel. Default is half of CPU cores.
     /// Set this to 1 to disable parallel decoding. 0 means same as 1.
     pub bgi_img_workers: usize,
+    #[cfg(feature = "image-jxl")]
+    #[default(true)]
+    /// Use JXL lossless compression for output images. Enabled by default.
+    pub jxl_lossless: bool,
+    #[cfg(feature = "image-jxl")]
+    #[default(1.0)]
+    /// JXL distance for output images. 0 means mathematically lossless compression. 1.0 means visually lossless compression.
+    /// Allowed range is 0.0-25.0. Recommended range is 0.5-3.0. Default value is 1.0.
+    pub jxl_distance: f32,
+    #[cfg(feature = "image-jxl")]
+    #[default(1)]
+    /// Workers count for encode JXL images in parallel. Default is 1.
+    /// Set this to 1 to disable parallel encoding. 0 means same as 1
+    pub jxl_workers: usize,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

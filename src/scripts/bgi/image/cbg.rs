@@ -345,7 +345,7 @@ impl<'a> CbgDecoder<'a> {
             has_alpha: AtomicBool::new(false),
         });
 
-        let thread_pool = ThreadPool::new(self.workers, Some("cbg-decoder-worker-"))?;
+        let thread_pool = ThreadPool::new(self.workers, Some("cbg-decoder-worker-"), false)?;
         let mut dst = 0i32;
 
         for i in 0..y_blocks {
@@ -359,7 +359,7 @@ impl<'a> CbgDecoder<'a> {
             let decoder_ref = Arc::clone(&decoder);
 
             thread_pool.execute(
-                move || {
+                move |_| {
                     decoder_ref.unpack_block(block_offset, next_offset - block_offset, closure_dst)
                 },
                 true,
@@ -370,7 +370,7 @@ impl<'a> CbgDecoder<'a> {
         if self.info.bpp == 32 {
             let decoder_ref = Arc::clone(&decoder);
             thread_pool.execute(
-                move || decoder_ref.unpack_alpha(offsets[y_blocks as usize]),
+                move |_| decoder_ref.unpack_alpha(offsets[y_blocks as usize]),
                 true,
             )?;
         }

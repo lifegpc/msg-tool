@@ -4,6 +4,7 @@ use crate::ext::vec::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::bit_stream::*;
+use crate::utils::num_range::*;
 use anyhow::Result;
 use rand::Rng;
 use std::collections::BinaryHeap;
@@ -688,5 +689,5 @@ impl Script for Dsc {
 
 /// Parses the minimum length for LZSS compression from a string.
 pub fn parse_min_length(len: &str) -> Result<usize, String> {
-    clap_num::number_range(len, 2, 256)
+    number_range(len, 2, 256)
 }

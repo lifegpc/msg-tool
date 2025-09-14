@@ -7,7 +7,7 @@ use std::sync::{
 };
 use std::thread::{self, JoinHandle};
 
-type Job<T> = Box<dyn FnOnce() -> T + Send + 'static>;
+type Job<T> = Box<dyn FnOnce(usize) -> T + Send + 'static>;
 
 /// A simple generic thread pool.
 ///
@@ -61,7 +61,12 @@ impl<T: Send + 'static> ThreadPool<T> {
     /// the channel is full, further submissions will block or return error depending on the flag.
     ///
     /// * `name` - Optional base name for worker threads. If None, "threadpool-worker-" is used.
-    pub fn new<'a>(size: usize, name: Option<&'a str>) -> Result<Self, std::io::Error> {
+    /// * `no_result` - If true, results are not stored (saves some overhead if not needed).
+    pub fn new<'a>(
+        size: usize,
+        name: Option<&'a str>,
+        no_result: bool,
+    ) -> Result<Self, std::io::Error> {
         if size == 0 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -98,8 +103,8 @@ impl<T: Send + 'static> ThreadPool<T> {
                         match job {
                             Ok(job) => {
                                 // Execute the job and store result
-                                let res = job();
-                                {
+                                let res = job(id);
+                                if !no_result {
                                     let mut r = results_clone.lock_blocking();
                                     r.push(res);
                                 }
@@ -135,9 +140,11 @@ impl<T: Send + 'static> ThreadPool<T> {
     /// Execute a task. If `block_if_full` is true, this call will block when the internal
     /// submission channel is full (i.e. all workers busy and buffer full) until space becomes available.
     /// If `block_if_full` is false, this returns Err(ExecuteError::Full) when the channel is full.
+    ///
+    /// job: a closure that takes the worker id (0..size-1) and returns a T.
     pub fn execute<F>(&self, job: F, block_if_full: bool) -> Result<(), ExecuteError>
     where
-        F: FnOnce() -> T + Send + 'static,
+        F: FnOnce(usize) -> T + Send + 'static,
     {
         let sender = match &self.sender {
             Some(s) => s,
@@ -189,6 +196,12 @@ impl<T: Send + 'static> ThreadPool<T> {
                 Err(poisoned) => poisoned.into_inner(),
             };
         }
+    }
+
+    /// Take all results, leaving an empty results vector.
+    pub fn take_results(&self) -> Vec<T> {
+        let mut results = self.results.lock_blocking();
+        results.split_off(0)
     }
 
     /// Wait until all submitted tasks have completed, then return the results.

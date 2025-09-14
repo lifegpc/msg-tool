@@ -1,11 +1,15 @@
 //! JPEG XL image support
 use super::img::*;
+use super::num_range::*;
+use super::threadpool::*;
 use crate::types::*;
 use anyhow::Result;
 use jpegxl_sys::common::types::*;
 use jpegxl_sys::decode::*;
 use jpegxl_sys::encoder::encode::*;
 use jpegxl_sys::metadata::codestream_header::*;
+use jpegxl_sys::threads::parallel_runner::*;
+use std::ffi::c_void;
 use std::io::Read;
 
 struct JxlDecoderHandle {
@@ -30,6 +34,57 @@ impl Drop for JxlEncoderHandle {
             JxlEncoderDestroy(self.handle);
         }
     }
+}
+
+struct ThreadPoolRunner {
+    thread_pool: ThreadPool<()>,
+}
+
+impl ThreadPoolRunner {
+    fn new(workers: usize) -> Result<Self> {
+        let thread_pool = ThreadPool::new(workers, Some("jxl-thread-runner-"), true)?;
+        Ok(Self { thread_pool })
+    }
+}
+
+#[derive(Clone, Copy)]
+struct JpegxlPointer(*mut c_void);
+
+unsafe impl Send for JpegxlPointer {}
+
+unsafe extern "C-unwind" fn thread_pool_runner(
+    runner_opaque: *mut c_void,
+    jpegxl_opaque: *mut c_void,
+    init: JxlParallelRunInit,
+    func: JxlParallelRunFunction,
+    start_range: u32,
+    end_range: u32,
+) -> JxlParallelRetCode {
+    if runner_opaque.is_null() || jpegxl_opaque.is_null() {
+        return JXL_PARALLEL_RET_RUNNER_ERROR;
+    }
+    let runner = unsafe { &*(runner_opaque as *const ThreadPoolRunner) };
+    let initre = unsafe { init(jpegxl_opaque, runner.thread_pool.size()) };
+    if initre != JXL_PARALLEL_RET_SUCCESS {
+        return initre;
+    }
+    let jpegxl = JpegxlPointer(jpegxl_opaque);
+    for i in start_range..end_range {
+        let jpegxl = jpegxl;
+        let func = func;
+        match runner.thread_pool.execute(
+            move |thread_id| unsafe {
+                let jpegxl = jpegxl;
+                func(jpegxl.0, i, thread_id)
+            },
+            true,
+        ) {
+            Ok(_) => {}
+            Err(_) => return JXL_PARALLEL_RET_RUNNER_ERROR,
+        }
+    }
+    runner.thread_pool.join();
+    JXL_PARALLEL_RET_SUCCESS
 }
 
 fn check_decoder_status(status: JxlDecoderStatus) -> Result<()> {
@@ -145,12 +200,27 @@ pub fn decode_jxl<R: Read>(mut r: R) -> Result<ImageData> {
 }
 
 /// Encode image data to JXL format
-pub fn encode_jxl(mut img: ImageData, _config: &ExtraConfig) -> Result<Vec<u8>> {
+pub fn encode_jxl(mut img: ImageData, config: &ExtraConfig) -> Result<Vec<u8>> {
     let encoder = unsafe { JxlEncoderCreate(std::ptr::null()) };
     if encoder.is_null() {
         return Err(anyhow::anyhow!("Failed to create JXL encoder"));
     }
     let eh = JxlEncoderHandle { handle: encoder };
+    let ph = if config.jxl_workers > 1 {
+        let ph = ThreadPoolRunner::new(config.jxl_workers)?;
+        Some(ph)
+    } else {
+        None
+    };
+    if let Some(ph) = &ph {
+        check_encoder_status(unsafe {
+            JxlEncoderSetParallelRunner(
+                eh.handle,
+                thread_pool_runner,
+                ph as *const _ as *mut c_void,
+            )
+        })?;
+    }
     let mut basic_info = default_basic_info();
     basic_info.xsize = img.width;
     basic_info.ysize = img.height;
@@ -184,7 +254,14 @@ pub fn encode_jxl(mut img: ImageData, _config: &ExtraConfig) -> Result<Vec<u8>> 
             "Failed to create JXL encoder frame settings"
         ));
     }
-    check_encoder_status(unsafe { JxlEncoderSetFrameLossless(options, JxlBool::True) })?;
+    check_encoder_status(unsafe {
+        JxlEncoderSetFrameLossless(options, JxlBool::from(config.jxl_lossless))
+    })?;
+    if !config.jxl_lossless {
+        let distance = check_range(config.jxl_distance, 0.0, 25.0)
+            .map_err(|e| anyhow::anyhow!("Invalid JXL distance: {}", e))?;
+        check_encoder_status(unsafe { JxlEncoderSetFrameDistance(options, distance) })?;
+    }
     let format = JxlPixelFormat {
         num_channels: img.color_type.bpp(1) as u32,
         data_type: if img.depth <= 8 {
