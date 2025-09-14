@@ -3,6 +3,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 const SPACE_STR_LIST: [&str; 2] = [" ", "　"];
 const QUOTE_LIST: [(&str, &str); 4] = [("「", "」"), ("『", "』"), ("（", "）"), ("【", "】")];
+const BREAK_SENTENCE_SYMBOLS: [&str; 5] = ["…", "，", "。", "？", "！"];
 
 fn check_is_ascii_alphanumeric(s: &str) -> bool {
     for c in s.chars() {
@@ -33,6 +34,17 @@ fn check_need_fullwidth_space(s: &str) -> bool {
     false
 }
 
+fn check_is_end_quote(segs: &[&str], pos: usize) -> bool {
+    for p in pos..segs.len() {
+        let d = segs[p];
+        let is_end_quote = QUOTE_LIST.iter().any(|(_, close)| d == *close);
+        if !is_end_quote {
+            return false;
+        }
+    }
+    true
+}
+
 pub struct FixedFormatter {
     length: usize,
     keep_original: bool,
@@ -40,6 +52,8 @@ pub struct FixedFormatter {
     break_words: bool,
     /// Whether to insert a full-width space after a line break when a sentence starts with a full-width quotation mark.
     insert_fullwidth_space_at_line_start: bool,
+    /// If a line break occurs in the middle of some symbols, bring the sentence to next line
+    break_with_sentence: bool,
     #[allow(unused)]
     typ: Option<ScriptType>,
 }
@@ -50,6 +64,7 @@ impl FixedFormatter {
         keep_original: bool,
         break_words: bool,
         insert_fullwidth_space_at_line_start: bool,
+        break_with_sentence: bool,
         typ: Option<ScriptType>,
     ) -> Self {
         FixedFormatter {
@@ -57,8 +72,51 @@ impl FixedFormatter {
             keep_original,
             break_words,
             insert_fullwidth_space_at_line_start,
+            break_with_sentence,
             typ,
         }
+    }
+
+    #[cfg(test)]
+    fn builder(length: usize) -> Self {
+        FixedFormatter {
+            length,
+            keep_original: false,
+            break_words: true,
+            insert_fullwidth_space_at_line_start: false,
+            break_with_sentence: false,
+            typ: None,
+        }
+    }
+
+    #[cfg(test)]
+    fn keep_original(mut self, keep: bool) -> Self {
+        self.keep_original = keep;
+        self
+    }
+
+    #[cfg(test)]
+    fn break_words(mut self, break_words: bool) -> Self {
+        self.break_words = break_words;
+        self
+    }
+
+    #[cfg(test)]
+    fn insert_fullwidth_space_at_line_start(mut self, insert: bool) -> Self {
+        self.insert_fullwidth_space_at_line_start = insert;
+        self
+    }
+
+    #[cfg(test)]
+    fn break_with_sentence(mut self, break_with_sentence: bool) -> Self {
+        self.break_with_sentence = break_with_sentence;
+        self
+    }
+
+    #[cfg(test)]
+    fn typ(mut self, typ: Option<ScriptType>) -> Self {
+        self.typ = typ;
+        self
     }
 
     #[cfg(feature = "circus")]
@@ -126,7 +184,76 @@ impl FixedFormatter {
 
             // Check if we need to break and handle word breaking
             if current_length >= self.length {
-                if !self.break_words
+                if self.break_with_sentence
+                    && !is_command
+                    && !is_ruby_rt
+                    && ((BREAK_SENTENCE_SYMBOLS.contains(&grapheme)
+                        && i > 1
+                        && BREAK_SENTENCE_SYMBOLS.contains(&vec[i - 1]))
+                        || check_is_end_quote(&vec, i))
+                {
+                    let mut break_pos = None;
+                    let segs = result.graphemes(true).collect::<Vec<_>>();
+                    let is_end_quote = check_is_end_quote(&vec, i);
+                    let mut end = segs.len();
+                    for (j, ch) in segs.iter().enumerate().rev() {
+                        if BREAK_SENTENCE_SYMBOLS.contains(ch) {
+                            end = j;
+                            if !is_end_quote {
+                                break_pos = Some(j);
+                            }
+                        }
+                        break;
+                    }
+                    for (j, ch) in segs[..end].iter().enumerate().rev() {
+                        if j >= end {
+                            continue;
+                        }
+                        if BREAK_SENTENCE_SYMBOLS.contains(ch) {
+                            break_pos = Some(j + 1);
+                            break;
+                        }
+                    }
+                    if let Some(pos) = break_pos {
+                        let remaining = segs[pos..].concat().trim_start().to_string();
+                        result = segs[..pos].concat();
+                        result.push('\n');
+                        current_length = 0;
+                        if first_line {
+                            if self.insert_fullwidth_space_at_line_start {
+                                if check_need_fullwidth_space(&main_content) {
+                                    need_insert_fullwidth_space = true;
+                                }
+                            }
+                            first_line = false;
+                        }
+                        if need_insert_fullwidth_space {
+                            result.push('　');
+                            current_length += 1;
+                        }
+                        result.push_str(&remaining);
+                        current_length += remaining.graphemes(true).count();
+                        main_content.clear();
+                        pre_is_lf = true;
+                    } else {
+                        result.push('\n');
+                        current_length = 0;
+                        if first_line {
+                            if self.insert_fullwidth_space_at_line_start {
+                                if check_need_fullwidth_space(&main_content) {
+                                    need_insert_fullwidth_space = true;
+                                }
+                            }
+                            first_line = false;
+                        }
+                        if need_insert_fullwidth_space {
+                            result.push('　');
+                            current_length += 1;
+                        }
+                        main_content.clear();
+                        pre_is_lf = true;
+                    }
+                } else if !self.break_words
                     && !is_command
                     && !is_ruby_rt
                     && check_is_ascii_alphanumeric(grapheme)
@@ -287,7 +414,7 @@ impl FixedFormatter {
 
 #[test]
 fn test_format() {
-    let formatter = FixedFormatter::new(10, false, true, false, None);
+    let formatter = FixedFormatter::builder(10);
     let message = "This is a test message.\nThis is another line.";
     let formatted_message = formatter.format(message);
     assert_eq!(
@@ -299,38 +426,40 @@ fn test_format() {
         formatter.format("● This is 　a test."),
         "● This is \na test."
     );
-    let fommater2 = FixedFormatter::new(10, true, true, false, None);
+    let fommater2 = FixedFormatter::builder(10).keep_original(true);
     assert_eq!(
         fommater2.format("● Th\n is is a te st."),
         "● Th\nis is a te\nst."
     );
 
     // Test break_words = false
-    let no_break_formatter = FixedFormatter::new(10, false, false, false, None);
+    let no_break_formatter = FixedFormatter::builder(10).break_words(false);
     assert_eq!(
         no_break_formatter.format("Example text."),
         "Example \ntext."
     );
 
-    let no_break_formatter2 = FixedFormatter::new(6, false, false, false, None);
+    let no_break_formatter2 = FixedFormatter::builder(6).break_words(false);
     assert_eq!(
         no_break_formatter2.format("Example text."),
         "Exampl\ne text\n."
     );
 
-    let no_break_formatter3 = FixedFormatter::new(7, false, false, false, None);
+    let no_break_formatter3 = FixedFormatter::builder(7).break_words(false);
     assert_eq!(
         no_break_formatter3.format("Example text."),
         "Example\ntext."
     );
 
-    let real_world_no_break_formatter = FixedFormatter::new(32, false, false, false, None);
+    let real_world_no_break_formatter = FixedFormatter::builder(32).break_words(false);
     assert_eq!(
         real_world_no_break_formatter.format("○咕噜咕噜（Temporary Magnetic Pattern Linkage）"),
         "○咕噜咕噜（Temporary Magnetic Pattern\nLinkage）"
     );
 
-    let formatter3 = FixedFormatter::new(10, false, false, true, None);
+    let formatter3 = FixedFormatter::builder(10)
+        .break_words(false)
+        .insert_fullwidth_space_at_line_start(true);
     assert_eq!(
         formatter3.format("「This is a test."),
         "「This is a\n\u{3000}test."
@@ -351,10 +480,32 @@ fn test_format() {
         "（This） 「is\n\u{3000}a test."
     );
 
+    let formatter4 = FixedFormatter::builder(10)
+        .break_words(false)
+        .break_with_sentence(true);
+    assert_eq!(
+        formatter4.format("『打断测，测试一下……』"),
+        "『打断测，\n测试一下……』"
+    );
+
+    assert_eq!(
+        formatter4.format("『打断测，测试一下。』"),
+        "『打断测，\n测试一下。』"
+    );
+
+    assert_eq!(
+        formatter4.format("『打断是测试一下哦……』"),
+        "『打断是测试一下哦\n……』"
+    );
+
+    assert_eq!(
+        formatter4.format("『打断测是测试一下。』"),
+        "『打断测是测试一下。\n』"
+    );
+
     #[cfg(feature = "circus")]
     {
-        let circus_formatter =
-            FixedFormatter::new(10, false, true, false, Some(ScriptType::Circus));
+        let circus_formatter = FixedFormatter::builder(10).typ(Some(ScriptType::Circus));
         assert_eq!(
             circus_formatter.format("● @cmd1@cmd2@cmd3中文字数是一\n　二三　四五六七八九十"),
             "● @cmd1@cmd2@cmd3中文字数是一二三\n四五六七八九十"
@@ -364,8 +515,7 @@ fn test_format() {
                 .format("● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一\n　二三　四五六七八九十"),
             "● @cmd1@cmd2@cmd3｛rubyText／中文｝字数是一二三\n四五六七八九十"
         );
-        let circus_formatter2 =
-            FixedFormatter::new(32, false, true, false, Some(ScriptType::Circus));
+        let circus_formatter2 = FixedFormatter::builder(32).typ(Some(ScriptType::Circus));
         assert_eq!(
             circus_formatter2.format("@re1@re2@b1@t30@w1「当然现在我很幸福哦？\n　因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？\n　因为有敦也君在身边」"),
             "@re1@re2@b1@t30@w1「当然现在我很幸福哦？因为有你在身边」@n\n「@b1@t38@w1当然现在我很幸福哦？因为有敦也君在身边」"
@@ -374,8 +524,9 @@ fn test_format() {
 
     #[cfg(feature = "kirikiri")]
     {
-        let scn_formatter =
-            FixedFormatter::new(3, false, false, false, Some(ScriptType::KirikiriScn));
+        let scn_formatter = FixedFormatter::builder(3)
+            .break_words(false)
+            .typ(Some(ScriptType::KirikiriScn));
         assert_eq!(
             scn_formatter.format("%test;[ruby]测[test]试打断。"),
             "%test;[ruby]测[test]试打\n断。"

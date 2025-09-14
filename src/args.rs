@@ -513,6 +513,9 @@ pub struct ImportArgs {
     #[arg(long, action = ArgAction::SetTrue)]
     /// Insert fullwidth space at the start of line in patched script (for fixed format)
     pub patched_insert_fullwidth_space_at_line_start: bool,
+    #[arg(long, action = ArgAction::SetTrue)]
+    /// If a line break occurs in the middle of some symbols, bring the sentence to next line (for fixed format)
+    pub patched_break_with_sentence: bool,
     #[arg(long)]
     /// Name table file
     pub name_csv: Option<String>,

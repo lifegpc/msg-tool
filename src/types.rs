@@ -662,6 +662,8 @@ pub enum FormatOptions {
         break_words: bool,
         /// Whether to insert a full-width space after a line break when a sentence starts with a full-width quotation mark.
         insert_fullwidth_space_at_line_start: bool,
+        /// If a line break occurs in the middle of some symbols, bring the sentence to next line
+        break_with_sentence: bool,
     },
     /// Do not wrap line
     None,

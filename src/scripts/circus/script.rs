@@ -219,6 +219,7 @@ impl Script for CircusMesScript {
             keep_original: false,
             break_words: false,
             insert_fullwidth_space_at_line_start: true,
+            break_with_sentence: true,
         }
     }
 

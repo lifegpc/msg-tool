@@ -1372,6 +1372,7 @@ pub fn import_script(
                             break_words: imp_cfg.patched_break_words,
                             insert_fullwidth_space_at_line_start: imp_cfg
                                 .patched_insert_fullwidth_space_at_line_start,
+                            break_with_sentence: imp_cfg.patched_break_with_sentence,
                         },
                         types::FormatType::None => types::FormatOptions::None,
                     },
@@ -1590,6 +1591,7 @@ pub fn import_script(
                 break_words: imp_cfg.patched_break_words,
                 insert_fullwidth_space_at_line_start: imp_cfg
                     .patched_insert_fullwidth_space_at_line_start,
+                break_with_sentence: imp_cfg.patched_break_with_sentence,
             },
             types::FormatType::None => types::FormatOptions::None,
         },
