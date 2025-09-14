@@ -6,14 +6,6 @@ pub trait MutexExt<T> {
 
 impl<T> MutexExt<T> for std::sync::Mutex<T> {
     fn lock_blocking(&self) -> std::sync::MutexGuard<'_, T> {
-        loop {
-            match self.try_lock() {
-                Ok(guard) => return guard,
-                Err(std::sync::TryLockError::WouldBlock) => {
-                    std::thread::yield_now();
-                }
-                Err(std::sync::TryLockError::Poisoned(err)) => return err.into_inner(),
-            }
-        }
+        self.lock().unwrap_or_else(|err| err.into_inner())
     }
 }
