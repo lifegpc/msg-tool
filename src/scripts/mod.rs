@@ -126,6 +126,8 @@ lazy_static::lazy_static! {
         Box::new(silky::mes::MesBuilder::new()),
         #[cfg(feature = "favorite")]
         Box::new(favorite::hcb::HcbScriptBuilder::new()),
+        #[cfg(feature = "silky")]
+        Box::new(silky::map::MapBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

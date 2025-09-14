@@ -592,6 +592,9 @@ pub enum ScriptType {
     #[cfg(feature = "silky")]
     /// Silky Engine Mes script
     Silky,
+    #[cfg(feature = "silky")]
+    /// Silky Engine Map script
+    SilkyMap,
     #[cfg(feature = "softpal")]
     /// Softpal src script
     Softpal,

@@ -294,6 +294,13 @@ pub trait Peek {
         Ok(s)
     }
 
+    /// Peeks a UTF-16 string (null-terminated) from the reader.
+    /// Returns the raw bytes of the UTF-16 string. (Null terminator is not included)
+    fn peek_u16string(&mut self) -> Result<Vec<u8>>;
+    /// Peeks a UTF-16 string (null-terminated) from the reader at a specific offset.
+    /// Returns the raw bytes of the UTF-16 string. (Null terminator is not included)
+    fn peek_u16string_at(&mut self, offset: u64) -> Result<Vec<u8>>;
+
     /// Reads a struct from the reader.
     /// The struct must implement the `StructUnpack` trait.
     ///
@@ -407,6 +414,37 @@ impl<T: Read + Seek> Peek for T {
         }
         self.seek(SeekFrom::Start(current_pos))?;
         CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+
+    fn peek_u16string(&mut self) -> Result<Vec<u8>> {
+        let current_pos = self.stream_position()?;
+        let mut buf = Vec::new();
+        loop {
+            let mut bytes = [0u8; 2];
+            self.read_exact(&mut bytes)?;
+            if bytes == [0, 0] {
+                break;
+            }
+            buf.extend_from_slice(&bytes);
+        }
+        self.seek(SeekFrom::Start(current_pos))?;
+        Ok(buf)
+    }
+
+    fn peek_u16string_at(&mut self, offset: u64) -> Result<Vec<u8>> {
+        let current_pos = self.stream_position()?;
+        let mut buf = Vec::new();
+        self.seek(SeekFrom::Start(offset as u64))?;
+        loop {
+            let mut bytes = [0u8; 2];
+            self.read_exact(&mut bytes)?;
+            if bytes == [0, 0] {
+                break;
+            }
+            buf.extend_from_slice(&bytes);
+        }
+        self.seek(SeekFrom::Start(current_pos))?;
+        Ok(buf)
     }
 
     fn read_struct<S: StructUnpack>(&mut self, big: bool, encoding: Encoding) -> Result<S> {
@@ -732,6 +770,26 @@ pub trait CPeek {
         Ok(s)
     }
 
+    /// Peeks a UTF-16 string (null-terminated) from the reader.
+    /// Returns the raw bytes of the UTF-16 string. (Null terminator is not included)
+    fn cpeek_u16string(&self) -> Result<Vec<u8>>;
+    /// Peeks a UTF-16 string (null-terminated) from the reader at a specific offset.
+    /// Returns the raw bytes of the UTF-16 string. (Null terminator is not
+    fn cpeek_u16string_at(&self, offset: u64) -> Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        let mut bytes = [0u8; 2];
+        let mut current_offset = offset;
+        loop {
+            self.cpeek_exact_at(current_offset, &mut bytes)?;
+            if bytes == [0, 0] {
+                break;
+            }
+            buf.extend_from_slice(&bytes);
+            current_offset += 2;
+        }
+        Ok(buf)
+    }
+
     /// Peeks data and checks if it matches the provided data.
     fn cpeek_and_equal(&self, data: &[u8]) -> Result<()> {
         let mut buf = vec![0u8; data.len()];
@@ -778,6 +836,13 @@ impl<T: Peek> CPeek for Mutex<T> {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
         })?;
         lock.peek_cstring()
+    }
+
+    fn cpeek_u16string(&self) -> Result<Vec<u8>> {
+        let mut lock = self.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+        })?;
+        lock.peek_u16string()
     }
 }
 
@@ -835,6 +900,10 @@ pub trait ReadExt {
     /// * `encoding` specifies the encoding to use for the string.
     /// * `trim` indicates whether to trim the string after the first null byte.
     fn read_fstring(&mut self, len: usize, encoding: Encoding, trim: bool) -> Result<String>;
+
+    /// Reads a UTF-16 string (null-terminated) from the reader.
+    /// Returns the raw bytes of the UTF-16 string. (Null terminator is not included)
+    fn read_u16string(&mut self) -> Result<Vec<u8>>;
 
     /// Reads some data from the reader into a vector.
     fn read_exact_vec(&mut self, len: usize) -> Result<Vec<u8>>;
@@ -979,6 +1048,19 @@ impl<T: Read> ReadExt for T {
         let s = decode_to_string(encoding, &buf, true)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         Ok(s)
+    }
+
+    fn read_u16string(&mut self) -> Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        loop {
+            let mut bytes = [0u8; 2];
+            self.read_exact(&mut bytes)?;
+            if bytes == [0, 0] {
+                break;
+            }
+            buf.extend_from_slice(&bytes);
+        }
+        Ok(buf)
     }
 
     fn read_exact_vec(&mut self, len: usize) -> Result<Vec<u8>> {
@@ -1399,6 +1481,10 @@ impl CPeek for MemReader {
     fn cpeek_cstring(&self) -> Result<CString> {
         self.to_ref().cpeek_cstring()
     }
+
+    fn cpeek_u16string(&self) -> Result<Vec<u8>> {
+        self.to_ref().cpeek_u16string()
+    }
 }
 
 impl<'a> Read for MemReaderRef<'a> {
@@ -1488,6 +1574,20 @@ impl<'a> CPeek for MemReaderRef<'a> {
             buf.push(byte);
         }
         CString::new(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+
+    fn cpeek_u16string(&self) -> Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        let mut i = self.pos;
+        while i + 1 < self.data.len() {
+            let bytes = &self.data[i..i + 2];
+            if bytes == [0, 0] {
+                break;
+            }
+            buf.extend_from_slice(bytes);
+            i += 2;
+        }
+        Ok(buf)
     }
 }
 
@@ -1611,6 +1711,10 @@ impl CPeek for MemWriter {
 
     fn cpeek_cstring(&self) -> Result<CString> {
         self.to_ref().cpeek_cstring()
+    }
+
+    fn cpeek_u16string(&self) -> Result<Vec<u8>> {
+        self.to_ref().cpeek_u16string()
     }
 }
 

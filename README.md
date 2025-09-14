@@ -174,6 +174,7 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `silky` | `silky` | Silky Engine Mes Script File (.mes) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
+| `silky-map` | `silky` | Silky Engine Map File (.map) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | |
 ### Softpal
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

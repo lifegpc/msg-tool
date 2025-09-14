@@ -1504,7 +1504,11 @@ pub fn import_script(
         if arg.output_no_extra_ext {
             pb.remove_all_extensions();
         }
-        pb.set_extension(of.as_ref());
+        pb.set_extension(if of.is_custom() {
+            script.custom_output_extension()
+        } else {
+            of.as_ref()
+        });
         pb.to_string_lossy().into_owned()
     } else {
         imp_cfg.output.clone()
