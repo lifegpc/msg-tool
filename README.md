@@ -53,6 +53,7 @@ msg-tool create -t <script-type> <input> <output>
 - `json` - [GalTransl](https://github.com/GalTransl/GalTransl)'s JSON format
 - `m3t` / `m3ta` - A simple text format that supports both original/llm/translated messages.
 - `yaml` - Same as `json`, but in YAML format.
+- `po`/`pot` - Gettext PO/POT format.
 
 ## Supported Image Types
 | Image Type | Feature Name |
@@ -60,6 +61,7 @@ msg-tool create -t <script-type> <input> <output>
 | `png` | `image` (enabled automatically if any image script types are enabled) |
 | `jpg` | `image-jpg` |
 | `webp` | `image-webp` |
+| `jxl` | `image-jxl` |
 
 ## Supported Script Types
 ### Artemis Engine

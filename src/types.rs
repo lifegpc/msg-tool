@@ -633,6 +633,9 @@ pub enum ScriptResult {
     /// Operation completed without any changes.
     /// For example, no messages found in the script.
     Ignored,
+    /// Operation not completed.
+    /// This will not count in statistics.
+    Uncount,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

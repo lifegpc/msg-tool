@@ -146,7 +146,7 @@ fn get_patched_archive_encoding(
 pub fn parse_script(
     filename: &str,
     arg: &args::Arg,
-    config: &types::ExtraConfig,
+    config: std::sync::Arc<types::ExtraConfig>,
 ) -> anyhow::Result<(
     Box<dyn scripts::Script>,
     &'static Box<dyn scripts::ScriptBuilder + Send + Sync>,
@@ -162,7 +162,7 @@ pub fn parse_script(
                             filename,
                             encoding,
                             archive_encoding,
-                            config,
+                            &config,
                             None,
                         )?,
                         builder,
@@ -192,7 +192,7 @@ pub fn parse_script(
         let encoding = get_encoding(arg, builder);
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script_from_file(filename, encoding, archive_encoding, config, None)?,
+            builder.build_script_from_file(filename, encoding, archive_encoding, &config, None)?,
             builder,
         ));
     }
@@ -223,7 +223,7 @@ pub fn parse_script(
         let encoding = get_encoding(arg, builder);
         let archive_encoding = get_archived_encoding(arg, builder, encoding);
         return Ok((
-            builder.build_script_from_file(filename, encoding, archive_encoding, config, None)?,
+            builder.build_script_from_file(filename, encoding, archive_encoding, &config, None)?,
             builder,
         ));
     }
@@ -240,7 +240,7 @@ pub fn parse_script(
 pub fn parse_script_from_archive<'a>(
     file: &mut Box<dyn ArchiveContent + 'a>,
     arg: &args::Arg,
-    config: &types::ExtraConfig,
+    config: std::sync::Arc<types::ExtraConfig>,
     archive: &Box<dyn scripts::Script>,
 ) -> anyhow::Result<(
     Box<dyn scripts::Script>,
@@ -258,7 +258,7 @@ pub fn parse_script_from_archive<'a>(
                             file.name(),
                             encoding,
                             archive_encoding,
-                            config,
+                            &config,
                             Some(archive),
                         )?,
                         builder,
@@ -293,7 +293,7 @@ pub fn parse_script_from_archive<'a>(
                 file.name(),
                 encoding,
                 archive_encoding,
-                config,
+                &config,
                 Some(archive),
             )?,
             builder,
@@ -326,7 +326,7 @@ pub fn parse_script_from_archive<'a>(
                 file.name(),
                 encoding,
                 archive_encoding,
-                config,
+                &config,
                 Some(archive),
             )?,
             builder,
@@ -346,12 +346,15 @@ pub fn parse_script_from_archive<'a>(
 pub fn export_script(
     filename: &str,
     arg: &args::Arg,
-    config: &types::ExtraConfig,
+    config: std::sync::Arc<types::ExtraConfig>,
     output: &Option<String>,
     root_dir: Option<&std::path::Path>,
+    #[cfg(feature = "image")] img_threadpool: Option<
+        &utils::threadpool::ThreadPool<Result<(), anyhow::Error>>,
+    >,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Exporting {}", filename);
-    let script = parse_script(filename, arg, config)?.0;
+    let script = parse_script(filename, arg, config.clone())?.0;
     if script.is_archive() {
         let odir = match output.as_ref() {
             Some(output) => {
@@ -408,18 +411,18 @@ pub fn export_script(
                 }
             };
             if arg.force_script || f.is_script() {
-                let (script_file, _) = match parse_script_from_archive(&mut f, arg, config, &script)
-                {
-                    Ok(s) => s,
-                    Err(e) => {
-                        eprintln!("Error parsing script '{}' from archive: {}", filename, e);
-                        COUNTER.inc_error();
-                        if arg.backtrace {
-                            eprintln!("Backtrace: {}", e.backtrace());
+                let (script_file, _) =
+                    match parse_script_from_archive(&mut f, arg, config.clone(), &script) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Error parsing script '{}' from archive: {}", filename, e);
+                            COUNTER.inc_error();
+                            if arg.backtrace {
+                                eprintln!("Backtrace: {}", e.backtrace());
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                };
+                    };
                 #[cfg(feature = "image")]
                 if script_file.is_image() {
                     if script_file.is_multi_image() {
@@ -462,13 +465,44 @@ pub fn export_script(
                                     continue;
                                 }
                             }
-                            utils::img::encode_img(
-                                img_data.data,
-                                out_type,
-                                &out_path.to_string_lossy(),
-                                config,
-                            )?;
-                            COUNTER.inc(types::ScriptResult::Ok);
+                            if let Some(threadpool) = img_threadpool {
+                                let outpath = out_path.to_string_lossy().into_owned();
+                                let config = config.clone();
+                                threadpool.execute(
+                                    move |_| {
+                                        utils::img::encode_img(
+                                            img_data.data,
+                                            out_type,
+                                            &outpath,
+                                            &config,
+                                        )
+                                        .map_err(|e| {
+                                            anyhow::anyhow!(
+                                                "Failed to encode image {}: {}",
+                                                outpath,
+                                                e
+                                            )
+                                        })
+                                    },
+                                    true,
+                                )?;
+                                continue;
+                            } else {
+                                match utils::img::encode_img(
+                                    img_data.data,
+                                    out_type,
+                                    &out_path.to_string_lossy(),
+                                    &config,
+                                ) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("Error encoding image: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                                COUNTER.inc(types::ScriptResult::Ok);
+                            }
                         }
                         COUNTER.inc(types::ScriptResult::Ok);
                         continue;
@@ -499,20 +533,35 @@ pub fn export_script(
                             continue;
                         }
                     }
-                    match utils::img::encode_img(
-                        img_data,
-                        out_type,
-                        &out_path.to_string_lossy(),
-                        config,
-                    ) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            eprintln!("Error encoding image: {}", e);
-                            COUNTER.inc_error();
-                            continue;
+                    if let Some(threadpool) = img_threadpool {
+                        let outpath = out_path.to_string_lossy().into_owned();
+                        let config = config.clone();
+                        threadpool.execute(
+                            move |_| {
+                                utils::img::encode_img(img_data, out_type, &outpath, &config)
+                                    .map_err(|e| {
+                                        anyhow::anyhow!("Failed to encode image {}: {}", outpath, e)
+                                    })
+                            },
+                            true,
+                        )?;
+                        continue;
+                    } else {
+                        match utils::img::encode_img(
+                            img_data,
+                            out_type,
+                            &out_path.to_string_lossy(),
+                            &config,
+                        ) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("Error encoding image: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
                         }
+                        COUNTER.inc(types::ScriptResult::Ok);
                     }
-                    COUNTER.inc(types::ScriptResult::Ok);
                     continue;
                 }
                 let mut of = match &arg.output_type {
@@ -836,8 +885,30 @@ pub fn export_script(
                         continue;
                     }
                 }
-                utils::img::encode_img(img_data.data, out_type, &f, config)?;
-                COUNTER.inc(types::ScriptResult::Ok);
+                if let Some(threadpool) = img_threadpool {
+                    let outpath = f.clone();
+                    let config = config.clone();
+                    threadpool.execute(
+                        move |_| {
+                            utils::img::encode_img(img_data.data, out_type, &outpath, &config)
+                                .map_err(|e| {
+                                    anyhow::anyhow!("Failed to encode image {}: {}", outpath, e)
+                                })
+                        },
+                        true,
+                    )?;
+                    continue;
+                } else {
+                    match utils::img::encode_img(img_data.data, out_type, &f, &config) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error encoding image: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                    COUNTER.inc(types::ScriptResult::Ok);
+                }
             }
             return Ok(types::ScriptResult::Ok);
         }
@@ -887,7 +958,20 @@ pub fn export_script(
             }
         };
         utils::files::make_sure_dir_exists(&f)?;
-        utils::img::encode_img(img_data, out_type, &f, config)?;
+        if let Some(threadpool) = img_threadpool {
+            let outpath = f.clone();
+            let config = config.clone();
+            threadpool.execute(
+                move |_| {
+                    utils::img::encode_img(img_data, out_type, &outpath, &config)
+                        .map_err(|e| anyhow::anyhow!("Failed to encode image {}: {}", outpath, e))
+                },
+                true,
+            )?;
+            return Ok(types::ScriptResult::Uncount);
+        } else {
+            utils::img::encode_img(img_data, out_type, &f, &config)?;
+        }
         return Ok(types::ScriptResult::Ok);
     }
     let mut of = match &arg.output_type {
@@ -988,14 +1072,14 @@ pub fn export_script(
 pub fn import_script(
     filename: &str,
     arg: &args::Arg,
-    config: &types::ExtraConfig,
+    config: std::sync::Arc<types::ExtraConfig>,
     imp_cfg: &args::ImportArgs,
     root_dir: Option<&std::path::Path>,
     name_csv: Option<&std::collections::HashMap<String, String>>,
     repl: Option<&types::ReplacementTable>,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Importing {}", filename);
-    let (script, builder) = parse_script(filename, arg, config)?;
+    let (script, builder) = parse_script(filename, arg, config.clone())?;
     if script.is_archive() {
         let odir = {
             let mut pb = std::path::PathBuf::from(&imp_cfg.output);
@@ -1036,7 +1120,7 @@ pub fn import_script(
         let pencoding = get_patched_encoding(imp_cfg, builder);
         let enc = get_patched_archive_encoding(imp_cfg, builder, pencoding);
         utils::files::make_sure_dir_exists(&patched_f)?;
-        let mut arch = builder.create_archive(&patched_f, &files, enc, config)?;
+        let mut arch = builder.create_archive(&patched_f, &files, enc, &config)?;
         for (index, filename) in script.iter_archive_filename()?.enumerate() {
             let filename = match filename {
                 Ok(f) => f,
@@ -1062,18 +1146,18 @@ pub fn import_script(
             };
             let mut writer = arch.new_file(f.name())?;
             if arg.force_script || f.is_script() {
-                let (script_file, _) = match parse_script_from_archive(&mut f, arg, config, &script)
-                {
-                    Ok(s) => s,
-                    Err(e) => {
-                        eprintln!("Error parsing script '{}' from archive: {}", filename, e);
-                        COUNTER.inc_error();
-                        if arg.backtrace {
-                            eprintln!("Backtrace: {}", e.backtrace());
+                let (script_file, _) =
+                    match parse_script_from_archive(&mut f, arg, config.clone(), &script) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Error parsing script '{}' from archive: {}", filename, e);
+                            COUNTER.inc_error();
+                            if arg.backtrace {
+                                eprintln!("Backtrace: {}", e.backtrace());
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                };
+                    };
                 let mut of = match &arg.output_type {
                     Some(t) => t.clone(),
                     None => script_file.default_output_script_type(),
@@ -1523,7 +1607,7 @@ pub fn pack_archive(
     input: &str,
     output: Option<&str>,
     arg: &args::Arg,
-    config: &types::ExtraConfig,
+    config: std::sync::Arc<types::ExtraConfig>,
 ) -> anyhow::Result<()> {
     let typ = match &arg.script_type {
         Some(t) => t,
@@ -1569,7 +1653,7 @@ pub fn pack_archive(
         &output,
         &reff,
         get_archived_encoding(arg, builder, get_encoding(arg, builder)),
-        config,
+        &config,
     )?;
     for (file, name) in files.iter().zip(reff) {
         let mut f = match std::fs::File::open(file) {
@@ -1606,7 +1690,7 @@ pub fn pack_archive(
 pub fn unpack_archive(
     filename: &str,
     arg: &args::Arg,
-    config: &types::ExtraConfig,
+    config: std::sync::Arc<types::ExtraConfig>,
     output: &Option<String>,
     root_dir: Option<&std::path::Path>,
 ) -> anyhow::Result<types::ScriptResult> {
@@ -1706,7 +1790,7 @@ pub fn create_file(
     input: &str,
     output: Option<&str>,
     arg: &args::Arg,
-    config: &types::ExtraConfig,
+    config: std::sync::Arc<types::ExtraConfig>,
 ) -> anyhow::Result<()> {
     let typ = match &arg.script_type {
         Some(t) => t,
@@ -1750,7 +1834,7 @@ pub fn create_file(
                 pb.to_string_lossy().into_owned()
             }
         };
-        builder.create_image_file_filename(data, &output, config)?;
+        builder.create_image_file_filename(data, &output, &config)?;
         return Ok(());
     }
 
@@ -1783,17 +1867,39 @@ pub fn create_file(
         &output,
         get_encoding(arg, builder),
         get_output_encoding(arg),
-        config,
+        &config,
     )?;
     Ok(())
 }
 
 lazy_static::lazy_static! {
     static ref COUNTER: utils::counter::Counter = utils::counter::Counter::new();
+    static ref EXIT_LISTENER: std::sync::Mutex<std::collections::BTreeMap<usize, Box<dyn Fn() + Send + Sync>>> = std::sync::Mutex::new(std::collections::BTreeMap::new());
+    static ref EXIT_LISTENER_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+}
+
+fn add_exit_listener<F: Fn() + Send + Sync + 'static>(f: F) -> usize {
+    let id = EXIT_LISTENER_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    EXIT_LISTENER
+        .lock()
+        .unwrap_or_else(|err| err.into_inner())
+        .insert(id, Box::new(f));
+    id
+}
+
+fn remove_exit_listener(id: usize) {
+    EXIT_LISTENER
+        .lock()
+        .unwrap_or_else(|err| err.into_inner())
+        .remove(&id);
 }
 
 fn main() {
     let _ = ctrlc::try_set_handler(|| {
+        let listeners = EXIT_LISTENER.lock().unwrap_or_else(|err| err.into_inner());
+        for (_, f) in listeners.iter() {
+            f();
+        }
         eprintln!("Aborted.");
         eprintln!("{}", std::ops::Deref::deref(&COUNTER));
         std::process::exit(1);
@@ -1802,7 +1908,7 @@ fn main() {
     if arg.backtrace {
         unsafe { std::env::set_var("RUST_LIB_BACKTRACE", "1") };
     }
-    let cfg = types::ExtraConfig {
+    let cfg = std::sync::Arc::new(types::ExtraConfig {
         #[cfg(feature = "circus")]
         circus_mes_type: arg.circus_mes_type.clone(),
         #[cfg(feature = "escude-arc")]
@@ -1933,7 +2039,7 @@ fn main() {
         jxl_distance: arg.jxl_distance,
         #[cfg(feature = "image-jxl")]
         jxl_workers: arg.jxl_workers,
-    };
+    });
     match &arg.command {
         args::Command::Export { input, output } => {
             let (scripts, is_dir) =
@@ -1959,8 +2065,43 @@ fn main() {
             } else {
                 None
             };
+            #[cfg(feature = "image")]
+            let img_threadpool = if arg.image_workers > 1 {
+                let tp = std::sync::Arc::new(
+                    utils::threadpool::ThreadPool::<Result<(), anyhow::Error>>::new(
+                        arg.image_workers,
+                        Some("img-output-worker-"),
+                        false,
+                    )
+                    .expect("Failed to create image thread pool"),
+                );
+                let tp2 = tp.clone();
+                let id = add_exit_listener(move || {
+                    for r in tp2.take_results() {
+                        if let Err(e) = r {
+                            eprintln!("{}", e);
+                            COUNTER.inc_error();
+                        } else {
+                            COUNTER.inc(types::ScriptResult::Ok);
+                        }
+                    }
+                });
+                Some((tp, id))
+            } else {
+                None
+            };
             for script in scripts.iter() {
-                let re = export_script(&script, &arg, &cfg, output, root_dir);
+                #[cfg(feature = "image")]
+                let re = export_script(
+                    &script,
+                    &arg,
+                    cfg.clone(),
+                    output,
+                    root_dir,
+                    img_threadpool.as_ref().map(|(t, _)| &**t),
+                );
+                #[cfg(not(feature = "image"))]
+                let re = export_script(&script, &arg, cfg.clone(), output, root_dir);
                 match re {
                     Ok(s) => {
                         COUNTER.inc(s);
@@ -1973,7 +2114,31 @@ fn main() {
                         }
                     }
                 }
+                #[cfg(feature = "image")]
+                img_threadpool.as_ref().map(|(t, _)| {
+                    for r in t.take_results() {
+                        if let Err(e) = r {
+                            COUNTER.inc_error();
+                            eprintln!("{}", e);
+                        } else {
+                            COUNTER.inc(types::ScriptResult::Ok);
+                        }
+                    }
+                });
             }
+            #[cfg(feature = "image")]
+            img_threadpool.map(|(t, id)| {
+                t.join();
+                remove_exit_listener(id);
+                for r in t.take_results() {
+                    if let Err(e) = r {
+                        COUNTER.inc_error();
+                        eprintln!("{}", e);
+                    } else {
+                        COUNTER.inc(types::ScriptResult::Ok);
+                    }
+                }
+            });
         }
         args::Command::Import(args) => {
             let name_csv = match &args.name_csv {
@@ -2014,7 +2179,7 @@ fn main() {
                 let re = import_script(
                     &script,
                     &arg,
-                    &cfg,
+                    cfg.clone(),
                     args,
                     root_dir,
                     name_csv.as_ref(),
@@ -2035,7 +2200,12 @@ fn main() {
             }
         }
         args::Command::Pack { input, output } => {
-            let re = pack_archive(input, output.as_ref().map(|s| s.as_str()), &arg, &cfg);
+            let re = pack_archive(
+                input,
+                output.as_ref().map(|s| s.as_str()),
+                &arg,
+                cfg.clone(),
+            );
             if let Err(e) = re {
                 COUNTER.inc_error();
                 eprintln!("Error packing archive: {}", e);
@@ -2065,7 +2235,7 @@ fn main() {
                 None
             };
             for script in scripts.iter() {
-                let re = unpack_archive(&script, &arg, &cfg, output, root_dir);
+                let re = unpack_archive(&script, &arg, cfg.clone(), output, root_dir);
                 match re {
                     Ok(s) => {
                         COUNTER.inc(s);
@@ -2081,7 +2251,12 @@ fn main() {
             }
         }
         args::Command::Create { input, output } => {
-            let re = create_file(input, output.as_ref().map(|s| s.as_str()), &arg, &cfg);
+            let re = create_file(
+                input,
+                output.as_ref().map(|s| s.as_str()),
+                &arg,
+                cfg.clone(),
+            );
             if let Err(e) = re {
                 COUNTER.inc_error();
                 eprintln!("Error creating file: {}", e);

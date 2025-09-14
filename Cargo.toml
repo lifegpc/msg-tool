@@ -82,7 +82,7 @@ will-plus = ["utils-str"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
 # basic feature
-image = ["png"]
+image = ["png", "utils-threadpool"]
 image-jpg = ["mozjpeg"]
 image-jxl = ["image", "jpegxl-sys", "utils-threadpool"]
 image-webp = ["webp"]

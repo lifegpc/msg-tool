@@ -35,9 +35,14 @@ impl Counter {
     /// Increments the count of script executions.
     pub fn inc(&self, result: ScriptResult) {
         match result {
-            ScriptResult::Ok => self.ok.fetch_add(1, SeqCst),
-            ScriptResult::Ignored => self.ignored.fetch_add(1, SeqCst),
-        };
+            ScriptResult::Ok => {
+                self.ok.fetch_add(1, SeqCst);
+            }
+            ScriptResult::Ignored => {
+                self.ignored.fetch_add(1, SeqCst);
+            }
+            ScriptResult::Uncount => {}
+        }
     }
 }
 

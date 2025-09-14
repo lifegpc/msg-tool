@@ -172,7 +172,7 @@ pub struct Arg {
     /// Enable this will cause BGI scripts to become very large.
     pub bgi_import_duplicate: bool,
     #[cfg(feature = "bgi")]
-    #[arg(long, action = ArgAction::SetTrue, global = true, alias = "bgi-no-append")]
+    #[arg(long, action = ArgAction::SetTrue, global = true, visible_alias = "bgi-no-append")]
     /// Disable appending new strings to the end of BGI scripts.
     /// Disable may cause BGI scripts broken.
     pub bgi_disable_append: bool,
@@ -229,11 +229,11 @@ pub struct Arg {
     /// Kirikiri language list. First language code is code for language index 1.
     pub kirikiri_languages: Option<Vec<String>>,
     #[cfg(feature = "kirikiri")]
-    #[arg(long, global = true, action = ArgAction::SetTrue, alias = "kr-title")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, visible_alias = "kr-title")]
     /// Whether to handle title in Kirikiri SCN script.
     pub kirikiri_title: bool,
     #[cfg(feature = "kirikiri")]
-    #[arg(long, global = true, action = ArgAction::SetTrue, alias = "kr-no-empty-lines", alias = "kirikiri-no-empty-lines")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, visible_alias = "kr-no-empty-lines", visible_alias = "kirikiri-no-empty-lines")]
     /// Remove empty lines in Kirikiri KS script.
     pub kirikiri_remove_empty_lines: bool,
     #[cfg(feature = "kirikiri")]
@@ -442,7 +442,7 @@ pub struct Arg {
     /// Do not filter ascii strings in Favorite HCB script.
     pub favorite_hcb_no_filter_ascii: bool,
     #[cfg(feature = "image-jxl")]
-    #[arg(long, global = true, action = ArgAction::SetTrue, alias = "jxl-no-lossless")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, visible_alias = "jxl-no-lossless")]
     /// Disable JXL lossless compression for output images
     pub jxl_lossy: bool,
     #[cfg(feature = "image-jxl")]
@@ -451,10 +451,15 @@ pub struct Arg {
     /// Allowed range is 0.0-25.0. Recommended range is 0.5-3.0. Default value is 1
     pub jxl_distance: f32,
     #[cfg(feature = "image-jxl")]
-    #[arg(long, global = true, default_value_t = 1)]
+    #[arg(long, global = true, default_value_t = 1, visible_alias = "jxl-jobs")]
     /// Workers count for encode JXL images in parallel. Default is 1.
     /// Set this to 1 to disable parallel encoding. 0 means same as 1
     pub jxl_workers: usize,
+    #[cfg(feature = "image")]
+    #[arg(short = 'J', long, global = true, default_value_t = crate::types::get_default_threads(), visible_alias = "img-jobs", visible_alias = "img-workers", visible_alias = "image-jobs")]
+    /// Workers count for encode images in parallel. Default is half of CPU cores.
+    /// Set this to 1 to disable parallel encoding. 0 means same as 1.
+    pub image_workers: usize,
     #[command(subcommand)]
     /// Command
     pub command: Command,
@@ -476,11 +481,21 @@ pub struct ImportArgs {
     #[arg(short = 'P', long, group = "patched_encodingg")]
     /// Patched script code page
     pub patched_code_page: Option<u32>,
-    #[arg(long, value_enum, group = "patched_archive_encodingg", alias = "pa")]
+    #[arg(
+        long,
+        value_enum,
+        group = "patched_archive_encodingg",
+        visible_alias = "pa"
+    )]
     /// Patched archive filename encoding
     pub patched_archive_encoding: Option<TextEncoding>,
     #[cfg(windows)]
-    #[arg(long, value_enum, group = "patched_archive_encodingg", alias = "PA")]
+    #[arg(
+        long,
+        value_enum,
+        group = "patched_archive_encodingg",
+        visible_alias = "PA"
+    )]
     /// Patched archive code page
     pub patched_archive_code_page: Option<u32>,
     #[arg(long)]
