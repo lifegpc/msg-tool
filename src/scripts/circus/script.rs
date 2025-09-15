@@ -220,6 +220,10 @@ impl Script for CircusMesScript {
             break_words: false,
             insert_fullwidth_space_at_line_start: true,
             break_with_sentence: true,
+            #[cfg(feature = "jieba")]
+            break_chinese_words: true,
+            #[cfg(feature = "jieba")]
+            jieba_dict: None,
         }
     }
 

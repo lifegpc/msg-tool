@@ -664,6 +664,12 @@ pub enum FormatOptions {
         insert_fullwidth_space_at_line_start: bool,
         /// If a line break occurs in the middle of some symbols, bring the sentence to next line
         break_with_sentence: bool,
+        #[cfg(feature = "jieba")]
+        /// Whether to break Chinese words at the end of the line.
+        break_chinese_words: bool,
+        #[cfg(feature = "jieba")]
+        /// Path to custom jieba dictionary
+        jieba_dict: Option<String>,
     },
     /// Do not wrap line
     None,

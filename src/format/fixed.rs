@@ -1,9 +1,12 @@
 use crate::types::*;
+use anyhow::Result;
+#[cfg(feature = "jieba")]
+use jieba_rs::Jieba;
 use unicode_segmentation::UnicodeSegmentation;
 
 const SPACE_STR_LIST: [&str; 2] = [" ", "　"];
 const QUOTE_LIST: [(&str, &str); 4] = [("「", "」"), ("『", "』"), ("（", "）"), ("【", "】")];
-const BREAK_SENTENCE_SYMBOLS: [&str; 5] = ["…", "，", "。", "？", "！"];
+const BREAK_SENTENCE_SYMBOLS: [&str; 6] = ["…", "，", "。", "？", "！", "—"];
 
 fn check_is_ascii_alphanumeric(s: &str) -> bool {
     for c in s.chars() {
@@ -45,6 +48,27 @@ fn check_is_end_quote(segs: &[&str], pos: usize) -> bool {
     true
 }
 
+#[cfg(feature = "jieba")]
+fn check_chinese_word_is_break(segs: &[&str], pos: usize, jieba: &Jieba) -> bool {
+    let s = segs.join("");
+    let mut breaked = jieba
+        .cut(&s, false)
+        .iter()
+        .map(|s| s.graphemes(true).count())
+        .collect::<Vec<_>>();
+    let mut sum = 0;
+    for i in breaked.iter_mut() {
+        sum += *i;
+        *i = sum;
+    }
+    breaked.binary_search(&pos).is_err()
+}
+
+#[cfg(not(feature = "jieba"))]
+fn check_chinese_word_is_break(_segs: &[&str], _pos: usize, _jieba: &()) -> bool {
+    false
+}
+
 pub struct FixedFormatter {
     length: usize,
     keep_original: bool,
@@ -54,6 +78,11 @@ pub struct FixedFormatter {
     insert_fullwidth_space_at_line_start: bool,
     /// If a line break occurs in the middle of some symbols, bring the sentence to next line
     break_with_sentence: bool,
+    #[cfg(feature = "jieba")]
+    /// Jieba instance for Chinese word segmentation.
+    jieba: Option<Jieba>,
+    #[cfg(not(feature = "jieba"))]
+    jieba: Option<()>,
     #[allow(unused)]
     typ: Option<ScriptType>,
 }
@@ -65,16 +94,34 @@ impl FixedFormatter {
         break_words: bool,
         insert_fullwidth_space_at_line_start: bool,
         break_with_sentence: bool,
+        #[cfg(feature = "jieba")] break_chinese_words: bool,
+        #[cfg(feature = "jieba")] jieba_dict: Option<String>,
         typ: Option<ScriptType>,
-    ) -> Self {
-        FixedFormatter {
+    ) -> Result<Self> {
+        #[cfg(feature = "jieba")]
+        let jieba = if !break_chinese_words {
+            let mut jieba = Jieba::new();
+            if let Some(dict) = jieba_dict {
+                let file = std::fs::File::open(dict)?;
+                let mut reader = std::io::BufReader::new(file);
+                jieba.load_dict(&mut reader)?;
+            }
+            Some(jieba)
+        } else {
+            None
+        };
+        Ok(FixedFormatter {
             length,
             keep_original,
             break_words,
             insert_fullwidth_space_at_line_start,
             break_with_sentence,
+            #[cfg(feature = "jieba")]
+            jieba,
+            #[cfg(not(feature = "jieba"))]
+            jieba: None,
             typ,
-        }
+        })
     }
 
     #[cfg(test)]
@@ -85,6 +132,7 @@ impl FixedFormatter {
             break_words: true,
             insert_fullwidth_space_at_line_start: false,
             break_with_sentence: false,
+            jieba: None,
             typ: None,
         }
     }
@@ -113,7 +161,27 @@ impl FixedFormatter {
         self
     }
 
+    #[cfg(all(feature = "jieba", test))]
+    fn break_chinese_words(mut self, break_chinese_words: bool) -> Result<Self> {
+        if !break_chinese_words {
+            let jieba = Jieba::new();
+            self.jieba = Some(jieba);
+        } else {
+            self.jieba = None;
+        }
+        Ok(self)
+    }
+
+    #[cfg(all(feature = "jieba", test))]
+    fn add_dict(mut self, dict: &str, freq: Option<usize>, tag: Option<&str>) -> Self {
+        if let Some(ref mut jieba) = self.jieba {
+            jieba.add_word(&dict, freq, tag);
+        }
+        self
+    }
+
     #[cfg(test)]
+    #[allow(dead_code)]
     fn typ(mut self, typ: Option<ScriptType>) -> Self {
         self.typ = typ;
         self
@@ -318,6 +386,81 @@ impl FixedFormatter {
                         main_content.clear();
                         pre_is_lf = true;
                     }
+                } else if self
+                    .jieba
+                    .as_ref()
+                    .is_some_and(|s| check_chinese_word_is_break(&vec, i, s))
+                    && !is_command
+                    && !is_ruby_rt
+                {
+                    #[cfg(feature = "jieba")]
+                    {
+                        let jieba = self.jieba.as_ref().unwrap();
+                        let s = vec.join("");
+                        let mut breaked = jieba
+                            .cut(&s, false)
+                            .iter()
+                            .map(|s| s.graphemes(true).count())
+                            .collect::<Vec<_>>();
+                        let mut sum = 0;
+                        for i in breaked.iter_mut() {
+                            sum += *i;
+                            *i = sum;
+                        }
+                        let break_pos = match breaked.binary_search(&i) {
+                            Ok(pos) => Some(pos),
+                            Err(pos) => {
+                                if pos == 0 {
+                                    None
+                                } else {
+                                    Some(pos - 1)
+                                }
+                            }
+                        };
+                        if let Some(break_pos) = break_pos {
+                            let pos = breaked[break_pos];
+                            let segs = result.graphemes(true).collect::<Vec<_>>();
+                            let remain_count = i - pos;
+                            let pos = segs.len() - remain_count;
+                            let remaining = segs[pos..].concat().trim_start().to_string();
+                            result = segs[..pos].concat();
+                            result.push('\n');
+                            current_length = 0;
+                            if first_line {
+                                if self.insert_fullwidth_space_at_line_start {
+                                    if check_need_fullwidth_space(&main_content) {
+                                        need_insert_fullwidth_space = true;
+                                    }
+                                }
+                                first_line = false;
+                            }
+                            if need_insert_fullwidth_space {
+                                result.push('　');
+                                current_length += 1;
+                            }
+                            result.push_str(&remaining);
+                            current_length += remaining.graphemes(true).count();
+                            main_content.clear();
+                            pre_is_lf = true;
+                        } else {
+                            result.push('\n');
+                            current_length = 0;
+                            if first_line {
+                                if self.insert_fullwidth_space_at_line_start {
+                                    if check_need_fullwidth_space(&main_content) {
+                                        need_insert_fullwidth_space = true;
+                                    }
+                                }
+                                first_line = false;
+                            }
+                            if need_insert_fullwidth_space {
+                                result.push('　');
+                                current_length += 1;
+                            }
+                            main_content.clear();
+                            pre_is_lf = true;
+                        }
+                    }
                 } else {
                     result.push('\n');
                     current_length = 0;
@@ -408,7 +551,7 @@ impl FixedFormatter {
             i += 1;
         }
 
-        return result;
+        result
     }
 }
 
@@ -530,6 +673,33 @@ fn test_format() {
         assert_eq!(
             scn_formatter.format("%test;[ruby]测[test]试打断。"),
             "%test;[ruby]测[test]试打\n断。"
+        );
+    }
+    #[cfg(feature = "jieba")]
+    {
+        let jieba_formatter = FixedFormatter::builder(8)
+            .break_words(false)
+            .break_chinese_words(false)
+            .unwrap();
+        assert_eq!(
+            jieba_formatter.format("测试分词，我们中出了一个叛徒。"),
+            "测试分词，我们中\n出了一个叛徒。"
+        );
+        let jieba_formatter2 = FixedFormatter::builder(8)
+            .break_words(false)
+            .break_chinese_words(false)
+            .unwrap()
+            .add_dict("中出", Some(114514), None);
+        assert_eq!(
+            jieba_formatter2
+                .jieba
+                .as_ref()
+                .is_some_and(|s| s.has_word("中出")),
+            true
+        );
+        assert_eq!(
+            jieba_formatter2.format("测试分词，我们中出了一个叛徒。"),
+            "测试分词，我们\n中出了一个叛徒。"
         );
     }
 }

@@ -460,6 +460,10 @@ pub struct Arg {
     /// Workers count for encode images in parallel. Default is half of CPU cores.
     /// Set this to 1 to disable parallel encoding. 0 means same as 1.
     pub image_workers: usize,
+    #[cfg(feature = "jieba")]
+    #[arg(long, global = true)]
+    /// Path to custom jieba dictionary
+    pub jieba_dict: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,
@@ -516,6 +520,10 @@ pub struct ImportArgs {
     #[arg(long, action = ArgAction::SetTrue)]
     /// If a line break occurs in the middle of some symbols, bring the sentence to next line (for fixed format)
     pub patched_break_with_sentence: bool,
+    #[cfg(feature = "jieba")]
+    #[arg(long, action = ArgAction::SetTrue)]
+    /// Whether to disable break Chinese words at the end of the line.
+    pub patched_no_break_chinese_words: bool,
     #[arg(long)]
     /// Name table file
     pub name_csv: Option<String>,

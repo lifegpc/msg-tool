@@ -1373,6 +1373,10 @@ pub fn import_script(
                             insert_fullwidth_space_at_line_start: imp_cfg
                                 .patched_insert_fullwidth_space_at_line_start,
                             break_with_sentence: imp_cfg.patched_break_with_sentence,
+                            #[cfg(feature = "jieba")]
+                            break_chinese_words: !imp_cfg.patched_no_break_chinese_words,
+                            #[cfg(feature = "jieba")]
+                            jieba_dict: arg.jieba_dict.clone(),
                         },
                         types::FormatType::None => types::FormatOptions::None,
                     },
@@ -1384,7 +1388,7 @@ pub fn import_script(
                     }
                     None => {}
                 }
-                format::fmt_message(&mut mes, fmt, *builder.script_type());
+                format::fmt_message(&mut mes, fmt, *builder.script_type())?;
                 if let Err(e) = script_file.import_messages(
                     mes,
                     writer,
@@ -1592,6 +1596,10 @@ pub fn import_script(
                 insert_fullwidth_space_at_line_start: imp_cfg
                     .patched_insert_fullwidth_space_at_line_start,
                 break_with_sentence: imp_cfg.patched_break_with_sentence,
+                #[cfg(feature = "jieba")]
+                break_chinese_words: !imp_cfg.patched_no_break_chinese_words,
+                #[cfg(feature = "jieba")]
+                jieba_dict: arg.jieba_dict.clone(),
             },
             types::FormatType::None => types::FormatOptions::None,
         },
@@ -1603,7 +1611,7 @@ pub fn import_script(
         }
         None => {}
     }
-    format::fmt_message(&mut mes, fmt, *builder.script_type());
+    format::fmt_message(&mut mes, fmt, *builder.script_type())?;
 
     script.import_messages_filename(mes, &patched_f, encoding, repl)?;
     Ok(types::ScriptResult::Ok)
