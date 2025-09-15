@@ -130,7 +130,7 @@ msg-tool create -t <script-type> <input> <output>
 ### Emote
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
-| `emote-psb`/`psb` | `emote-psb` | Emote PSB File | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
+| `emote-psb`/`psb` | `emote-img` | Emote PSB File | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
