@@ -38,26 +38,13 @@ fn check_need_fullwidth_space(s: &str) -> bool {
 }
 
 fn check_is_end_quote(segs: &[&str], pos: usize) -> bool {
-    for p in pos..segs.len() {
-        let d = segs[p];
-        let is_end_quote = QUOTE_LIST.iter().any(|(_, close)| d == *close);
-        if !is_end_quote {
-            return false;
-        }
-    }
-    true
+    let d = segs[pos];
+    QUOTE_LIST.iter().any(|(_, close)| d == *close)
 }
 
 fn check_is_end_quote_or_symbol(segs: &[&str], pos: usize) -> bool {
-    for p in pos..segs.len() {
-        let d = segs[p];
-        let is_end_quote =
-            QUOTE_LIST.iter().any(|(_, close)| d == *close) || BREAK_SENTENCE_SYMBOLS.contains(&d);
-        if !is_end_quote {
-            return false;
-        }
-    }
-    true
+    let d = segs[pos];
+    QUOTE_LIST.iter().any(|(_, close)| d == *close) || BREAK_SENTENCE_SYMBOLS.contains(&d)
 }
 
 #[cfg(feature = "jieba")]
@@ -671,6 +658,14 @@ fn test_format() {
     assert_eq!(
         formatter4.format("这打断测试哦测试一下。。"),
         "这打断测试哦测试一下\n。。"
+    );
+
+    let real_break_formatter = FixedFormatter::builder(27)
+        .break_words(false)
+        .break_with_sentence(true);
+    assert_eq!(
+        real_break_formatter.format("「他们就是想和阳见待在一个社团，在里面表现表现、耍耍帅，这样不就和她套上近乎了嘛！算盘珠子都打到我脸上了……」"),
+        "「他们就是想和阳见待在一个社团，\n在里面表现表现、耍耍帅，这样不就和她套上近乎了嘛！算盘\n珠子都打到我脸上了……」"
     );
 
     #[cfg(feature = "circus")]
