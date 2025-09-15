@@ -241,3 +241,98 @@ pub fn make_sure_dir_exists<F: AsRef<Path> + ?Sized>(f: &F) -> io::Result<()> {
     }
     Ok(())
 }
+
+/// Replace symbols not allowed in Windows path with underscores.
+pub fn sanitize_path(path: &str) -> String {
+    // Split path into components, preserving separators
+    if path.is_empty() {
+        return String::new();
+    }
+
+    let invalid_chars: &[char] = &['<', '>', '"', '|', '?', '*'];
+    let mut result = String::with_capacity(path.len());
+
+    let reserved_names: Vec<String> = {
+        let mut v = vec!["CON", "PRN", "AUX", "NUL"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
+        for i in 1..=9 {
+            v.push(format!("COM{}", i));
+            v.push(format!("LPT{}", i));
+        }
+        v
+    };
+
+    let bytes = path.as_bytes();
+    let len = bytes.len();
+    let mut start = 0usize;
+
+    while start < len {
+        // find next separator index
+        let mut end = start;
+        while end < len && bytes[end] != b'\\' && bytes[end] != b'/' {
+            end += 1;
+        }
+        // segment is path[start..end]
+        let seg = &path[start..end];
+
+        // sanitize segment
+        let mut s = String::with_capacity(seg.len());
+        for (i, ch) in seg.chars().enumerate() {
+            // allow drive letter colon like "C:" (i == 1, first char is ASCII letter)
+            if ch == ':' {
+                if i == 1 {
+                    // check first char is ASCII letter
+                    if seg
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_alphabetic())
+                        .unwrap_or(false)
+                    {
+                        s.push(':');
+                        continue;
+                    }
+                }
+                // otherwise treat as invalid
+                s.push('_');
+                continue;
+            }
+            // keep separators out of segment (shouldn't appear here)
+            // replace control chars and other invalids
+            if (ch as u32) < 32 || invalid_chars.contains(&ch) {
+                s.push('_');
+            } else {
+                s.push(ch);
+            }
+        }
+
+        // trim trailing spaces and dots (Windows disallows filenames ending with space or dot)
+        while s.ends_with(' ') || s.ends_with('.') {
+            s.pop();
+        }
+
+        if s.is_empty() {
+            s.push('_');
+        } else {
+            // check reserved names (base name before first '.')
+            let base = s.split('.').next().unwrap_or("").to_ascii_uppercase();
+            if reserved_names.iter().any(|r| r == &base) {
+                s = format!("_{}", s);
+            }
+        }
+
+        result.push_str(&s);
+
+        // append separator if present
+        if end < len {
+            // keep original separator (preserve '\' or '/')
+            result.push(path.as_bytes()[end] as char);
+            start = end + 1;
+        } else {
+            start = end;
+        }
+    }
+
+    result
+}

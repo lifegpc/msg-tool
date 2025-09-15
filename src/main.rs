@@ -1876,6 +1876,8 @@ pub fn create_file(
         }
     };
 
+    crate::utils::files::make_sure_dir_exists(&output)?;
+
     builder.create_file_filename(
         input,
         &output,

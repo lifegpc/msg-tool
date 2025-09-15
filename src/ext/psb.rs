@@ -146,19 +146,27 @@ impl PsbValueFixed {
     }
 
     /// Find the resource's key in object
-    pub fn find_resource_key<'a>(&'a self, resource_id: u64) -> Option<&'a str> {
+    pub fn find_resource_key<'a>(
+        &'a self,
+        resource_id: u64,
+        now: Vec<&'a str>,
+    ) -> Option<Vec<&'a str>> {
         match self {
-            PsbValueFixed::List(l) => l.find_resource_key(resource_id),
-            PsbValueFixed::Object(o) => o.find_resource_key(resource_id),
+            PsbValueFixed::List(l) => l.find_resource_key(resource_id, now),
+            PsbValueFixed::Object(o) => o.find_resource_key(resource_id, now),
             _ => None,
         }
     }
 
     /// Find the extra resource's key in object
-    pub fn find_extra_resource_key<'a>(&'a self, extra_resource_id: u64) -> Option<&'a str> {
+    pub fn find_extra_resource_key<'a>(
+        &'a self,
+        extra_resource_id: u64,
+        now: Vec<&'a str>,
+    ) -> Option<Vec<&'a str>> {
         match self {
-            PsbValueFixed::List(l) => l.find_extra_resource_key(extra_resource_id),
-            PsbValueFixed::Object(o) => o.find_extra_resource_key(extra_resource_id),
+            PsbValueFixed::List(l) => l.find_extra_resource_key(extra_resource_id, now),
+            PsbValueFixed::Object(o) => o.find_extra_resource_key(extra_resource_id, now),
             _ => None,
         }
     }
@@ -546,9 +554,13 @@ impl PsbListFixed {
     }
 
     /// Find the resource's key in object
-    pub fn find_resource_key<'a>(&'a self, resource_id: u64) -> Option<&'a str> {
+    pub fn find_resource_key<'a>(
+        &'a self,
+        resource_id: u64,
+        now: Vec<&'a str>,
+    ) -> Option<Vec<&'a str>> {
         for value in &self.values {
-            if let Some(key) = value.find_resource_key(resource_id) {
+            if let Some(key) = value.find_resource_key(resource_id, now.clone()) {
                 return Some(key);
             }
         }
@@ -556,9 +568,13 @@ impl PsbListFixed {
     }
 
     /// Find the extra resource's key in object
-    pub fn find_extra_resource_key<'a>(&'a self, extra_resource_id: u64) -> Option<&'a str> {
+    pub fn find_extra_resource_key<'a>(
+        &'a self,
+        extra_resource_id: u64,
+        now: Vec<&'a str>,
+    ) -> Option<Vec<&'a str>> {
         for value in &self.values {
-            if let Some(key) = value.find_extra_resource_key(extra_resource_id) {
+            if let Some(key) = value.find_extra_resource_key(extra_resource_id, now.clone()) {
                 return Some(key);
             }
         }
@@ -729,14 +745,20 @@ impl PsbObjectFixed {
     }
 
     /// Find the resource's key in object
-    pub fn find_resource_key<'a>(&'a self, resource_id: u64) -> Option<&'a str> {
+    pub fn find_resource_key<'a>(
+        &'a self,
+        resource_id: u64,
+        now: Vec<&'a str>,
+    ) -> Option<Vec<&'a str>> {
         for (key, value) in &self.values {
+            let mut now = now.clone();
+            now.push(key);
             if let Some(id) = value.resource_id() {
                 if id == resource_id {
-                    return Some(key);
+                    return Some(now);
                 }
             }
-            if let Some(key) = value.find_resource_key(resource_id) {
+            if let Some(key) = value.find_resource_key(resource_id, now) {
                 return Some(key);
             }
         }
@@ -744,14 +766,20 @@ impl PsbObjectFixed {
     }
 
     /// Find the extra resource's key in object
-    pub fn find_extra_resource_key<'a>(&'a self, extra_resource_id: u64) -> Option<&'a str> {
+    pub fn find_extra_resource_key<'a>(
+        &'a self,
+        extra_resource_id: u64,
+        now: Vec<&'a str>,
+    ) -> Option<Vec<&'a str>> {
         for (key, value) in &self.values {
+            let mut now = now.clone();
+            now.push(key);
             if let Some(id) = value.extra_resource_id() {
                 if id == extra_resource_id {
-                    return Some(key);
+                    return Some(now);
                 }
             }
-            if let Some(key) = value.find_extra_resource_key(extra_resource_id) {
+            if let Some(key) = value.find_extra_resource_key(extra_resource_id, now) {
                 return Some(key);
             }
         }
@@ -1019,6 +1047,27 @@ impl VirtualPsbFixed {
         self.header.encryption = encryption;
         self.root = PsbObjectFixed::from_json(&obj["data"]);
         Ok(())
+    }
+
+    #[cfg(feature = "json")]
+    /// Creates a fixed PSB from a JSON object.
+    pub fn with_json(obj: &JsonValue) -> Result<Self, anyhow::Error> {
+        let version = obj["version"]
+            .as_u16()
+            .ok_or_else(|| anyhow::anyhow!("Invalid PSB version"))?;
+        let encryption = obj["encryption"]
+            .as_u16()
+            .ok_or_else(|| anyhow::anyhow!("Invalid PSB encryption"))?;
+        let root = PsbObjectFixed::from_json(&obj["data"]);
+        Ok(Self {
+            header: PsbHeader {
+                version,
+                encryption,
+            },
+            resources: Vec::new(),
+            extra: Vec::new(),
+            root,
+        })
     }
 
     pub fn set_data(&mut self, data: VirtualPsbFixedData) {
