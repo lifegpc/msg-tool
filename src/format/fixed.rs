@@ -48,6 +48,18 @@ fn check_is_end_quote(segs: &[&str], pos: usize) -> bool {
     true
 }
 
+fn check_is_end_quote_or_symbol(segs: &[&str], pos: usize) -> bool {
+    for p in pos..segs.len() {
+        let d = segs[p];
+        let is_end_quote =
+            QUOTE_LIST.iter().any(|(_, close)| d == *close) || BREAK_SENTENCE_SYMBOLS.contains(&d);
+        if !is_end_quote {
+            return false;
+        }
+    }
+    true
+}
+
 #[cfg(feature = "jieba")]
 fn check_chinese_word_is_break(segs: &[&str], pos: usize, jieba: &Jieba) -> bool {
     let s = segs.join("");
@@ -258,7 +270,7 @@ impl FixedFormatter {
                     && ((BREAK_SENTENCE_SYMBOLS.contains(&grapheme)
                         && i > 1
                         && BREAK_SENTENCE_SYMBOLS.contains(&vec[i - 1]))
-                        || check_is_end_quote(&vec, i))
+                        || check_is_end_quote_or_symbol(&vec, i))
                 {
                     let mut break_pos = None;
                     let segs = result.graphemes(true).collect::<Vec<_>>();
@@ -644,6 +656,21 @@ fn test_format() {
     assert_eq!(
         formatter4.format("『打断测是测试一下。』"),
         "『打断测是测试一下。\n』"
+    );
+
+    assert_eq!(
+        formatter4.format("『打断测试，测试一下。』"),
+        "『打断测试，\n测试一下。』"
+    );
+
+    assert_eq!(
+        formatter4.format("这打断测试，测试一下。"),
+        "这打断测试，\n测试一下。"
+    );
+
+    assert_eq!(
+        formatter4.format("这打断测试哦测试一下。。"),
+        "这打断测试哦测试一下\n。。"
     );
 
     #[cfg(feature = "circus")]
