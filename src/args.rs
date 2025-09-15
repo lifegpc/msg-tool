@@ -464,6 +464,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Path to custom jieba dictionary
     pub jieba_dict: Option<String>,
+    #[cfg(feature = "emote-img")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, visible_alias = "psb-no-tlg")]
+    /// Do not process TLG images in PSB files.
+    pub psb_no_process_tlg: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

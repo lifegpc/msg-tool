@@ -9,6 +9,7 @@ exclude = [".github", "*.py"]
 
 [dependencies]
 anyhow = "1"
+base64 = { version = "0.22", optional = true }
 byteorder = { version = "1.5", default-features = false, optional = true}
 clap = { version = "4.5", features = ["derive"] }
 csv = "1.3"
@@ -68,7 +69,7 @@ circus = []
 circus-arc = ["circus"]
 circus-audio = ["circus", "flate2", "int-enum", "lossless-audio"]
 circus-img = ["circus", "image", "flate2", "zstd"]
-emote-img = ["emote-psb", "image", "libtlg-rs", "url"]
+emote-img = ["base64", "emote-psb", "image", "libtlg-rs", "url"]
 entis-gls = ["xml5ever", "markup5ever", "markup5ever_rcdom"]
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]

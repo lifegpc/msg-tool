@@ -145,6 +145,24 @@ impl PsbValueFixed {
         matches!(self, PsbValueFixed::Null)
     }
 
+    /// Find the resource's key in object
+    pub fn find_resource_key<'a>(&'a self, resource_id: u64) -> Option<&'a str> {
+        match self {
+            PsbValueFixed::List(l) => l.find_resource_key(resource_id),
+            PsbValueFixed::Object(o) => o.find_resource_key(resource_id),
+            _ => None,
+        }
+    }
+
+    /// Find the extra resource's key in object
+    pub fn find_extra_resource_key<'a>(&'a self, extra_resource_id: u64) -> Option<&'a str> {
+        match self {
+            PsbValueFixed::List(l) => l.find_extra_resource_key(extra_resource_id),
+            PsbValueFixed::Object(o) => o.find_extra_resource_key(extra_resource_id),
+            _ => None,
+        }
+    }
+
     /// Sets the value of this PSB value to a new string.
     pub fn set_str(&mut self, value: &str) {
         match self {
@@ -256,6 +274,14 @@ impl PsbValueFixed {
         }
     }
 
+    /// Returns the extra resource ID if this value is an extra resource reference.
+    pub fn extra_resource_id(&self) -> Option<u64> {
+        match self {
+            PsbValueFixed::ExtraResource(er) => Some(er.extra_resource_ref),
+            _ => None,
+        }
+    }
+
     /// Converts this value to a JSON value, if possible.
     #[cfg(feature = "json")]
     pub fn to_json(&self) -> Option<JsonValue> {
@@ -269,10 +295,10 @@ impl PsbValueFixed {
             },
             PsbValueFixed::String(s) => Some(JsonValue::String(s.string().to_owned())),
             PsbValueFixed::Resource(s) => {
-                Some(JsonValue::String(format!("resource#{}", s.resource_ref)))
+                Some(JsonValue::String(format!("#resource#{}", s.resource_ref)))
             }
             PsbValueFixed::ExtraResource(s) => Some(JsonValue::String(format!(
-                "extra_resource#{}",
+                "#resource@{}",
                 s.extra_resource_ref
             ))),
             PsbValueFixed::IntArray(arr) => Some(JsonValue::Array(
@@ -299,12 +325,12 @@ impl PsbValueFixed {
                 }
             }
             JsonValue::String(s) => {
-                if s.starts_with("resource#") {
-                    if let Ok(id) = s[9..].parse::<u64>() {
+                if s.starts_with("#resource#") {
+                    if let Ok(id) = s[10..].parse::<u64>() {
                         return PsbValueFixed::Resource(PsbResourceRef { resource_ref: id });
                     }
-                } else if s.starts_with("extra_resource#") {
-                    if let Ok(id) = s[16..].parse::<u64>() {
+                } else if s.starts_with("#resource@") {
+                    if let Ok(id) = s[10..].parse::<u64>() {
                         return PsbValueFixed::ExtraResource(PsbExtraRef {
                             extra_resource_ref: id,
                         });
@@ -325,12 +351,12 @@ impl PsbValueFixed {
             }
             JsonValue::Short(n) => {
                 let s = n.as_str();
-                if s.starts_with("resource#") {
-                    if let Ok(id) = s[9..].parse::<u64>() {
+                if s.starts_with("#resource#") {
+                    if let Ok(id) = s[10..].parse::<u64>() {
                         return PsbValueFixed::Resource(PsbResourceRef { resource_ref: id });
                     }
-                } else if s.starts_with("extra_resource#") {
-                    if let Ok(id) = s[16..].parse::<u64>() {
+                } else if s.starts_with("#resource@") {
+                    if let Ok(id) = s[10..].parse::<u64>() {
                         return PsbValueFixed::ExtraResource(PsbExtraRef {
                             extra_resource_ref: id,
                         });
@@ -519,6 +545,26 @@ impl PsbListFixed {
         PsbList::from(v)
     }
 
+    /// Find the resource's key in object
+    pub fn find_resource_key<'a>(&'a self, resource_id: u64) -> Option<&'a str> {
+        for value in &self.values {
+            if let Some(key) = value.find_resource_key(resource_id) {
+                return Some(key);
+            }
+        }
+        None
+    }
+
+    /// Find the extra resource's key in object
+    pub fn find_extra_resource_key<'a>(&'a self, extra_resource_id: u64) -> Option<&'a str> {
+        for value in &self.values {
+            if let Some(key) = value.find_extra_resource_key(extra_resource_id) {
+                return Some(key);
+            }
+        }
+        None
+    }
+
     /// Returns a iterator over the values in the list.
     pub fn iter(&self) -> ListIter<'_> {
         ListIter {
@@ -680,6 +726,36 @@ impl PsbObjectFixed {
     /// Gets a reference of value in the object by key.
     pub fn get_value(&self, key: &str) -> Option<&PsbValueFixed> {
         self.values.get(key)
+    }
+
+    /// Find the resource's key in object
+    pub fn find_resource_key<'a>(&'a self, resource_id: u64) -> Option<&'a str> {
+        for (key, value) in &self.values {
+            if let Some(id) = value.resource_id() {
+                if id == resource_id {
+                    return Some(key);
+                }
+            }
+            if let Some(key) = value.find_resource_key(resource_id) {
+                return Some(key);
+            }
+        }
+        None
+    }
+
+    /// Find the extra resource's key in object
+    pub fn find_extra_resource_key<'a>(&'a self, extra_resource_id: u64) -> Option<&'a str> {
+        for (key, value) in &self.values {
+            if let Some(id) = value.extra_resource_id() {
+                if id == extra_resource_id {
+                    return Some(key);
+                }
+            }
+            if let Some(key) = value.find_extra_resource_key(extra_resource_id) {
+                return Some(key);
+            }
+        }
+        None
     }
 
     /// Returns a iterator over the entries of the object.

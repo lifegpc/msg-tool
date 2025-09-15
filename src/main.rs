@@ -2056,6 +2056,8 @@ fn main() {
         jxl_distance: arg.jxl_distance,
         #[cfg(feature = "image-jxl")]
         jxl_workers: arg.jxl_workers,
+        #[cfg(feature = "emote-img")]
+        psb_process_tlg: !arg.psb_no_process_tlg,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

@@ -445,6 +445,10 @@ pub struct ExtraConfig {
     /// Workers count for encode JXL images in parallel. Default is 1.
     /// Set this to 1 to disable parallel encoding. 0 means same as 1
     pub jxl_workers: usize,
+    #[cfg(feature = "emote-img")]
+    #[default(true)]
+    /// Process tlg images.
+    pub psb_process_tlg: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -532,6 +536,10 @@ pub enum ScriptType {
     #[cfg(feature = "circus-img")]
     /// Circus Differential Image
     CircusCrxd,
+    #[cfg(feature = "emote-img")]
+    #[value(alias("psb"))]
+    /// Emote PSB (basic handle)
+    EmotePsb,
     #[cfg(feature = "emote-img")]
     #[value(alias("pimg"))]
     /// Emote PIMG image
