@@ -28,8 +28,40 @@ jobs:
           arch=${{ matrix.arch }}
           arch=${arch/-unknown/}
           export PATH="$PWD/musl-toolchain/bin:$PATH"
-          export CC="${arch}-cc"
-          export CXX="${arch}-g++"
+          echo '#!/bin/bash
+
+          VALID_ARGS=()
+
+          for arg in "$@"; do
+            if [[ $arg == -m* ]]; then
+              if [[ ! $arg == *'='* ]] && (( ${#arg} < 5 )); then
+                continue
+              fi
+            fi
+            
+            VALID_ARGS+=("$arg")
+          done
+
+          exec '"${arch}-cc"' "${VALID_ARGS[@]}"' > "$PWD/${arch}-cc"
+          chmod +x "$PWD/${arch}-cc"
+          echo '#!/bin/bash
+
+          VALID_ARGS=()
+
+          for arg in "$@"; do
+            if [[ $arg == -m* ]]; then
+              if [[ ! $arg == *'='* ]] && (( ${#arg} < 5 )); then
+                continue
+              fi
+            fi
+            
+            VALID_ARGS+=("$arg")
+          done
+
+          exec '"${arch}-g++"' "${VALID_ARGS[@]}"' > "$PWD/${arch}-g++"
+          chmod +x "$PWD/${arch}-g++"
+          export CC="$PWD/${arch}-cc"
+          export CXX="$PWD/${arch}-g++"
           export AR="${arch}-ar"
           export RUSTFLAGS="-C linker=${CC}"
           cargo build --release --target ${{ matrix.arch }}
