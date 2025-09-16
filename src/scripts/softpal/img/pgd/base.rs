@@ -1,6 +1,7 @@
 use crate::ext::io::*;
 use crate::ext::vec::*;
 use crate::types::*;
+use crate::utils::encoding::*;
 use crate::utils::img::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
@@ -20,12 +21,32 @@ pub struct PgdGeHeader {
     pub mode: u32,
 }
 
+impl PgdGeHeader {
+    pub fn is_base_file(&self) -> bool {
+        self.offset_x == 0
+            && self.offset_y == 0
+            && self.width == self.canvas_width
+            && self.height == self.canvas_height
+    }
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct PgdDiffHeader {
+    pub offset_x: u16,
+    pub offset_y: u16,
+    pub width: u16,
+    pub height: u16,
+    pub bpp: u16,
+    #[fstring = 0x22]
+    pub base_name: String,
+}
+
 pub struct PgdReader<T: Read + Seek> {
     pub input: T,
     output: Vec<u8>,
     width: u32,
     height: u32,
-    _bpp: u8,
+    bpp: u8,
     method: u32,
     format: Option<ImageColorType>,
 }
@@ -41,7 +62,7 @@ impl<T: Read + Seek> PgdReader<T> {
             output,
             width: 0,
             height: 0,
-            _bpp: 0,
+            bpp: 0,
             method: 0,
             format: None,
         })
@@ -52,6 +73,14 @@ impl<T: Read + Seek> PgdReader<T> {
         s.width = header.width;
         s.height = header.height;
         s.method = header.mode;
+        Ok(s)
+    }
+
+    pub fn with_diff_header(input: T, header: &PgdDiffHeader) -> Result<Self> {
+        let mut s = Self::new(input, 0x30)?;
+        s.width = header.width as u32;
+        s.height = header.height as u32;
+        s.bpp = header.bpp as u8;
         Ok(s)
     }
 
@@ -101,6 +130,28 @@ impl<T: Read + Seek> PgdReader<T> {
             dst += count;
         }
         Ok(())
+    }
+
+    pub fn unpack_overlay(&mut self) -> Result<ImageData> {
+        self.unpack_ge_pre()?;
+        let data = self.post_process_pal(&self.output, 0, self.bpp as usize / 8)?;
+        let color_type = match self.bpp {
+            24 => ImageColorType::Bgr,
+            32 => ImageColorType::Bgra,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unsupported bpp for overlay PGD: {}",
+                    self.bpp
+                ));
+            }
+        };
+        Ok(ImageData {
+            width: self.width,
+            height: self.height,
+            color_type,
+            depth: 8,
+            data,
+        })
     }
 
     fn post_process1(&mut self) -> Result<Vec<u8>> {
