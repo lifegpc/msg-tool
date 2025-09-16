@@ -183,6 +183,10 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `softpal` | `softpal` | Softpal Script File (.src) | ✔️ | ✔️ | ✔️ | ❌ | ❌ | |
+
+| Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `softpal-pgd-ge`/`pgd-ge`/`pgd` | `softpal-img` | Softpal PGD Ge Image File (.pgd) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | |
 ### WillPlus / AdvHD
 | Script Type | Feature Name | Name | Export | Import | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

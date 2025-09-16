@@ -606,6 +606,10 @@ pub enum ScriptType {
     #[cfg(feature = "softpal")]
     /// Softpal src script
     Softpal,
+    #[cfg(feature = "softpal-img")]
+    #[value(alias = "pgd-ge", alias = "pgd")]
+    /// Softpal Pgd Ge image
+    SoftpalPgdGe,
     #[cfg(feature = "will-plus")]
     #[value(alias("adv-hd-ws2"))]
     /// WillPlus ws2 script

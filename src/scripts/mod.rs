@@ -130,6 +130,8 @@ lazy_static::lazy_static! {
         Box::new(silky::map::MapBuilder::new()),
         #[cfg(feature = "emote-img")]
         Box::new(emote::psb::PsbBuilder::new()),
+        #[cfg(feature = "softpal-img")]
+        Box::new(softpal::img::pgd::ge::PgdGeBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =
