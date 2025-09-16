@@ -1305,7 +1305,7 @@ dependencies = [
 
 [[package]]
 name = "msg_tool"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "anyhow",
  "base64",
@@ -1345,7 +1345,7 @@ dependencies = [
  "url",
  "utf16string",
  "webp",
- "windows-sys 0.61.0",
+ "windows-sys 0.59.0",
  "xml5ever",
  "zstd",
 ]
