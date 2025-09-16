@@ -58,6 +58,7 @@ impl ScriptBuilder for TjsNs0Builder {
 enum TjsValue {
     Void(()),
     Int(i64),
+    Double(f64),
     Str(String),
     Array(Vec<TjsValue>),
     Dict(BTreeMap<String, TjsValue>),
@@ -80,6 +81,7 @@ impl StructUnpack for TjsValue {
             0 => TjsValue::Void(()),
             2 => TjsValue::Str(unpack_string(reader, big, encoding)?),
             4 => TjsValue::Int(i64::unpack(reader, big, encoding)?),
+            5 => TjsValue::Double(f64::unpack(reader, big, encoding)?),
             0x81 => {
                 let arr_len = u32::unpack(reader, big, encoding)? as usize;
                 let mut arr = Vec::with_capacity(arr_len);
