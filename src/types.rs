@@ -450,7 +450,9 @@ pub struct ExtraConfig {
     /// Process tlg images.
     pub psb_process_tlg: bool,
     #[cfg(feature = "softpal-img")]
-    /// Whether to use fake compression for Softpal Pgd images
+    #[default(true)]
+    /// Whether to use fake compression for Softpal Pgd images. Enabled by default.
+    /// WARN: Compress may cause image broken.
     pub pgd_fake_compress: bool,
 }
 

@@ -469,9 +469,10 @@ pub struct Arg {
     /// Do not process TLG images in PSB files.
     pub psb_no_process_tlg: bool,
     #[cfg(feature = "softpal-img")]
-    #[arg(long, global = true, visible_alias = "pgd-fc")]
-    /// Whether to use fake compression for Softpal Pgd images
-    pub pgd_fake_compress: bool,
+    #[arg(long, global = true, visible_alias = "pgd-co")]
+    /// Whether to use compression for Softpal Pgd images.
+    /// WARN: Compress may cause image broken.
+    pub pgd_compress: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
