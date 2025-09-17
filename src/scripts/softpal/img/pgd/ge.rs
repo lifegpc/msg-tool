@@ -59,7 +59,7 @@ impl ScriptBuilder for PgdGeBuilder {
         &'a self,
         data: ImageData,
         mut writer: Box<dyn WriteSeek + 'a>,
-        _options: &ExtraConfig,
+        options: &ExtraConfig,
     ) -> Result<()> {
         let header = PgdGeHeader {
             offset_x: 0,
@@ -72,7 +72,9 @@ impl ScriptBuilder for PgdGeBuilder {
         };
         writer.write_all(b"GE \0")?;
         header.pack(&mut writer, false, Encoding::Utf8)?;
-        PgdWriter::new(data).with_method(3).pack_ge(&mut writer)?;
+        PgdWriter::new(data, options.pgd_fake_compress)
+            .with_method(3)
+            .pack_ge(&mut writer)?;
         Ok(())
     }
 }
@@ -81,10 +83,11 @@ impl ScriptBuilder for PgdGeBuilder {
 pub struct PgdGe {
     header: PgdGeHeader,
     data: ImageData,
+    fake_compress: bool,
 }
 
 impl PgdGe {
-    pub fn new<T: Read + Seek>(mut input: T, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new<T: Read + Seek>(mut input: T, config: &ExtraConfig) -> Result<Self> {
         let mut magic = [0u8; 4];
         input.read_exact(&mut magic)?;
         if &magic != b"GE \0" {
@@ -93,7 +96,11 @@ impl PgdGe {
         let header = PgdGeHeader::unpack(&mut input, false, Encoding::Utf8)?;
         let reader = PgdReader::with_ge_header(input, &header)?;
         let data = reader.unpack_ge()?;
-        Ok(Self { header, data })
+        Ok(Self {
+            header,
+            data,
+            fake_compress: config.pgd_fake_compress,
+        })
     }
 }
 
@@ -137,7 +144,9 @@ impl Script for PgdGe {
         header.mode = 3;
         file.write_all(b"GE \0")?;
         header.pack(&mut file, false, Encoding::Utf8)?;
-        PgdWriter::new(data).with_method(3).pack_ge(&mut file)?;
+        PgdWriter::new(data, self.fake_compress)
+            .with_method(3)
+            .pack_ge(&mut file)?;
         Ok(())
     }
 }

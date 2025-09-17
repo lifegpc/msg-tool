@@ -449,6 +449,9 @@ pub struct ExtraConfig {
     #[default(true)]
     /// Process tlg images.
     pub psb_process_tlg: bool,
+    #[cfg(feature = "softpal-img")]
+    /// Whether to use fake compression for Softpal Pgd images
+    pub pgd_fake_compress: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
