@@ -25,6 +25,7 @@ jpegxl-sys = { package = "msg-tool-jpegxl-sys", version = "0.11", optional = tru
 lazy_static = "1.5.0"
 libflac-sys = { version = "0.3", optional = true }
 libtlg-rs = { version = "0.2", optional = true, features = ["encode"] }
+lz4 = { version = "1.28", optional = true }
 markup5ever = { version = "0.35", optional = true }
 markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
@@ -76,7 +77,7 @@ escude-arc = ["escude", "rand", "utils-bit-stream"]
 ex-hibit = []
 favorite = []
 hexen-haus = ["memchr", "utils-str"]
-kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "utils-escape"]
+kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 silky = []
 softpal = ["int-enum"]

@@ -76,3 +76,18 @@ impl<T: StructUnpack> StructUnpack for Option<T> {
         Ok(Some(value))
     }
 }
+
+impl<const T: usize> StructPack for [u8; T] {
+    fn pack<W: Write>(&self, writer: &mut W, _big: bool, _encoding: Encoding) -> Result<()> {
+        writer.write_all(self)?;
+        Ok(())
+    }
+}
+
+impl<const T: usize> StructUnpack for [u8; T] {
+    fn unpack<R: Read + Seek>(reader: &mut R, _big: bool, _encoding: Encoding) -> Result<Self> {
+        let mut buf = [0u8; T];
+        reader.read_exact(&mut buf)?;
+        Ok(buf)
+    }
+}
