@@ -40,7 +40,7 @@ impl ScriptBuilder for TjsNs0Builder {
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["tjs", "pbd"]
+        &["pbd", "tjs"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
