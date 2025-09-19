@@ -315,12 +315,23 @@ pub struct Disasm<'a> {
     variables: HashMap<u32, Operand>,
     stack: Vec<Operand>,
     strs: Vec<PalString>,
+    pre_is_hover_text_move: bool,
 }
 
 #[derive(Debug)]
 pub enum StringType {
     Name,
     Message,
+    /// Hover text
+    Hover,
+    /// Label
+    Label,
+}
+
+impl StringType {
+    pub fn is_label(&self) -> bool {
+        matches!(self, StringType::Label)
+    }
 }
 
 #[derive(Debug)]
@@ -347,6 +358,7 @@ impl<'a> Disasm<'a> {
             variables: HashMap::new(),
             stack: Vec::new(),
             strs: Vec::new(),
+            pre_is_hover_text_move: false,
         })
     }
 
@@ -362,6 +374,11 @@ impl<'a> Disasm<'a> {
             if let Some(writer) = writer.as_mut() {
                 self.write_instruction_to(&instr, writer)?;
             }
+            let is_hover_text_move = instr.opcode == MOV
+                && instr.operands[0].typ() == OperandType::Variable
+                && instr.operands[0].value() == 2
+                && instr.operands[1].typ() == OperandType::Literal
+                && instr.operands[1].value() < 0xFFFFFFF;
             if instr.is_message() {
                 self.handle_message_instruction()?;
             } else if instr.opcode == MOV {
@@ -378,6 +395,7 @@ impl<'a> Disasm<'a> {
                 self.stack.clear();
                 self.variables.clear();
             }
+            self.pre_is_hover_text_move = is_hover_text_move;
         }
         Ok(self.strs)
     }
@@ -538,6 +556,12 @@ impl<'a> Disasm<'a> {
             && self.variables.contains_key(&instr.operands[0].value())
         {
             let var = self.variables.get(&instr.operands[0].value()).unwrap();
+            if self.pre_is_hover_text_move && instr.operands[0].value() == 2 {
+                self.strs.push(PalString {
+                    offset: var.offset,
+                    typ: StringType::Hover,
+                });
+            }
             self.stack.push(*var);
         } else {
             self.stack.push(instr.operands[0]);
@@ -589,6 +613,12 @@ impl<'a> Disasm<'a> {
             0x60002 => {
                 self.handle_select_choice_instruction()?;
             }
+            0x20014 => {
+                self.handle_another_message()?;
+            }
+            0xf0002 => {
+                self.handle_label()?;
+            }
             _ => {
                 self.stack.clear();
             }
@@ -600,6 +630,42 @@ impl<'a> Disasm<'a> {
         self.handle_message_instruction_internal()?;
         self.stack.clear();
         self.variables.clear();
+        Ok(())
+    }
+
+    fn handle_another_message(&mut self) -> Result<()> {
+        if self.stack.len() < 3 {
+            return Ok(());
+        }
+        let _message_id = self.stack.pop().unwrap();
+        let name = self.stack.pop().unwrap();
+        let message = self.stack.pop().unwrap();
+        if name.typ() != OperandType::Literal || message.typ() != OperandType::Literal {
+            return Ok(());
+        }
+        self.strs.push(PalString {
+            offset: name.offset,
+            typ: StringType::Name,
+        });
+        self.strs.push(PalString {
+            offset: message.offset,
+            typ: StringType::Message,
+        });
+        Ok(())
+    }
+
+    fn handle_label(&mut self) -> Result<()> {
+        if self.stack.len() < 1 {
+            return Ok(());
+        }
+        let label = self.stack.pop().unwrap();
+        if label.typ() != OperandType::Literal {
+            return Ok(());
+        }
+        self.strs.push(PalString {
+            offset: label.offset,
+            typ: StringType::Label,
+        });
         Ok(())
     }
 

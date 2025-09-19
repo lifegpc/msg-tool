@@ -2,6 +2,7 @@
 use crate::ext::io::*;
 use crate::types::*;
 use anyhow::Result;
+use std::collections::HashMap;
 use std::io::{Read, Seek, Write};
 
 /// A trait for reading and seeking in a stream.
@@ -270,6 +271,11 @@ pub trait Script: std::fmt::Debug + std::any::Any {
     /// Returns the default format options for this script.
     fn default_format_type(&self) -> FormatOptions;
 
+    /// Returns true if this script can contains multiple message files.
+    fn multiple_message_files(&self) -> bool {
+        false
+    }
+
     /// Extract messages from this script.
     fn extract_messages(&self) -> Result<Vec<Message>> {
         if !self.is_archive() {
@@ -278,6 +284,16 @@ pub trait Script: std::fmt::Debug + std::any::Any {
             ));
         }
         Ok(vec![])
+    }
+
+    /// Extract multiple messages from this script.
+    fn extract_multiple_messages(&self) -> Result<HashMap<String, Vec<Message>>> {
+        if !self.multiple_message_files() {
+            return Err(anyhow::anyhow!(
+                "This script type does not support extracting multiple message files."
+            ));
+        }
+        Ok(HashMap::new())
     }
 
     /// Import messages into this script.
@@ -303,6 +319,29 @@ pub trait Script: std::fmt::Debug + std::any::Any {
         Ok(())
     }
 
+    /// Import multiple messages into this script.
+    ///
+    /// * `messages` - A map of filenames to messages to import.
+    /// * `file` - A writer with seek capabilities to write the patched scripts.
+    /// * `filename` - The path of the file to write the patched scripts.
+    /// * `encoding` - The encoding to use for the patched scripts.
+    /// * `replacement` - An optional replacement table for message replacements.s
+    fn import_multiple_messages<'a>(
+        &'a self,
+        _messages: HashMap<String, Vec<Message>>,
+        _file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
+        _encoding: Encoding,
+        _replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        if !self.multiple_message_files() {
+            return Err(anyhow::anyhow!(
+                "This script type does not support importing multiple message files."
+            ));
+        }
+        Ok(())
+    }
+
     /// Import messages into this script.
     ///
     /// * `messages` - The messages to import.
@@ -319,6 +358,24 @@ pub trait Script: std::fmt::Debug + std::any::Any {
         let f = std::fs::File::create(filename)?;
         let f = std::io::BufWriter::new(f);
         self.import_messages(messages, Box::new(f), filename, encoding, replacement)
+    }
+
+    /// Import multiple messages into this script.
+    ///
+    /// * `messages` - A map of filenames to messages to import.
+    /// * `filename` - The path of the file to write the patched scripts.
+    /// * `encoding` - The encoding to use for the patched scripts.
+    /// * `replacement` - An optional replacement table for message replacements.
+    fn import_multiple_messages_filename(
+        &self,
+        messages: HashMap<String, Vec<Message>>,
+        filename: &str,
+        encoding: Encoding,
+        replacement: Option<&ReplacementTable>,
+    ) -> Result<()> {
+        let f = std::fs::File::create(filename)?;
+        let f = std::io::BufWriter::new(f);
+        self.import_multiple_messages(messages, Box::new(f), filename, encoding, replacement)
     }
 
     /// Exports data from this script.

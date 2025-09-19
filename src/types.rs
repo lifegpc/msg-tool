@@ -671,6 +671,7 @@ pub enum FormatType {
     None,
 }
 
+#[derive(Clone)]
 /// Format options
 pub enum FormatOptions {
     /// Wrap line with fixed length

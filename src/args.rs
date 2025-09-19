@@ -473,6 +473,9 @@ pub struct Arg {
     /// Whether to use compression for Softpal Pgd images.
     /// WARN: Compress may cause image broken.
     pub pgd_compress: bool,
+    #[arg(long, global = true)]
+    /// Disable multiple messages section support.
+    pub no_multi_message: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

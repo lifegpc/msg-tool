@@ -571,6 +571,166 @@ pub fn export_script(
                 if !script_file.is_output_supported(of) {
                     of = script_file.default_output_script_type();
                 }
+                if !arg.no_multi_message && !of.is_custom() && script_file.multiple_message_files()
+                {
+                    let mmes = script_file.extract_multiple_messages()?;
+                    if mmes.is_empty() {
+                        eprintln!("No messages found in {}", f.name());
+                        COUNTER.inc(types::ScriptResult::Ignored);
+                        continue;
+                    }
+                    let ext = of.as_ref();
+                    let mut out_dir = std::path::PathBuf::from(&odir).join(f.name());
+                    if arg.output_no_extra_ext {
+                        out_dir.remove_all_extensions();
+                    } else {
+                        out_dir.set_extension("");
+                    }
+                    std::fs::create_dir_all(&out_dir)?;
+                    for (name, data) in mmes {
+                        let ofp = out_dir.join(name).with_extension(ext);
+                        match of {
+                            types::OutputScriptType::Json => {
+                                let enc = get_output_encoding(arg);
+                                let s = match serde_json::to_string_pretty(&data) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        eprintln!("Error serializing messages to JSON: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let b = match utils::encoding::encode_string(enc, &s, false) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error encoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let mut f = match utils::files::write_file(&ofp) {
+                                    Ok(f) => f,
+                                    Err(e) => {
+                                        eprintln!("Error writing file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                match f.write_all(&b) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("Error writing to file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::M3t
+                            | types::OutputScriptType::M3ta
+                            | types::OutputScriptType::M3tTxt => {
+                                let enc = get_output_encoding(arg);
+                                let s = output_scripts::m3t::M3tDumper::dump(&data);
+                                let b = match utils::encoding::encode_string(enc, &s, false) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error encoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let mut f = match utils::files::write_file(&ofp) {
+                                    Ok(f) => f,
+                                    Err(e) => {
+                                        eprintln!("Error writing file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                match f.write_all(&b) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("Error writing to file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::Yaml => {
+                                let enc = get_output_encoding(arg);
+                                let s = match serde_yaml_ng::to_string(&data) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        eprintln!("Error serializing messages to YAML: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let b = match utils::encoding::encode_string(enc, &s, false) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error encoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let mut f = match utils::files::write_file(&ofp) {
+                                    Ok(f) => f,
+                                    Err(e) => {
+                                        eprintln!("Error writing file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                match f.write_all(&b) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("Error writing to file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::Pot | types::OutputScriptType::Po => {
+                                let enc = get_output_encoding(arg);
+                                let s = match output_scripts::po::PoDumper::new().dump(&data, enc) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        eprintln!("Error dumping messages to PO format: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let b = match utils::encoding::encode_string(enc, &s, false) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error encoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let mut f = match utils::files::write_file(&ofp) {
+                                    Ok(f) => f,
+                                    Err(e) => {
+                                        eprintln!("Error writing file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                match f.write_all(&b) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("Error writing to file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::Custom => {}
+                        }
+                    }
+                    COUNTER.inc(types::ScriptResult::Ok);
+                    continue;
+                }
                 let mes = if of.is_custom() {
                     Vec::new()
                 } else {
@@ -981,6 +1141,188 @@ pub fn export_script(
     if !script.is_output_supported(of) {
         of = script.default_output_script_type();
     }
+    if !arg.no_multi_message && !of.is_custom() && script.multiple_message_files() {
+        let mmes = script.extract_multiple_messages()?;
+        if mmes.is_empty() {
+            eprintln!("No messages found");
+            return Ok(types::ScriptResult::Ignored);
+        }
+        let ext = of.as_ref();
+        let out_dir = if let Some(output) = output.as_ref() {
+            if let Some(root_dir) = root_dir {
+                let f = std::path::PathBuf::from(filename);
+                let mut pb = std::path::PathBuf::from(output);
+                let rpath = utils::files::relative_path(root_dir, &f);
+                if let Some(parent) = rpath.parent() {
+                    pb.push(parent);
+                }
+                if let Some(fname) = f.file_name() {
+                    pb.push(fname);
+                }
+                if arg.output_no_extra_ext {
+                    pb.remove_all_extensions();
+                } else {
+                    pb.set_extension("");
+                }
+                pb.to_string_lossy().into_owned()
+            } else {
+                output.clone()
+            }
+        } else {
+            let mut pb = std::path::PathBuf::from(filename);
+            if arg.output_no_extra_ext {
+                pb.remove_all_extensions();
+            } else {
+                pb.set_extension("");
+            }
+            pb.to_string_lossy().into_owned()
+        };
+        std::fs::create_dir_all(&out_dir)?;
+        let outdir = std::path::PathBuf::from(&out_dir);
+        for (name, data) in mmes {
+            let ofp = outdir.join(name).with_extension(ext);
+            match of {
+                types::OutputScriptType::Json => {
+                    let enc = get_output_encoding(arg);
+                    let s = match serde_json::to_string_pretty(&data) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Error serializing messages to JSON: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let b = match utils::encoding::encode_string(enc, &s, false) {
+                        Ok(b) => b,
+                        Err(e) => {
+                            eprintln!("Error encoding string: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let mut f = match utils::files::write_file(&ofp) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            eprintln!("Error writing file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    match f.write_all(&b) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error writing to file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                }
+                types::OutputScriptType::M3t
+                | types::OutputScriptType::M3ta
+                | types::OutputScriptType::M3tTxt => {
+                    let enc = get_output_encoding(arg);
+                    let s = output_scripts::m3t::M3tDumper::dump(&data);
+                    let b = match utils::encoding::encode_string(enc, &s, false) {
+                        Ok(b) => b,
+                        Err(e) => {
+                            eprintln!("Error encoding string: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let mut f = match utils::files::write_file(&ofp) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            eprintln!("Error writing file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    match f.write_all(&b) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error writing to file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                }
+                types::OutputScriptType::Yaml => {
+                    let enc = get_output_encoding(arg);
+                    let s = match serde_yaml_ng::to_string(&data) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Error serializing messages to YAML: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let b = match utils::encoding::encode_string(enc, &s, false) {
+                        Ok(b) => b,
+                        Err(e) => {
+                            eprintln!("Error encoding string: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let mut f = match utils::files::write_file(&ofp) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            eprintln!("Error writing file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    match f.write_all(&b) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error writing to file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                }
+                types::OutputScriptType::Pot | types::OutputScriptType::Po => {
+                    let enc = get_output_encoding(arg);
+                    let s = match output_scripts::po::PoDumper::new().dump(&data, enc) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Error dumping messages to PO format: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let b = match utils::encoding::encode_string(enc, &s, false) {
+                        Ok(b) => b,
+                        Err(e) => {
+                            eprintln!("Error encoding string: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let mut f = match utils::files::write_file(&ofp) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            eprintln!("Error writing file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    match f.write_all(&b) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error writing to file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                }
+                types::OutputScriptType::Custom => {}
+            }
+            COUNTER.inc(types::ScriptResult::Ok);
+        }
+        return Ok(types::ScriptResult::Ok);
+    }
     let mes = if of.is_custom() {
         Vec::new()
     } else {
@@ -1164,6 +1506,215 @@ pub fn import_script(
                 };
                 if !script_file.is_output_supported(of) {
                     of = script_file.default_output_script_type();
+                }
+                if !arg.no_multi_message && !of.is_custom() && script_file.multiple_message_files()
+                {
+                    let out_dir = std::path::PathBuf::from(&odir)
+                        .join(f.name())
+                        .with_extension("");
+                    let outfiles = utils::files::find_ext_files(
+                        &out_dir.to_string_lossy(),
+                        false,
+                        &[of.as_ref()],
+                    )?;
+                    if outfiles.is_empty() {
+                        if imp_cfg.warn_when_output_file_not_found {
+                            eprintln!(
+                                "Warning: No output files found in {}, using file from original archive.",
+                                out_dir.display()
+                            );
+                            COUNTER.inc_warning();
+                        } else {
+                            COUNTER.inc(types::ScriptResult::Ignored);
+                        }
+                        continue;
+                    }
+                    let fmt = match imp_cfg.patched_format {
+                        Some(fmt) => match fmt {
+                            types::FormatType::Fixed => types::FormatOptions::Fixed {
+                                length: imp_cfg.patched_fixed_length.unwrap_or(32),
+                                keep_original: imp_cfg.patched_keep_original,
+                                break_words: imp_cfg.patched_break_words,
+                                insert_fullwidth_space_at_line_start: imp_cfg
+                                    .patched_insert_fullwidth_space_at_line_start,
+                                break_with_sentence: imp_cfg.patched_break_with_sentence,
+                                #[cfg(feature = "jieba")]
+                                break_chinese_words: !imp_cfg.patched_no_break_chinese_words,
+                                #[cfg(feature = "jieba")]
+                                jieba_dict: arg.jieba_dict.clone(),
+                            },
+                            types::FormatType::None => types::FormatOptions::None,
+                        },
+                        None => script.default_format_type(),
+                    };
+                    let mut mmes = std::collections::HashMap::new();
+                    for out_f in outfiles {
+                        let name = utils::files::relative_path(&out_dir, &out_f)
+                            .with_extension("")
+                            .to_string_lossy()
+                            .into_owned();
+                        let mut mes = match of {
+                            types::OutputScriptType::Json => {
+                                let enc = get_output_encoding(arg);
+                                let b = match utils::files::read_file(&out_f) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error reading file {}: {}", out_f, e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let s = match utils::encoding::decode_to_string(enc, &b, true) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        eprintln!("Error decoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                match serde_json::from_str::<Vec<types::Message>>(&s) {
+                                    Ok(mes) => mes,
+                                    Err(e) => {
+                                        eprintln!("Error parsing JSON: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::M3t
+                            | types::OutputScriptType::M3ta
+                            | types::OutputScriptType::M3tTxt => {
+                                let enc = get_output_encoding(arg);
+                                let b = match utils::files::read_file(&out_f) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error reading file {}: {}", out_f, e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let s = match utils::encoding::decode_to_string(enc, &b, true) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        eprintln!("Error decoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let mut parser = output_scripts::m3t::M3tParser::new(
+                                    &s,
+                                    arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                                );
+                                match parser.parse() {
+                                    Ok(mes) => mes,
+                                    Err(e) => {
+                                        eprintln!("Error parsing M3T: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::Yaml => {
+                                let enc = get_output_encoding(arg);
+                                let b = match utils::files::read_file(&out_f) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error reading file {}: {}", out_f, e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let s = match utils::encoding::decode_to_string(enc, &b, true) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        eprintln!("Error decoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                match serde_yaml_ng::from_str::<Vec<types::Message>>(&s) {
+                                    Ok(mes) => mes,
+                                    Err(e) => {
+                                        eprintln!("Error parsing YAML: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::Pot | types::OutputScriptType::Po => {
+                                let enc = get_output_encoding(arg);
+                                let b = match utils::files::read_file(&out_f) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error reading file {}: {}", out_f, e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let s = match utils::encoding::decode_to_string(enc, &b, true) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        eprintln!("Error decoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                match output_scripts::po::PoParser::new(
+                                    &s,
+                                    arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                                )
+                                .parse()
+                                {
+                                    Ok(mes) => mes,
+                                    Err(e) => {
+                                        eprintln!("Error parsing PO: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::Custom => Vec::new(),
+                        };
+                        if mes.is_empty() {
+                            eprintln!(
+                                "No messages found in {}, using file from original archive.",
+                                out_f
+                            );
+                            continue;
+                        }
+                        match name_csv {
+                            Some(name_table) => {
+                                utils::name_replacement::replace_message(&mut mes, name_table);
+                            }
+                            None => {}
+                        }
+                        format::fmt_message(&mut mes, fmt.clone(), *builder.script_type())?;
+                        mmes.insert(name, mes);
+                    }
+                    if mmes.is_empty() {
+                        COUNTER.inc(types::ScriptResult::Ignored);
+                        continue;
+                    }
+                    let encoding = get_patched_encoding(imp_cfg, builder);
+                    match script_file.import_multiple_messages(
+                        mmes,
+                        writer,
+                        f.name(),
+                        encoding,
+                        repl,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error importing messages to script '{}': {}", filename, e);
+                            COUNTER.inc_error();
+                            if arg.backtrace {
+                                eprintln!("Backtrace: {}", e.backtrace());
+                            }
+                            continue;
+                        }
+                    }
+                    COUNTER.inc(types::ScriptResult::Ok);
+                    continue;
                 }
                 let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
                 if arg.output_no_extra_ext {
@@ -1495,6 +2046,127 @@ pub fn import_script(
     };
     if !script.is_output_supported(of) {
         of = script.default_output_script_type();
+    }
+    if !arg.no_multi_message && !of.is_custom() && script.multiple_message_files() {
+        let out_dir = if let Some(root_dir) = root_dir {
+            let f = std::path::PathBuf::from(filename);
+            let mut pb = std::path::PathBuf::from(&imp_cfg.output);
+            let rpath = utils::files::relative_path(root_dir, &f);
+            if let Some(parent) = rpath.parent() {
+                pb.push(parent);
+            }
+            if let Some(fname) = f.file_name() {
+                pb.push(fname);
+            }
+            if arg.output_no_extra_ext {
+                pb.remove_all_extensions();
+            } else {
+                pb.set_extension("");
+            }
+            pb.to_string_lossy().into_owned()
+        } else {
+            imp_cfg.output.clone()
+        };
+        let outfiles = utils::files::find_ext_files(&out_dir, false, &[of.as_ref()])?;
+        if outfiles.is_empty() {
+            eprintln!("No output files found");
+            return Ok(types::ScriptResult::Ignored);
+        }
+        let fmt = match imp_cfg.patched_format {
+            Some(fmt) => match fmt {
+                types::FormatType::Fixed => types::FormatOptions::Fixed {
+                    length: imp_cfg.patched_fixed_length.unwrap_or(32),
+                    keep_original: imp_cfg.patched_keep_original,
+                    break_words: imp_cfg.patched_break_words,
+                    insert_fullwidth_space_at_line_start: imp_cfg
+                        .patched_insert_fullwidth_space_at_line_start,
+                    break_with_sentence: imp_cfg.patched_break_with_sentence,
+                    #[cfg(feature = "jieba")]
+                    break_chinese_words: !imp_cfg.patched_no_break_chinese_words,
+                    #[cfg(feature = "jieba")]
+                    jieba_dict: arg.jieba_dict.clone(),
+                },
+                types::FormatType::None => types::FormatOptions::None,
+            },
+            None => script.default_format_type(),
+        };
+        let mut mmes = std::collections::HashMap::new();
+        for out_f in outfiles {
+            let name = utils::files::relative_path(&out_dir, &out_f)
+                .with_extension("")
+                .to_string_lossy()
+                .into_owned();
+            let mut mes = match of {
+                types::OutputScriptType::Json => {
+                    let enc = get_output_encoding(arg);
+                    let b = utils::files::read_file(&out_f)?;
+                    let s = utils::encoding::decode_to_string(enc, &b, true)?;
+                    serde_json::from_str::<Vec<types::Message>>(&s)?
+                }
+                types::OutputScriptType::M3t
+                | types::OutputScriptType::M3ta
+                | types::OutputScriptType::M3tTxt => {
+                    let enc = get_output_encoding(arg);
+                    let b = utils::files::read_file(&out_f)?;
+                    let s = utils::encoding::decode_to_string(enc, &b, true)?;
+                    let mut parser = output_scripts::m3t::M3tParser::new(
+                        &s,
+                        arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                    );
+                    parser.parse()?
+                }
+                types::OutputScriptType::Yaml => {
+                    let enc = get_output_encoding(arg);
+                    let b = utils::files::read_file(&out_f)?;
+                    let s = utils::encoding::decode_to_string(enc, &b, true)?;
+                    serde_yaml_ng::from_str::<Vec<types::Message>>(&s)?
+                }
+                types::OutputScriptType::Pot | types::OutputScriptType::Po => {
+                    let enc = get_output_encoding(arg);
+                    let b = utils::files::read_file(&out_f)?;
+                    let s = utils::encoding::decode_to_string(enc, &b, true)?;
+                    let mut parser = output_scripts::po::PoParser::new(
+                        &s,
+                        arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                    );
+                    parser.parse()?
+                }
+                types::OutputScriptType::Custom => {
+                    Vec::new() // Custom scripts handle their own messages
+                }
+            };
+            if mes.is_empty() {
+                eprintln!("No messages found in {}", out_f);
+                continue;
+            }
+            match name_csv {
+                Some(name_table) => {
+                    utils::name_replacement::replace_message(&mut mes, name_table);
+                }
+                None => {}
+            }
+            format::fmt_message(&mut mes, fmt.clone(), *builder.script_type())?;
+            mmes.insert(name, mes);
+        }
+        let patched_f = if let Some(root_dir) = root_dir {
+            let f = std::path::PathBuf::from(filename);
+            let mut pb = std::path::PathBuf::from(&imp_cfg.patched);
+            let rpath = utils::files::relative_path(root_dir, &f);
+            if let Some(parent) = rpath.parent() {
+                pb.push(parent);
+            }
+            if let Some(fname) = f.file_name() {
+                pb.push(fname);
+            }
+            pb.set_extension(builder.extensions().first().unwrap_or(&""));
+            pb.to_string_lossy().into_owned()
+        } else {
+            imp_cfg.patched.clone()
+        };
+        utils::files::make_sure_dir_exists(&patched_f)?;
+        let encoding = get_patched_encoding(imp_cfg, builder);
+        script.import_multiple_messages_filename(mmes, &patched_f, encoding, repl)?;
+        return Ok(types::ScriptResult::Ok);
     }
     let out_f = if let Some(root_dir) = root_dir {
         let f = std::path::PathBuf::from(filename);
