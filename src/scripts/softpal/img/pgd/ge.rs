@@ -69,6 +69,7 @@ impl ScriptBuilder for PgdGeBuilder {
             canvas_width: data.width,
             canvas_height: data.height,
             mode: 3,
+            _unk: 0,
         };
         writer.write_all(b"GE \0")?;
         header.pack(&mut writer, false, Encoding::Utf8)?;

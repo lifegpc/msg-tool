@@ -14,11 +14,11 @@ pub struct PgdGeHeader {
     pub offset_y: u32,
     pub width: u32,
     pub height: u32,
-    // untested
     pub canvas_width: u32,
-    // untested
     pub canvas_height: u32,
-    pub mode: u32,
+    pub mode: u16,
+    // Some background image has this (0xF)
+    pub _unk: u16,
 }
 
 impl PgdGeHeader {
@@ -47,7 +47,7 @@ pub struct PgdReader<T: Read + Seek> {
     width: u32,
     height: u32,
     bpp: u8,
-    method: u32,
+    method: u16,
     format: Option<ImageColorType>,
 }
 
