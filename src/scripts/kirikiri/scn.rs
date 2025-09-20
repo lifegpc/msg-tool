@@ -677,11 +677,21 @@ impl Script for ScnScript {
                         if cur_mes.is_none() {
                             cur_mes = mes.next();
                         }
-                        if select["language"].is_list()
+                        if self.language_index != 0
                             && {
                                 while select["language"].len() <= self.language_index {
-                                    select["language"][self.language_index] =
-                                        select["language"][0].clone();
+                                    // TenShiSouZou
+                                    // first block is null
+                                    if select["language"].len() == 0 {
+                                        select["language"].push_member(PsbValueFixed::Null);
+                                        continue;
+                                    }
+                                    let mut obj = PsbObjectFixed::new();
+                                    obj["text"].set_str("");
+                                    obj["speechtext"].set_str("");
+                                    obj["searchtext"].set_str("");
+                                    obj["textlength"].set_i64(0);
+                                    select["language"][self.language_index].set_obj(obj);
                                 }
                                 true
                             }
@@ -702,10 +712,12 @@ impl Script for ScnScript {
                                     }
                                 }
                                 lang_obj["text"].set_string(text.replace("\n", "\\n"));
+                                lang_obj["speechtext"].set_string(get_save_message(&text, true));
+                                lang_obj["searchtext"].set_string(get_save_message(&text, false));
+                                lang_obj["textlength"].set_i64(text.chars().count() as i64);
                                 continue;
                             }
-                        }
-                        if select["text"].is_string() {
+                        } else if select["text"].is_string() {
                             let m = match cur_mes.take() {
                                 Some(m) => m,
                                 None => {

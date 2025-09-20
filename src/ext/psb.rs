@@ -171,6 +171,16 @@ impl PsbValueFixed {
         }
     }
 
+    /// Sets the value of this PSB value to a new integer.
+    pub fn set_i64(&mut self, value: i64) {
+        *self = PsbValueFixed::Number(PsbNumber::Integer(value));
+    }
+
+    /// Sets the value of this PSB value to a new object
+    pub fn set_obj(&mut self, value: PsbObjectFixed) {
+        *self = PsbValueFixed::Object(value);
+    }
+
     /// Sets the value of this PSB value to a new string.
     pub fn set_str(&mut self, value: &str) {
         match self {
@@ -730,6 +740,12 @@ pub struct PsbObjectFixed {
 }
 
 impl PsbObjectFixed {
+    pub fn new() -> Self {
+        Self {
+            values: HashMap::new(),
+        }
+    }
+
     /// Creates a new empty PSB object.
     pub fn to_psb(self, warn_on_none: bool) -> PsbObject {
         let mut hash_map = HashMap::new();
