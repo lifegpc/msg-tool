@@ -2734,7 +2734,7 @@ fn main() {
         psb_process_tlg: !arg.psb_no_process_tlg,
         #[cfg(feature = "softpal-img")]
         pgd_fake_compress: !arg.pgd_compress,
-        #[cfg(feature = "softpal-img")]
+        #[cfg(feature = "softpal")]
         softpal_add_message_index: arg.softpal_add_message_index,
     });
     match &arg.command {
