@@ -239,6 +239,7 @@ const TEXT_WA: u16 = 0x0097;
 const TEXT_N: u16 = 0x0098;
 const TEXT_CAT: u16 = 0x0099;
 pub const CODE_OFFSET: u32 = 0xC;
+const BIN_XOR: u16 = 0x0008;
 
 #[derive(Clone, Copy)]
 struct Operand {
@@ -316,6 +317,9 @@ pub struct Disasm<'a> {
     stack: Vec<Operand>,
     strs: Vec<PalString>,
     pre_is_hover_text_move: bool,
+    pre_is_hover_text_push: bool,
+    pre_is_hover_text_binxor: bool,
+    hover_text: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -359,6 +363,9 @@ impl<'a> Disasm<'a> {
             stack: Vec::new(),
             strs: Vec::new(),
             pre_is_hover_text_move: false,
+            hover_text: None,
+            pre_is_hover_text_push: false,
+            pre_is_hover_text_binxor: false,
         })
     }
 
@@ -376,26 +383,53 @@ impl<'a> Disasm<'a> {
             }
             let is_hover_text_move = instr.opcode == MOV
                 && instr.operands[0].typ() == OperandType::Variable
-                && instr.operands[0].value() == 2
+                && instr.operands[0].value() >= 1
                 && instr.operands[1].typ() == OperandType::Literal
                 && instr.operands[1].value() < 0xFFFFFFF;
+            let hover_text = if is_hover_text_move {
+                Some(instr.operands[0].value())
+            } else {
+                None
+            };
+            let mut is_hover_text_push = false;
+            let mut is_hover_text_binxor = false;
             if instr.is_message() {
                 self.handle_message_instruction()?;
             } else if instr.opcode == MOV {
                 self.handle_mov_instruction(instr)?;
             } else if instr.opcode == PUSH {
-                self.handle_push_instruction(instr)?;
+                is_hover_text_push = self.handle_push_instruction(instr)?;
             } else if instr.opcode == CALL {
                 self.handle_call_instruction(instr)?;
             } else if instr.opcode == SYSCALL {
                 self.handle_syscall_instruction(instr)?;
             } else if instr.opcode == SELECT_ADD_CHOICE {
                 self.handle_select_choice_instruction()?;
+            } else if instr.opcode == BIN_XOR {
+                if let Some(var) = self.hover_text {
+                    if instr.operands[0].typ() == OperandType::Variable
+                        && instr.operands[0].value() == var - 1
+                        && instr.operands[1].typ() == OperandType::Variable
+                        && instr.operands[1].value() == var - 1
+                    {
+                        is_hover_text_binxor = true;
+                    } else {
+                        self.hover_text = None;
+                    }
+                } else {
+                    self.stack.clear();
+                    self.variables.clear();
+                }
             } else {
                 self.stack.clear();
                 self.variables.clear();
             }
             self.pre_is_hover_text_move = is_hover_text_move;
+            self.pre_is_hover_text_push = is_hover_text_push;
+            self.pre_is_hover_text_binxor = is_hover_text_binxor;
+            if is_hover_text_move {
+                self.hover_text = hover_text;
+            }
         }
         Ok(self.strs)
     }
@@ -551,22 +585,44 @@ impl<'a> Disasm<'a> {
         Ok(())
     }
 
-    fn handle_push_instruction(&mut self, instr: Instruction) -> Result<()> {
+    fn handle_push_instruction(&mut self, instr: Instruction) -> Result<bool> {
+        let mut is_hover_text_push = false;
         if instr.operands[0].typ() == OperandType::Variable
             && self.variables.contains_key(&instr.operands[0].value())
         {
             let var = self.variables.get(&instr.operands[0].value()).unwrap();
-            if self.pre_is_hover_text_move && instr.operands[0].value() == 2 {
-                self.strs.push(PalString {
-                    offset: var.offset,
-                    typ: StringType::Hover,
-                });
+            if self.pre_is_hover_text_move {
+                if let Some(hover_text) = self.hover_text {
+                    if instr.operands[0].value() == hover_text {
+                        is_hover_text_push = true;
+                    } else {
+                        self.hover_text = None;
+                    }
+                }
             }
             self.stack.push(*var);
         } else {
+            if self.pre_is_hover_text_binxor
+                && instr.operands[0].raw_type() == 5
+                && instr.operands[0].value() & 0x10000 != 0
+            {
+                if let Some(hover_text) = self.hover_text {
+                    if let Some(var) = self.variables.get(&hover_text) {
+                        if var.typ() == OperandType::Literal && var.value() < 0xFFFFFFF {
+                            self.strs.push(PalString {
+                                offset: var.offset,
+                                typ: StringType::Hover,
+                            });
+                        }
+                    }
+                    self.hover_text = None;
+                }
+            } else {
+                self.hover_text = None;
+            }
             self.stack.push(instr.operands[0]);
         }
-        Ok(())
+        Ok(is_hover_text_push)
     }
 
     fn handle_call_instruction(&mut self, instr: Instruction) -> Result<()> {
