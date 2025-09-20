@@ -64,6 +64,7 @@ pub struct SoftpalScript {
     texts: MemReader,
     encoding: Encoding,
     label_offsets: Vec<u32>,
+    add_message_index: bool,
 }
 
 impl SoftpalScript {
@@ -72,7 +73,7 @@ impl SoftpalScript {
         buf: Vec<u8>,
         filename: &str,
         encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
     ) -> Result<Self> {
         let texts = Self::load_texts_data(Self::load_file(filename, archive, "TEXT.DAT")?)?;
@@ -85,6 +86,7 @@ impl SoftpalScript {
             encoding,
             texts,
             label_offsets,
+            add_message_index: config.softpal_add_message_index,
         })
     }
 
@@ -157,11 +159,21 @@ impl Script for SoftpalScript {
     fn extract_messages(&self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let mut name = None;
+        let max_len = self.texts.data.len() as u32;
         for str in &self.strs {
             let addr = self.data.cpeek_u32_at(str.offset as u64)?;
+            if addr - 4 > max_len {
+                continue;
+            }
+            let idx = self.texts.cpeek_u32_at(addr as u64)?;
             let text = self.texts.cpeek_cstring_at(addr as u64 + 4)?;
             let text =
                 decode_to_string(self.encoding, text.as_bytes(), false)?.replace("<br>", "\n");
+            let text = if self.add_message_index {
+                format!("[{}]{}", idx, text)
+            } else {
+                text
+            };
             match str.typ {
                 StringType::Name => {
                     if text.is_empty() {
@@ -186,11 +198,21 @@ impl Script for SoftpalScript {
         let mut label = None;
         let mut name = None;
         let mut result = HashMap::new();
+        let max_len = self.texts.data.len() as u32;
         for str in &self.strs {
             let addr = self.data.cpeek_u32_at(str.offset as u64)?;
+            if addr - 4 > max_len {
+                continue;
+            }
+            let idx = self.texts.cpeek_u32_at(addr as u64)?;
             let text = self.texts.cpeek_cstring_at(addr as u64 + 4)?;
-            let text =
+            let ptext =
                 decode_to_string(self.encoding, text.as_bytes(), false)?.replace("<br>", "\n");
+            let text = if self.add_message_index {
+                format!("[{}]{}", idx, ptext)
+            } else {
+                ptext.clone()
+            };
             match str.typ {
                 StringType::Name => {
                     if text.is_empty() {
@@ -213,7 +235,7 @@ impl Script for SoftpalScript {
                         result.insert(key, messages);
                         messages = Vec::new();
                     }
-                    label = Some(text);
+                    label = Some(ptext);
                 }
             }
         }

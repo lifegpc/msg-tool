@@ -476,6 +476,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Disable multiple messages section support.
     pub no_multi_message: bool,
+    #[cfg(feature = "softpal")]
+    #[arg(long, global = true, visible_alias = "softpal-idx")]
+    /// Whether to add message index to Softpal src script when exporting.
+    pub softpal_add_message_index: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

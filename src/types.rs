@@ -454,6 +454,9 @@ pub struct ExtraConfig {
     /// Whether to use fake compression for Softpal Pgd images. Enabled by default.
     /// WARN: Compress may cause image broken.
     pub pgd_fake_compress: bool,
+    #[cfg(feature = "softpal")]
+    /// Whether to add message index to Softpal src script when exporting.
+    pub softpal_add_message_index: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
