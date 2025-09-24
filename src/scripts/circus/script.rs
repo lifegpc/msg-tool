@@ -265,7 +265,7 @@ impl Script for CircusMesScript {
     fn import_messages<'a>(
         &'a self,
         messages: Vec<Message>,
-        mut writer: Box<dyn WriteSeek + 'a>,
+        writer: Box<dyn WriteSeek + 'a>,
         _filename: &str,
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
@@ -292,122 +292,104 @@ impl Script for CircusMesScript {
                 crate::COUNTER.inc_warning();
             }
         }
-        match replacement {
-            Some(repl) => {
-                for (k, v) in repl.map.iter() {
-                    repls.push((k.to_string(), v.to_string()));
-                }
+        if let Some(repl) = replacement {
+            for (k, v) in repl.map.iter() {
+                repls.push((k.to_string(), v.to_string()));
             }
-            None => {}
         }
-        let mut buffer = Vec::with_capacity(self.data.len());
-        buffer.extend_from_slice(&self.data[..self.asm_bin_offset]);
-        let mut nmes = Vec::with_capacity(messages.len());
-        for m in messages {
-            nmes.insert(0, m);
-        }
-        let mut mes = nmes.pop();
-        let mut block_count = 0;
-        for token in self.tokens.iter() {
+
+        let source = MemReaderRef::new(&self.data);
+        let mut patcher =
+            BinaryPatcher::new(source, writer, |pos| Ok(pos), |pos| Ok(pos))?;
+
+        let mut pending_messages: Vec<Message> = messages.into_iter().rev().collect();
+        let mut current_message = pending_messages.pop();
+        let mut block_updates: Vec<(u64, u32)> = Vec::new();
+        let mut block_index = 0usize;
+
+        for token in &self.tokens {
+            let token_start = (self.asm_bin_offset + token.offset) as u64;
+            patcher.copy_up_to(token_start)?;
+
             if !self.is_new_ver {
-                let count = buffer.len() as u32;
-                let offset = count - self.asm_bin_offset as u32 + 2;
-                buffer[self.blocks_offset + block_count * 4
-                    ..self.blocks_offset + block_count * 4 + 4]
-                    .copy_from_slice(&offset.to_le_bytes());
-                block_count += 1;
+                let block_offset = (self.blocks_offset + block_index * 4) as u64;
+                let new_offset = patcher.map_offset(token_start)?;
+                let offset_value = (new_offset - self.asm_bin_offset as u64 + 2) as u32;
+                block_updates.push((block_offset, offset_value));
+                block_index += 1;
             }
-            if self.info.encstr.its(token.value) {
-                if mes.is_none() {
-                    mes = nmes.pop();
-                    if mes.is_none() {
+
+            if self.info.is_message_opcode(token.value) {
+                if current_message.is_none() {
+                    current_message = pending_messages.pop();
+                    if current_message.is_none() {
                         return Err(anyhow::anyhow!("No more messages to import"));
                     }
                 }
-                let mut s = if token.value == self.info.nameopcode {
-                    match mes.as_mut().unwrap().name.take() {
-                        Some(s) => s,
-                        None => {
-                            let t = mes.as_ref().unwrap().message.clone();
-                            mes = None;
-                            t
+
+                let mut text = {
+                    let message = current_message.as_mut().unwrap();
+                    if self.info.is_name_opcode(token.value) {
+                        match message.name.take() {
+                            Some(name) => name,
+                            None => {
+                                let msg = message.message.clone();
+                                current_message = None;
+                                msg
+                            }
                         }
+                    } else {
+                        let msg = message.message.clone();
+                        current_message = None;
+                        msg
                     }
-                } else {
-                    let t = mes.as_ref().unwrap().message.clone();
-                    mes = None;
-                    t
                 };
-                for i in repls.iter() {
-                    s = s.replace(i.0.as_str(), i.1.as_str());
+
+                for (from, to) in &repls {
+                    text = text.replace(from, to);
                 }
-                let mut text = encode_string(encoding, &s, false)?;
-                if text.contains(&self.info.deckey) {
-                    eprintln!(
-                        "Warning: text contains deckey 0x{:02X}, text may be truncated: {}",
-                        self.info.deckey, s,
-                    );
-                    crate::COUNTER.inc_warning();
+
+                let mut token_bytes = Vec::with_capacity(text.len() + 2);
+                token_bytes.push(token.value);
+                let mut encoded = encode_string(encoding, &text, false)?;
+                if self.info.is_encrypted_message(token.value) {
+                    if encoded.contains(&self.info.deckey) {
+                        eprintln!(
+                            "Warning: text contains deckey 0x{:02X}, text may be truncated: {}",
+                            self.info.deckey, text,
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                    for b in &mut encoded {
+                        *b = (*b).overflowing_sub(self.info.deckey).0;
+                    }
                 }
-                buffer.push(token.value);
-                for t in text.iter_mut() {
-                    *t = (*t).overflowing_sub(self.info.deckey).0;
-                }
-                buffer.extend_from_slice(&text);
-                buffer.push(0x00);
+                token_bytes.extend_from_slice(&encoded);
+                token_bytes.push(0x00);
+                patcher.replace_bytes(token.length as u64, &token_bytes)?;
                 continue;
             }
-            if token.value == self.info.optunenc {
-                if mes.is_none() {
-                    mes = nmes.pop();
-                    if mes.is_none() {
-                        return Err(anyhow::anyhow!("No more messages to import"));
-                    }
-                }
-                let mut s = if token.value == self.info.nameopcode {
-                    match mes.as_mut().unwrap().name.take() {
-                        Some(s) => s,
-                        None => {
-                            let t = mes.as_ref().unwrap().message.clone();
-                            mes = None;
-                            t
-                        }
-                    }
-                } else {
-                    let t = mes.as_ref().unwrap().message.clone();
-                    mes = None;
-                    t
-                };
-                for i in repls.iter() {
-                    s = s.replace(i.0.as_str(), i.1.as_str());
-                }
-                buffer.push(token.value);
-                let text = encode_string(encoding, &s, false)?;
-                buffer.extend_from_slice(&text);
-                buffer.push(0x00);
-                continue;
+
+            if self.is_new_ver && (token.value == 0x03 || token.value == 0x04) {
+                let block_offset = (self.blocks_offset + block_index * 4) as u64;
+                let original_block = patcher.input.cpeek_u32_at(block_offset)?;
+                let new_offset = patcher.map_offset(token_start)?;
+                let offset = (new_offset - self.asm_bin_offset as u64 + token.length as u64) as u32;
+                let value = (original_block & (0xFF << 0x18)) | offset;
+                block_updates.push((block_offset, value));
+                block_index += 1;
             }
-            if self.is_new_ver && (token.value == 0x3 || token.value == 0x4) {
-                let count = buffer.len() as u32;
-                let offset = count - self.asm_bin_offset as u32 + token.length as u32;
-                let block = u32::from_le_bytes(
-                    buffer[self.blocks_offset + block_count * 4
-                        ..self.blocks_offset + block_count * 4 + 4]
-                        .try_into()?,
-                );
-                let block = (block & (0xFF << 0x18)) | offset;
-                buffer[self.blocks_offset + block_count * 4
-                    ..self.blocks_offset + block_count * 4 + 4]
-                    .copy_from_slice(&block.to_le_bytes());
-                block_count += 1;
-            }
-            let len = std::cmp::min(
-                self.asm_bin_offset + token.offset + token.length,
-                self.data.len(),
-            );
-            buffer.extend_from_slice(&self.data[self.asm_bin_offset + token.offset..len]);
+
+            let token_end = token_start + token.length as u64;
+            patcher.copy_up_to(token_end)?;
         }
-        writer.write_all(&buffer)?;
+
+        patcher.copy_up_to(self.data.len() as u64)?;
+
+        for (offset, value) in block_updates {
+            patcher.patch_u32(offset, value)?;
+        }
+
         Ok(())
     }
 }

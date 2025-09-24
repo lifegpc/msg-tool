@@ -16,3 +16,20 @@ panic only allowed in main.rs , args.rs and tests.
 - `files.rs` - Path utilities to collect inputs, filter by known script or archive extensions, stream stdin/stdout, and sanitize Windows file names.
 - `struct_pack.rs` - Traits plus blanket implementations for binary pack/unpack backed by the `msg_tool_macro` crate; used when codecs read or write structured data.
 - Feature-gated helpers such as `bit_stream.rs` or `threadpool.rs` stay under the same module; enable them via the matching `utils-*` features in `Cargo.toml`.
+
+## Command line tools
+Use UNIX tools to list directory contents, search text, and compare files. For example: `ls`, `find`, `grep`.
+POWERHSELL COMMANDS ARE NOT ALLOWED.
+
+## IO Extensions (`src/ext/io.rs`)
+For endian-aware operation, default to little-endian, unless `_be` suffix is used. `_le` suffix are not used in the code.
+- **`Peek` (for `Read + Seek`)** – adds non-destructive read helpers: generic `peek`/`peek_at`, typed endian-aware primitives (`peek_u8`…`peek_i128_be`), string readers (`peek_cstring`, `peek_fstring`, UTF-16 helpers), struct loaders via `StructUnpack` (`read_struct`, `read_struct_vec`), and assertions (`peek_and_equal`).
+- **`CPeek` (thread-safe peek facade)** – mirrors `Peek` on shared references with exact/offset variants, typed primitives, string helpers, and matchers; implemented for `Mutex<T: Peek>`, in-memory readers, and writers.
+- **`ReadExt` (for `Read`)** – provides endian-aware reads for integers/floats, C/fixed/UTF-16 string loaders using `Encoding`, vector reads (`read_exact_vec`), and equality assertions (`read_and_equal`).
+- **`WriteExt` (for `Write`)** – exposes endian-aware writers for integers, signed values, floats, C-strings, plus `write_struct` delegating to `StructPack` with encoding awareness.
+- **`WriteAt` (for `Write + Seek`)** – writes at absolute offsets with typed wrappers (`write_u8_at`…`write_i128_be_at`) and C-string support, restoring the original cursor after each call.
+- **`SeekExt` (for `Seek`)** – offers `stream_length` (length without disturbing position) and `align` (rounds the cursor up to a power-of-two boundary).
+- **`MemReader` / `MemReaderRef`** – byte-slice backed readers implementing `Read`, `Seek`, `Peek`, and `CPeek`; support cloning, EOF checks, borrowing via `to_ref`, and safe position management.
+- **`MemWriter`** – growable in-memory writer implementing `Write`, `Seek`, and `CPeek`; supports constructing from/into `Vec<u8>` and borrowing via `to_ref`.
+- **`StreamRegion<T: Seek>`** – wraps a stream segment with bounded `Read`/`Seek`, keeping track of local position and guarding seeks outside the declared range.
+- **`BinaryPatcher<R, W, A, O>`** – coordinates incremental patching by copying sections, mapping offsets between old/new layouts, replacing ranges with provided writers, and patching values/addresses through user-supplied address↔offset closures.

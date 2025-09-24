@@ -462,4 +462,20 @@ impl ScriptInfo {
         }
         None
     }
+
+    pub fn is_encrypted_message(&self, opcode: u8) -> bool {
+        self.encstr.its(opcode)
+    }
+
+    pub fn is_unencrypted_message(&self, opcode: u8) -> bool {
+        opcode == self.optunenc
+    }
+
+    pub fn is_message_opcode(&self, opcode: u8) -> bool {
+        self.is_encrypted_message(opcode) || self.is_unencrypted_message(opcode)
+    }
+
+    pub fn is_name_opcode(&self, opcode: u8) -> bool {
+        opcode == self.nameopcode
+    }
 }
