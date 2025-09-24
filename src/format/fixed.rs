@@ -47,6 +47,29 @@ fn check_is_end_quote_or_symbol(segs: &[&str], pos: usize) -> bool {
     QUOTE_LIST.iter().any(|(_, close)| d == *close) || BREAK_SENTENCE_SYMBOLS.contains(&d)
 }
 
+fn check_is_start_quote(s: &str) -> bool {
+    QUOTE_LIST.iter().any(|(open, _)| s == *open)
+}
+
+fn take_trailing_start_quotes(buffer: &mut String) -> String {
+    let (collected, trailing) = {
+        let mut collected = buffer.graphemes(true).collect::<Vec<_>>();
+        let mut trailing = Vec::new();
+        while let Some(&last) = collected.last() {
+            if check_is_start_quote(last) {
+                collected.pop();
+                trailing.push(last);
+            } else {
+                break;
+            }
+        }
+        trailing.reverse();
+        (collected.concat(), trailing.concat())
+    };
+    *buffer = collected;
+    trailing
+}
+
 #[cfg(feature = "jieba")]
 fn check_chinese_word_is_break(segs: &[&str], pos: usize, jieba: &Jieba) -> bool {
     let s = segs.join("");
@@ -282,8 +305,16 @@ impl FixedFormatter {
                         }
                     }
                     if let Some(pos) = break_pos {
-                        let remaining = segs[pos..].concat().trim_start().to_string();
-                        result = segs[..pos].concat();
+                        let mut head = segs[..pos].concat();
+                        let mut remaining = segs[pos..].concat();
+                        if self.break_with_sentence {
+                            let trailing = take_trailing_start_quotes(&mut head);
+                            if !trailing.is_empty() {
+                                remaining.insert_str(0, &trailing);
+                            }
+                        }
+                        let remaining = remaining.trim_start().to_string();
+                        result = head;
                         result.push('\n');
                         current_length = 0;
                         if first_line {
@@ -303,6 +334,11 @@ impl FixedFormatter {
                         main_content.clear();
                         pre_is_lf = true;
                     } else {
+                        let trailing = if self.break_with_sentence {
+                            take_trailing_start_quotes(&mut result)
+                        } else {
+                            String::new()
+                        };
                         result.push('\n');
                         current_length = 0;
                         if first_line {
@@ -318,6 +354,11 @@ impl FixedFormatter {
                             current_length += 1;
                         }
                         main_content.clear();
+                        if !trailing.is_empty() {
+                            result.push_str(&trailing);
+                            current_length += trailing.graphemes(true).count();
+                            main_content.push_str(&trailing);
+                        }
                         pre_is_lf = true;
                     }
                 } else if !self.break_words
@@ -347,8 +388,15 @@ impl FixedFormatter {
 
                     // If we found a good break point, move content after it to next line
                     if let Some(pos) = break_pos {
-                        let remaining = result[pos..].trim_start().to_string();
+                        let mut remaining = result[pos..].to_string();
                         result.truncate(pos);
+                        if self.break_with_sentence {
+                            let trailing = take_trailing_start_quotes(&mut result);
+                            if !trailing.is_empty() {
+                                remaining.insert_str(0, &trailing);
+                            }
+                        }
+                        let remaining = remaining.trim_start().to_string();
                         result.push('\n');
                         current_length = 0;
                         if first_line {
@@ -368,6 +416,11 @@ impl FixedFormatter {
                         main_content.clear();
                         pre_is_lf = true;
                     } else {
+                        let trailing = if self.break_with_sentence {
+                            take_trailing_start_quotes(&mut result)
+                        } else {
+                            String::new()
+                        };
                         result.push('\n');
                         current_length = 0;
                         if first_line {
@@ -383,6 +436,11 @@ impl FixedFormatter {
                             current_length += 1;
                         }
                         main_content.clear();
+                        if !trailing.is_empty() {
+                            result.push_str(&trailing);
+                            current_length += trailing.graphemes(true).count();
+                            main_content.push_str(&trailing);
+                        }
                         pre_is_lf = true;
                     }
                 } else if self
@@ -421,8 +479,16 @@ impl FixedFormatter {
                             let segs = result.graphemes(true).collect::<Vec<_>>();
                             let remain_count = i - pos;
                             let pos = segs.len() - remain_count;
-                            let remaining = segs[pos..].concat().trim_start().to_string();
-                            result = segs[..pos].concat();
+                            let mut head = segs[..pos].concat();
+                            let mut remaining = segs[pos..].concat();
+                            if self.break_with_sentence {
+                                let trailing = take_trailing_start_quotes(&mut head);
+                                if !trailing.is_empty() {
+                                    remaining.insert_str(0, &trailing);
+                                }
+                            }
+                            let remaining = remaining.trim_start().to_string();
+                            result = head;
                             result.push('\n');
                             current_length = 0;
                             if first_line {
@@ -442,6 +508,11 @@ impl FixedFormatter {
                             main_content.clear();
                             pre_is_lf = true;
                         } else {
+                            let trailing = if self.break_with_sentence {
+                                take_trailing_start_quotes(&mut result)
+                            } else {
+                                String::new()
+                            };
                             result.push('\n');
                             current_length = 0;
                             if first_line {
@@ -457,10 +528,20 @@ impl FixedFormatter {
                                 current_length += 1;
                             }
                             main_content.clear();
+                            if !trailing.is_empty() {
+                                result.push_str(&trailing);
+                                current_length += trailing.graphemes(true).count();
+                                main_content.push_str(&trailing);
+                            }
                             pre_is_lf = true;
                         }
                     }
                 } else {
+                    let trailing = if self.break_with_sentence {
+                        take_trailing_start_quotes(&mut result)
+                    } else {
+                        String::new()
+                    };
                     result.push('\n');
                     current_length = 0;
                     if first_line {
@@ -476,6 +557,11 @@ impl FixedFormatter {
                         current_length += 1;
                     }
                     main_content.clear();
+                    if !trailing.is_empty() {
+                        result.push_str(&trailing);
+                        current_length += trailing.graphemes(true).count();
+                        main_content.push_str(&trailing);
+                    }
                     pre_is_lf = true;
                 }
             }
@@ -660,12 +746,27 @@ fn test_format() {
         "这打断测试哦测试一下\n。。"
     );
 
+    let formatter5 = FixedFormatter::builder(10)
+        .break_words(false)
+        .insert_fullwidth_space_at_line_start(true)
+        .break_with_sentence(true);
+    assert_eq!(
+        formatter5.format("「一二三四『whatthe』"),
+        "「一二三四\n\u{3000}『whatthe』"
+    );
+
     let real_break_formatter = FixedFormatter::builder(27)
         .break_words(false)
         .break_with_sentence(true);
     assert_eq!(
         real_break_formatter.format("「他们就是想和阳见待在一个社团，在里面表现表现、耍耍帅，这样不就和她套上近乎了嘛！算盘珠子都打到我脸上了……」"),
         "「他们就是想和阳见待在一个社团，\n在里面表现表现、耍耍帅，这样不就和她套上近乎了嘛！算盘\n珠子都打到我脸上了……」"
+    );
+
+    assert_eq!(
+        real_break_formatter
+            .format("「在英山的话或许可以看看『moon river』『Lavir』或是『Patisserie Yuzuru』」"),
+        "「在英山的话或许可以看看『moon river』\n『Lavir』或是『Patisserie Yuzuru\n』」"
     );
 
     #[cfg(feature = "circus")]

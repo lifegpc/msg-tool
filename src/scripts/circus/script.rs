@@ -299,8 +299,7 @@ impl Script for CircusMesScript {
         }
 
         let source = MemReaderRef::new(&self.data);
-        let mut patcher =
-            BinaryPatcher::new(source, writer, |pos| Ok(pos), |pos| Ok(pos))?;
+        let mut patcher = BinaryPatcher::new(source, writer, |pos| Ok(pos), |pos| Ok(pos))?;
 
         let mut pending_messages: Vec<Message> = messages.into_iter().rev().collect();
         let mut current_message = pending_messages.pop();
