@@ -184,6 +184,11 @@ msg-tool create -t <script-type> <input> <output>
 |---|---|---|---|---|---|---|---|---|---|---|
 | `softpal` | `softpal` | Softpal Script File (.src) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ❌ | ❌ | |
 
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `softpal-pac` | `softpal-arc` | Softpal Pac Archive File (.pac) | ✔️ | ❌ | |
+| `softpal-pac-amuse` | `softpal-arc` | Softpal Amuse Pac Archive File (.pac) | ✔️ | ❌ | |
+
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `softpal-pgd-ge`/`pgd-ge`/`pgd` | `softpal-img` | Softpal PGD Ge Image File (.pgd) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | |

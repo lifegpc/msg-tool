@@ -5,6 +5,7 @@ on:
       - README.md
       - '.github/workflows/github-pages.yml'
       - '.github/workflows/release.yml'
+      - AGENTS.md
     branches:
       - master
   pull_request:

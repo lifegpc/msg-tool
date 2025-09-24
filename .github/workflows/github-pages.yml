@@ -15,6 +15,7 @@ on:
       - docker-compose.yml
       - check_features.py
       - README.md
+      - AGENTS.md
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:

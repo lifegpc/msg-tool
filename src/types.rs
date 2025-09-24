@@ -614,6 +614,12 @@ pub enum ScriptType {
     #[cfg(feature = "softpal")]
     /// Softpal src script
     Softpal,
+    #[cfg(feature = "softpal-arc")]
+    /// Softpal Pac archive
+    SoftpalPac,
+    #[cfg(feature = "softpal-arc")]
+    /// Softpal Pac/AMUSE archive
+    SoftpalPacAmuse,
     #[cfg(feature = "softpal-img")]
     #[value(alias = "pgd-ge", alias = "pgd")]
     /// Softpal Pgd Ge image

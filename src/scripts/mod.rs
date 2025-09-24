@@ -114,6 +114,10 @@ lazy_static::lazy_static! {
         Box::new(bgi::audio::audio::BgiAudioBuilder::new()),
         #[cfg(feature = "entis-gls")]
         Box::new(entis_gls::srcxml::SrcXmlScriptBuilder::new()),
+        #[cfg(feature = "softpal-arc")]
+        Box::new(softpal::arc::pac::SoftpalPacBuilder::new()),
+        #[cfg(feature = "softpal-arc")]
+        Box::new(softpal::arc::pac::SoftpalPacBuilder::new_amuse()),
         #[cfg(feature = "softpal")]
         Box::new(softpal::scr::SoftpalScriptBuilder::new()),
         #[cfg(feature = "artemis-panmimisoft")]
