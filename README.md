@@ -125,7 +125,7 @@ msg-tool create -t <script-type> <input> <output>
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
-| `circus-crx` | `circus-img` | Circus Image File (.crx) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | |
+| `circus-crx` | `circus-img` | Circus Image File (.crx) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | V1 is not supported when importing/creating image |
 | `circus-crxd` | `circus-img` | Circus Differential Image File (.crx) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
 ### Emote
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |

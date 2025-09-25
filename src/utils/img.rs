@@ -4,6 +4,7 @@ use super::jxl::*;
 use crate::ext::io::*;
 use crate::types::*;
 use anyhow::Result;
+use std::convert::TryFrom;
 
 /// Reverses the alpha values of an image.
 ///
@@ -585,4 +586,194 @@ pub fn draw_on_img_with_opacity(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaletteFormat {
+    /// R G B Color
+    Rgb,
+    /// B G R Color
+    Bgr,
+    /// R G B Color with a unused byte
+    RgbX,
+    /// B G R Color with a unused byte
+    BgrX,
+    /// R G B A Color
+    RgbA,
+    /// B G R A Color
+    BgrA,
+}
+
+/// Converts indexed pixel data and a palette into a standard image buffer.
+///
+/// `pixel_size` is expressed in bits per pixel for the indexed data.
+pub fn convert_index_palette_to_normal_bitmap(
+    pixel_data: &[u8],
+    pixel_size: usize,
+    palettes: &[u8],
+    palette_format: PaletteFormat,
+    width: usize,
+    height: usize,
+) -> Result<ImageData> {
+    if width == 0 || height == 0 {
+        return Err(anyhow::anyhow!("Image dimensions must be non-zero"));
+    }
+    if pixel_size == 0 {
+        return Err(anyhow::anyhow!("pixel_size must be greater than zero"));
+    }
+
+    let width_u32 =
+        u32::try_from(width).map_err(|_| anyhow::anyhow!("width exceeds u32::MAX: {}", width))?;
+    let height_u32 = u32::try_from(height)
+        .map_err(|_| anyhow::anyhow!("height exceeds u32::MAX: {}", height))?;
+
+    let pixel_count = width
+        .checked_mul(height)
+        .ok_or_else(|| anyhow::anyhow!("Image dimensions overflow: {}x{}", width, height))?;
+
+    let palette_entry_size = match palette_format {
+        PaletteFormat::Rgb | PaletteFormat::Bgr => 3usize,
+        PaletteFormat::RgbX | PaletteFormat::BgrX | PaletteFormat::RgbA | PaletteFormat::BgrA => {
+            4usize
+        }
+    };
+
+    if palettes.len() < palette_entry_size {
+        return Err(anyhow::anyhow!("Palette data is too small"));
+    }
+    if palettes.len() % palette_entry_size != 0 {
+        return Err(anyhow::anyhow!(
+            "Palette length {} is not a multiple of {}",
+            palettes.len(),
+            palette_entry_size
+        ));
+    }
+    let palette_color_count = palettes.len() / palette_entry_size;
+    if palette_color_count == 0 {
+        return Err(anyhow::anyhow!("Palette does not contain any colors"));
+    }
+
+    let (color_type, output_channels) = match palette_format {
+        PaletteFormat::Rgb | PaletteFormat::RgbX => (ImageColorType::Rgb, 3usize),
+        PaletteFormat::Bgr | PaletteFormat::BgrX => (ImageColorType::Bgr, 3usize),
+        PaletteFormat::RgbA => (ImageColorType::Rgba, 4usize),
+        PaletteFormat::BgrA => (ImageColorType::Bgra, 4usize),
+    };
+
+    let palette_table_len = palette_color_count
+        .checked_mul(output_channels)
+        .ok_or_else(|| anyhow::anyhow!("Palette size overflow"))?;
+    let mut palette_table = Vec::with_capacity(palette_table_len);
+    for idx in 0..palette_color_count {
+        let base = idx * palette_entry_size;
+        match palette_format {
+            PaletteFormat::Rgb => {
+                palette_table.extend_from_slice(&palettes[base..base + 3]);
+            }
+            PaletteFormat::Bgr => {
+                palette_table.extend_from_slice(&palettes[base..base + 3]);
+            }
+            PaletteFormat::RgbX => {
+                palette_table.extend_from_slice(&palettes[base..base + 3]);
+            }
+            PaletteFormat::BgrX => {
+                palette_table.extend_from_slice(&palettes[base..base + 3]);
+            }
+            PaletteFormat::RgbA => {
+                palette_table.extend_from_slice(&palettes[base..base + 4]);
+            }
+            PaletteFormat::BgrA => {
+                palette_table.extend_from_slice(&palettes[base..base + 4]);
+            }
+        }
+    }
+
+    let total_bits_required = pixel_count
+        .checked_mul(pixel_size)
+        .ok_or_else(|| anyhow::anyhow!("Pixel count overflow for pixel_size {}", pixel_size))?;
+    if total_bits_required > pixel_data.len() * 8 {
+        return Err(anyhow::anyhow!(
+            "Pixel data too short: need {} bits, have {} bits",
+            total_bits_required,
+            pixel_data.len() * 8
+        ));
+    }
+
+    let output_len = pixel_count
+        .checked_mul(output_channels)
+        .ok_or_else(|| anyhow::anyhow!("Output image size overflow"))?;
+    let mut output = Vec::with_capacity(output_len);
+
+    let stride = output_channels;
+    if pixel_size == 8 {
+        if pixel_data.len() < pixel_count {
+            return Err(anyhow::anyhow!(
+                "Pixel data too short: expected {} bytes, got {}",
+                pixel_count,
+                pixel_data.len()
+            ));
+        }
+        for &index in pixel_data.iter().take(pixel_count) {
+            let idx = index as usize;
+            if idx >= palette_color_count {
+                return Err(anyhow::anyhow!(
+                    "Palette index {} exceeds palette size {}",
+                    idx,
+                    palette_color_count
+                ));
+            }
+            let start = idx * stride;
+            output.extend_from_slice(&palette_table[start..start + stride]);
+        }
+    } else {
+        let mut bit_offset = 0usize;
+        for _ in 0..pixel_count {
+            let idx = read_bits_as_usize(pixel_data, bit_offset, pixel_size)?;
+            bit_offset = bit_offset
+                .checked_add(pixel_size)
+                .ok_or_else(|| anyhow::anyhow!("Bit offset overflow"))?;
+            if idx >= palette_color_count {
+                return Err(anyhow::anyhow!(
+                    "Palette index {} exceeds palette size {}",
+                    idx,
+                    palette_color_count
+                ));
+            }
+            let start = idx * stride;
+            output.extend_from_slice(&palette_table[start..start + stride]);
+        }
+    }
+
+    Ok(ImageData {
+        width: width_u32,
+        height: height_u32,
+        color_type,
+        depth: 8,
+        data: output,
+    })
+}
+
+fn read_bits_as_usize(data: &[u8], bit_offset: usize, bit_len: usize) -> Result<usize> {
+    if bit_len == 0 {
+        return Err(anyhow::anyhow!("bit_len must be greater than zero"));
+    }
+    if bit_len > (std::mem::size_of::<usize>() * 8) {
+        return Err(anyhow::anyhow!("Cannot read {} bits into usize", bit_len));
+    }
+
+    let mut value = 0usize;
+    for bit_idx in 0..bit_len {
+        let absolute_bit = bit_offset + bit_idx;
+        let byte_index = absolute_bit / 8;
+        if byte_index >= data.len() {
+            return Err(anyhow::anyhow!(
+                "Bit offset {} exceeds pixel data",
+                absolute_bit
+            ));
+        }
+        let bit_in_byte = 7 - (absolute_bit % 8);
+        let bit = (data[byte_index] >> bit_in_byte) & 1;
+        value = (value << 1) | bit as usize;
+    }
+    Ok(value)
 }

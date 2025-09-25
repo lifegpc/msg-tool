@@ -178,11 +178,30 @@ struct Header {
     clips: Vec<Clip>,
 }
 
+#[derive(Clone, Debug)]
+enum CrxImageData {
+    RowEncoded(Vec<u8>),
+    IndexedV1 {
+        pixels: Vec<u8>,
+        stride: usize,
+        palette: Vec<u8>,
+        palette_format: PaletteFormat,
+        pixel_depth_bits: usize,
+    },
+    Direct(Vec<u8>),
+}
+
+impl CrxImageData {
+    fn is_row_encoded(&self) -> bool {
+        matches!(self, CrxImageData::RowEncoded(_))
+    }
+}
+
 /// Circus CRX Image
 pub struct CrxImage {
     header: Header,
     color_type: ImageColorType,
-    data: Vec<u8>,
+    data: CrxImageData,
     compress_level: u32,
     keep_original_bpp: bool,
     zstd: bool,
@@ -193,10 +212,17 @@ pub struct CrxImage {
 
 impl std::fmt::Debug for CrxImage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let data_info = match &self.data {
+            CrxImageData::RowEncoded(buf) => format!("row-encoded({})", buf.len()),
+            CrxImageData::IndexedV1 { pixels, .. } => {
+                format!("indexed-v1({})", pixels.len())
+            }
+            CrxImageData::Direct(buf) => format!("direct({})", buf.len()),
+        };
         f.debug_struct("CrxImage")
             .field("header", &self.header)
             .field("color_type", &self.color_type)
-            .field("data_length", &self.data.len())
+            .field("data", &data_info)
             .finish()
     }
 }
@@ -214,41 +240,132 @@ impl CrxImage {
             return Err(anyhow::anyhow!("Invalid CRX image magic"));
         }
         let header: Header = reader.read_struct(false, Encoding::Utf8)?;
-        if header.version < 2 || header.version > 3 {
+        if header.version == 0 || header.version > 3 {
             return Err(anyhow::anyhow!(
                 "Unsupported CRX version: {}",
                 header.version
             ));
         }
-        let color_type = if header.bpp == 0 {
-            ImageColorType::Bgr
-        } else if header.bpp == 1 {
-            ImageColorType::Bgra
+
+        let (color_type, data) = if header.version == 1 {
+            let width = usize::from(header.width);
+            let height = usize::from(header.height);
+            if width == 0 || height == 0 {
+                return Err(anyhow::anyhow!("CRX v1 image has zero dimensions"));
+            }
+
+            let bits_per_pixel = match header.bpp {
+                0 => 24usize,
+                1 => 32usize,
+                _ => 8usize,
+            };
+            if bits_per_pixel % 8 != 0 {
+                return Err(anyhow::anyhow!(
+                    "Unsupported bits per pixel {} for CRX v1",
+                    bits_per_pixel
+                ));
+            }
+            let pixel_size = bits_per_pixel / 8;
+            if pixel_size == 0 {
+                return Err(anyhow::anyhow!("Invalid pixel size for CRX v1 image"));
+            }
+
+            let row_bytes = width
+                .checked_mul(pixel_size)
+                .ok_or_else(|| anyhow::anyhow!("CRX v1 row size overflow"))?;
+            let stride = (row_bytes
+                .checked_add(3)
+                .ok_or_else(|| anyhow::anyhow!("CRX v1 stride overflow"))?)
+                & !3usize;
+            let output_len = stride
+                .checked_mul(height)
+                .ok_or_else(|| anyhow::anyhow!("CRX v1 buffer size overflow"))?;
+
+            let palette = if bits_per_pixel == 8 {
+                let raw_colors = usize::from(header.bpp);
+                Some((
+                    Self::read_v1_palette(&mut reader, raw_colors)?,
+                    PaletteFormat::Rgb,
+                ))
+            } else {
+                None
+            };
+
+            if (header.flags & 0x10) != 0 {
+                reader.read_u32()?; // stored compressed size, ignored for v1
+            }
+
+            let pixels = Self::unpack_v1(&mut reader, output_len)?;
+
+            if let Some((palette, palette_format)) = palette {
+                let data = CrxImageData::IndexedV1 {
+                    pixels,
+                    stride,
+                    palette,
+                    palette_format,
+                    pixel_depth_bits: bits_per_pixel,
+                };
+                (ImageColorType::Bgr, data)
+            } else {
+                let mut trimmed = Vec::with_capacity(
+                    row_bytes
+                        .checked_mul(height)
+                        .ok_or_else(|| anyhow::anyhow!("CRX v1 buffer size overflow"))?,
+                );
+                for row in 0..height {
+                    let start = row
+                        .checked_mul(stride)
+                        .ok_or_else(|| anyhow::anyhow!("CRX v1 row offset overflow"))?;
+                    let end = start
+                        .checked_add(row_bytes)
+                        .ok_or_else(|| anyhow::anyhow!("CRX v1 row slice overflow"))?;
+                    if end > pixels.len() {
+                        return Err(anyhow::anyhow!(
+                            "CRX v1 image data is shorter than expected"
+                        ));
+                    }
+                    trimmed.extend_from_slice(&pixels[start..end]);
+                }
+                let color_type = match bits_per_pixel {
+                    24 => ImageColorType::Bgr,
+                    32 => ImageColorType::Bgra,
+                    _ => ImageColorType::Bgr,
+                };
+                (color_type, CrxImageData::Direct(trimmed))
+            }
         } else {
-            return Err(anyhow::anyhow!("Unsupported CRX bpp: {}", header.bpp));
+            let color_type = if header.bpp == 0 {
+                ImageColorType::Bgr
+            } else if header.bpp == 1 {
+                ImageColorType::Bgra
+            } else {
+                return Err(anyhow::anyhow!("Unsupported CRX bpp: {}", header.bpp));
+            };
+            let compressed_size = if (header.flags & 0x10) == 0 {
+                let len = reader.stream_length()?;
+                (len - reader.stream_position()?) as u32
+            } else {
+                reader.read_u32()?
+            };
+            let compressed_data = reader.read_exact_vec(compressed_size as usize)?;
+            let uncompressed = if compressed_data.starts_with(&[0x28, 0xb5, 0x2f, 0xfd]) {
+                let mut decoder = zstd::Decoder::new(MemReaderRef::new(&compressed_data))?;
+                let mut decompressed_data = Vec::new();
+                decoder.read_to_end(&mut decompressed_data)?;
+                decompressed_data
+            } else {
+                let mut decompressed_data = Vec::new();
+                flate2::read::ZlibDecoder::new(MemReaderRef::new(&compressed_data))
+                    .read_to_end(&mut decompressed_data)?;
+                decompressed_data
+            };
+            (color_type, CrxImageData::RowEncoded(uncompressed))
         };
-        let compressed_size = if (header.flags & 0x10) == 0 {
-            let len = reader.stream_length()?;
-            (len - reader.stream_position()?) as u32
-        } else {
-            reader.read_u32()?
-        };
-        let compressed_data = reader.read_exact_vec(compressed_size as usize)?;
-        let uncompessed = if compressed_data.starts_with(&[0x28, 0xb5, 0x2f, 0xfd]) {
-            let mut decoder = zstd::Decoder::new(MemReaderRef::new(&compressed_data))?;
-            let mut decompressed_data = Vec::new();
-            decoder.read_to_end(&mut decompressed_data)?;
-            decompressed_data
-        } else {
-            let mut decompressed_data = Vec::new();
-            flate2::read::ZlibDecoder::new(MemReaderRef::new(&compressed_data))
-                .read_to_end(&mut decompressed_data)?;
-            decompressed_data
-        };
+
         Ok(CrxImage {
             header,
             color_type,
-            data: uncompessed,
+            data,
             compress_level: config.zlib_compression_level,
             keep_original_bpp: config.circus_crx_keep_original_bpp,
             zstd: config.circus_crx_zstd,
@@ -454,6 +571,101 @@ impl CrxImage {
             }
         }
         Ok(src_p)
+    }
+
+    fn read_v1_palette<T: Read>(reader: &mut T, raw_colors: usize) -> Result<Vec<u8>> {
+        if raw_colors == 0 {
+            return Err(anyhow::anyhow!("CRX v1 palette has zero colors"));
+        }
+        let color_size = if raw_colors == 0x0102 { 4usize } else { 3usize };
+        let mut colors = raw_colors;
+        if colors > 0x0100 {
+            colors = 0x0100;
+        }
+        let palette_size = colors
+            .checked_mul(color_size)
+            .ok_or_else(|| anyhow::anyhow!("CRX v1 palette size overflow"))?;
+        if palette_size == 0 {
+            return Err(anyhow::anyhow!("CRX v1 palette size is zero"));
+        }
+        let mut palette_raw = vec![0u8; palette_size];
+        reader.read_exact(&mut palette_raw)?;
+        let mut palette = Vec::with_capacity(colors * 3);
+        let mut pos = 0usize;
+        while pos < palette_raw.len() {
+            let r = palette_raw[pos];
+            let mut g = palette_raw[pos + 1];
+            let b = palette_raw[pos + 2];
+            if b == 0xFF && g == 0x00 && r == 0xFF {
+                g = 0xFF;
+            }
+            palette.push(r);
+            palette.push(g);
+            palette.push(b);
+            pos += color_size;
+        }
+        Ok(palette)
+    }
+
+    fn unpack_v1<T: Read>(reader: &mut T, output_len: usize) -> Result<Vec<u8>> {
+        const WINDOW_SIZE: usize = 0x10000;
+        const WINDOW_MASK: usize = WINDOW_SIZE - 1;
+        let mut window = vec![0u8; WINDOW_SIZE];
+        let mut win_pos: usize = 0;
+        let mut dst = vec![0u8; output_len];
+        let mut dst_pos = 0usize;
+        let mut flag: u16 = 0;
+        while dst_pos < output_len {
+            flag >>= 1;
+            if (flag & 0x100) == 0 {
+                let next = reader.read_u8()? as u16;
+                flag = next | 0xFF00;
+            }
+            if (flag & 1) != 0 {
+                let byte = reader.read_u8()?;
+                window[win_pos] = byte;
+                win_pos = (win_pos + 1) & WINDOW_MASK;
+                dst[dst_pos] = byte;
+                dst_pos += 1;
+            } else {
+                let control = reader.read_u8()?;
+                let (count, offset_value) = if control >= 0xC0 {
+                    let next = reader.read_u8()? as usize;
+                    let offset = (((control as usize) & 0x03) << 8) | next;
+                    let count = 4 + (((control as usize) >> 2) & 0x0F);
+                    (count, offset)
+                } else if (control & 0x80) != 0 {
+                    let mut offset = (control & 0x1F) as usize;
+                    let count = 2 + (((control as usize) >> 5) & 0x03);
+                    if offset == 0 {
+                        offset = reader.read_u8()? as usize;
+                    }
+                    (count, offset)
+                } else if control == 0x7F {
+                    let count = 2 + reader.read_u16()? as usize;
+                    let offset = reader.read_u16()? as usize;
+                    (count, offset)
+                } else {
+                    let offset = reader.read_u16()? as usize;
+                    let count = control as usize + 4;
+                    (count, offset)
+                };
+
+                let mut offset_pos = (win_pos.wrapping_sub(offset_value)) & WINDOW_MASK;
+                for _ in 0..count {
+                    if dst_pos >= output_len {
+                        break;
+                    }
+                    let value = window[offset_pos];
+                    offset_pos = (offset_pos + 1) & WINDOW_MASK;
+                    window[win_pos] = value;
+                    win_pos = (win_pos + 1) & WINDOW_MASK;
+                    dst[dst_pos] = value;
+                    dst_pos += 1;
+                }
+            }
+        }
+        Ok(dst)
     }
 
     fn decode_image(
@@ -823,39 +1035,106 @@ impl Script for CrxImage {
     }
 
     fn export_image(&self) -> Result<ImageData> {
-        let data_size = self.color_type.bpp(1) as usize
-            * self.header.width as usize
-            * self.header.height as usize;
-        let mut data = vec![0; data_size];
-        let mut encode_type = Vec::new();
-        Self::decode_image(
-            &mut data,
-            &self.data,
-            self.header.width,
-            self.header.height,
-            self.color_type.bpp(1) as u8,
-            &mut encode_type,
-        )?;
-        if self.color_type.bpp(1) == 4 && self.header.mode != 1 {
-            let alpha_flip = if self.header.mode == 2 { 0 } else { 0xFF };
-            for i in (0..data_size).step_by(4) {
-                let a = data[i];
-                let b = data[i + 1];
-                let g = data[i + 2];
-                let r = data[i + 3];
-                data[i] = b;
-                data[i + 1] = g;
-                data[i + 2] = r;
-                data[i + 3] = a ^ alpha_flip;
+        let width = usize::from(self.header.width);
+        let height = usize::from(self.header.height);
+        let mut img = match &self.data {
+            CrxImageData::RowEncoded(encoded) => {
+                let pixel_size = self.color_type.bpp(1) as usize;
+                let row_bytes = pixel_size
+                    .checked_mul(width)
+                    .ok_or_else(|| anyhow::anyhow!("Image row size overflow"))?;
+                let data_size = row_bytes
+                    .checked_mul(height)
+                    .ok_or_else(|| anyhow::anyhow!("Image buffer size overflow"))?;
+                let mut data = vec![0u8; data_size];
+                let mut encode_type = Vec::with_capacity(height);
+                Self::decode_image(
+                    &mut data,
+                    encoded,
+                    self.header.width,
+                    self.header.height,
+                    self.color_type.bpp(1) as u8,
+                    &mut encode_type,
+                )?;
+                if self.color_type.bpp(1) == 4 && self.header.mode != 1 {
+                    let alpha_flip = if self.header.mode == 2 { 0 } else { 0xFF };
+                    for chunk in data.chunks_mut(4) {
+                        let a = chunk[0];
+                        let b = chunk[1];
+                        let g = chunk[2];
+                        let r = chunk[3];
+                        chunk[0] = b;
+                        chunk[1] = g;
+                        chunk[2] = r;
+                        chunk[3] = a ^ alpha_flip;
+                    }
+                }
+                ImageData {
+                    width: self.header.width as u32,
+                    height: self.header.height as u32,
+                    depth: 8,
+                    color_type: self.color_type,
+                    data,
+                }
             }
-        }
-        let img = ImageData {
-            width: self.header.width as u32,
-            height: self.header.height as u32,
-            depth: 8,
-            color_type: self.color_type,
-            data,
+            CrxImageData::Direct(pixels) => {
+                let mut data = pixels.clone();
+                if self.color_type == ImageColorType::Bgra && self.header.mode != 1 {
+                    let alpha_flip = if self.header.mode == 2 { 0 } else { 0xFF };
+                    for chunk in data.chunks_mut(4) {
+                        let a = chunk[0];
+                        let b = chunk[1];
+                        let g = chunk[2];
+                        let r = chunk[3];
+                        chunk[0] = b;
+                        chunk[1] = g;
+                        chunk[2] = r;
+                        chunk[3] = a ^ alpha_flip;
+                    }
+                }
+                ImageData {
+                    width: self.header.width as u32,
+                    height: self.header.height as u32,
+                    depth: 8,
+                    color_type: self.color_type,
+                    data,
+                }
+            }
+            CrxImageData::IndexedV1 {
+                pixels,
+                stride,
+                palette,
+                palette_format,
+                pixel_depth_bits,
+            } => {
+                let total_pixels = width
+                    .checked_mul(height)
+                    .ok_or_else(|| anyhow::anyhow!("Image dimensions overflow"))?;
+                let mut indexed = Vec::with_capacity(total_pixels);
+                for row in 0..height {
+                    let start = row
+                        .checked_mul(*stride)
+                        .ok_or_else(|| anyhow::anyhow!("Row offset overflow"))?;
+                    let end = start
+                        .checked_add(width)
+                        .ok_or_else(|| anyhow::anyhow!("Row slice overflow"))?;
+                    if end > pixels.len() {
+                        return Err(anyhow::anyhow!("CRX v1 indexed data is truncated"));
+                    }
+                    indexed.extend_from_slice(&pixels[start..end]);
+                }
+                let image = convert_index_palette_to_normal_bitmap(
+                    &indexed,
+                    *pixel_depth_bits,
+                    palette,
+                    *palette_format,
+                    width,
+                    height,
+                )?;
+                image
+            }
         };
+
         if self.canvas {
             let (img_width, img_height) = if self.header.clips.is_empty() {
                 (self.header.width as u32, self.header.height as u32)
@@ -863,13 +1142,13 @@ impl Script for CrxImage {
                 let clip = &self.header.clips[0];
                 (clip.img_width as u32, clip.img_height as u32)
             };
-            return Ok(draw_on_canvas(
+            img = draw_on_canvas(
                 img,
                 img_width,
                 img_height,
                 self.header.inner_x as u32,
                 self.header.inner_y as u32,
-            )?);
+            )?;
         }
         Ok(img)
     }
@@ -933,6 +1212,9 @@ impl Script for CrxImage {
             ImageColorType::Bgra => 1,
             _ => return Err(anyhow::anyhow!("Unsupported color type: {:?}", color_type)),
         };
+        if new_header.version == 1 {
+            new_header.version = 2; // Upgrade to version 2
+        }
         new_header.flags |= 0x10; // Force add compressed data length
         let pixel_size = color_type.bpp(1) as u8;
         if color_type == ImageColorType::Bgra && self.header.mode != 1 {
@@ -948,13 +1230,31 @@ impl Script for CrxImage {
                 data.data[i + 3] = r;
             }
         }
-        let encoded = if self.row_type.is_origin() {
+        let encoded = if self.row_type.is_origin() && self.data.is_row_encoded() {
             let mut row_type = Vec::with_capacity(self.header.height as usize);
-            let row_len = self.header.width as usize * self.color_type.bpp(1) as usize + 1;
-            let mut cur_pos = 0;
+            let pixel_size_bytes = self.color_type.bpp(1) as usize;
+            let row_len = pixel_size_bytes
+                .checked_mul(self.header.width as usize)
+                .ok_or_else(|| anyhow::anyhow!("Row length overflow"))?
+                .checked_add(1)
+                .ok_or_else(|| anyhow::anyhow!("Row length overflow"))?;
+            let buffer = match &self.data {
+                CrxImageData::RowEncoded(buf) => buf,
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "Original row type information is unavailable"
+                    ));
+                }
+            };
+            let mut cur_pos = 0usize;
             for _ in 0..self.header.height {
-                row_type.push(self.data[cur_pos]);
-                cur_pos += row_len;
+                if cur_pos >= buffer.len() {
+                    return Err(anyhow::anyhow!("Row type offset exceeds buffer length"));
+                }
+                row_type.push(buffer[cur_pos]);
+                cur_pos = cur_pos
+                    .checked_add(row_len)
+                    .ok_or_else(|| anyhow::anyhow!("Row type offset overflow"))?;
             }
             Self::encode_image_origin(
                 &data.data,
@@ -963,7 +1263,7 @@ impl Script for CrxImage {
                 pixel_size,
                 &row_type,
             )?
-        } else if self.row_type.is_best() {
+        } else if self.row_type.is_best() || (self.row_type.is_origin() && !self.data.is_row_encoded()){
             Self::encode_image_best(&data.data, new_header.width, new_header.height, pixel_size)?
         } else if let CircusCrxMode::Fixed(mode) = self.row_type {
             Self::encode_image_fixed(
