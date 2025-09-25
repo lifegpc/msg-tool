@@ -571,6 +571,9 @@ pub enum ScriptType {
     #[cfg(feature = "ex-hibit")]
     /// ExHibit rld script
     ExHibit,
+    #[cfg(feature = "ex-hibit-arc")]
+    /// ExHibit GRP archive
+    ExHibitGrp,
     #[cfg(feature = "favorite")]
     /// Favorite hcb script
     Favorite,

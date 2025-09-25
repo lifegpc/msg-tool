@@ -1263,7 +1263,9 @@ impl Script for CrxImage {
                 pixel_size,
                 &row_type,
             )?
-        } else if self.row_type.is_best() || (self.row_type.is_origin() && !self.data.is_row_encoded()){
+        } else if self.row_type.is_best()
+            || (self.row_type.is_origin() && !self.data.is_row_encoded())
+        {
             Self::encode_image_best(&data.data, new_header.width, new_header.height, pixel_size)?
         } else if let CircusCrxMode::Fixed(mode) = self.row_type {
             Self::encode_image_fixed(

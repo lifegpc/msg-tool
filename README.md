@@ -153,6 +153,10 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `ex-hibit` | `ex-hibit` | ExHibit Script File (.rld) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | ✔️ | ❌ | |
+
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `ex-hibit-grp` | `ex-hibit-arc` | ExHibit GRP Archive File (.grp) | ✔️ | ❌ | |
 ### Favorite
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
