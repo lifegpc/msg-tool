@@ -589,12 +589,65 @@ impl<'a> PoParser<'a> {
         r
     }
 
+    pub fn parse_as_map(&mut self) -> Result<HashMap<String, String>> {
+        let mut map = HashMap::new();
+        let mut llm = None;
+        for (i, entry) in self.parse_entries()?.into_iter().enumerate() {
+            if entry.msgid.is_empty() && i == 0 {
+                // This is the header entry, skip it
+                continue;
+            }
+            for comment in &entry.comments {
+                if let Comment::Translator(s) = comment {
+                    let s = s.trim();
+                    if s.starts_with("NAME:") {
+                        // name = Some(s[5..].trim().to_string());
+                    } else if s.starts_with("LLM:") {
+                        llm = Some(s[4..].trim().replace("\\n", "\n"));
+                    }
+                }
+            }
+            let message = match entry.msgstr {
+                MsgStr::Single(s) => {
+                    let s = s.trim();
+                    if s.is_empty() {
+                        llm.take()
+                            .map(|mut llm| {
+                                if let Some(mark) = self.llm_mark {
+                                    llm.push_str(mark);
+                                }
+                                llm
+                            })
+                            .unwrap_or_else(|| {
+                                String::from(if entry.msgid.is_empty() { "" } else { "" })
+                            })
+                    } else {
+                        let mut tmp = s.to_string();
+                        if let Some(llm) = llm.take() {
+                            if tmp == llm {
+                                if let Some(mark) = self.llm_mark {
+                                    tmp.push_str(mark);
+                                }
+                            }
+                        }
+                        tmp
+                    }
+                }
+                MsgStr::Plural(_) => {
+                    return Err(anyhow!("Plural msgstr not supported in this context"));
+                }
+            };
+            map.insert(entry.msgid, message);
+        }
+        Ok(map)
+    }
+
     pub fn parse(&mut self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let mut llm = None;
         let mut name = None;
-        for entry in self.parse_entries()? {
-            if entry.msgid.is_empty() {
+        for (i, entry) in self.parse_entries()?.into_iter().enumerate() {
+            if entry.msgid.is_empty() && i == 0 {
                 // This is the header entry, skip it
                 continue;
             }

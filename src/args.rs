@@ -675,7 +675,11 @@ pub fn load_kirikiri_chat_json(
         let mut outt = arg.output_type.unwrap_or(OutputScriptType::M3t);
         if !matches!(
             outt,
-            OutputScriptType::M3t | OutputScriptType::M3ta | OutputScriptType::M3tTxt
+            OutputScriptType::M3t
+                | OutputScriptType::M3ta
+                | OutputScriptType::M3tTxt
+                | OutputScriptType::Po
+                | OutputScriptType::Pot
         ) {
             outt = OutputScriptType::M3t;
         }
@@ -689,13 +693,21 @@ pub fn load_kirikiri_chat_json(
                     &f,
                     true,
                 )?;
-                let m3t = crate::output_scripts::m3t::M3tParser::new(
-                    &data,
-                    arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
-                )
-                .parse_as_map()?;
+                let m3t = if outt.is_m3t() {
+                    crate::output_scripts::m3t::M3tParser::new(
+                        &data,
+                        arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                    )
+                    .parse_as_map()?
+                } else {
+                    crate::output_scripts::po::PoParser::new(
+                        &data,
+                        arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                    )
+                    .parse_as_map()?
+                };
                 for (k, v) in m3t {
-                    map.insert(k, v);
+                    map.insert(k.replace("\\[", "["), v.replace("\\[", "["));
                 }
             }
             return Ok(Some(std::sync::Arc::new(map)));

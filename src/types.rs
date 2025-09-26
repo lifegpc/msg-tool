@@ -122,6 +122,14 @@ impl OutputScriptType {
     pub fn is_custom(&self) -> bool {
         matches!(self, OutputScriptType::Custom)
     }
+
+    /// Returns true if the script type is M3t/M3ta/M3tTxt.
+    pub fn is_m3t(&self) -> bool {
+        matches!(
+            self,
+            OutputScriptType::M3t | OutputScriptType::M3ta | OutputScriptType::M3tTxt
+        )
+    }
 }
 
 impl AsRef<str> for OutputScriptType {
