@@ -1004,16 +1004,18 @@ impl<'a> ImportMes<'a> {
 
 lazy_static::lazy_static! {
     static ref CONTROL: Regex = Regex::new("%[^;]*;").unwrap();
-    static ref RUBY: Regex = Regex::new(r"\[([^\]]*)\](.?)").unwrap();
+    static ref RUBY: Regex = Regex::new(r"(?<!\\)\[([^\]]*)\](.?)").unwrap();
+    static ref COLOR: Regex = Regex::new(r"#[0-9a-fA-F]{6,8};").unwrap();
 }
 
 fn get_save_message(s: &str, in_ruby: bool) -> String {
     let mut s = s.replace("\n", "");
     s = CONTROL.replace_all(&s, "").to_string();
+    s = COLOR.replace_all(&s, "").to_string();
     s = RUBY
         .replace_all(&s, if in_ruby { "$1" } else { "$2" })
         .to_string();
-    s
+    s.replace("%r", "").replace("\\[", "[")
 }
 
 #[test]
@@ -1021,4 +1023,15 @@ fn test_get_save_message() {
     let s = "%n;Test\n[ruby]测[test\\]试%ok;[ok]";
     assert_eq!(get_save_message(s, true), "Testrubytest\\ok");
     assert_eq!(get_save_message(s, false), "Test测试");
+    let another = "[Start]a";
+    assert_eq!(get_save_message(another, true), "Start");
+    assert_eq!(get_save_message(another, false), "a");
+    let escaped = "\\[Start]a";
+    assert_eq!(get_save_message(escaped, true), "[Start]a");
+    assert_eq!(get_save_message(escaped, false), "[Start]a");
+    let real_word = "「こんな、感じとか、ですか……？　うっふ～ん……%f$ハート$;#00ffadd6;♥%r」";
+    assert_eq!(
+        get_save_message(real_word, true),
+        "「こんな、感じとか、ですか……？　うっふ～ん……♥」"
+    );
 }
