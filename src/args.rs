@@ -233,6 +233,10 @@ pub struct Arg {
     /// Whether to handle title in Kirikiri SCN script.
     pub kirikiri_title: bool,
     #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, visible_alias = "kr-chat-no-multilang")]
+    /// Disable multi-language support for Kirikiri chat messages. (for Kirikiri SCN script.)
+    pub kirikiri_chat_no_multilang: bool,
+    #[cfg(feature = "kirikiri")]
     #[arg(long, global = true, action = ArgAction::SetTrue, visible_alias = "kr-no-empty-lines", visible_alias = "kirikiri-no-empty-lines")]
     /// Remove empty lines in Kirikiri KS script.
     pub kirikiri_remove_empty_lines: bool,

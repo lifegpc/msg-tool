@@ -117,6 +117,7 @@ pub struct ScnScript {
     chat_json: Option<Arc<HashMap<String, String>>>,
     custom_yaml: bool,
     title: bool,
+    chat_multilang: bool,
 }
 
 impl ScnScript {
@@ -154,6 +155,7 @@ impl ScnScript {
             chat_json: config.kirikiri_chat_json.clone(),
             custom_yaml: config.custom_yaml,
             title: config.kirikiri_title,
+            chat_multilang: config.kirikiri_chat_multilang,
         })
     }
 }
@@ -214,7 +216,11 @@ impl Script for ScnScript {
         let mut comu = if self.export_chat {
             Some(ExportMes::new(
                 self.chat_key.clone().unwrap_or("comumode".to_string()),
-                language.clone(),
+                if self.chat_multilang {
+                    language.clone()
+                } else {
+                    None
+                },
             ))
         } else {
             None
@@ -441,7 +447,11 @@ impl Script for ScnScript {
                 json,
                 replacement,
                 self.chat_key.clone().unwrap_or("comumode".to_string()),
-                language.clone(),
+                if self.chat_multilang {
+                    language.clone()
+                } else {
+                    None
+                },
             )
         });
         for (i, scene) in scenes.members_mut().enumerate() {

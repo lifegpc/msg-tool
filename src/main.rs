@@ -2736,6 +2736,8 @@ fn main() {
         pgd_fake_compress: !arg.pgd_compress,
         #[cfg(feature = "softpal")]
         softpal_add_message_index: arg.softpal_add_message_index,
+        #[cfg(feature = "kirikiri")]
+        kirikiri_chat_multilang: !arg.kirikiri_chat_no_multilang,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

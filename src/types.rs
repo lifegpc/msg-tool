@@ -465,6 +465,11 @@ pub struct ExtraConfig {
     #[cfg(feature = "softpal")]
     /// Whether to add message index to Softpal src script when exporting.
     pub softpal_add_message_index: bool,
+    #[cfg(feature = "kirikiri")]
+    #[default(true)]
+    /// Enable multi-language support for Kirikiri chat messages. Default is true.
+    /// Note: This requires [Self::kirikiri_language_index] and [Self::kirikiri_languages] to be set correctly.
+    pub kirikiri_chat_multilang: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
