@@ -167,7 +167,7 @@ pub fn find_ext_files(path: &str, recursive: bool, exts: &[&str]) -> io::Result<
                 }
             } else if recursive && path.is_dir() {
                 if let Some(path_str) = path.to_str() {
-                    let mut sub_files = find_arc_files(&path_str.to_string(), recursive)?;
+                    let mut sub_files = find_ext_files(path_str, recursive, exts)?;
                     result.append(&mut sub_files);
                 }
             }
