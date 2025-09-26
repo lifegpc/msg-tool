@@ -304,8 +304,10 @@ pub struct ExtraConfig {
     /// If not specified, "comumode" will be used.
     pub kirikiri_chat_key: Option<String>,
     #[cfg(feature = "kirikiri")]
-    /// Kirikiri chat message translation. key is original text, value is translated text.
-    pub kirikiri_chat_json: Option<std::sync::Arc<HashMap<String, String>>>,
+    /// Kirikiri chat message translation. The outter object's key is filename(`global` is a special key).
+    /// The inner object: key is original text, value is (translated text, original text count).
+    pub kirikiri_chat_json:
+        Option<std::sync::Arc<HashMap<String, HashMap<String, (String, usize)>>>>,
     #[cfg(feature = "kirikiri")]
     /// Kirikiri language list. First language code is code for language index 1.
     pub kirikiri_languages: Option<std::sync::Arc<Vec<String>>>,

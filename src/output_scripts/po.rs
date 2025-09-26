@@ -589,8 +589,8 @@ impl<'a> PoParser<'a> {
         r
     }
 
-    pub fn parse_as_map(&mut self) -> Result<HashMap<String, String>> {
-        let mut map = HashMap::new();
+    pub fn parse_as_vec(&mut self) -> Result<Vec<(String, String)>> {
+        let mut map = Vec::new();
         let mut llm = None;
         for (i, entry) in self.parse_entries()?.into_iter().enumerate() {
             if entry.msgid.is_empty() && i == 0 {
@@ -637,7 +637,7 @@ impl<'a> PoParser<'a> {
                     return Err(anyhow!("Plural msgstr not supported in this context"));
                 }
             };
-            map.insert(entry.msgid, message);
+            map.push((entry.msgid, message));
         }
         Ok(map)
     }

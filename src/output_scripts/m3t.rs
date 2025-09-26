@@ -8,8 +8,6 @@
 //! △ LLM message
 //! ● Translated message
 //! ```
-use std::collections::HashMap;
-
 use crate::types::Message;
 use anyhow::Result;
 
@@ -50,8 +48,8 @@ impl<'a> M3tParser<'a> {
         }
     }
 
-    pub fn parse_as_map(&mut self) -> Result<HashMap<String, String>> {
-        let mut map = HashMap::new();
+    pub fn parse_as_vec(&mut self) -> Result<Vec<(String, String)>> {
+        let mut map = Vec::new();
         let mut ori = None;
         let mut llm = None;
         while let Some(line) = self.next_line() {
@@ -103,7 +101,7 @@ impl<'a> M3tParser<'a> {
                     tmp.replace("\\n", "\n")
                 };
                 if let Some(ori) = ori.take() {
-                    map.insert(ori, message);
+                    map.push((ori, message));
                 } else {
                     return Err(anyhow::anyhow!(
                         "Missing original message before translated message at line {}",
@@ -215,6 +213,6 @@ fn test_zero_width_space() {
     let mut parser = M3tParser::new(input, None);
     let messages = parser.parse().unwrap();
     assert_eq!(messages.len(), 1);
-    let map = M3tParser::new(input, None).parse_as_map().unwrap();
+    let map = M3tParser::new(input, None).parse_as_vec().unwrap();
     assert_eq!(map.len(), 1);
 }

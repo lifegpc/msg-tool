@@ -1,6 +1,7 @@
 //! Kirikiri Scene File (.scn)
 use super::mdf::Mdf;
 use crate::ext::io::*;
+use crate::ext::mutex::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -11,7 +12,7 @@ use fancy_regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 /// Kirikiri Scene Script Builder
@@ -114,7 +115,7 @@ pub struct ScnScript {
     export_chat: bool,
     filename: String,
     chat_key: Option<String>,
-    chat_json: Option<Arc<HashMap<String, String>>>,
+    chat_json: Option<Arc<HashMap<String, HashMap<String, (String, usize)>>>>,
     custom_yaml: bool,
     title: bool,
     chat_multilang: bool,
@@ -452,6 +453,7 @@ impl Script for ScnScript {
                 } else {
                     None
                 },
+                self.filename.clone(),
             )
         });
         for (i, scene) in scenes.members_mut().enumerate() {
@@ -878,27 +880,87 @@ impl ExportMes {
     }
 }
 
+lazy_static::lazy_static! {
+    static ref DUP_WARN_SHOWN: Mutex<HashSet<(String, usize, String)>> = Mutex::new(HashSet::new());
+    static ref NOT_FOUND_WARN_SHOWN: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
+}
+
+fn warn_dup(original: String, count: usize, filename: String) {
+    let mut guard = DUP_WARN_SHOWN.lock_blocking();
+    if guard.contains(&(original.clone(), count, filename.clone())) {
+        return;
+    }
+    eprintln!(
+        "Warning: chat message '{}' has {} duplicates in translation table '{}'. Using the first one.",
+        original, count, filename
+    );
+    crate::COUNTER.inc_warning();
+    guard.insert((original.clone(), count, filename.clone()));
+}
+
+fn warn_not_found(original: String) {
+    let mut guard = NOT_FOUND_WARN_SHOWN.lock_blocking();
+    if guard.contains(&original) {
+        return;
+    }
+    eprintln!(
+        "Warning: chat message '{}' not found in translation table.",
+        original
+    );
+    crate::COUNTER.inc_warning();
+    guard.insert(original);
+}
+
 #[derive(Debug)]
 struct ImportMes<'a> {
-    messages: &'a Arc<HashMap<String, String>>,
+    messages: &'a Arc<HashMap<String, HashMap<String, (String, usize)>>>,
     replacement: Option<&'a ReplacementTable>,
     key: String,
     text_key: String,
+    filename: String,
 }
 
 impl<'a> ImportMes<'a> {
     pub fn new(
-        messages: &'a Arc<HashMap<String, String>>,
+        messages: &'a Arc<HashMap<String, HashMap<String, (String, usize)>>>,
         replacement: Option<&'a ReplacementTable>,
         key: String,
         lang: Option<String>,
+        filename: String,
     ) -> Self {
         Self {
             messages,
             replacement,
             key: key,
             text_key: lang.map_or_else(|| String::from("text"), |s| format!("text_{}", s)),
+            filename: std::path::Path::new(&filename)
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "global".to_string()),
         }
+    }
+
+    fn get_message(&self, original: &str) -> Option<String> {
+        if let Some(global) = self.messages.get(&self.filename) {
+            if let Some(text) = global.get(original) {
+                if text.1 > 1 {
+                    warn_dup(original.to_string(), text.1, self.filename.clone());
+                }
+                return Some(text.0.clone());
+            }
+        }
+        if self.filename == "global" {
+            return None;
+        }
+        if let Some(file) = self.messages.get("global") {
+            if let Some(text) = file.get(original) {
+                if text.1 > 1 {
+                    warn_dup(original.to_string(), text.1, "global".to_string());
+                }
+                return Some(text.0.clone());
+            }
+        }
+        None
     }
 
     pub fn import(&self, value: &mut PsbValueFixed) {
@@ -908,7 +970,7 @@ impl<'a> ImportMes<'a> {
                     if k == &self.key {
                         for obj in v.members_mut() {
                             if let Some(text) = obj[&self.text_key].as_str() {
-                                if let Some(replace_text) = self.messages.get(text) {
+                                if let Some(replace_text) = self.get_message(text) {
                                     let mut text = replace_text.clone();
                                     if let Some(replacement) = self.replacement {
                                         for (key, value) in replacement.map.iter() {
@@ -918,15 +980,11 @@ impl<'a> ImportMes<'a> {
                                     obj[&self.text_key].set_string(text.replace("\n", "\\n"));
                                     continue;
                                 } else {
-                                    eprintln!(
-                                        "Warning: chat message '{}' not found in translation table.",
-                                        text
-                                    );
-                                    crate::COUNTER.inc_warning();
+                                    warn_not_found(text.to_string());
                                 }
                             }
                             if let Some(text) = obj["text"].as_str() {
-                                if let Some(replace_text) = self.messages.get(text) {
+                                if let Some(replace_text) = self.get_message(text) {
                                     let mut text = replace_text.clone();
                                     if let Some(replacement) = self.replacement {
                                         for (key, value) in replacement.map.iter() {
@@ -935,11 +993,7 @@ impl<'a> ImportMes<'a> {
                                     }
                                     obj[&self.text_key].set_string(text.replace("\n", "\\n"));
                                 } else {
-                                    eprintln!(
-                                        "Warning: chat message '{}' not found in translation table.",
-                                        text
-                                    );
-                                    crate::COUNTER.inc_warning();
+                                    warn_not_found(text.to_string());
                                 }
                             }
                         }
@@ -954,7 +1008,7 @@ impl<'a> ImportMes<'a> {
                         for i in 1..list.len() {
                             if list[i - 1] == self.text_key {
                                 if let Some(text) = list[i].as_str() {
-                                    if let Some(replace_text) = self.messages.get(text) {
+                                    if let Some(replace_text) = self.get_message(text) {
                                         let mut text = replace_text.clone();
                                         if let Some(replacement) = self.replacement {
                                             for (key, value) in replacement.map.iter() {
@@ -964,11 +1018,7 @@ impl<'a> ImportMes<'a> {
                                         list[i].set_string(text.replace("\n", "\\n"));
                                         return;
                                     } else {
-                                        eprintln!(
-                                            "Warning: chat message '{}' not found in translation table.",
-                                            text
-                                        );
-                                        crate::COUNTER.inc_warning();
+                                        warn_not_found(text.to_string());
                                     }
                                 }
                             }
@@ -979,7 +1029,7 @@ impl<'a> ImportMes<'a> {
                         for i in 1..list.len() {
                             if list[i - 1] == "text" {
                                 if let Some(text) = list[i].as_str() {
-                                    if let Some(replace_text) = self.messages.get(text) {
+                                    if let Some(replace_text) = self.get_message(text) {
                                         let mut text = replace_text.clone();
                                         if let Some(replacement) = self.replacement {
                                             for (key, value) in replacement.map.iter() {
@@ -991,11 +1041,7 @@ impl<'a> ImportMes<'a> {
                                         list[len + 1].set_string(text.replace("\n", "\\n"));
                                         return;
                                     } else {
-                                        eprintln!(
-                                            "Warning: chat message '{}' not found in translation table.",
-                                            text
-                                        );
-                                        crate::COUNTER.inc_warning();
+                                        warn_not_found(text.to_string());
                                     }
                                 }
                             }

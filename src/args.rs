@@ -669,11 +669,24 @@ pub fn get_artemis_panmimisoft_txt_blacklist_names(
 #[cfg(feature = "kirikiri")]
 pub fn load_kirikiri_chat_json(
     arg: &Arg,
-) -> anyhow::Result<Option<std::sync::Arc<std::collections::HashMap<String, String>>>> {
+) -> anyhow::Result<
+    Option<
+        std::sync::Arc<
+            std::collections::HashMap<String, std::collections::HashMap<String, (String, usize)>>,
+        >,
+    >,
+> {
     if let Some(path) = &arg.kirikiri_chat_json {
-        return Ok(Some(crate::scripts::kirikiri::read_kirikiri_comu_json(
-            path,
-        )?));
+        return Ok(Some(std::sync::Arc::new(
+            crate::scripts::kirikiri::read_kirikiri_comu_json(path)?
+                .into_iter()
+                .map(|(k, v)| {
+                    let v: std::collections::HashMap<_, _> =
+                        v.into_iter().map(|(k, v)| (k, (v, 1))).collect();
+                    (k, v)
+                })
+                .collect(),
+        )));
     }
     if let Some(dir) = &arg.kirikiri_chat_dir {
         let mut outt = arg.output_type.unwrap_or(OutputScriptType::M3t);
@@ -690,6 +703,7 @@ pub fn load_kirikiri_chat_json(
         let files = crate::utils::files::find_ext_files(dir, arg.recursive, &[outt.as_ref()])?;
         if !files.is_empty() {
             let mut map = std::collections::HashMap::new();
+            let mut global = std::collections::HashMap::new();
             for file in files {
                 let f = crate::utils::files::read_file(&file)?;
                 let data = crate::utils::encoding::decode_to_string(
@@ -702,18 +716,40 @@ pub fn load_kirikiri_chat_json(
                         &data,
                         arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
                     )
-                    .parse_as_map()?
+                    .parse_as_vec()?
                 } else {
                     crate::output_scripts::po::PoParser::new(
                         &data,
                         arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
                     )
-                    .parse_as_map()?
+                    .parse_as_vec()?
                 };
+                let current_key = std::path::Path::new(&file)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let mut entry = std::collections::HashMap::new();
                 for (k, v) in m3t {
-                    map.insert(k.replace("\\[", "["), v.replace("\\[", "["));
+                    if v.is_empty() {
+                        continue;
+                    }
+                    let k = k.replace("\\[", "[");
+                    let v = v.replace("\\[", "[");
+                    if let Some((_, count)) = entry.get_mut(&k) {
+                        *count += 1;
+                    } else {
+                        entry.insert(k.clone(), (v.clone(), 1));
+                    }
+                    if let Some((_, count)) = global.get_mut(&k) {
+                        *count += 1;
+                    } else {
+                        global.insert(k, (v, 1));
+                    }
                 }
+                map.insert(current_key, entry);
             }
+            map.insert("global".to_string(), global);
             return Ok(Some(std::sync::Arc::new(map)));
         }
     }
