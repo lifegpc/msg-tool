@@ -573,6 +573,27 @@ impl FixedFormatter {
 
             result.push_str(grapheme);
 
+            #[cfg(feature = "kirikiri")]
+            if self.is_scn() {
+                if grapheme == "#" {
+                    i += 1;
+                    while i < vec.len() && vec[i] != ";" {
+                        result.push_str(vec[i]);
+                        i += 1;
+                    }
+                    if i < vec.len() {
+                        result.push_str(vec[i]);
+                        i += 1;
+                    }
+                    continue;
+                }
+                if grapheme == "%" && i + 1 < vec.len() && vec[i + 1] == "r" {
+                    result.push('r');
+                    i += 2;
+                    continue;
+                }
+            }
+
             if self.is_circus() {
                 if grapheme == "@" {
                     is_command = true;
@@ -797,6 +818,10 @@ fn test_format() {
             scn_formatter.format("%test;[ruby]测[test]试打断。"),
             "%test;[ruby]测[test]试打\n断。"
         );
+        assert_eq!(
+            scn_formatter.format("%f$ハート$;#00ffadd6;♥%r打断测试"),
+            "%f$ハート$;#00ffadd6;♥%r打断\n测试"
+        )
     }
     #[cfg(feature = "jieba")]
     {
