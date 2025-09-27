@@ -140,6 +140,8 @@ lazy_static::lazy_static! {
         Box::new(softpal::img::pgd::pgd3::Pgd3Builder::new()),
         #[cfg(feature = "ex-hibit-arc")]
         Box::new(ex_hibit::arc::grp::ExHibitGrpArchiveBuilder::new()),
+        #[cfg(feature = "hexen-haus-arc")]
+        Box::new(hexen_haus::archive::arcc::HexenHausArccArchiveBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =
