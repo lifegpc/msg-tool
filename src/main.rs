@@ -2294,6 +2294,7 @@ pub fn pack_archive(
     output: Option<&str>,
     arg: &args::Arg,
     config: std::sync::Arc<types::ExtraConfig>,
+    backslash: bool,
 ) -> anyhow::Result<()> {
     let typ = match &arg.script_type {
         Some(t) => t,
@@ -2313,8 +2314,13 @@ pub fn pack_archive(
                 .strip_prefix(input)
                 .ok()
                 .and_then(|p| {
-                    p.to_str()
-                        .map(|s| s.replace("\\", "/").trim_start_matches("/").to_owned())
+                    p.to_str().map(|s| {
+                        if backslash {
+                            s.replace("/", "\\").trim_start_matches("\\").to_owned()
+                        } else {
+                            s.replace("\\", "/").trim_start_matches("/").to_owned()
+                        }
+                    })
                 })
         })
         .collect();
@@ -2898,12 +2904,17 @@ fn main() {
                 }
             }
         }
-        args::Command::Pack { input, output } => {
+        args::Command::Pack {
+            input,
+            output,
+            backslash,
+        } => {
             let re = pack_archive(
                 input,
                 output.as_ref().map(|s| s.as_str()),
                 &arg,
                 cfg.clone(),
+                *backslash,
             );
             if let Err(e) = re {
                 COUNTER.inc_error();

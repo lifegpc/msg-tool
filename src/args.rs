@@ -572,6 +572,9 @@ pub enum Command {
         input: String,
         /// Output archive file
         output: Option<String>,
+        #[arg(long)]
+        /// Use \ as path separator instead of / in archive
+        backslash: bool,
     },
     /// Unpack archive to directory
     Unpack {
