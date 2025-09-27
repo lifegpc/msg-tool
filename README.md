@@ -168,7 +168,7 @@ msg-tool create -t <script-type> <input> <output>
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
-| `hexen-haus-arcc` | `hexen-haus-arc` | HexenHaus Arcc Archive File (.arcc) | ✔️ | ❌ | |
+| `hexen-haus-arcc` | `hexen-haus-arc` | HexenHaus Arcc Archive File (.arc) | ✔️ | ❌ | |
 ### Kirikiri
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
