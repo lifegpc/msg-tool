@@ -1059,7 +1059,7 @@ impl<'a> ImportMes<'a> {
 }
 
 lazy_static::lazy_static! {
-    static ref CONTROL: Regex = Regex::new("%[^;]*;").unwrap();
+    static ref CONTROL: Regex = Regex::new("%[^%;]*;").unwrap();
     static ref RUBY: Regex = Regex::new(r"(?<!\\)\[([^\]]*)\](.?)").unwrap();
     static ref COLOR: Regex = Regex::new(r"#[0-9a-fA-F]{6,8};").unwrap();
 }
@@ -1089,5 +1089,10 @@ fn test_get_save_message() {
     assert_eq!(
         get_save_message(real_word, true),
         "「こんな、感じとか、ですか……？　うっふ～ん……♥」"
+    );
+    let s = "「あっは%f$ハート$;#00ffadd6;♥%r　凄い出してくれてる%f$ハート$;#00ffadd6;♥%r」";
+    assert_eq!(
+        get_save_message(s, true),
+        "「あっは♥　凄い出してくれてる♥」"
     );
 }
