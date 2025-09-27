@@ -1,4 +1,4 @@
-//! Artemis Engine PFS Archive (pf6 and pf8)
+//! Artemis Engine PF2 Archive (pf2)
 use super::detect_script_type;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -6,29 +6,28 @@ use crate::types::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
 use msg_tool_macro::*;
-use sha1::Digest;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
-/// The builder for Artemis PFS archive scripts.
-pub struct ArtemisArcBuilder {}
+/// The builder for Artemis PF2 archive scripts.
+pub struct ArtemisPf2Builder {}
 
-impl ArtemisArcBuilder {
-    /// Creates a new instance of `ArtemisArcBuilder`.
+impl ArtemisPf2Builder {
+    /// Creates a new instance of `ArtemisPf2Builder`.
     pub fn new() -> Self {
-        ArtemisArcBuilder {}
+        ArtemisPf2Builder {}
     }
 }
 
-impl ScriptBuilder for ArtemisArcBuilder {
+impl ScriptBuilder for ArtemisPf2Builder {
     fn default_encoding(&self) -> Encoding {
-        Encoding::Utf8
+        Encoding::Cp932
     }
 
     fn default_archive_encoding(&self) -> Option<Encoding> {
-        Some(Encoding::Utf8)
+        Some(Encoding::Cp932)
     }
 
     fn build_script(
@@ -40,7 +39,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(ArtemisArc::new(
+        Ok(Box::new(ArtemisPf2::new(
             MemReader::new(buf),
             archive_encoding,
             config,
@@ -58,7 +57,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
     ) -> Result<Box<dyn Script>> {
         let f = std::fs::File::open(filename)?;
         let f = std::io::BufReader::new(f);
-        Ok(Box::new(ArtemisArc::new(
+        Ok(Box::new(ArtemisPf2::new(
             f,
             archive_encoding,
             config,
@@ -75,7 +74,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(ArtemisArc::new(
+        Ok(Box::new(ArtemisPf2::new(
             reader,
             archive_encoding,
             config,
@@ -92,12 +91,12 @@ impl ScriptBuilder for ArtemisArcBuilder {
     }
 
     fn script_type(&self) -> &'static ScriptType {
-        &ScriptType::ArtemisArc
+        &ScriptType::ArtemisPf2
     }
 
     fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
-        if buf_len >= 3 && (buf.starts_with(b"pf6") || buf.starts_with(b"pf8")) {
-            return Some(10);
+        if buf_len >= 3 && buf.starts_with(b"pf2") {
+            return Some(20);
         }
         None
     }
@@ -107,7 +106,7 @@ impl ScriptBuilder for ArtemisArcBuilder {
         filename: &str,
         files: &[&str],
         encoding: Encoding,
-        config: &ExtraConfig,
+        _config: &ExtraConfig,
     ) -> Result<Box<dyn Archive>> {
         let f = std::fs::File::options()
             .write(true)
@@ -115,30 +114,32 @@ impl ScriptBuilder for ArtemisArcBuilder {
             .create(true)
             .truncate(true)
             .open(filename)?;
-        Ok(Box::new(ArtemisArcWriter::new(f, files, encoding, config)?))
+        Ok(Box::new(ArtemisPf2Writer::new(f, files, encoding)?))
     }
 }
 
 #[derive(Debug, Clone, StructPack, StructUnpack)]
-struct PfsEntryHeader {
+struct Pf2EntryHeader {
     #[pstring(u32)]
     name: String,
-    _unk: u32,
+    // real path str len (?)
+    _unk1: u32,
+    _unk2: u32,
+    _unk3: u32,
     offset: u32,
     size: u32,
 }
 
 #[derive(Debug)]
-/// The Artemis PFS archive script.
-pub struct ArtemisArc<T: Read + Seek + std::fmt::Debug> {
+/// The Artemis PF2 archive script.
+pub struct ArtemisPf2<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
-    entries: Vec<PfsEntryHeader>,
-    xor_key: Option<[u8; 20]>,
+    entries: Vec<Pf2EntryHeader>,
     output_ext: Option<String>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
-    /// Creates a new Artemis PFS archive script.
+impl<T: Read + Seek + std::fmt::Debug> ArtemisPf2<T> {
+    /// Creates a new Artemis PF2 archive script.
     ///
     /// * `reader` - The reader for the archive.
     /// * `archive_encoding` - The encoding used for the archive.
@@ -154,52 +155,38 @@ impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
         reader.read_exact(&mut magic)?;
         if &magic != b"pf" {
             return Err(anyhow::anyhow!(
-                "Invalid Artemis archive magic: {:?}",
+                "Invalid Artemis PF2 archive magic: {:?}",
                 magic
             ));
         }
         let version = reader.read_u8()?;
-        if version != b'6' && version != b'8' {
+        if version != b'2' {
             return Err(anyhow::anyhow!(
-                "Unsupported Artemis archive version: {}",
+                "Unsupported Artemis PF2 archive version: {}",
                 version
             ));
         }
-        let index_size = reader.read_u32()?;
+        let _index_size = reader.read_u32()?;
+        let _reserved = reader.read_u32()?;
         let file_count = reader.read_u32()?;
         let mut entries = Vec::with_capacity(file_count as usize);
         for _ in 0..file_count {
             let header = reader.read_struct(false, archive_encoding)?;
             entries.push(header);
         }
-        let xor_key = if version == b'8' {
-            reader.seek(SeekFrom::Start(7))?;
-            let mut sha = sha1::Sha1::default();
-            let ra = &mut reader;
-            let mut r = ra.take(index_size as u64);
-            std::io::copy(&mut r, &mut sha)?;
-            sha.flush()?;
-            let result = sha.finalize();
-            let mut xor_key = [0u8; 20];
-            xor_key.copy_from_slice(&result);
-            Some(xor_key)
-        } else {
-            None
-        };
         let output_ext = std::path::Path::new(filename)
             .extension()
             .filter(|s| *s != "pfs")
             .map(|s| s.to_string_lossy().to_string());
-        Ok(ArtemisArc {
+        Ok(ArtemisPf2 {
             reader: Arc::new(Mutex::new(reader)),
             entries,
-            xor_key,
             output_ext,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for ArtemisArc<T> {
+impl<T: Read + Seek + std::fmt::Debug + 'static> Script for ArtemisPf2<T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -235,34 +222,32 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for ArtemisArc<T> {
             ));
         }
         let header = &self.entries[index];
-        let mut entry = Entry {
+        let mut entry = Pf2Entry {
             header: header.clone(),
             reader: self.reader.clone(),
             pos: 0,
             script_type: None,
-            xor_key: self.xor_key.clone(),
         };
-        let mut header = [0; 0x20];
-        let readed = entry.read(&mut header)?;
+        let mut header_buf = [0; 0x20];
+        let readed = entry.read(&mut header_buf)?;
         entry.pos = 0;
-        entry.script_type = detect_script_type(&header, readed, &entry.header.name);
+        entry.script_type = detect_script_type(&header_buf, readed, &entry.header.name);
         Ok(Box::new(entry))
     }
 
     fn archive_output_ext<'a>(&'a self) -> Option<&'a str> {
-        self.output_ext.as_ref().map(|s| s.as_str())
+        self.output_ext.as_deref()
     }
 }
 
-struct Entry<T: Read + Seek> {
-    header: PfsEntryHeader,
+struct Pf2Entry<T: Read + Seek> {
+    header: Pf2EntryHeader,
     reader: Arc<Mutex<T>>,
     pos: u64,
     script_type: Option<ScriptType>,
-    xor_key: Option<[u8; 20]>,
 }
 
-impl<T: Read + Seek> ArchiveContent for Entry<T> {
+impl<T: Read + Seek> ArchiveContent for Pf2Entry<T> {
     fn name(&self) -> &str {
         &self.header.name
     }
@@ -272,7 +257,7 @@ impl<T: Read + Seek> ArchiveContent for Entry<T> {
     }
 }
 
-impl<T: Read + Seek> Read for Entry<T> {
+impl<T: Read + Seek> Read for Pf2Entry<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let mut reader = self.reader.lock().map_err(|e| {
             std::io::Error::new(
@@ -281,23 +266,18 @@ impl<T: Read + Seek> Read for Entry<T> {
             )
         })?;
         reader.seek(SeekFrom::Start(self.header.offset as u64 + self.pos))?;
-        let bytes_read = buf.len().min(self.header.size as usize - self.pos as usize);
-        if bytes_read == 0 {
+        let remaining = (self.header.size as u64).saturating_sub(self.pos);
+        if remaining == 0 {
             return Ok(0);
         }
-        let bytes_read = reader.read(&mut buf[..bytes_read])?;
-        if let Some(xor_key) = &self.xor_key {
-            for i in 0..bytes_read {
-                let l = (self.pos + i as u64) % 20;
-                buf[i] ^= xor_key[l as usize];
-            }
-        }
+        let bytes_to_read = buf.len().min(remaining as usize);
+        let bytes_read = reader.read(&mut buf[..bytes_to_read])?;
         self.pos += bytes_read as u64;
         Ok(bytes_read)
     }
 }
 
-impl<T: Read + Seek> Seek for Entry<T> {
+impl<T: Read + Seek> Seek for Pf2Entry<T> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(offset) => offset,
@@ -337,40 +317,32 @@ impl<T: Read + Seek> Seek for Entry<T> {
     }
 }
 
-/// The Artemis PFS archive writer.
-pub struct ArtemisArcWriter<T: Write + Seek + Read> {
+/// The Artemis PF2 archive writer.
+pub struct ArtemisPf2Writer<T: Write + Seek + Read> {
     writer: T,
-    headers: HashMap<String, PfsEntryHeader>,
+    headers: HashMap<String, Pf2EntryHeader>,
     encoding: Encoding,
-    disable_xor: bool,
     index_size: u32,
 }
 
-impl<T: Write + Seek + Read> ArtemisArcWriter<T> {
-    /// Creates a new Artemis PFS archive writer.
+impl<T: Write + Seek + Read> ArtemisPf2Writer<T> {
+    /// Creates a new Artemis PF2 archive writer.
     ///
     /// * `writer` - The writer for the archive.
     /// * `files` - The list of files to include in the archive.
     /// * `encoding` - The encoding used for the archive.
-    /// * `config` - Extra configuration options.
-    pub fn new(
-        mut writer: T,
-        files: &[&str],
-        encoding: Encoding,
-        config: &ExtraConfig,
-    ) -> Result<Self> {
-        writer.write_all(if config.artemis_arc_disable_xor {
-            b"pf6"
-        } else {
-            b"pf8"
-        })?;
+    pub fn new(mut writer: T, files: &[&str], encoding: Encoding) -> Result<Self> {
+        writer.write_all(b"pf2")?;
         writer.write_u32(0)?; // Placeholder for index size
+        writer.write_u32(0)?; // Reserved field at offset 0x07
         writer.write_u32(files.len() as u32)?;
         let mut headers = HashMap::new();
         for file in files {
-            let header = PfsEntryHeader {
+            let header = Pf2EntryHeader {
                 name: file.to_string(),
-                _unk: 0,
+                _unk1: 0x10,
+                _unk2: 0,
+                _unk3: 0,
                 offset: 0,
                 size: 0,
             };
@@ -380,17 +352,17 @@ impl<T: Write + Seek + Read> ArtemisArcWriter<T> {
         let size = writer.stream_position()?;
         let index_size = size as u32 - 7;
         writer.write_u32_at(3, index_size)?;
-        Ok(ArtemisArcWriter {
+        writer.write_u32_at(7, 0)?;
+        Ok(ArtemisPf2Writer {
             writer,
             headers,
             encoding,
-            disable_xor: config.artemis_arc_disable_xor,
             index_size,
         })
     }
 }
 
-impl<T: Write + Seek + Read> Archive for ArtemisArcWriter<T> {
+impl<T: Write + Seek + Read> Archive for ArtemisPf2Writer<T> {
     fn new_file<'a>(&'a mut self, name: &str) -> Result<Box<dyn WriteSeek + 'a>> {
         let entry = self
             .headers
@@ -401,7 +373,7 @@ impl<T: Write + Seek + Read> Archive for ArtemisArcWriter<T> {
         }
         self.writer.seek(SeekFrom::End(0))?;
         entry.offset = self.writer.stream_position()? as u32;
-        let file = ArtemisArcFile {
+        let file = ArtemisPf2File {
             header: entry,
             writer: &mut self.writer,
             pos: 0,
@@ -410,57 +382,26 @@ impl<T: Write + Seek + Read> Archive for ArtemisArcWriter<T> {
     }
 
     fn write_header(&mut self) -> Result<()> {
-        self.writer.seek(SeekFrom::Start(11))?;
+        self.writer.seek(SeekFrom::Start(15))?;
         let mut files = self.headers.values().collect::<Vec<_>>();
         files.sort_by_key(|d| d.offset);
         for file in files.iter() {
             file.pack(&mut self.writer, false, self.encoding)?;
         }
-        if !self.disable_xor {
-            self.writer.seek(SeekFrom::Start(7))?;
-            let mut sha = sha1::Sha1::default();
-            let w = &mut self.writer;
-            let mut header = w.take(self.index_size as u64);
-            std::io::copy(&mut header, &mut sha)?;
-            sha.flush()?;
-            let result = sha.finalize();
-            let mut xor_key = [0u8; 20];
-            xor_key.copy_from_slice(&result);
-            let mut buf = [0u8; 1024];
-            for file in files.iter() {
-                self.writer.seek(SeekFrom::Start(file.offset as u64))?;
-                let mut pos = 0u32;
-                while pos < file.size {
-                    let bytes_to_read = (file.size - pos).min(1024) as usize;
-                    let bytes_read = self.writer.read(&mut buf[..bytes_to_read])?;
-                    if bytes_read == 0 {
-                        return Err(anyhow::anyhow!(
-                            "Unexpected end of file while reading '{}'",
-                            file.name
-                        ));
-                    }
-                    for i in 0..bytes_read {
-                        let l = (pos as u64 + i as u64) % 20;
-                        buf[i] ^= xor_key[l as usize];
-                    }
-                    self.writer.seek_relative(-(bytes_read as i64))?;
-                    self.writer.write_all(&buf[..bytes_read])?;
-                    pos += bytes_read as u32;
-                }
-            }
-        }
+        self.writer.write_u32_at(3, self.index_size)?;
+        self.writer.write_u32_at(7, 0)?;
         Ok(())
     }
 }
 
-/// The Artemis PFS archive file writer.
-pub struct ArtemisArcFile<'a, T: Write + Seek> {
-    header: &'a mut PfsEntryHeader,
+/// The Artemis PF2 archive file writer.
+pub struct ArtemisPf2File<'a, T: Write + Seek> {
+    header: &'a mut Pf2EntryHeader,
     writer: &'a mut T,
     pos: u64,
 }
 
-impl<'a, T: Write + Seek> Write for ArtemisArcFile<'a, T> {
+impl<'a, T: Write + Seek> Write for ArtemisPf2File<'a, T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.writer
             .seek(SeekFrom::Start(self.header.offset as u64 + self.pos))?;
@@ -475,7 +416,7 @@ impl<'a, T: Write + Seek> Write for ArtemisArcFile<'a, T> {
     }
 }
 
-impl<'a, T: Write + Seek> Seek for ArtemisArcFile<'a, T> {
+impl<'a, T: Write + Seek> Seek for ArtemisPf2File<'a, T> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(offset) => offset,

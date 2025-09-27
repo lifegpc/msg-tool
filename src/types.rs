@@ -490,6 +490,10 @@ pub enum ScriptType {
     #[value(alias("pfs"))]
     /// Artemis archive (pfs)
     ArtemisArc,
+    #[cfg(feature = "artemis-arc")]
+    #[value(alias("pf2"))]
+    /// Artemis archive (pf2) (.pfs)
+    ArtemisPf2,
     #[cfg(feature = "bgi")]
     #[value(alias("ethornell"))]
     /// Buriko General Interpreter/Ethornell Script
