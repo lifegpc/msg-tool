@@ -212,6 +212,10 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `will-plus-ws2`/`adv-hd-ws2` | `will-plus` | WillPlus/AdvHD Script File (.ws2) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
+
+| Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `will-plus-wip`/`adv-hd-wip` | `will-plus-img` | WillPlus/AdvHD WIP Image File (.wip) | ✔️ | ❌ | ✔️ | ❌ | ❌ |  |
 ### Yaneurao Itufuru
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|

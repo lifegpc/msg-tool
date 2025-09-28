@@ -150,6 +150,8 @@ lazy_static::lazy_static! {
         Box::new(hexen_haus::img::png::PngImageBuilder::new()),
         #[cfg(feature = "hexen-haus-arc")]
         Box::new(hexen_haus::archive::odio::HexenHausOdioArchiveBuilder::new()),
+        #[cfg(feature = "will-plus-img")]
+        Box::new(will_plus::img::wip::WillPlusWipImageBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =
