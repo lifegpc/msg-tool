@@ -69,6 +69,7 @@ msg-tool create -t <script-type> <input> <output>
 |---|---|---|---|---|---|---|---|---|---|---|
 | `artemis` | `artemis` | Artemis Engine AST file (.ast) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
 | `artemis-asb` | `artemis` | Artemis Engine ASB file (.asb/.iet) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | For `.iet` files, only custom export/import and create features are supported. |
+| `artemis-txt` | `artemis` | Artemis Engine TXT (General) script | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
 | `artemis-panmimisoft-txt` | `artemis-panmimisoft` | Artemis Engine TXT ([ぱんみみそふと](https://pannomimi.net/panmimisoft)) file (.txt) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |

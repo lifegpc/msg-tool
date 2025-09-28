@@ -152,6 +152,8 @@ lazy_static::lazy_static! {
         Box::new(hexen_haus::archive::odio::HexenHausOdioArchiveBuilder::new()),
         #[cfg(feature = "will-plus-img")]
         Box::new(will_plus::img::wip::WillPlusWipImageBuilder::new()),
+        #[cfg(feature = "artemis")]
+        Box::new(artemis::txt::ArtemisTxtBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

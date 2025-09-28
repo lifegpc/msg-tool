@@ -483,6 +483,9 @@ pub enum ScriptType {
     #[cfg(feature = "artemis")]
     /// Artemis Engine ASB script
     ArtemisAsb,
+    #[cfg(feature = "artemis")]
+    /// Artemis Engine TXT (General) script
+    ArtemisTxt,
     #[cfg(feature = "artemis-panmimisoft")]
     /// Artemis Engine TXT (ぱんみみそふと) script
     ArtemisPanmimisoftTxt,
