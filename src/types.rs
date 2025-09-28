@@ -666,7 +666,7 @@ pub enum ScriptType {
     #[value(alias("adv-hd-ws2"))]
     /// WillPlus ws2 script
     WillPlusWs2,
-    #[cfg(feature = "will-plus")]
+    #[cfg(feature = "will-plus-img")]
     #[value(alias("adv-hd-wip"))]
     /// WillPlus WIP Image
     WillPlusWip,
