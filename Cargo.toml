@@ -5,7 +5,7 @@ edition = "2024"
 repository = "https://github.com/lifegpc/msg-tool"
 description = "A command-line tool for exporting, importing, packing, and unpacking script files."
 license = "GPL-3.0-or-later"
-exclude = [".github", "*.py"]
+exclude = [".github", "*.py", "AGENTS.md"]
 
 [dependencies]
 anyhow = "1"
@@ -53,7 +53,7 @@ zstd = { version = "0.13", optional = true }
 default = ["all-fmt", "image-jpg", "image-jxl", "image-webp", "audio-flac", "jieba"]
 all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
 all-script = ["artemis", "artemis-panmimisoft", "bgi", "cat-system", "circus", "entis-gls", "escude", "ex-hibit", "favorite", "hexen-haus", "kirikiri", "silky", "softpal", "will-plus", "yaneurao", "yaneurao-itufuru"]
-all-img = ["bgi-img", "cat-system-img", "circus-img", "emote-img", "kirikiri-img", "softpal-img"]
+all-img = ["bgi-img", "cat-system-img", "circus-img", "emote-img", "hexen-haus-img", "kirikiri-img", "softpal-img"]
 all-arc = ["artemis-arc", "bgi-arc", "cat-system-arc", "circus-arc", "escude-arc", "ex-hibit-arc", "hexen-haus-arc", "softpal-arc"]
 all-audio = ["bgi-audio", "circus-audio"]
 artemis = ["stylua", "utils-escape"]
@@ -79,6 +79,7 @@ ex-hibit-arc = ["ex-hibit"]
 favorite = []
 hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
+hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 silky = []
