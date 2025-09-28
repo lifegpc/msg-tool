@@ -170,6 +170,7 @@ msg-tool create -t <script-type> <input> <output>
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
 | `hexen-haus-arcc` | `hexen-haus-arc` | HexenHaus Arcc Archive File (.arc) | ✔️ | ❌ | |
+| `hexen-haus-odio` | `hexen-haus-arc` | HexenHaus Audio Archive File (.bin) | ✔️ | ❌ | |
 | `hexen-haus-wag` | `hexen-haus-arc` | HexenHaus Wag Archive File (.wag) | ✔️ | ❌ | |
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |

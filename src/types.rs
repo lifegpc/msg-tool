@@ -603,6 +603,9 @@ pub enum ScriptType {
     /// HexenHaus Arcc archive
     HexenHausArcc,
     #[cfg(feature = "hexen-haus-arc")]
+    /// HexenHaus Audio archive
+    HexenHausOdio,
+    #[cfg(feature = "hexen-haus-arc")]
     /// HexenHaus WAG archive
     HexenHausWag,
     #[cfg(feature = "hexen-haus-img")]
