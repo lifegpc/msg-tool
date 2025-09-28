@@ -174,7 +174,7 @@ msg-tool create -t <script-type> <input> <output>
 | `hexen-haus-wag` | `hexen-haus-arc` | HexenHaus Wag Archive File (.wag) | ✔️ | ❌ | |
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
-|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|
 | `hexen-haus-png` | `hexen-haus-img` | HexenHaus PNG Image File (.png) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
 ### Kirikiri
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
