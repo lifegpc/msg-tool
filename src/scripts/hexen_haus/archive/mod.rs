@@ -1,4 +1,5 @@
 pub mod arcc;
+pub mod wag;
 
 use crate::types::ScriptType;
 

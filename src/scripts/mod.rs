@@ -144,6 +144,8 @@ lazy_static::lazy_static! {
         Box::new(hexen_haus::archive::arcc::HexenHausArccArchiveBuilder::new()),
         #[cfg(feature = "artemis-arc")]
         Box::new(artemis::archive::pf2::ArtemisPf2Builder::new()),
+        #[cfg(feature = "hexen-haus-arc")]
+        Box::new(hexen_haus::archive::wag::HexenHausWagArchiveBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

@@ -602,6 +602,9 @@ pub enum ScriptType {
     #[cfg(feature = "hexen-haus-arc")]
     /// HexenHaus Arcc archive
     HexenHausArcc,
+    #[cfg(feature = "hexen-haus-arc")]
+    /// HexenHaus WAG archive
+    HexenHausWag,
     #[cfg(feature = "kirikiri")]
     #[value(alias("kr-scn"))]
     /// Kirikiri SCN script
