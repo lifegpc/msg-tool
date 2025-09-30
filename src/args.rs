@@ -706,7 +706,10 @@ pub fn load_kirikiri_chat_json(
         let files = crate::utils::files::find_ext_files(dir, arg.recursive, &[outt.as_ref()])?;
         if !files.is_empty() {
             let mut map = std::collections::HashMap::new();
-            let mut global = std::collections::HashMap::new();
+            let mut global: std::collections::HashMap<
+                String,
+                (String, std::collections::HashSet<String>),
+            > = std::collections::HashMap::new();
             for file in files {
                 let f = crate::utils::files::read_file(&file)?;
                 let data = crate::utils::encoding::decode_to_string(
@@ -732,7 +735,10 @@ pub fn load_kirikiri_chat_json(
                     .and_then(|s| s.to_str())
                     .unwrap_or("unknown")
                     .to_string();
-                let mut entry = std::collections::HashMap::new();
+                let mut entry: std::collections::HashMap<
+                    String,
+                    (String, std::collections::HashSet<String>),
+                > = std::collections::HashMap::new();
                 for (k, v) in m3t {
                     if v.is_empty() {
                         continue;
@@ -740,20 +746,34 @@ pub fn load_kirikiri_chat_json(
                     let k = k.replace("\\[", "[");
                     let v = v.replace("\\[", "[");
                     if let Some((_, count)) = entry.get_mut(&k) {
-                        *count += 1;
+                        count.insert(v.clone());
                     } else {
-                        entry.insert(k.clone(), (v.clone(), 1));
+                        entry.insert(
+                            k.clone(),
+                            (v.clone(), std::collections::HashSet::from_iter([v.clone()])),
+                        );
                     }
                     if let Some((_, count)) = global.get_mut(&k) {
-                        *count += 1;
+                        count.insert(v.clone());
                     } else {
-                        global.insert(k, (v, 1));
+                        global.insert(
+                            k,
+                            (v.clone(), std::collections::HashSet::from_iter([v.clone()])),
+                        );
                     }
                 }
                 map.insert(current_key, entry);
             }
             map.insert("global".to_string(), global);
-            return Ok(Some(std::sync::Arc::new(map)));
+            return Ok(Some(std::sync::Arc::new(
+                map.into_iter()
+                    .map(|(k, v)| {
+                        let v: std::collections::HashMap<_, _> =
+                            v.into_iter().map(|(k, (v, s))| (k, (v, s.len()))).collect();
+                        (k, v)
+                    })
+                    .collect(),
+            )));
         }
     }
     Ok(None)
