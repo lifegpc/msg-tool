@@ -207,9 +207,9 @@ impl<T: Read + Seek> PgdReader<T> {
                     let mut offset = points[i] as usize;
                     let base_value = (input[src2 + offset] as i32) << 7;
                     offset = dst + 3 * offset;
-                    output[offset] = Self::clamp(base_value + b);
-                    output[offset + 1] = Self::clamp(base_value + g);
-                    output[offset + 2] = Self::clamp(base_value + r);
+                    output[offset] = Self::clamp((base_value + b) >> 7);
+                    output[offset + 1] = Self::clamp((base_value + g) >> 7);
+                    output[offset + 2] = Self::clamp((base_value + r) >> 7);
                 }
                 src2 += 2;
                 dst += 6;
