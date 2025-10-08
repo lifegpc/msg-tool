@@ -1323,7 +1323,7 @@ dependencies = [
 
 [[package]]
 name = "msg_tool"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "anyhow",
  "base64",
