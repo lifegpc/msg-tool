@@ -30,7 +30,7 @@ markup5ever = { version = "0.35", optional = true }
 markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
-msg_tool_macro = { version = "0.2.1" }
+msg_tool_macro = { version = "0.2.9" }
 num_cpus = { version = "1.17", optional = true }
 overf = "0.1"
 pelite = { version = "0.10", optional = true }
@@ -109,7 +109,7 @@ utils-str = []
 utils-threadpool = ["num_cpus"]
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0", features = ["Win32_Globalization", "Win32_System_Diagnostics_Debug"] }
+windows-sys = { version = "0.61", features = ["Win32_Globalization", "Win32_System_Diagnostics_Debug"] }
 
 [build-dependencies]
 parse-size = "1.1"

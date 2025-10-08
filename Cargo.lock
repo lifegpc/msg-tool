@@ -1364,16 +1364,16 @@ dependencies = [
  "url",
  "utf16string",
  "webp",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
  "xml5ever",
  "zstd",
 ]
 
 [[package]]
 name = "msg_tool_macro"
-version = "0.2.1"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa96d947277cb22bbd1a9c82f0d5f371677b19e67b0ba0820154601aecb580f9"
+checksum = "1501aeba3591ee077f92da216cb3fa9a34677f3610c0eb322f8d5b364585fc46"
 dependencies = [
  "quote",
  "syn 2.0.106",
