@@ -75,7 +75,7 @@ msg-tool create -t <script-type> <input> <output>
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
 | `artemis-arc`/`pfs` | `artemis-arc` | Artemis Engine archive file (.pfs) | ✔️ | ✔️ | |
-| `artemis-pf2`/`pfs` | `artemis-arc` | Artemis Engine Archive File (.pfs) (pf2) | ✔️ | ✔️ | |
+| `artemis-pf2`/`pf2` | `artemis-arc` | Artemis Engine Archive File (.pfs) (pf2) | ✔️ | ✔️ | |
 ### Buriko General Interpreter / Ethornell
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
