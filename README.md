@@ -187,6 +187,10 @@ msg-tool create -t <script-type> <input> <output>
 | `kirikiri-tjs-ns0`/`kr-tjs-ns0` | `kirikiri` | Kirikiri TJS NS0 binary encoded script | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 | `kirikiri-tjs2`/`kr-tjs2` | `kirikiri` | Kirikiri compiled TJS2 script | ✔️ | ✔️ | ❌ | ❌ | ✔️ | ✔️ | ❌ | |
 
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `kirikiri-xp3`/`kr-xp3`/`xp3` | `kirikiri-arc` | Kirikiri XP3 Archive File (.xp3) | ✔️ | ❌ | |
+
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `kirikiri-tlg`/`kr-tlg` | `kirikiri-img` | Kirikiri TLG Image File (.tlg) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | tlg6 is not supported when importing/creating image |

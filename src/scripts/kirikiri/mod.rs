@@ -1,4 +1,6 @@
 //! Kirikiri Scripts
+#[cfg(feature = "kirikiri-arc")]
+pub mod archive;
 #[cfg(feature = "kirikiri-img")]
 pub mod image;
 pub mod ks;

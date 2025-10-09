@@ -4,7 +4,7 @@ use crate::utils::encoding::decode_to_string;
 use crate::utils::struct_pack::{StructPack, StructUnpack};
 use std::ffi::CString;
 use std::io::*;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 /// A trait to help to peek data from a reader.
 pub trait Peek {
@@ -1996,6 +1996,85 @@ impl<R: Read + Seek, W: Write + Seek, A: Fn(u64) -> Result<u64>, O: Fn(u64) -> R
         self.output.seek(SeekFrom::Start(new_offset))?;
         self.output.write_u32(new_addr as u32)?;
         self.output.seek(SeekFrom::End(0))?;
+        Ok(())
+    }
+}
+
+/// A thread-safe wrapper around a Mutex-protected writer/reader.
+#[derive(Clone)]
+pub struct MutexWrapper<T> {
+    inner: Arc<Mutex<T>>,
+    pos: u64,
+}
+
+impl<T> MutexWrapper<T> {
+    /// Creates a new `MutexWrapper` with the given inner value.
+    pub fn new(inner: Arc<Mutex<T>>, pos: u64) -> Self {
+        MutexWrapper { inner, pos }
+    }
+}
+
+impl<T: Read + Seek> Read for MutexWrapper<T> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let mut lock = self.inner.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+        })?;
+        lock.seek(SeekFrom::Start(self.pos))?;
+        let readed = lock.read(buf)?;
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+impl<T: Read + Seek> Seek for MutexWrapper<T> {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        let mut lock = self.inner.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+        })?;
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset,
+            SeekFrom::End(offset) => {
+                let len = lock.stream_length()?;
+                (len as i64 + offset as i64) as u64
+            }
+            SeekFrom::Current(offset) => (self.pos as i64 + offset as i64) as u64,
+        };
+        if new_pos > lock.stream_length()? {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Seek position is beyond the end of the stream",
+            ));
+        }
+        self.pos = new_pos;
+        Ok(self.pos)
+    }
+
+    fn stream_position(&mut self) -> Result<u64> {
+        Ok(self.pos)
+    }
+
+    fn rewind(&mut self) -> Result<()> {
+        self.pos = 0;
+        Ok(())
+    }
+}
+
+/// A writer that does nothing and always succeeds.
+pub struct EmptyWriter;
+
+impl EmptyWriter {
+    /// Creates a new `EmptyWriter`.
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Write for EmptyWriter {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> Result<()> {
         Ok(())
     }
 }

@@ -47,6 +47,7 @@ url = { version = "2.5", optional = true }
 utf16string = "0.2"
 webp = { version = "0.3", default-features = false, optional = true }
 xml5ever = { version = "0.35", optional = true }
+xp3 = { version = "0.3", optional = true}
 zstd = { version = "0.13", optional = true }
 
 [features]
@@ -54,7 +55,7 @@ default = ["all-fmt", "image-jpg", "image-jxl", "image-webp", "audio-flac", "jie
 all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
 all-script = ["artemis", "artemis-panmimisoft", "bgi", "cat-system", "circus", "entis-gls", "escude", "ex-hibit", "favorite", "hexen-haus", "kirikiri", "silky", "softpal", "will-plus", "yaneurao", "yaneurao-itufuru"]
 all-img = ["bgi-img", "cat-system-img", "circus-img", "emote-img", "hexen-haus-img", "kirikiri-img", "softpal-img", "will-plus-img"]
-all-arc = ["artemis-arc", "bgi-arc", "cat-system-arc", "circus-arc", "escude-arc", "ex-hibit-arc", "hexen-haus-arc", "softpal-arc"]
+all-arc = ["artemis-arc", "bgi-arc", "cat-system-arc", "circus-arc", "escude-arc", "ex-hibit-arc", "hexen-haus-arc", "kirikiri-arc", "softpal-arc"]
 all-audio = ["bgi-audio", "circus-audio"]
 artemis = ["stylua", "utils-escape"]
 artemis-panmimisoft = ["artemis", "rust-ini"]
@@ -81,6 +82,7 @@ hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
+kirikiri-arc = ["kirikiri", "xp3"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 silky = []
 softpal = ["int-enum"]

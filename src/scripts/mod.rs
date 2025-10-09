@@ -154,6 +154,8 @@ lazy_static::lazy_static! {
         Box::new(will_plus::img::wip::WillPlusWipImageBuilder::new()),
         #[cfg(feature = "artemis")]
         Box::new(artemis::txt::ArtemisTxtBuilder::new()),
+        #[cfg(feature = "kirikiri-arc")]
+        Box::new(kirikiri::archive::xp3::Xp3ArchiveBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

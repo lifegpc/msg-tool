@@ -626,6 +626,10 @@ pub enum ScriptType {
     #[value(alias = "kr", alias = "kr-ks", alias = "kirikiri-ks")]
     /// Kirikiri script
     Kirikiri,
+    #[cfg(feature = "kirikiri-arc")]
+    #[value(alias = "kr-xp3", alias = "xp3")]
+    /// Kirikiri XP3 archive
+    KirikiriXp3,
     #[cfg(feature = "kirikiri-img")]
     #[value(alias("kr-tlg"))]
     /// Kirikiri TLG image
