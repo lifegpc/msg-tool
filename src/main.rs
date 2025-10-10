@@ -1486,8 +1486,8 @@ pub fn import_script(
                     continue;
                 }
             };
-            let mut writer = arch.new_file(f.name())?;
             if arg.force_script || f.is_script() {
+                let mut writer = arch.new_file(f.name())?;
                 let (script_file, _) =
                     match parse_script_from_archive(&mut f, arg, config.clone(), &script) {
                         Ok(s) => s,
@@ -1952,6 +1952,7 @@ pub fn import_script(
                     continue;
                 }
             } else {
+                let mut writer = arch.new_file_non_seek(f.name())?;
                 let out_path = std::path::PathBuf::from(&odir).join(f.name());
                 if out_path.is_file() {
                     let f = match std::fs::File::open(&out_path) {
@@ -2356,7 +2357,7 @@ pub fn pack_archive(
                 continue;
             }
         };
-        let mut wf = match archive.new_file(name) {
+        let mut wf = match archive.new_file_non_seek(name) {
             Ok(f) => f,
             Err(e) => {
                 eprintln!("Error creating file {} in archive: {}", name, e);
@@ -2748,6 +2749,12 @@ fn main() {
         xp3_simple_crypt: !arg.xp3_no_simple_crypt,
         #[cfg(feature = "kirikiri-arc")]
         xp3_mdf_decompress: !arg.xp3_no_mdf_decompress,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_segmenter: arg.xp3_segmenter,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_compress_files: !arg.xp3_no_compress_files,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_compress_index: !arg.xp3_no_compress_index,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

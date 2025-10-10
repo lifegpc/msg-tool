@@ -1,3 +1,4 @@
+use super::xp3pack::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -8,6 +9,58 @@ use std::io::{Read, Seek, SeekFrom, Take};
 use std::sync::{Arc, Mutex};
 use xp3::XP3Reader;
 use xp3::index::file::{IndexSegmentFlag, XP3FileIndex};
+
+pub use super::xp3pack::SegmenterConfig;
+
+pub fn parse_segmenter_config(str: &str) -> Result<SegmenterConfig> {
+    let parts: Vec<&str> = str.split(':').collect();
+    if parts.is_empty() {
+        return Ok(SegmenterConfig::default());
+    }
+    match parts[0].to_lowercase().as_str() {
+        "none" => Ok(SegmenterConfig::None),
+        "cdc" => {
+            if parts.len() != 4 {
+                return Err(anyhow::anyhow!(
+                    "Invalid FastCDC segmenter config. Expected format: fastcdc,min_size,avg_size,max_size"
+                ));
+            }
+            let min_size = parse_size::parse_size(parts[1])?;
+            let avg_size = parse_size::parse_size(parts[2])?;
+            let max_size = parse_size::parse_size(parts[3])?;
+            if min_size == 0 || avg_size == 0 || max_size == 0 {
+                return Err(anyhow::anyhow!(
+                    "Invalid FastCDC segmenter config. Sizes must be greater than 0."
+                ));
+            }
+            if !(min_size <= avg_size && avg_size <= max_size) {
+                return Err(anyhow::anyhow!(
+                    "Invalid FastCDC segmenter config. Expected min_size <= avg_size <= max_size."
+                ));
+            }
+            Ok(SegmenterConfig::FastCdc {
+                min_size: min_size as u32,
+                avg_size: avg_size as u32,
+                max_size: max_size as u32,
+            })
+        }
+        "fixed" => {
+            if parts.len() != 2 {
+                return Err(anyhow::anyhow!(
+                    "Invalid Fixed segmenter config. Expected format: fixed,size"
+                ));
+            }
+            let size = parse_size::parse_size(parts[1])?;
+            if size == 0 {
+                return Err(anyhow::anyhow!(
+                    "Invalid Fixed segmenter config. Size must be greater than 0."
+                ));
+            }
+            Ok(SegmenterConfig::Fixed(size as usize))
+        }
+        _ => Err(anyhow::anyhow!("Unknown segmenter type: {}", parts[0])),
+    }
+}
 
 #[derive(Debug)]
 /// Builder for Kirikiri XP3 Archive
@@ -75,6 +128,16 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
 
     fn is_archive(&self) -> bool {
         true
+    }
+
+    fn create_archive(
+        &self,
+        filename: &str,
+        files: &[&str],
+        _encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Archive>> {
+        Ok(Box::new(Xp3ArchiveWriter::new(filename, files, config)?))
     }
 }
 

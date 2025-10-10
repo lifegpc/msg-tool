@@ -492,6 +492,21 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Disable decompressing mdf files in Kirikiri XP3 archive when extracting.
     pub xp3_no_mdf_decompress: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true, default_value = "cdc:32KiB:256KiB:8MiB", value_parser = crate::scripts::kirikiri::archive::xp3::parse_segmenter_config)]
+    /// Configuration for Kirikiri XP3 segmenter when creating XP3 archive.
+    /// none segmenter - none
+    /// fastcdc segmenter - cdc:<min>:<avg>:<max>
+    /// fixed segmenter - fixed:<size>
+    pub xp3_segmenter: crate::scripts::kirikiri::archive::xp3::SegmenterConfig,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true)]
+    /// Disable compressing files in Kirikiri XP3 archive when creating XP3 archive.
+    pub xp3_no_compress_files: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true)]
+    /// Disable compressing index in Kirikiri XP3 archive when creating XP3 archive.
+    pub xp3_no_compress_index: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

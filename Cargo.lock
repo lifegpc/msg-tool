@@ -675,6 +675,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastcdc"
+version = "3.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf51ceb43e96afbfe4dd5c6f6082af5dfd60e220820b8123792d61963f2ce6bc"
+
+[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1325,6 +1331,7 @@ dependencies = [
 name = "msg_tool"
 version = "0.2.9"
 dependencies = [
+ "adler",
  "anyhow",
  "base64",
  "byteorder",
@@ -1334,6 +1341,7 @@ dependencies = [
  "emote-psb",
  "encoding",
  "fancy-regex",
+ "fastcdc",
  "flate2",
  "int-enum",
  "jieba-rs",
@@ -1359,6 +1367,7 @@ dependencies = [
  "serde_json",
  "serde_yaml_ng",
  "sha1",
+ "sha2",
  "stylua",
  "unicode-segmentation",
  "url",
@@ -1907,6 +1916,17 @@ name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
+name = "sha2"
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
  "cpufeatures",

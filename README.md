@@ -189,7 +189,7 @@ msg-tool create -t <script-type> <input> <output>
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
-| `kirikiri-xp3`/`kr-xp3`/`xp3` | `kirikiri-arc` | Kirikiri XP3 Archive File (.xp3) | ✔️ | ❌ | |
+| `kirikiri-xp3`/`kr-xp3`/`xp3` | `kirikiri-arc` | Kirikiri XP3 Archive File (.xp3) | ✔️ | ✔️ | |
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

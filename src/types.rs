@@ -480,6 +480,17 @@ pub struct ExtraConfig {
     #[default(true)]
     /// Decompress mdf files in Kirikiri XP3 archive when extracting. Default is true.
     pub xp3_mdf_decompress: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Configuration for Kirikiri XP3 segmenter when creating XP3 archive.
+    pub xp3_segmenter: crate::scripts::kirikiri::archive::xp3::SegmenterConfig,
+    #[cfg(feature = "kirikiri-arc")]
+    #[default(true)]
+    /// Compress files in Kirikiri XP3 archive when creating. Default is true.
+    pub xp3_compress_files: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[default(true)]
+    /// Compress index in Kirikiri XP3 archive when creating. Default is true.
+    pub xp3_compress_index: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
