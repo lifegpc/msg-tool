@@ -472,6 +472,14 @@ pub struct ExtraConfig {
     /// Enable multi-language support for Kirikiri chat messages. Default is true.
     /// Note: This requires [Self::kirikiri_language_index] and [Self::kirikiri_languages] to be set correctly.
     pub kirikiri_chat_multilang: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[default(true)]
+    /// Decrypt SimpleCrypt files in Kirikiri XP3 archive when extracting. Default is true.
+    pub xp3_simple_crypt: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[default(true)]
+    /// Decompress mdf files in Kirikiri XP3 archive when extracting. Default is true.
+    pub xp3_mdf_decompress: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

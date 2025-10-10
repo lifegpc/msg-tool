@@ -484,6 +484,14 @@ pub struct Arg {
     #[arg(long, global = true, visible_alias = "softpal-idx")]
     /// Whether to add message index to Softpal src script when exporting.
     pub softpal_add_message_index: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true)]
+    /// Disable decrypt SimpleCrypt files in Kirikiri XP3 archive when extracting.
+    pub xp3_no_simple_crypt: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true)]
+    /// Disable decompressing mdf files in Kirikiri XP3 archive when extracting.
+    pub xp3_no_mdf_decompress: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

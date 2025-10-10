@@ -2744,6 +2744,10 @@ fn main() {
         softpal_add_message_index: arg.softpal_add_message_index,
         #[cfg(feature = "kirikiri")]
         kirikiri_chat_multilang: !arg.kirikiri_chat_no_multilang,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_simple_crypt: !arg.xp3_no_simple_crypt,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_mdf_decompress: !arg.xp3_no_mdf_decompress,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

@@ -83,11 +83,13 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
 pub struct Xp3Archive<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
     entries: Vec<(String, XP3FileIndex)>,
+    decrypt_simple_crypt: bool,
+    decompress_mdf: bool,
 }
 
 impl<T: Read + Seek + std::fmt::Debug> Xp3Archive<T> {
     /// Create a new Kirikiri XP3 Archive
-    pub fn new(reader: T, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(reader: T, config: &ExtraConfig) -> Result<Self> {
         let xp3_reader = XP3Reader::open_archive(reader)
             .map_err(|e| anyhow::anyhow!("Failed to open XP3 archive: {:?}", e))?;
         let entries = xp3_reader
@@ -106,6 +108,8 @@ impl<T: Read + Seek + std::fmt::Debug> Xp3Archive<T> {
         Ok(Self {
             reader: Arc::new(Mutex::new(xp3_reader.close().1)),
             entries,
+            decrypt_simple_crypt: config.xp3_simple_crypt,
+            decompress_mdf: config.xp3_mdf_decompress,
         })
     }
 }
@@ -143,7 +147,8 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for Xp3Archive<T> {
         let mut header = [0u8; 16];
         let header_len = entry.read(&mut header)?;
         entry.rewind()?;
-        if header_len >= 5
+        if self.decrypt_simple_crypt
+            && header_len >= 5
             && header[0] == 0xFE
             && header[1] == 0xFE
             && header[3] == 0xFF
@@ -158,6 +163,14 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for Xp3Archive<T> {
                 let index = entry.index.clone();
                 return Ok(Box::new(SimpleCrypt::new(entry, index, crypt)?));
             }
+        }
+        if self.decompress_mdf
+            && header_len >= 4
+            && &header[0..4] == b"mdf\0"
+            && entry.index.info().file_size() > 8
+        {
+            let index = entry.index.clone();
+            return Ok(Box::new(MdfEntry::new(entry, index)?));
         }
         Ok(Box::new(entry))
     }
@@ -459,5 +472,32 @@ impl<T: Read + Seek + std::fmt::Debug> Seek for SimpleCrypt<T> {
 
     fn stream_position(&mut self) -> std::io::Result<u64> {
         self.inner.stream_position()
+    }
+}
+
+#[derive(Debug)]
+struct MdfEntry<T: Read + Seek + std::fmt::Debug> {
+    inner: ZlibDecoder<StreamRegion<Entry<T>>>,
+    index: XP3FileIndex,
+}
+
+impl<T: Read + Seek + std::fmt::Debug> MdfEntry<T> {
+    fn new(mut entry: Entry<T>, index: XP3FileIndex) -> Result<Self> {
+        entry.seek(SeekFrom::Start(8))?;
+        let entry = StreamRegion::new(entry, 8, index.info().file_size())?;
+        let inner = ZlibDecoder::new(entry);
+        Ok(Self { inner, index })
+    }
+}
+
+impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for MdfEntry<T> {
+    fn name(&self) -> &str {
+        &self.index.info().name()
+    }
+}
+
+impl<T: Read + Seek + std::fmt::Debug> Read for MdfEntry<T> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read(buf)
     }
 }
