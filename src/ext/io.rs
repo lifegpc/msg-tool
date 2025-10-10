@@ -1719,6 +1719,7 @@ impl CPeek for MemWriter {
 }
 
 /// A region of a stream that can be read/write and seeked within a specified range.
+#[derive(Debug)]
 pub struct StreamRegion<T: Seek> {
     stream: T,
     start_pos: u64,
@@ -2001,7 +2002,7 @@ impl<R: Read + Seek, W: Write + Seek, A: Fn(u64) -> Result<u64>, O: Fn(u64) -> R
 }
 
 /// A thread-safe wrapper around a Mutex-protected writer/reader.
-#[derive(Clone)]
+#[derive(Debug)]
 pub struct MutexWrapper<T> {
     inner: Arc<Mutex<T>>,
     pos: u64,
@@ -2075,6 +2076,93 @@ impl Write for EmptyWriter {
     }
 
     fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+/// A readable stream that starts with a given prefix before the actual data.
+pub struct PrefixStream<T> {
+    prefix: Vec<u8>,
+    pos: usize,
+    inner: T,
+}
+
+impl<T> PrefixStream<T> {
+    /// Creates a new `PrefixStream` with the given prefix and inner stream.
+    pub fn new(prefix: Vec<u8>, inner: T) -> Self {
+        PrefixStream {
+            prefix,
+            pos: 0,
+            inner,
+        }
+    }
+}
+
+impl<T: Read> Read for PrefixStream<T> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if self.pos < self.prefix.len() {
+            let bytes_to_read = std::cmp::min(buf.len(), self.prefix.len() - self.pos);
+            buf[..bytes_to_read].copy_from_slice(&self.prefix[self.pos..self.pos + bytes_to_read]);
+            self.pos += bytes_to_read;
+            Ok(bytes_to_read)
+        } else {
+            self.inner.read(buf)
+        }
+    }
+}
+
+impl<T: Seek> Seek for PrefixStream<T> {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        let prefix_len = self.prefix.len() as u64;
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset,
+            SeekFrom::End(offset) => {
+                let inner_len = self.inner.stream_length()?;
+                if offset < 0 {
+                    if (-offset) as u64 > inner_len + prefix_len {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek position is before the start of the stream",
+                        ));
+                    }
+                    inner_len + prefix_len - (-offset) as u64
+                } else {
+                    inner_len + prefix_len + offset as u64
+                }
+            }
+            SeekFrom::Current(offset) => {
+                let current_pos = self.stream_position()?;
+                if offset < 0 {
+                    if (-offset) as u64 > current_pos + prefix_len {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek position is before the start of the stream",
+                        ));
+                    }
+                    prefix_len + current_pos - (-offset) as u64
+                } else {
+                    prefix_len + current_pos + offset as u64
+                }
+            }
+        };
+        if new_pos < prefix_len {
+            self.pos = new_pos as usize;
+            self.inner.rewind()?;
+        } else {
+            self.pos = self.prefix.len();
+            self.inner.seek(SeekFrom::Start(new_pos - prefix_len))?;
+        }
+        Ok(new_pos)
+    }
+
+    fn stream_position(&mut self) -> Result<u64> {
+        Ok(self.pos as u64 + self.inner.stream_position()?)
+    }
+
+    fn rewind(&mut self) -> Result<()> {
+        self.pos = 0;
+        self.inner.rewind()?;
         Ok(())
     }
 }
