@@ -210,6 +210,7 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for Xp3Archive<T> {
         let mut header = [0u8; 16];
         let header_len = entry.read(&mut header)?;
         entry.rewind()?;
+        entry.script_type = detect_script_type(entry.index.info().name(), &header, header_len);
         if self.decrypt_simple_crypt
             && header_len >= 5
             && header[0] == 0xFE
@@ -239,6 +240,33 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for Xp3Archive<T> {
     }
 }
 
+fn detect_script_type(filename: &str, buf: &[u8], buf_len: usize) -> Option<ScriptType> {
+    #[cfg(feature = "kirikiri-img")]
+    if buf_len >= 11 && libtlg_rs::is_valid_tlg(buf) {
+        return Some(ScriptType::KirikiriTlg);
+    }
+    if buf_len >= 8 && (buf.starts_with(b"TJS/ns0\0") || buf.starts_with(b"TJS/4s0\0")) {
+        return Some(ScriptType::KirikiriTjsNs0);
+    }
+    if buf_len >= 8 && buf.starts_with(b"TJS2100\0") {
+        return Some(ScriptType::KirikiriTjs2);
+    }
+    let extension = std::path::Path::new(filename)
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    match extension.as_str() {
+        "ks" => Some(ScriptType::Kirikiri),
+        "scn" => Some(ScriptType::KirikiriScn),
+        #[cfg(feature = "emote-img")]
+        "dref" => Some(ScriptType::EmoteDref),
+        #[cfg(feature = "emote-img")]
+        "pimg" => Some(ScriptType::EmotePimg),
+        _ => None,
+    }
+}
+
 #[derive(Debug)]
 struct Entry<T: Read + Seek + std::fmt::Debug> {
     reader: Arc<Mutex<T>>,
@@ -246,6 +274,7 @@ struct Entry<T: Read + Seek + std::fmt::Debug> {
     cache: Option<ZlibDecoder<Take<MutexWrapper<T>>>>,
     pos: u64,
     entries_pos: Vec<u64>,
+    script_type: Option<ScriptType>,
 }
 
 impl<T: Read + Seek + std::fmt::Debug> Entry<T> {
@@ -266,6 +295,7 @@ impl<T: Read + Seek + std::fmt::Debug> Entry<T> {
             cache: None,
             pos: 0,
             entries_pos,
+            script_type: None,
         }
     }
 }
@@ -277,6 +307,10 @@ impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for Entry<T> {
 
     fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
         Ok(Box::new(self))
+    }
+
+    fn script_type(&self) -> Option<&ScriptType> {
+        self.script_type.as_ref()
     }
 }
 
