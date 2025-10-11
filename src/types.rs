@@ -495,6 +495,9 @@ pub struct ExtraConfig {
     #[default(num_cpus::get())]
     /// Workers count for compress files in Kirikiri XP3 archive when creating in parallel. Default is CPU cores count.
     pub xp3_compress_workers: usize,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Use zstd compression for files in Kirikiri XP3 archive when creating. (Warning: Kirikiri engine don't support this. Hook is required.)
+    pub xp3_zstd: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

@@ -73,6 +73,8 @@ pub struct Xp3ArchiveWriter<T: Write + Seek> {
     stats: Arc<Stats>,
     compress_workers: Option<Arc<ThreadPool<Result<()>>>>,
     processing_segments: Arc<Mutex<HashSet<[u8; 32]>>>,
+    use_zstd: bool,
+    zstd_compression_level: i32,
 }
 
 impl Xp3ArchiveWriter<std::io::BufWriter<std::fs::File>> {
@@ -113,6 +115,8 @@ impl Xp3ArchiveWriter<std::io::BufWriter<std::fs::File>> {
                 None
             },
             processing_segments: Arc::new(Mutex::new(HashSet::new())),
+            use_zstd: config.xp3_zstd,
+            zstd_compression_level: config.zstd_compression_level,
         })
     }
 }
@@ -194,6 +198,8 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
             let zlib_compression_level = self.zlib_compression_level;
             let workers = self.compress_workers.clone();
             let processiong_segments = self.processing_segments.clone();
+            let use_zstd = self.use_zstd;
+            let zstd_compression_level = self.zstd_compression_level;
             self.runner.execute(
                 move |_| {
                     let mut reader = reader;
@@ -234,14 +240,23 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
                                         workers.execute(
                                             move |_| {
                                                 let data = {
-                                                    let mut e = flate2::write::ZlibEncoder::new(
-                                                        Vec::new(),
-                                                        flate2::Compression::new(
-                                                            zlib_compression_level,
-                                                        ),
-                                                    );
-                                                    e.write_all(&seg)?;
-                                                    e.finish()?
+                                                    if use_zstd {
+                                                        let mut e = zstd::stream::Encoder::new(
+                                                            Vec::new(),
+                                                            zstd_compression_level,
+                                                        )?;
+                                                        e.write_all(&seg)?;
+                                                        e.finish()?
+                                                    } else {
+                                                        let mut e = flate2::write::ZlibEncoder::new(
+                                                            Vec::new(),
+                                                            flate2::Compression::new(
+                                                                zlib_compression_level,
+                                                            ),
+                                                        );
+                                                        e.write_all(&seg)?;
+                                                        e.finish()?
+                                                    }
                                                 };
                                                 let mut file = file.lock_blocking();
                                                 let start = file.seek(std::io::SeekFrom::End(0))?;
@@ -375,11 +390,19 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
                         let start = file.seek(std::io::SeekFrom::End(0))?;
                         let size = {
                             let mut writer = if is_compressed {
-                                let e = flate2::write::ZlibEncoder::new(
-                                    &mut *file,
-                                    flate2::Compression::new(zlib_compression_level),
-                                );
-                                Box::new(e) as Box<dyn Write>
+                                if use_zstd {
+                                    let e = zstd::stream::Encoder::new(
+                                        &mut *file,
+                                        zstd_compression_level,
+                                    )?;
+                                    Box::new(e) as Box<dyn Write>
+                                } else {
+                                    let e = flate2::write::ZlibEncoder::new(
+                                        &mut *file,
+                                        flate2::Compression::new(zlib_compression_level),
+                                    );
+                                    Box::new(e) as Box<dyn Write>
+                                }
                             } else {
                                 Box::new(&mut *file) as Box<dyn Write>
                             };
@@ -474,12 +497,18 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
         }
         let index_data = index_data.into_inner();
         if self.compress_index {
-            let mut e = flate2::write::ZlibEncoder::new(
-                Vec::new(),
-                flate2::Compression::new(self.zlib_compression_level),
-            );
-            e.write_all(&index_data)?;
-            let compressed_index = e.finish()?;
+            let compressed_index = if self.use_zstd {
+                let mut e = zstd::stream::Encoder::new(Vec::new(), self.zstd_compression_level)?;
+                e.write_all(&index_data)?;
+                e.finish()?
+            } else {
+                let mut e = flate2::write::ZlibEncoder::new(
+                    Vec::new(),
+                    flate2::Compression::new(self.zlib_compression_level),
+                );
+                e.write_all(&index_data)?;
+                e.finish()?
+            };
             file.write_u8(TVP_XP3_INDEX_ENCODE_ZLIB)?;
             file.write_u64(compressed_index.len() as u64)?;
             file.write_u64(index_data.len() as u64)?;

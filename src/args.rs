@@ -508,9 +508,13 @@ pub struct Arg {
     /// Disable compressing index in Kirikiri XP3 archive when creating XP3 archive.
     pub xp3_no_compress_index: bool,
     #[cfg(feature = "kirikiri-arc")]
-    #[arg(long, global = true, default_value_t = num_cpus::get())]
+    #[arg(long, global = true, default_value_t = num_cpus::get(), visible_alias = "xp3-compress-jobs")]
     /// Workers count for compress files in Kirikiri XP3 archive when creating in parallel.
     pub xp3_compress_workers: usize,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true)]
+    /// Use zstd compression for files in Kirikiri XP3 archive when creating. (Warning: Kirikiri engine don't support this. Hook is required.)
+    pub xp3_zstd: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
