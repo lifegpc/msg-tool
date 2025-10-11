@@ -507,6 +507,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Disable compressing index in Kirikiri XP3 archive when creating XP3 archive.
     pub xp3_no_compress_index: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true, default_value_t = num_cpus::get())]
+    /// Workers count for compress files in Kirikiri XP3 archive when creating in parallel.
+    pub xp3_compress_workers: usize,
     #[command(subcommand)]
     /// Command
     pub command: Command,

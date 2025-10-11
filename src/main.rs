@@ -2755,6 +2755,8 @@ fn main() {
         xp3_compress_files: !arg.xp3_no_compress_files,
         #[cfg(feature = "kirikiri-arc")]
         xp3_compress_index: !arg.xp3_no_compress_index,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_compress_workers: arg.xp3_compress_workers,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

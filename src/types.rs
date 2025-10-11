@@ -491,6 +491,10 @@ pub struct ExtraConfig {
     #[default(true)]
     /// Compress index in Kirikiri XP3 archive when creating. Default is true.
     pub xp3_compress_index: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[default(num_cpus::get())]
+    /// Workers count for compress files in Kirikiri XP3 archive when creating in parallel. Default is CPU cores count.
+    pub xp3_compress_workers: usize,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
