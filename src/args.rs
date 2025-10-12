@@ -403,7 +403,7 @@ pub struct Arg {
     /// Path to the ExHibit rld def keys file, which contains the keys in BINARY format.
     pub ex_hibit_rld_def_keys: Option<String>,
     #[cfg(feature = "mozjpeg")]
-    #[arg(short = 'j', long, global = true, default_value_t = 80, value_parser = parse_jpeg_quality)]
+    #[arg(long, global = true, default_value_t = 80, value_parser = parse_jpeg_quality)]
     /// JPEG quality for output images, 0-100. 100 means best quality.
     pub jpeg_quality: u8,
     #[cfg(feature = "webp")]
