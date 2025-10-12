@@ -71,7 +71,7 @@ pub struct Xp3ArchiveWriter<T: Write + Seek> {
     zlib_compression_level: u32,
     segmenter: Option<Arc<Box<dyn Segmenter + Send + Sync>>>,
     stats: Arc<Stats>,
-    compress_workers: Option<Arc<ThreadPool<Result<()>>>>,
+    compress_workers: usize,
     processing_segments: Arc<Mutex<HashSet<[u8; 32]>>>,
     use_zstd: bool,
     zstd_compression_level: i32,
@@ -99,21 +99,21 @@ impl Xp3ArchiveWriter<std::io::BufWriter<std::fs::File>> {
             file: Arc::new(Mutex::new(file)),
             segments: Arc::new(Mutex::new(HashMap::new())),
             items: Arc::new(Mutex::new(items)),
-            runner: ThreadPool::new(1, Some("xp3-writer"), false)?,
+            runner: ThreadPool::new(
+                if config.xp3_segmenter.is_none() {
+                    1
+                } else {
+                    config.xp3_pack_workers.max(1)
+                },
+                Some("xp3-writer"),
+                false,
+            )?,
             compress_files: config.xp3_compress_files,
             compress_index: config.xp3_compress_index,
             zlib_compression_level: config.zlib_compression_level,
             segmenter,
             stats: Arc::new(Stats::default()),
-            compress_workers: if config.xp3_compress_files {
-                Some(Arc::new(ThreadPool::new(
-                    config.xp3_compress_workers.max(1),
-                    Some("xp3-compress"),
-                    false,
-                )?))
-            } else {
-                None
-            },
+            compress_workers: config.xp3_compress_workers.max(1),
             processing_segments: Arc::new(Mutex::new(HashSet::new())),
             use_zstd: config.xp3_zstd,
             zstd_compression_level: config.zstd_compression_level,
@@ -173,7 +173,9 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
     }
 
     fn new_file_non_seek<'a>(&'a mut self, name: &str) -> Result<Box<dyn Write + 'a>> {
-        self.runner.join();
+        if self.segmenter.is_none() {
+            self.runner.join();
+        }
         for err in self.runner.take_results() {
             err?;
         }
@@ -196,7 +198,15 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
             let stats = self.stats.clone();
             let is_compressed = self.compress_files;
             let zlib_compression_level = self.zlib_compression_level;
-            let workers = self.compress_workers.clone();
+            let workers = if self.segmenter.is_some() {
+                Some(Arc::new(ThreadPool::<Result<()>>::new(
+                    self.compress_workers,
+                    Some("xp3-compress"),
+                    false,
+                )?))
+            } else {
+                None
+            };
             let processiong_segments = self.processing_segments.clone();
             let use_zstd = self.use_zstd;
             let zstd_compression_level = self.zstd_compression_level;

@@ -515,6 +515,16 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Use zstd compression for files in Kirikiri XP3 archive when creating. (Warning: Kirikiri engine don't support this. Hook is required.)
     pub xp3_zstd: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(
+        long,
+        global = true,
+        default_value_t = 1,
+        visible_alias = "xp3-pack-jobs"
+    )]
+    /// Workers count for packing file in Kirikiri XP3 archive in parallel.
+    /// This not works when segment is disabled.
+    pub xp3_pack_workers: usize,
     #[command(subcommand)]
     /// Command
     pub command: Command,

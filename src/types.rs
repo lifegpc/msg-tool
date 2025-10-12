@@ -498,6 +498,11 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri-arc")]
     /// Use zstd compression for files in Kirikiri XP3 archive when creating. (Warning: Kirikiri engine don't support this. Hook is required.)
     pub xp3_zstd: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[default(1)]
+    /// Workers count for packing file in Kirikiri XP3 archive in parallel. Default is 1.
+    /// This not works when segment is disabled.
+    pub xp3_pack_workers: usize,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

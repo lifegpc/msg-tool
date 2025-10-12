@@ -2759,6 +2759,8 @@ fn main() {
         xp3_compress_workers: arg.xp3_compress_workers,
         #[cfg(feature = "kirikiri-arc")]
         xp3_zstd: arg.xp3_zstd,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_pack_workers: arg.xp3_pack_workers,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

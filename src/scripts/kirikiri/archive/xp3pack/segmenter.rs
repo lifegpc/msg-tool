@@ -28,6 +28,12 @@ impl Default for SegmenterConfig {
     }
 }
 
+impl SegmenterConfig {
+    pub fn is_none(&self) -> bool {
+        matches!(self, SegmenterConfig::None)
+    }
+}
+
 /// A trait for strategies that split a byte slice into one or more segments.
 pub trait Segmenter {
     fn segment<'a>(
