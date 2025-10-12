@@ -242,6 +242,7 @@ impl Script for CstScript {
         let mut mes = mess.next();
         let strings_address_offset = 0x10 + self.data.cpeek_u32_at(0x8)? as usize;
         let strings_offset = 0x10 + self.data.cpeek_u32_at(0xC)? as usize;
+        let mut name_index = None;
         for (i, s) in self.strings.iter().enumerate() {
             match s.typ {
                 CstStringType::Message => {
@@ -254,6 +255,28 @@ impl Script for CstScript {
                             return Err(anyhow::anyhow!("No enough messages."));
                         }
                     };
+                    if let Some(name_idx) = name_index.take() {
+                        let mut name = match &m.name {
+                            Some(n) => n.clone(),
+                            None => {
+                                return Err(anyhow::anyhow!("Message has no name.",));
+                            }
+                        };
+                        if let Some(replacement) = replacement {
+                            for (k, v) in &replacement.map {
+                                name = name.replace(k, v);
+                            }
+                        }
+                        let data = encode_string(encoding, &name, true)?;
+                        let s = &self.strings[name_idx];
+                        let pos = writer.write_patched_string(s, &data)?;
+                        if pos != s.address {
+                            writer.write_u32_at(
+                                strings_address_offset as u64 + name_idx as u64 * 4,
+                                (pos - strings_offset) as u32,
+                            )?;
+                        }
+                    }
                     let mut message = m.message.clone();
                     if let Some(replacement) = replacement {
                         for (k, v) in &replacement.map {
@@ -272,29 +295,7 @@ impl Script for CstScript {
                     mes = mess.next();
                 }
                 CstStringType::Character => {
-                    let m = match mes {
-                        Some(m) => m,
-                        None => {
-                            return Err(anyhow::anyhow!("No enough messages."));
-                        }
-                    };
-                    let mut name = match &m.name {
-                        Some(name) => name.to_owned(),
-                        None => return Err(anyhow::anyhow!("Message without name.")),
-                    };
-                    if let Some(replacement) = replacement {
-                        for (k, v) in &replacement.map {
-                            name = name.replace(k, v);
-                        }
-                    }
-                    let data = encode_string(encoding, &name, true)?;
-                    let pos = writer.write_patched_string(s, &data)?;
-                    if pos != s.address {
-                        writer.write_u32_at(
-                            strings_address_offset as u64 + i as u64 * 4,
-                            (pos - strings_offset) as u32,
-                        )?;
-                    }
+                    name_index = Some(i);
                 }
                 CstStringType::Command => {
                     if let Some(caps) = CST_COMMAND_REGEX.captures(&s.text)? {
