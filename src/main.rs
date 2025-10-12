@@ -2603,6 +2603,7 @@ fn main() {
         std::process::exit(1);
     });
     let arg = args::parse_args();
+    let argn = std::sync::Arc::new(arg.clone());
     if arg.backtrace {
         unsafe { std::env::set_var("RUST_LIB_BACKTRACE", "1") };
     }
@@ -2870,7 +2871,7 @@ fn main() {
                 }
                 None => None,
             };
-            let repl = match &args.replacement_json {
+            let repl = std::sync::Arc::new(match &args.replacement_json {
                 Some(replacement_json) => {
                     let b = utils::files::read_file(replacement_json).unwrap();
                     let s = String::from_utf8(b).unwrap();
@@ -2878,7 +2879,7 @@ fn main() {
                     Some(table)
                 }
                 None => None,
-            };
+            });
             let (scripts, is_dir) =
                 utils::files::collect_files(&args.input, arg.recursive, false).unwrap();
             if is_dir {
@@ -2897,25 +2898,76 @@ fn main() {
             } else {
                 None
             };
+            let workers = if args.jobs > 1 {
+                Some(
+                    utils::threadpool::ThreadPool::<()>::new(
+                        args.jobs,
+                        Some("import-worker-"),
+                        true,
+                    )
+                    .unwrap(),
+                )
+            } else {
+                None
+            };
             for script in scripts.iter() {
-                let re = import_script(
-                    &script,
-                    &arg,
-                    cfg.clone(),
-                    args,
-                    root_dir,
-                    name_csv.as_ref(),
-                    repl.as_ref(),
-                );
-                match re {
-                    Ok(s) => {
-                        COUNTER.inc(s);
-                    }
-                    Err(e) => {
+                if let Some(workers) = workers.as_ref() {
+                    let arg = argn.clone();
+                    let cfg = cfg.clone();
+                    let script = script.clone();
+                    let name_csv = name_csv.as_ref().map(|s| s.clone());
+                    let repl = repl.clone();
+                    let root_dir = root_dir.map(|s| s.to_path_buf());
+                    let args = args.clone();
+                    if let Err(e) = workers.execute(
+                        move |_| {
+                            let re = import_script(
+                                &script,
+                                &arg,
+                                cfg,
+                                &args,
+                                root_dir.as_ref().map(|s| s.as_path()),
+                                name_csv.as_ref(),
+                                (*repl).as_ref(),
+                            );
+                            match re {
+                                Ok(s) => {
+                                    COUNTER.inc(s);
+                                }
+                                Err(e) => {
+                                    COUNTER.inc_error();
+                                    eprintln!("Error exporting {}: {}", script, e);
+                                    if arg.backtrace {
+                                        eprintln!("Backtrace: {}", e.backtrace());
+                                    }
+                                }
+                            }
+                        },
+                        true,
+                    ) {
                         COUNTER.inc_error();
-                        eprintln!("Error exporting {}: {}", script, e);
-                        if arg.backtrace {
-                            eprintln!("Backtrace: {}", e.backtrace());
+                        eprintln!("Error executing import worker: {}", e);
+                    }
+                } else {
+                    let re = import_script(
+                        &script,
+                        &arg,
+                        cfg.clone(),
+                        args,
+                        root_dir,
+                        name_csv.as_ref(),
+                        (*repl).as_ref(),
+                    );
+                    match re {
+                        Ok(s) => {
+                            COUNTER.inc(s);
+                        }
+                        Err(e) => {
+                            COUNTER.inc_error();
+                            eprintln!("Error exporting {}: {}", script, e);
+                            if arg.backtrace {
+                                eprintln!("Backtrace: {}", e.backtrace());
+                            }
                         }
                     }
                 }

@@ -33,7 +33,7 @@ markup5ever_rcdom = { version = "0.35", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
 msg_tool_macro = { version = "0.2.9" }
-num_cpus = { version = "1.17", optional = true }
+num_cpus = "1.17"
 overf = "0.1"
 parse-size = { version = "1.1", optional = true }
 pelite = { version = "0.10", optional = true }
@@ -67,7 +67,7 @@ artemis-arc = ["artemis", "msg_tool_macro/artemis-arc", "sha1"]
 bgi = ["fancy-regex"]
 bgi-arc = ["bgi", "rand", "utils-bit-stream"]
 bgi-audio = ["bgi"]
-bgi-img = ["bgi", "image", "rand", "utils-threadpool", "utils-bit-stream"]
+bgi-img = ["bgi", "image", "rand", "utils-bit-stream"]
 cat-system = ["fancy-regex", "flate2", "int-enum"]
 cat-system-arc = ["cat-system", "pelite", "utils-blowfish", "utils-crc32"]
 cat-system-img = ["cat-system", "flate2", "image", "mozjpeg", "utils-bit-stream"]
@@ -86,7 +86,7 @@ hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "adler", "fastcdc", "flate2", "parse-size", "sha2", "xp3", "zstd", "utils-threadpool"]
+kirikiri-arc = ["kirikiri", "adler", "fastcdc", "flate2", "parse-size", "sha2", "xp3", "zstd"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 silky = []
 softpal = ["int-enum"]
@@ -97,9 +97,9 @@ will-plus-img = ["will-plus", "image"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao"]
 # basic feature
-image = ["png", "utils-threadpool"]
+image = ["png"]
 image-jpg = ["mozjpeg"]
-image-jxl = ["image", "jpegxl-sys", "utils-threadpool"]
+image-jxl = ["image", "jpegxl-sys"]
 image-webp = ["webp"]
 lossless-audio = ["utils-pcm"]
 audio-flac = ["libflac-sys", "utils-pcm"]
@@ -112,7 +112,6 @@ utils-crc32 = []
 utils-escape = ["fancy-regex"]
 utils-pcm = []
 utils-str = []
-utils-threadpool = ["num_cpus"]
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Globalization", "Win32_System_Diagnostics_Debug"] }

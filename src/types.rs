@@ -1063,7 +1063,6 @@ impl AsRef<str> for LosslessAudioFormat {
     }
 }
 
-#[cfg(feature = "utils-threadpool")]
 #[allow(unused)]
 pub(crate) fn get_default_threads() -> usize {
     num_cpus::get().max(2) / 2

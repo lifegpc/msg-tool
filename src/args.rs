@@ -72,7 +72,7 @@ fn parse_jxl_distance(s: &str) -> Result<f32, String> {
 }
 
 /// Tools for export and import scripts
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[clap(
     group = ArgGroup::new("encodingg").multiple(false),
     group = ArgGroup::new("output_encodingg").multiple(false),
@@ -530,7 +530,7 @@ pub struct Arg {
     pub command: Command,
 }
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[clap(group = ArgGroup::new("patched_encodingg").multiple(false), group = ArgGroup::new("patched_archive_encodingg").multiple(false))]
 pub struct ImportArgs {
     /// Input script file or directory
@@ -593,9 +593,12 @@ pub struct ImportArgs {
     pub replacement_json: Option<String>,
     #[arg(long, action = ArgAction::SetTrue)]
     pub warn_when_output_file_not_found: bool,
+    #[arg(short = 'j', long, default_value_t = 1)]
+    /// Workers count for import scripts in parallel.
+    pub jobs: usize,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 /// Commands
 pub enum Command {
     /// Extract from script
