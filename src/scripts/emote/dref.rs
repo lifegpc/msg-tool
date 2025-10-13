@@ -7,6 +7,7 @@ use crate::utils::encoding::*;
 use crate::utils::img::*;
 use anyhow::Result;
 use emote_psb::PsbReader;
+use libtlg_rs::TlgColorType;
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -101,7 +102,38 @@ impl Dpak {
             ));
         }
         let resource = &self.psb.resources()[rid];
-        Self::load_png(&resource)
+        Self::load_img(&resource)
+    }
+
+    fn load_img(data: &[u8]) -> Result<(ImageData, Option<OffsetData>)> {
+        if libtlg_rs::is_valid_tlg(data) {
+            Ok((Self::load_tlg(data)?, None))
+        } else {
+            Self::load_png(data)
+        }
+    }
+
+    fn load_tlg(data: &[u8]) -> Result<ImageData> {
+        let img = libtlg_rs::load_tlg(MemReaderRef::new(data))
+            .map_err(|e| anyhow::anyhow!("Failed to decode TLG image: {:?}", e))?;
+        let color = img.color;
+        let mut re = ImageData {
+            width: img.width as u32,
+            height: img.height as u32,
+            color_type: match img.color {
+                TlgColorType::Grayscale8 => ImageColorType::Grayscale,
+                TlgColorType::Bgr24 => ImageColorType::Bgr,
+                TlgColorType::Bgra32 => ImageColorType::Bgra,
+            },
+            data: img.data,
+            depth: 8,
+        };
+        if let Some(v) = img.tags.get(&Vec::from(b"mode")) {
+            if v == b"alpha" && color == TlgColorType::Bgr24 {
+                convert_bgr_to_bgra(&mut re)?;
+            }
+        }
+        Ok(re)
     }
 
     fn load_png(data: &[u8]) -> Result<(ImageData, Option<OffsetData>)> {
@@ -288,12 +320,31 @@ impl Script for Dref {
                 "Invalid URL in DREF file: {} (missing domain)",
                 url
             ))?;
-            let (img, img_offset) =
+            let (mut img, img_offset) =
                 loader.load_image(&self.dir, dpak, url.path().trim_start_matches("/"))?;
             let (top, left) = match img_offset {
                 Some(o) => (o.top, o.left),
                 None => (0, 0),
             };
+            if base_img.color_type != img.color_type {
+                if base_img.color_type == ImageColorType::Rgba
+                    && img.color_type == ImageColorType::Rgb
+                {
+                    convert_rgb_to_rgba(&mut img)?;
+                } else if base_img.color_type == ImageColorType::Bgra
+                    && img.color_type == ImageColorType::Bgr
+                {
+                    convert_bgr_to_bgra(&mut img)?;
+                } else if base_img.color_type == ImageColorType::Rgba
+                    && img.color_type == ImageColorType::Bgra
+                {
+                    convert_bgra_to_rgba(&mut img)?;
+                } else if base_img.color_type == ImageColorType::Bgra
+                    && img.color_type == ImageColorType::Rgba
+                {
+                    convert_rgba_to_bgra(&mut img)?;
+                }
+            }
             draw_on_img_with_opacity(&mut base_img, &img, left, top, 0xff)?;
         }
         Ok(base_img)
