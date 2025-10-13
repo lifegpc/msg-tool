@@ -1,4 +1,5 @@
 //! Basic Handle for all emote PSB files.
+use super::rle::*;
 use crate::ext::io::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
@@ -128,7 +129,11 @@ impl Psb {
         path: String,
         data: &[u8],
     ) -> Result<Resource> {
-        let mut res = Resource { path, tlg: None };
+        let mut res = Resource {
+            path,
+            tlg: None,
+            rle: None,
+        };
         if self.config.psb_process_tlg && is_valid_tlg(&data) {
             let tlg = load_tlg(MemReaderRef::new(&data))?;
             res.tlg = Some(TlgInfo::from_tlg(&tlg, self.encoding));
@@ -157,6 +162,39 @@ impl Psb {
             make_sure_dir_exists(&path)?;
             std::fs::write(&path, data)?;
         }
+        Ok(res)
+    }
+
+    fn output_rle_resource(
+        &self,
+        folder_path: &std::path::PathBuf,
+        path: String,
+        data: &[u8],
+        width: i64,
+        height: i64,
+    ) -> Result<Resource> {
+        let mut res = Resource {
+            path,
+            tlg: None,
+            rle: Some(RLPixelInfo { width, height }),
+        };
+        let decompressed = rl_decompress(MemReaderRef::new(data), 4, None)?;
+        let outtype = self.config.image_type.unwrap_or(ImageOutputType::Png);
+        res.path = {
+            let mut pb = std::path::PathBuf::from(&res.path);
+            pb.set_extension(outtype.as_ref());
+            pb.to_string_lossy().to_string()
+        };
+        let path = folder_path.join(&res.path);
+        make_sure_dir_exists(&path)?;
+        let img = ImageData {
+            width: width as u32,
+            height: height as u32,
+            color_type: ImageColorType::Bgra,
+            depth: 8,
+            data: decompressed,
+        };
+        encode_img(img, outtype, &path.to_string_lossy(), &self.config)?;
         Ok(res)
     }
 }
@@ -211,10 +249,18 @@ impl TlgInfo {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+struct RLPixelInfo {
+    width: i64,
+    height: i64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 struct Resource {
     path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     tlg: Option<TlgInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rle: Option<RLPixelInfo>,
 }
 
 impl Script for Psb {
@@ -245,10 +291,35 @@ impl Script for Psb {
         };
         for (i, data) in self.psb.resources().iter().enumerate() {
             let i = i as u64;
-            let res_name = self
-                .psb
-                .root()
-                .find_resource_key(i, vec![])
+            let res_path = self.psb.root().find_resource_key(i, vec![]);
+            if let Some(path) = &res_path {
+                if path.len() >= 2 && *path.last().unwrap() == "pixel" {
+                    let pb_data = self.psb.root();
+                    let mut pb_data = &pb_data[*path.first().unwrap()];
+                    for p in path.iter().take(path.len() - 1).skip(1) {
+                        pb_data = &pb_data[*p];
+                    }
+                    let width = pb_data["width"].as_i64();
+                    let height = pb_data["height"].as_i64();
+                    let compress = pb_data["compress"].as_str();
+                    if let (Some(w), Some(h), Some(c)) = (width, height, compress) {
+                        if c == "RL" {
+                            let res_name: Vec<_> = path
+                                .iter()
+                                .take(path.len() - 1)
+                                .map(|s| s.to_string())
+                                .collect();
+                            let res_name = res_name.join("/");
+                            let res_name = sanitize_path(&res_name);
+                            let res =
+                                self.output_rle_resource(&folder_path, res_name, data, w, h)?;
+                            resources.push(res);
+                            continue;
+                        }
+                    }
+                }
+            }
+            let res_name = res_path
                 .map(|s| s.join("/"))
                 .unwrap_or(format!("res_{}", i));
             let res_name = sanitize_path(&res_name);
@@ -325,6 +396,42 @@ fn read_resource(
         let mut writer = MemWriter::new();
         save_tlg(&tlg, &mut writer)?;
         Ok(writer.into_inner())
+    } else if let Some(rle) = &res.rle {
+        let path = folder_path.join(&res.path);
+        let imgfmt = ImageOutputType::try_from(path.as_path())?;
+        let mut img = decode_img(imgfmt, &path.to_string_lossy())?;
+        if img.depth != 8 {
+            return Err(anyhow::anyhow!(
+                "Only 8-bit images are supported for RLE conversion"
+            ));
+        }
+        if img.color_type == ImageColorType::Rgba {
+            convert_rgba_to_bgra(&mut img)?;
+        } else if img.color_type == ImageColorType::Rgb {
+            convert_rgb_to_bgr(&mut img)?;
+            convert_bgr_to_bgra(&mut img)?;
+        } else if img.color_type == ImageColorType::Bgr {
+            convert_bgr_to_bgra(&mut img)?;
+        }
+        if img.color_type != ImageColorType::Bgra {
+            return Err(anyhow::anyhow!(
+                "Only BGRA images are supported for RLE conversion"
+            ));
+        }
+        if img.width as i64 != rle.width {
+            eprintln!(
+                "Warning: Image width {} does not match RLE width {}",
+                img.width, rle.width
+            );
+        }
+        if img.height as i64 != rle.height {
+            eprintln!(
+                "Warning: Image height {} does not match RLE height {}",
+                img.height, rle.height
+            );
+        }
+        let compressed = rl_compress(MemReaderRef::new(&img.data), 4)?;
+        Ok(compressed)
     } else {
         let path = folder_path.join(&res.path);
         Ok(std::fs::read(&path)?)
