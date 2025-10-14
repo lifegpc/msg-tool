@@ -198,7 +198,7 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
             let stats = self.stats.clone();
             let is_compressed = self.compress_files;
             let zlib_compression_level = self.zlib_compression_level;
-            let workers = if self.segmenter.is_some() {
+            let workers = if self.segmenter.is_some() && is_compressed {
                 Some(Arc::new(ThreadPool::<Result<()>>::new(
                     self.compress_workers,
                     Some("xp3-compress"),
