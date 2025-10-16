@@ -11,7 +11,7 @@ use json::JsonValue;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::{Index, IndexMut};
 
 const NONE: PsbValueFixed = PsbValueFixed::None;
@@ -408,7 +408,7 @@ impl PsbValueFixed {
                 PsbValueFixed::List(PsbListFixed { values })
             }
             JsonValue::Object(obj) => {
-                let mut values = HashMap::new();
+                let mut values = BTreeMap::new();
                 for (key, value) in obj.iter() {
                     values.insert(key.to_owned(), PsbValueFixed::from_json(value));
                 }
@@ -496,7 +496,7 @@ impl IndexMut<&str> for PsbValueFixed {
             PsbValueFixed::Object(o) => o.index_mut(index),
             _ => {
                 *self = PsbValueFixed::Object(PsbObjectFixed {
-                    values: HashMap::new(),
+                    values: BTreeMap::new(),
                 });
                 self.index_mut(index)
             }
@@ -798,13 +798,13 @@ impl PsbListExt for PsbList {
 /// Represents a PSB object with key-value pairs.
 pub struct PsbObjectFixed {
     /// The key-value pairs in the object.
-    pub values: HashMap<String, PsbValueFixed>,
+    pub values: BTreeMap<String, PsbValueFixed>,
 }
 
 impl PsbObjectFixed {
     pub fn new() -> Self {
         Self {
-            values: HashMap::new(),
+            values: BTreeMap::new(),
         }
     }
 
@@ -893,7 +893,7 @@ impl PsbObjectFixed {
     /// Converts a JSON object to a PSB object.
     #[cfg(feature = "json")]
     pub fn from_json(obj: &JsonValue) -> Self {
-        let mut values = HashMap::new();
+        let mut values = BTreeMap::new();
         for (key, value) in obj.entries() {
             values.insert(key.to_owned(), PsbValueFixed::from_json(value));
         }
@@ -951,7 +951,7 @@ pub trait PsbObjectExt {
 
 impl PsbObjectExt for PsbObject {
     fn to_psb_fixed(self) -> PsbObjectFixed {
-        let mut hash_map = HashMap::new();
+        let mut hash_map = BTreeMap::new();
         for (key, value) in self.unwrap() {
             hash_map.insert(key, PsbValue::to_psb_fixed(value));
         }
@@ -961,7 +961,7 @@ impl PsbObjectExt for PsbObject {
 
 /// Iterator for a slice of PSB values in an object.
 pub struct ObjectIter<'a> {
-    inner: std::collections::hash_map::Iter<'a, String, PsbValueFixed>,
+    inner: std::collections::btree_map::Iter<'a, String, PsbValueFixed>,
 }
 
 impl<'a> ObjectIter<'a> {
@@ -981,15 +981,23 @@ impl<'a> Iterator for ObjectIter<'a> {
         self.inner.next()
     }
 }
+
 impl<'a> ExactSizeIterator for ObjectIter<'a> {
     fn len(&self) -> usize {
         self.inner.len()
     }
 }
 
+impl<'a> DoubleEndedIterator for ObjectIter<'a> {
+    #[inline(always)]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back()
+    }
+}
+
 /// Mutable iterator for a slice of PSB values in an object.
 pub struct ObjectIterMut<'a> {
-    inner: std::collections::hash_map::IterMut<'a, String, PsbValueFixed>,
+    inner: std::collections::btree_map::IterMut<'a, String, PsbValueFixed>,
 }
 
 impl<'a> ObjectIterMut<'a> {
@@ -1013,6 +1021,13 @@ impl<'a> Iterator for ObjectIterMut<'a> {
 impl<'a> ExactSizeIterator for ObjectIterMut<'a> {
     fn len(&self) -> usize {
         self.inner.len()
+    }
+}
+
+impl<'a> DoubleEndedIterator for ObjectIterMut<'a> {
+    #[inline(always)]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back()
     }
 }
 
