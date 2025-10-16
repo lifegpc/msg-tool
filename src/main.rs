@@ -2762,6 +2762,8 @@ fn main() {
         xp3_zstd: arg.xp3_zstd,
         #[cfg(feature = "kirikiri-arc")]
         xp3_pack_workers: arg.xp3_pack_workers,
+        #[cfg(feature = "kirikiri")]
+        kirikiri_language_insert: arg.kirikiri_language_insert,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

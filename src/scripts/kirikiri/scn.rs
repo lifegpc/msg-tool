@@ -119,6 +119,7 @@ pub struct ScnScript {
     custom_yaml: bool,
     title: bool,
     chat_multilang: bool,
+    insert_language: bool,
 }
 
 impl ScnScript {
@@ -157,6 +158,7 @@ impl ScnScript {
             custom_yaml: config.custom_yaml,
             title: config.kirikiri_title,
             chat_multilang: config.kirikiri_chat_multilang,
+            insert_language: config.kirikiri_language_insert,
         })
     }
 }
@@ -439,6 +441,15 @@ impl Script for ScnScript {
         } else {
             None
         };
+        let ori_lang = if self.insert_language && self.language_index == 0 {
+            if let Some(lang) = root["languages"][0].as_str() {
+                Some(lang.to_owned())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         let scenes = &mut root["scenes"];
         if !scenes.is_list() {
             return Err(anyhow::anyhow!("scenes is not an array"));
@@ -454,6 +465,11 @@ impl Script for ScnScript {
                     None
                 },
                 self.filename.clone(),
+                if self.chat_multilang {
+                    ori_lang.clone()
+                } else {
+                    None
+                },
             )
         });
         for (i, scene) in scenes.members_mut().enumerate() {
@@ -477,13 +493,23 @@ impl Script for ScnScript {
                         }
                     }
                     if self.language_index == 0 {
-                        scene["title"].set_string(title);
+                        if self.insert_language {
+                            let ori_title = scene["title"].as_str().unwrap_or("").to_string();
+                            scene["title"].push_member(title);
+                            scene["title"].push_member(ori_title);
+                        } else {
+                            scene["title"].set_string(title);
+                        }
                     } else {
                         let ori_title = scene["title"].as_str().unwrap_or("").to_string();
                         while scene["title"].len() < self.language_index {
                             scene["title"].push_member(ori_title.clone());
                         }
-                        scene["title"].push_member(title);
+                        if self.insert_language {
+                            scene["title"].insert_member(self.language_index, title);
+                        } else {
+                            scene["title"].push_member(title);
+                        }
                     }
                     cur_mes = mes.next();
                 } else if scene["title"].is_list() {
@@ -502,10 +528,17 @@ impl Script for ScnScript {
                         }
                     }
                     let ori_title = scene["title"][0].as_str().unwrap_or("").to_string();
-                    while scene["title"].len() <= self.language_index {
-                        scene["title"].push_member(ori_title.clone());
+                    if self.insert_language {
+                        while scene["title"].len() < self.language_index {
+                            scene["title"].push_member(ori_title.clone());
+                        }
+                        scene["title"].insert_member(self.language_index, title);
+                    } else {
+                        while scene["title"].len() <= self.language_index {
+                            scene["title"].push_member(ori_title.clone());
+                        }
+                        scene["title"][self.language_index].set_string(title);
                     }
-                    scene["title"][self.language_index].set_string(title);
                     cur_mes = mes.next();
                 }
             }
@@ -524,8 +557,16 @@ impl Script for ScnScript {
                         let has_name = text[0].is_string();
                         let has_display_name;
                         if text[1].is_list() {
-                            while text[1].len() <= self.language_index {
-                                text[1][self.language_index] = text[1][0].clone();
+                            if self.insert_language {
+                                let ori = text[1][0].clone();
+                                while text[1].len() < self.language_index {
+                                    text[1].push_member(ori.clone());
+                                }
+                                text[1].insert_member(self.language_index, ori.clone());
+                            } else {
+                                while text[1].len() <= self.language_index {
+                                    text[1][self.language_index] = text[1][0].clone();
+                                }
                             }
                             if text[1][self.language_index].is_list()
                                 && text[1][self.language_index].len() >= 2
@@ -624,8 +665,16 @@ impl Script for ScnScript {
                                 }
                                 text[2].set_string(message.replace("\n", "\\n"));
                             } else if text[2].is_list() {
-                                while text[2].len() <= self.language_index {
-                                    text[2][self.language_index] = text[2][0].clone();
+                                if self.insert_language {
+                                    let ori = text[2][0].clone();
+                                    while text[2].len() < self.language_index {
+                                        text[2].push_member(ori.clone());
+                                    }
+                                    text[2].insert_member(self.language_index, ori.clone());
+                                } else {
+                                    while text[2].len() <= self.language_index {
+                                        text[2][self.language_index] = text[2][0].clone();
+                                    }
                                 }
                                 if text[2][self.language_index].is_list()
                                     && text[2][self.language_index].len() >= 2
@@ -691,19 +740,42 @@ impl Script for ScnScript {
                         }
                         if self.language_index != 0
                             && {
-                                while select["language"].len() <= self.language_index {
-                                    // TenShiSouZou
-                                    // first block is null
-                                    if select["language"].len() == 0 {
-                                        select["language"].push_member(PsbValueFixed::Null);
-                                        continue;
+                                if self.insert_language {
+                                    while select["language"].len() < self.language_index {
+                                        // TenShiSouZou
+                                        // first block is null
+                                        if select["language"].len() == 0 {
+                                            select["language"].push_member(PsbValueFixed::Null);
+                                            continue;
+                                        }
+                                        let mut obj = PsbObjectFixed::new();
+                                        obj["text"].set_str("");
+                                        obj["speechtext"].set_str("");
+                                        obj["searchtext"].set_str("");
+                                        obj["textlength"].set_i64(0);
+                                        select["language"][self.language_index].set_obj(obj);
                                     }
                                     let mut obj = PsbObjectFixed::new();
                                     obj["text"].set_str("");
                                     obj["speechtext"].set_str("");
                                     obj["searchtext"].set_str("");
                                     obj["textlength"].set_i64(0);
-                                    select["language"][self.language_index].set_obj(obj);
+                                    select["language"].insert_member(self.language_index, obj);
+                                } else {
+                                    while select["language"].len() <= self.language_index {
+                                        // TenShiSouZou
+                                        // first block is null
+                                        if select["language"].len() == 0 {
+                                            select["language"].push_member(PsbValueFixed::Null);
+                                            continue;
+                                        }
+                                        let mut obj = PsbObjectFixed::new();
+                                        obj["text"].set_str("");
+                                        obj["speechtext"].set_str("");
+                                        obj["searchtext"].set_str("");
+                                        obj["textlength"].set_i64(0);
+                                        select["language"][self.language_index].set_obj(obj);
+                                    }
                                 }
                                 true
                             }
@@ -741,6 +813,18 @@ impl Script for ScnScript {
                                 for (key, value) in replacement.map.iter() {
                                     text = text.replace(key, value);
                                 }
+                            }
+                            if self.insert_language {
+                                let ori_text = select["text"].as_str().unwrap_or("").to_string();
+                                let mut obj = PsbObjectFixed::new();
+                                obj["text"].set_string(ori_text.replace("\n", "\\n"));
+                                obj["speechtext"].set_string(get_save_message(&ori_text, true));
+                                obj["searchtext"].set_string(get_save_message(&ori_text, false));
+                                obj["textlength"].set_i64(ori_text.chars().count() as i64);
+                                if select["language"].len() < 1 {
+                                    select["language"].push_member(PsbValueFixed::Null);
+                                }
+                                select["language"].insert_member(1, obj);
                             }
                             select["text"].set_string(text.replace("\n", "\\n"));
                         }
@@ -918,6 +1002,7 @@ struct ImportMes<'a> {
     key: String,
     text_key: String,
     filename: String,
+    ori_text_key: Option<String>,
 }
 
 impl<'a> ImportMes<'a> {
@@ -927,6 +1012,7 @@ impl<'a> ImportMes<'a> {
         key: String,
         lang: Option<String>,
         filename: String,
+        ori_lang: Option<String>,
     ) -> Self {
         Self {
             messages,
@@ -937,6 +1023,7 @@ impl<'a> ImportMes<'a> {
                 .file_stem()
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| "global".to_string()),
+            ori_text_key: ori_lang.map(|s| format!("text_{}", s)),
         }
     }
 
@@ -977,6 +1064,13 @@ impl<'a> ImportMes<'a> {
                                             text = text.replace(key, value);
                                         }
                                     }
+                                    if self.text_key == "text" {
+                                        if let Some(ori_key) = &self.ori_text_key {
+                                            let ori_text =
+                                                obj["text"].as_str().unwrap_or("").to_string();
+                                            obj[ori_key].set_string(ori_text);
+                                        }
+                                    }
                                     obj[&self.text_key].set_string(text.replace("\n", "\\n"));
                                     continue;
                                 } else {
@@ -990,6 +1084,11 @@ impl<'a> ImportMes<'a> {
                                         for (key, value) in replacement.map.iter() {
                                             text = text.replace(key, value);
                                         }
+                                    }
+                                    if let Some(ori_key) = &self.ori_text_key {
+                                        let ori_text =
+                                            obj["text"].as_str().unwrap_or("").to_string();
+                                        obj[ori_key].set_string(ori_text);
                                     }
                                     obj[&self.text_key].set_string(text.replace("\n", "\\n"));
                                 } else {
@@ -1013,6 +1112,15 @@ impl<'a> ImportMes<'a> {
                                         if let Some(replacement) = self.replacement {
                                             for (key, value) in replacement.map.iter() {
                                                 text = text.replace(key, value);
+                                            }
+                                        }
+                                        if self.text_key == "text" {
+                                            if let Some(ori_key) = &self.ori_text_key {
+                                                let len = list.len();
+                                                let ori_text =
+                                                    list[i].as_str().unwrap_or("").to_string();
+                                                list[len].set_str(ori_key);
+                                                list[len + 1].set_string(ori_text);
                                             }
                                         }
                                         list[i].set_string(text.replace("\n", "\\n"));

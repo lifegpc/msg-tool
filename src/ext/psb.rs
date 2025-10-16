@@ -85,6 +85,26 @@ impl From<f32> for PsbValueFixed {
     }
 }
 
+impl From<PsbObjectFixed> for PsbValueFixed {
+    fn from(value: PsbObjectFixed) -> Self {
+        PsbValueFixed::Object(value)
+    }
+}
+
+impl From<PsbListFixed> for PsbValueFixed {
+    fn from(value: PsbListFixed) -> Self {
+        PsbValueFixed::List(value)
+    }
+}
+
+impl From<&[PsbValueFixed]> for PsbValueFixed {
+    fn from(value: &[PsbValueFixed]) -> Self {
+        PsbValueFixed::List(PsbListFixed {
+            values: value.to_vec(),
+        })
+    }
+}
+
 impl PsbValueFixed {
     /// Converts this value to original PSB value type.
     pub fn to_psb(self, warn_on_none: bool) -> PsbValue {
@@ -275,6 +295,33 @@ impl PsbValueFixed {
         match self {
             PsbValueFixed::List(l) => {
                 l.values.push(value.into());
+            }
+            _ => {
+                *self = PsbValueFixed::List(PsbListFixed {
+                    values: vec![value.into()],
+                });
+            }
+        }
+    }
+
+    /// Clears all members in a list. If this value is not a list, it will be converted to an empty list.
+    pub fn clear_members(&mut self) {
+        match self {
+            PsbValueFixed::List(l) => {
+                l.clear();
+            }
+            _ => {
+                *self = PsbValueFixed::List(PsbListFixed { values: vec![] });
+            }
+        }
+    }
+
+    /// Inserts a new member at the specified index in a list. If this value is not a list, it will be converted to a list.
+    /// If the index is out of bounds, the value will be appended to the end of the list.
+    pub fn insert_member<T: Into<PsbValueFixed>>(&mut self, index: usize, value: T) {
+        match self {
+            PsbValueFixed::List(l) => {
+                l.insert(index, value);
             }
             _ => {
                 *self = PsbValueFixed::List(PsbListFixed {
@@ -613,6 +660,21 @@ impl PsbListFixed {
     /// Returns the length of the list.
     pub fn len(&self) -> usize {
         self.values.len()
+    }
+
+    /// Clears all values in the list.
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
+
+    /// Inserts a new value at the specified index in the list.
+    /// If the index is out of bounds, the value will be appended to the end of the list.
+    pub fn insert<V: Into<PsbValueFixed>>(&mut self, index: usize, value: V) {
+        if index <= self.values.len() {
+            self.values.insert(index, value.into());
+        } else {
+            self.values.push(value.into());
+        }
     }
 
     /// Converts this PSB list to a JSON value.

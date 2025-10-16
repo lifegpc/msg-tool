@@ -525,6 +525,10 @@ pub struct Arg {
     /// Workers count for packing file in Kirikiri XP3 archive in parallel.
     /// This not works when segment is disabled.
     pub xp3_pack_workers: usize,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true)]
+    /// Insert new language at the specified index in Kirikiri SCN script. If index is out of bounds, this flags will be ignored.
+    pub kirikiri_language_insert: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
