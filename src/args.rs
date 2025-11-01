@@ -651,6 +651,9 @@ pub enum Command {
         #[arg(long)]
         /// Do not create directory entries in archive. This means all files are stored in a flat structure.
         no_dir: bool,
+        #[arg(long)]
+        /// Output dependency file path. This file will contain a list of all files packed in the archive.
+        dep_file: Option<String>,
     },
 }
 

@@ -2387,6 +2387,7 @@ pub fn pack_archive_v2(
     config: std::sync::Arc<types::ExtraConfig>,
     backslash: bool,
     no_dir: bool,
+    dep_file: Option<&str>,
 ) -> anyhow::Result<()> {
     let typ = match &arg.script_type {
         Some(t) => t,
@@ -2463,6 +2464,20 @@ pub fn pack_archive_v2(
         get_archived_encoding(arg, builder, get_encoding(arg, builder)),
         &config,
     )?;
+    if let Some(dep_file) = dep_file {
+        let df = std::fs::File::create(dep_file)
+            .map_err(|e| anyhow::anyhow!("Failed to create dep file {}: {}", dep_file, e))?;
+        let mut df = std::io::BufWriter::new(df);
+        use std::io::Write;
+        write!(df, "{}:", output)
+            .map_err(|e| anyhow::anyhow!("Failed to write to dep file {}: {}", dep_file, e))?;
+        for f in &files {
+            write!(df, " {}", f)
+                .map_err(|e| anyhow::anyhow!("Failed to write to dep file {}: {}", dep_file, e))?;
+        }
+        writeln!(df)
+            .map_err(|e| anyhow::anyhow!("Failed to write to dep file {}: {}", dep_file, e))?;
+    }
     for (file, name) in files.iter().zip(reff) {
         let mut f = match std::fs::File::open(file) {
             Ok(f) => f,
@@ -3166,6 +3181,7 @@ fn main() {
             input,
             backslash,
             no_dir,
+            dep_file,
         } => {
             if !input.is_empty() {
                 let input = input.iter().map(|s| s.as_str()).collect::<Vec<_>>();
@@ -3176,6 +3192,7 @@ fn main() {
                     cfg.clone(),
                     *backslash,
                     *no_dir,
+                    dep_file.as_ref().map(|s| s.as_str()),
                 );
                 if let Err(e) = re {
                     COUNTER.inc_error();
