@@ -2380,6 +2380,121 @@ pub fn pack_archive(
     Ok(())
 }
 
+pub fn pack_archive_v2(
+    input: &[&str],
+    output: Option<&str>,
+    arg: &args::Arg,
+    config: std::sync::Arc<types::ExtraConfig>,
+    backslash: bool,
+    no_dir: bool,
+) -> anyhow::Result<()> {
+    let typ = match &arg.script_type {
+        Some(t) => t,
+        None => {
+            return Err(anyhow::anyhow!("No script type specified"));
+        }
+    };
+    // File List in real path
+    let mut files = Vec::new();
+    // File list in archive path
+    let mut re_files = Vec::new();
+    for i in input {
+        let (fs, is_dir) = utils::files::collect_files(i, arg.recursive, true)?;
+        if is_dir {
+            files.extend_from_slice(&fs);
+            for n in fs.iter() {
+                if no_dir {
+                    if let Some(p) = std::path::PathBuf::from(n).file_name() {
+                        re_files.push(p.to_string_lossy().into_owned());
+                    } else {
+                        return Err(anyhow::anyhow!("Failed to get filename from {}", n));
+                    }
+                } else {
+                    if let Some(p) = {
+                        std::path::PathBuf::from(n)
+                            .strip_prefix(i)
+                            .ok()
+                            .and_then(|p| {
+                                p.to_str().map(|s| {
+                                    if backslash {
+                                        s.replace("/", "\\").trim_start_matches("\\").to_owned()
+                                    } else {
+                                        s.replace("\\", "/").trim_start_matches("/").to_owned()
+                                    }
+                                })
+                            })
+                    } {
+                        re_files.push(p);
+                    } else {
+                        return Err(anyhow::anyhow!("Failed to get relative path from {}", n));
+                    }
+                }
+            }
+        } else {
+            files.push(i.to_string());
+            let p = std::path::PathBuf::from(i);
+            if let Some(fname) = p.file_name() {
+                re_files.push(fname.to_string_lossy().into_owned());
+            } else {
+                return Err(anyhow::anyhow!("Failed to get filename from {}", i));
+            }
+        }
+    }
+    let reff = re_files.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+    let builder = scripts::BUILDER
+        .iter()
+        .find(|b| b.script_type() == typ)
+        .ok_or_else(|| anyhow::anyhow!("Unsupported script type"))?;
+    let output = match output {
+        Some(output) => output.to_string(),
+        None => {
+            let mut pb = std::path::PathBuf::from(input[0]);
+            let ext = builder.extensions().first().unwrap_or(&"unk");
+            pb.set_extension(ext);
+            if pb.to_string_lossy() == input[0] {
+                pb.set_extension(format!("{}.{}", ext, ext));
+            }
+            pb.to_string_lossy().into_owned()
+        }
+    };
+    let mut archive = builder.create_archive(
+        &output,
+        &reff,
+        get_archived_encoding(arg, builder, get_encoding(arg, builder)),
+        &config,
+    )?;
+    for (file, name) in files.iter().zip(reff) {
+        let mut f = match std::fs::File::open(file) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Error opening file {}: {}", file, e);
+                COUNTER.inc_error();
+                continue;
+            }
+        };
+        let mut wf = match archive.new_file_non_seek(name) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Error creating file {} in archive: {}", name, e);
+                COUNTER.inc_error();
+                continue;
+            }
+        };
+        match std::io::copy(&mut f, &mut wf) {
+            Ok(_) => {
+                COUNTER.inc(types::ScriptResult::Ok);
+            }
+            Err(e) => {
+                eprintln!("Error writing to file {} in archive: {}", name, e);
+                COUNTER.inc_error();
+                continue;
+            }
+        }
+    }
+    archive.write_header()?;
+    Ok(())
+}
+
 pub fn unpack_archive(
     filename: &str,
     arg: &args::Arg,
@@ -3044,6 +3159,30 @@ fn main() {
                 if arg.backtrace {
                     eprintln!("Backtrace: {}", e.backtrace());
                 }
+            }
+        }
+        args::Command::PackV2 {
+            output,
+            input,
+            backslash,
+            no_dir,
+        } => {
+            if !input.is_empty() {
+                let input = input.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+                let re = pack_archive_v2(
+                    &input,
+                    output.as_ref().map(|s| s.as_str()),
+                    &arg,
+                    cfg.clone(),
+                    *backslash,
+                    *no_dir,
+                );
+                if let Err(e) = re {
+                    COUNTER.inc_error();
+                    eprintln!("Error packing archive: {}", e);
+                }
+            } else {
+                eprintln!("No input files specified for packing.");
             }
         }
     }

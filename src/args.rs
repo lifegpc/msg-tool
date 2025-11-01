@@ -638,6 +638,20 @@ pub enum Command {
         /// Output script file
         output: Option<String>,
     },
+    /// Pack files to archive (version 2)
+    PackV2 {
+        #[arg(short = 'o', long)]
+        /// Output archive file
+        output: Option<String>,
+        /// Path to input files/directories
+        input: Vec<String>,
+        #[arg(long)]
+        /// Use \ as path separator instead of / in archive
+        backslash: bool,
+        #[arg(long)]
+        /// Do not create directory entries in archive. This means all files are stored in a flat structure.
+        no_dir: bool,
+    },
 }
 
 pub fn parse_args() -> Arg {
