@@ -680,6 +680,9 @@ pub enum ScriptType {
     #[value(alias("kr-tjs-ns0"))]
     /// Kirikiri TJS NS0 binary encoded script
     KirikiriTjsNs0,
+    #[cfg(feature = "musica")]
+    /// Musica Script (.sc)
+    Musica,
     #[cfg(feature = "silky")]
     /// Silky Engine Mes script
     Silky,

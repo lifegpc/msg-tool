@@ -22,6 +22,8 @@ pub mod favorite;
 pub mod hexen_haus;
 #[cfg(feature = "kirikiri")]
 pub mod kirikiri;
+#[cfg(feature = "musica")]
+pub mod musica;
 #[cfg(feature = "silky")]
 pub mod silky;
 #[cfg(feature = "softpal")]
@@ -156,6 +158,8 @@ lazy_static::lazy_static! {
         Box::new(artemis::txt::ArtemisTxtBuilder::new()),
         #[cfg(feature = "kirikiri-arc")]
         Box::new(kirikiri::archive::xp3::Xp3ArchiveBuilder::new()),
+        #[cfg(feature = "musica")]
+        Box::new(musica::sc::MusicaBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =
