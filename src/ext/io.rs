@@ -1,4 +1,5 @@
 //!Extensions for IO operations.
+use crate::scripts::base::ReadSeek;
 use crate::types::Encoding;
 use crate::utils::encoding::decode_to_string;
 use crate::utils::struct_pack::{StructPack, StructUnpack};
@@ -1792,7 +1793,8 @@ impl<T: Seek> Seek for StreamRegion<T> {
             ));
         }
         self.cur_pos = new_pos - self.start_pos;
-        self.stream.seek(SeekFrom::Start(new_pos))
+        self.stream.seek(SeekFrom::Start(new_pos))?;
+        Ok(self.cur_pos)
     }
 
     fn stream_position(&mut self) -> Result<u64> {
@@ -2163,6 +2165,120 @@ impl<T: Seek> Seek for PrefixStream<T> {
     fn rewind(&mut self) -> Result<()> {
         self.pos = 0;
         self.inner.rewind()?;
+        Ok(())
+    }
+}
+
+/// A readable stream that concatenates multiple streams.
+#[derive(Debug)]
+pub struct MultipleReadStream {
+    streams: Vec<Box<dyn ReadSeek>>,
+    stream_lengths: Vec<u64>,
+    total_length: u64,
+    pos: u64,
+}
+
+impl MultipleReadStream {
+    /// Creates a new `MultipleReadStream`.
+    pub fn new() -> Self {
+        MultipleReadStream {
+            streams: Vec::new(),
+            stream_lengths: Vec::new(),
+            total_length: 0,
+            pos: 0,
+        }
+    }
+
+    /// Adds a new stream to the end of the concatenated streams.
+    pub fn add_stream<T: ReadSeek + 'static>(&mut self, mut stream: T) -> Result<()> {
+        let length = stream.stream_length()?;
+        self.streams.push(Box::new(stream));
+        self.stream_lengths.push(self.total_length);
+        self.total_length += length;
+        Ok(())
+    }
+
+    /// Adds a new boxed stream to the end of the concatenated streams.
+    pub fn add_stream_boxed(&mut self, mut stream: Box<dyn ReadSeek>) -> Result<()> {
+        let length = stream.stream_length()?;
+        self.streams.push(stream);
+        self.stream_lengths.push(self.total_length);
+        self.total_length += length;
+        Ok(())
+    }
+}
+
+impl Read for MultipleReadStream {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if self.pos >= self.total_length {
+            return Ok(0);
+        }
+        let (stream_index, stream_offset) = match self.stream_lengths.binary_search_by(|&len| {
+            if len > self.pos {
+                std::cmp::Ordering::Greater
+            } else {
+                std::cmp::Ordering::Less
+            }
+        }) {
+            Ok(index) => (index, 0),
+            Err(0) => (0, self.pos),
+            Err(index) => (index - 1, self.pos - self.stream_lengths[index - 1]),
+        };
+        let stream = &mut self.streams[stream_index];
+        stream.seek(SeekFrom::Start(stream_offset))?;
+        let bytes_read = stream.read(buf)?;
+        self.pos += bytes_read as u64;
+        Ok(bytes_read)
+    }
+}
+
+impl Seek for MultipleReadStream {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => offset,
+            SeekFrom::End(offset) => {
+                if offset < 0 {
+                    if (-offset) as u64 > self.total_length {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek position is before the start of the stream",
+                        ));
+                    }
+                    self.total_length - (-offset) as u64
+                } else {
+                    self.total_length + offset as u64
+                }
+            }
+            SeekFrom::Current(offset) => {
+                if offset < 0 {
+                    if (-offset) as u64 > self.pos {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Seek position is before the start of the stream",
+                        ));
+                    }
+                    self.pos - (-offset) as u64
+                } else {
+                    self.pos + offset as u64
+                }
+            }
+        };
+        if new_pos > self.total_length {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Seek position is beyond the end of the stream",
+            ));
+        }
+        self.pos = new_pos;
+        Ok(self.pos)
+    }
+
+    fn stream_position(&mut self) -> Result<u64> {
+        Ok(self.pos)
+    }
+
+    fn rewind(&mut self) -> Result<()> {
+        self.pos = 0;
         Ok(())
     }
 }

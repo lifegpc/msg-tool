@@ -2894,6 +2894,8 @@ fn main() {
         xp3_pack_workers: arg.xp3_pack_workers,
         #[cfg(feature = "kirikiri")]
         kirikiri_language_insert: arg.kirikiri_language_insert,
+        #[cfg(feature = "musica-arc")]
+        musica_game_title: arg.musica_game_title.clone(),
     });
     match &arg.command {
         args::Command::Export { input, output } => {

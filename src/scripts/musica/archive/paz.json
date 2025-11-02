@@ -1,0 +1,46 @@
+{
+    "Trinoline: Genesis": {
+        "Version": 2,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "gsBKy6b+2Q7TsfxB5Ku602R+GUmr5nVdcrgx9UcN/eg=",
+                "DataKey": "PtoqotLwtZL+mXJXaFvLUfpqHtaG140tuUMxNnpew2Y="
+            },
+            "bgm": {
+                "IndexKey": "OL7DoI/A0h1v1f4mfHRVhyfN0TMLbtUFcWkIc5VBMqM=",
+                "DataKey": "lq5NKuGdlmtrvXMsOWrQyw7L7JPk+aR4PWBKEJ7VSV0="
+            },
+            "mov": {
+                "IndexKey": "2vKxRqrmrS7UW5UgPps4M1V6lknfQlxSmybdA+Xfkjs=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "5xrr9exVXAsdiAhQngTm7I7vyZEcqDV7AgZ5uDOohwA=",
+                "DataKey": "pR8d01HN8urgXbCZ1aA/vXRcT9PBCe3DEYeQqaW6oYo="
+            },
+            "se": {
+                "IndexKey": "zzEKw7ssKqW/od1ivGVwIQVQllFFaKF4sRg1rD0GOSk=",
+                "DataKey": "712To4p5wVuxPoW87ObKjYN5/0IEi4Fj0R4IInhZ1+A="
+            },
+            "st": {
+                "IndexKey": "RsLMdkbToHJpnk9HnFAIXr8kmTY3yxHX9P8RLjcao+4=",
+                "DataKey": "VR4vmT01xzL3c/xkikKkMcFN0A+ARJ7VkFnkbjzodSU="
+            },
+            "sys": {
+                "IndexKey": "zode7k5uiB6gVYBYTfgOlIyVOJaZ44HjHPCeSMqO6nI=",
+                "DataKey": "B63q2sRUCogFGzncYBRuVAG4bHsdd/JZzYcJTiF+j5E="
+            },
+            "voice": {
+                "IndexKey": "GMjUQl418C+WfOQUtzmiVb4zB1ll/iZu3QzLTZYX2Pk=",
+                "DataKey": "Rs4OdRr3usmf0WQctaCuGjqK0Yv8fihNZwltRbXbZMs="
+            }
+        },
+        "TypeKeys": {
+            "png": "1jTdPWvv",
+            "ogg": "GPxb5R68",
+            "sc": "WdLwefCN",
+            "avi": "wdiz7GQH"
+        },
+        "Signature": 2223998086
+    }
+}

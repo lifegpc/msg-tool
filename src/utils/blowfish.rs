@@ -168,6 +168,7 @@ mod consts {
 
 use anyhow::Result;
 use byteorder::{BE, ByteOrder, LE};
+use std::io::{Read, Seek};
 use std::marker::PhantomData;
 
 /// Blowfish variant which uses Little Endian byte order read/writes.s.
@@ -181,15 +182,9 @@ pub struct Blowfish<T: ByteOrder = BE> {
     _pd: PhantomData<T>,
 }
 
-impl std::fmt::Debug for Blowfish<BE> {
+impl<T: ByteOrder> std::fmt::Debug for Blowfish<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Blowfish<BE> { ... }")
-    }
-}
-
-impl std::fmt::Debug for Blowfish<LE> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Blowfish<LE> { ... }")
+        f.write_str("Blowfish { ... }")
     }
 }
 
@@ -288,5 +283,108 @@ impl<T: ByteOrder> Blowfish<T> {
         let mut blowfish = Blowfish::init_state();
         blowfish.expand_key(key);
         Ok(blowfish)
+    }
+}
+
+#[derive(Debug)]
+/// Blowfish decryption stream wrapper.
+pub struct BlowfishDecryptor<B: ByteOrder, T> {
+    cipher: Blowfish<B>,
+    buffer: [u8; 8],
+    buffer_len: usize,
+    buffer_is_decrypted: bool,
+    stream: T,
+}
+
+impl<B: ByteOrder, T: std::io::Read> BlowfishDecryptor<B, T> {
+    pub fn new(cipher: Blowfish<B>, stream: T) -> Self {
+        Self {
+            cipher,
+            buffer: [0u8; 8],
+            buffer_len: 0,
+            buffer_is_decrypted: false,
+            stream,
+        }
+    }
+
+    pub fn new_with_key(key: &[u8], stream: T) -> Result<Self> {
+        let cipher = Blowfish::new(key)?;
+        Ok(Self::new(cipher, stream))
+    }
+}
+
+impl<B: ByteOrder, T: Read> Read for BlowfishDecryptor<B, T> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if self.buffer_is_decrypted && self.buffer_len > 0 {
+            let to_copy = std::cmp::min(buf.len(), self.buffer_len);
+            buf[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
+            if to_copy < self.buffer_len {
+                for i in 0..(self.buffer_len - to_copy) {
+                    self.buffer[i] = self.buffer[to_copy + i];
+                }
+            }
+            self.buffer_len -= to_copy;
+            self.buffer_is_decrypted = self.buffer_len > 0;
+            return Ok(to_copy);
+        }
+        if buf.len() < 8 {
+            if self.buffer_len < 8 {
+                self.stream
+                    .read_exact(&mut self.buffer[self.buffer_len..])?;
+            }
+            self.cipher.decrypt_block(&mut self.buffer);
+            self.buffer_len = 8;
+            self.buffer_is_decrypted = true;
+            let to_copy = std::cmp::min(buf.len(), self.buffer_len);
+            buf[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
+            if to_copy < self.buffer_len {
+                for i in 0..(self.buffer_len - to_copy) {
+                    self.buffer[i] = self.buffer[to_copy + i];
+                }
+            }
+            self.buffer_len -= to_copy;
+            self.buffer_is_decrypted = self.buffer_len > 0;
+            return Ok(to_copy);
+        }
+        let mut start_index = 0;
+        if self.buffer_len > 0 {
+            buf[..self.buffer_len].copy_from_slice(&self.buffer[..self.buffer_len]);
+            start_index += self.buffer_len;
+        }
+        let readed = self.stream.read(&mut buf[start_index..])?;
+        let total_readed = start_index + readed;
+        let total_decrypted = total_readed - (total_readed % 8);
+        self.cipher.decrypt_block(&mut buf[..total_decrypted]);
+        if total_readed != total_decrypted {
+            self.buffer_len = total_readed - total_decrypted;
+            self.buffer[..self.buffer_len].copy_from_slice(&buf[total_decrypted..total_readed]);
+        } else {
+            self.buffer_len = 0;
+        }
+        self.buffer_is_decrypted = false;
+        Ok(total_decrypted)
+    }
+}
+
+impl<T: Read + Seek, B: ByteOrder> Seek for BlowfishDecryptor<B, T> {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        if matches!(pos, std::io::SeekFrom::End(0)) {
+            let newpos = self.stream.seek(pos)?;
+            self.buffer_len = 0;
+            self.buffer_is_decrypted = false;
+            return Ok(newpos);
+        }
+        let newpos = self.stream.seek(pos)?;
+        if newpos % 8 != 0 {
+            let block_start = newpos - (newpos % 8);
+            self.stream.seek(std::io::SeekFrom::Start(block_start))?;
+            self.buffer_len = (newpos - block_start) as usize;
+            self.stream
+                .read_exact(&mut self.buffer[..self.buffer_len])?;
+        } else {
+            self.buffer_len = 0;
+        }
+        self.buffer_is_decrypted = false;
+        Ok(newpos)
     }
 }

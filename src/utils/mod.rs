@@ -25,10 +25,16 @@ pub mod name_replacement;
 pub mod num_range;
 #[cfg(feature = "utils-pcm")]
 pub mod pcm;
+#[cfg(feature = "utils-rc4")]
+pub mod rc4;
+#[cfg(feature = "utils-serde-base64bytes")]
+pub mod serde_base64bytes;
 #[cfg(feature = "utils-str")]
 pub mod str;
 pub mod struct_pack;
 pub mod threadpool;
+#[cfg(feature = "utils-xored-stream")]
+pub mod xored_stream;
 
 #[cfg(windows)]
 pub use encoding_win::WinError;

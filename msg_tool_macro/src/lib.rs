@@ -71,6 +71,7 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// * `skip_pack` attribute can be used to skip fields from packing.
+/// * `cstring` attribute can be used to specify that a String field is a C-style string (null-terminated).
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
 /// * `fstring_pad = <u8>` attribute can be used to specify a padding byte for fixed strings. (Default is 0)
 /// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
@@ -81,7 +82,16 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 /// * `skip_pack_if(<expr>)` attribute can be used to skip packing a field if the expression evaluates to true. The expression must be a valid Rust expression that evaluates to a boolean.
 #[proc_macro_derive(
     StructPack,
-    attributes(skip_pack, fstring, fstring_pad, fvec, pstring, pvec, skip_pack_if)
+    attributes(
+        skip_pack,
+        cstring,
+        fstring,
+        fstring_pad,
+        fvec,
+        pstring,
+        pvec,
+        skip_pack_if
+    )
 )]
 pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
     let a = syn::parse_macro_input!(input as PackStruct);
@@ -98,10 +108,13 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                 let mut pvec_type: Option<syn::Ident> = None;
                 let mut cur = None;
                 let mut skip_if = None;
+                let mut is_cstring = false;
                 for attr in &field.attrs {
                     let path = attr.path();
                     if path.is_ident("skip_pack") {
                         skipped = true;
+                    } else if path.is_ident("cstring") {
+                        is_cstring = true;
                     } else if path.is_ident("fstring") {
                         if let syn::Meta::NameValue(nv) = &attr.meta {
                             if let syn::Expr::Lit(lit) = &nv.value {
@@ -181,7 +194,13 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                 if let syn::Type::Path(type_path) = field_type {
                     if let Some(segment) = type_path.path.segments.last() {
                         if segment.ident == "String" {
-                            if let Some(fixed_string) = fixed_string {
+                            if is_cstring {
+                                cur = Some(quote::quote! {
+                                    let s = encode_string(encoding, &self.#field_name, true)?;
+                                    writer.write_all(&s)?;
+                                    writer.write_all(&[0])?;
+                                });
+                            } else if let Some(fixed_string) = fixed_string {
                                 cur = Some(quote::quote! {
                                     let s = encode_string(encoding, &self.#field_name, true)?;
                                     let mut slen = s.len();
@@ -280,10 +299,13 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                     let mut pvec_type: Option<syn::Ident> = None;
                     let mut cur = None;
                     let mut skip_if = None;
+                    let mut is_cstring = false;
                     for attr in &field.attrs {
                         let path = attr.path();
                         if path.is_ident("skip_pack") {
                             skipped = true;
+                        } else if path.is_ident("cstring") {
+                            is_cstring = true;
                         } else if path.is_ident("fstring") {
                             if let syn::Meta::NameValue(nv) = &attr.meta {
                                 if let syn::Expr::Lit(lit) = &nv.value {
@@ -364,7 +386,13 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                     if let syn::Type::Path(type_path) = field_type {
                         if let Some(segment) = type_path.path.segments.last() {
                             if segment.ident == "String" {
-                                if let Some(fixed_string) = fixed_string {
+                                if is_cstring {
+                                    cur = Some(quote::quote! {
+                                        let s = encode_string(encoding, &#field_name, true)?;
+                                        writer.write_all(&s)?;
+                                        writer.write_all(&[0])?;
+                                    });
+                                } else if let Some(fixed_string) = fixed_string {
                                     cur = Some(quote::quote! {
                                         let s = encode_string(encoding, &#field_name, true)?;
                                         let mut slen = s.len();
@@ -464,6 +492,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// * `skip_unpack` attribute can be used to skip fields from unpacking.
+/// * `cstring` attribute can be used to specify that a String field is a C-style string (null-terminated).
 /// * `fstring = <len>` attribute can be used to specify a fixed string length for String fields.
 /// * `fstring_no_trim` attribute can be used to disable trimming of fixed strings.
 /// * `fvec = <len>` attribute can be used to specify a fixed vector length for Vec<_> fields.
@@ -476,6 +505,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
     StructUnpack,
     attributes(
         skip_unpack,
+        cstring,
         fstring,
         fstring_no_trim,
         fvec,
@@ -499,10 +529,13 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         let mut pvec_type: Option<syn::Ident> = None;
         let mut cur = None;
         let mut skip_if: Option<syn::Expr> = None;
+        let mut is_cstring = false;
         for attr in &field.attrs {
             let path = attr.path();
             if path.is_ident("skip_unpack") {
                 skipped = true;
+            } else if path.is_ident("cstring") {
+                is_cstring = true;
             } else if path.is_ident("fstring") {
                 if let syn::Meta::NameValue(nv) = &attr.meta {
                     if let syn::Expr::Lit(lit) = &nv.value {
@@ -580,7 +613,12 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         if let syn::Type::Path(type_path) = field_type {
             if let Some(segment) = type_path.path.segments.last() {
                 if segment.ident == "String" {
-                    if let Some(fixed_string) = fixed_string {
+                    if is_cstring {
+                        cur = Some(quote::quote! {
+                            let #field_name = reader.read_cstring()?;
+                            let #field_name = decode_to_string(encoding, (#field_name).as_bytes(), true)?;
+                        });
+                    } else if let Some(fixed_string) = fixed_string {
                         let trim = syn::LitBool::new(!fstring_no_trim, field.span());
                         cur = Some(quote::quote! {
                             let #field_name = reader.read_fstring(#fixed_string, encoding, #trim)?;

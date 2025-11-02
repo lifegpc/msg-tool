@@ -71,6 +71,14 @@ fn parse_jxl_distance(s: &str) -> Result<f32, String> {
     number_range(s, 0.0, 25.0)
 }
 
+#[cfg(feature = "musica-arc")]
+pub fn get_musica_game_title_value_parser() -> Vec<clap::builder::PossibleValue> {
+    crate::scripts::musica::archive::paz::get_supported_games()
+        .iter()
+        .map(|s| clap::builder::PossibleValue::new(s))
+        .collect()
+}
+
 /// Tools for export and import scripts
 #[derive(Parser, Debug, Clone)]
 #[clap(
@@ -529,6 +537,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Insert new language at the specified index in Kirikiri SCN script. If index is out of bounds, this flags will be ignored.
     pub kirikiri_language_insert: bool,
+    #[cfg(feature = "musica-arc")]
+    #[arg(long, global = true, value_parser = get_musica_game_title_value_parser())]
+    /// Musica game title for paz archive.
+    pub musica_game_title: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

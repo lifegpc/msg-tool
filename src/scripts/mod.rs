@@ -160,6 +160,8 @@ lazy_static::lazy_static! {
         Box::new(kirikiri::archive::xp3::Xp3ArchiveBuilder::new()),
         #[cfg(feature = "musica")]
         Box::new(musica::sc::MusicaBuilder::new()),
+        #[cfg(feature = "musica-arc")]
+        Box::new(musica::archive::paz::PazArcBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

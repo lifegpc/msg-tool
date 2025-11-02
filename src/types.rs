@@ -506,6 +506,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri")]
     /// Insert new language at the specified index in Kirikiri SCN script. If index is out of bounds, this flags will be ignored.
     pub kirikiri_language_insert: bool,
+    #[cfg(feature = "musica-arc")]
+    /// Musica game title for paz archive.
+    pub musica_game_title: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
@@ -683,6 +686,9 @@ pub enum ScriptType {
     #[cfg(feature = "musica")]
     /// Musica Script (.sc)
     Musica,
+    #[cfg(feature = "musica-arc")]
+    /// Musica Engine Resource Archive (.paz)
+    MusicaPaz,
     #[cfg(feature = "silky")]
     /// Silky Engine Mes script
     Silky,

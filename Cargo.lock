@@ -1336,6 +1336,7 @@ dependencies = [
  "base64",
  "byteorder",
  "clap 4.5.48",
+ "crc32fast",
  "csv",
  "ctrlc",
  "emote-psb",
@@ -1343,6 +1344,7 @@ dependencies = [
  "fancy-regex",
  "fastcdc",
  "flate2",
+ "include-flate",
  "int-enum",
  "jieba-rs",
  "json",
@@ -1382,8 +1384,6 @@ dependencies = [
 [[package]]
 name = "msg_tool_macro"
 version = "0.2.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1501aeba3591ee077f92da216cb3fa9a34677f3610c0eb322f8d5b364585fc46"
 dependencies = [
  "quote",
  "syn 2.0.106",

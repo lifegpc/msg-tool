@@ -1,17 +1,17 @@
 use std::io::{Read, Seek, Write};
 
-pub struct Crypto<T> {
+pub struct XoredStream<T> {
     reader: T,
     key: u8,
 }
 
-impl<T> Crypto<T> {
+impl<T> XoredStream<T> {
     pub fn new(reader: T, key: u8) -> Self {
-        Crypto { reader, key }
+        XoredStream { reader, key }
     }
 }
 
-impl<T: Read> Read for Crypto<T> {
+impl<T: Read> Read for XoredStream<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let read_bytes = self.reader.read(buf)?;
         for byte in &mut buf[..read_bytes] {
@@ -21,7 +21,7 @@ impl<T: Read> Read for Crypto<T> {
     }
 }
 
-impl<T: Seek> Seek for Crypto<T> {
+impl<T: Seek> Seek for XoredStream<T> {
     fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
         self.reader.seek(pos)
     }
@@ -35,7 +35,7 @@ impl<T: Seek> Seek for Crypto<T> {
     }
 }
 
-impl<T: Write> Write for Crypto<T> {
+impl<T: Write> Write for XoredStream<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let mut encrypted_buf = buf.to_vec();
         for byte in &mut encrypted_buf {
@@ -49,9 +49,9 @@ impl<T: Write> Write for Crypto<T> {
     }
 }
 
-impl<T: std::fmt::Debug> std::fmt::Debug for Crypto<T> {
+impl<T: std::fmt::Debug> std::fmt::Debug for XoredStream<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Crypto")
+        f.debug_struct("XoredStream")
             .field("reader", &self.reader)
             .field("key", &self.key)
             .finish()
