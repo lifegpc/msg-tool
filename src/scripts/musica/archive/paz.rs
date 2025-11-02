@@ -31,6 +31,7 @@ struct Schema {
     type_keys: HashMap<String, String>,
     /// PAZ file signature
     signature: u32,
+    xor_key: u8,
 }
 
 impl Schema {
@@ -266,6 +267,7 @@ impl PazArc {
         start_offset += 4;
         let xor_key = (index_size >> 24) as u8;
         if xor_key != 0 {
+            eprintln!("Xor Key: {}", xor_key);
             let t = xor_key as u32;
             index_size ^= t << 24 | t << 16 | t << 8 | t;
         }
@@ -588,7 +590,8 @@ impl<T: Write + Seek> PazArcWriter<T> {
         writer.write_u32(0)?; // Placeholder for index size
         {
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&arc_key.index_key)?;
-            let mut index_stream = BlowfishEncryptor::new(blowfish, &mut writer);
+            let stream = XoredStream::new(&mut writer, schema.xor_key);
+            let mut index_stream = BlowfishEncryptor::new(blowfish, stream);
             index_stream.write_u32(entries.len() as u32)?;
             if let Some(mov_data) = &mov_key {
                 index_stream.write_all(mov_data)?;
@@ -602,7 +605,12 @@ impl<T: Write + Seek> PazArcWriter<T> {
         if index_size >> 24 != 0 {
             return Err(anyhow::anyhow!("PAZ index size too large"));
         }
-        writer.write_u32_at(start_offset, index_size)?;
+        if schema.xor_key != 0 {
+            let mut stream = XoredStream::new(&mut writer, schema.xor_key);
+            stream.write_u32_at(start_offset, index_size)?;
+        } else {
+            writer.write_u32_at(start_offset, index_size)?;
+        };
         Ok(PazArcWriter {
             writer,
             headers: entries,
@@ -634,7 +642,8 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
         if let Some(data_key) = &self.arc_key.data_key {
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&data_key.bytes)?;
             entry.offset = self.writer.stream_position()?;
-            let stream = BlowfishEncryptor::new(blowfish, &mut self.writer);
+            let stream = XoredStream::new(&mut self.writer, self.schema.xor_key);
+            let stream = BlowfishEncryptor::new(blowfish, stream);
             let mut type_key = None;
             if self.schema.version > 0 {
                 if let Some(tkey) = self.schema.get_type_key(&entry, self.is_audio) {
@@ -642,7 +651,7 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
                 }
             }
             let writer = MemDataKeyWriter {
-                inner: stream,
+                inner: Box::new(stream),
                 cache: MemWriter::new(),
                 type_key,
                 entry,
@@ -677,7 +686,8 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
             }
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&data_key.bytes)?;
             entry.offset = self.writer.stream_position()?;
-            let stream = BlowfishEncryptor::new(blowfish, &mut self.writer);
+            let stream = XoredStream::new(&mut self.writer, self.schema.xor_key);
+            let stream = BlowfishEncryptor::new(blowfish, stream);
             if self.schema.version > 0 {
                 if let Some(tkey) = self.schema.get_type_key(&entry, self.is_audio) {
                     let key = format!("{} {:08X} {}", entry.name.to_ascii_lowercase(), size, tkey);
@@ -710,7 +720,8 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
         self.writer.seek(SeekFrom::Start(start_offset))?;
         {
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&self.arc_key.index_key)?;
-            let mut index_stream = BlowfishEncryptor::new(blowfish, &mut self.writer);
+            let stream = XoredStream::new(&mut self.writer, self.schema.xor_key);
+            let mut index_stream = BlowfishEncryptor::new(blowfish, stream);
             index_stream.write_u32(self.headers.len() as u32)?;
             if let Some(mov_data) = &self.mov_key {
                 index_stream.write_all(mov_data)?;
@@ -747,8 +758,8 @@ impl<'a> Drop for DateKeyWriter<'a> {
     }
 }
 
-struct MemDataKeyWriter<'a, T: Write + Seek> {
-    inner: BlowfishEncryptor<byteorder::LittleEndian, &'a mut T>,
+struct MemDataKeyWriter<'a> {
+    inner: Box<dyn Write + 'a>,
     cache: MemWriter,
     type_key: Option<String>,
     entry: &'a mut PazEntry,
@@ -756,7 +767,7 @@ struct MemDataKeyWriter<'a, T: Write + Seek> {
     version: u32,
 }
 
-impl<'a, T: Write + Seek> Write for MemDataKeyWriter<'a, T> {
+impl<'a> Write for MemDataKeyWriter<'a> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.cache.write(buf)
     }
@@ -766,7 +777,7 @@ impl<'a, T: Write + Seek> Write for MemDataKeyWriter<'a, T> {
     }
 }
 
-impl<'a, T: Write + Seek> Seek for MemDataKeyWriter<'a, T> {
+impl<'a> Seek for MemDataKeyWriter<'a> {
     fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
         self.cache.seek(pos)
     }
@@ -780,7 +791,7 @@ impl<'a, T: Write + Seek> Seek for MemDataKeyWriter<'a, T> {
     }
 }
 
-impl<'a, T: Write + Seek> Drop for MemDataKeyWriter<'a, T> {
+impl<'a> Drop for MemDataKeyWriter<'a> {
     fn drop(&mut self) {
         let data = &self.cache.data;
         self.entry.unpacked_size = data.len() as u32;
