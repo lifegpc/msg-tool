@@ -435,6 +435,18 @@ impl<T: Read> ArchiveContent for PazFileEntry<T> {
     fn name(&self) -> &str {
         &self.entry.name
     }
+
+    fn script_type(&self) -> Option<&ScriptType> {
+        let ext_name = std::path::Path::new(&self.entry.name)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        match ext_name.as_str() {
+            "sc" => Some(&ScriptType::Musica),
+            _ => None,
+        }
+    }
 }
 
 #[test]
