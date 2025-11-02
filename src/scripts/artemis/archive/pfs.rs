@@ -391,7 +391,11 @@ impl<T: Write + Seek + Read> ArtemisArcWriter<T> {
 }
 
 impl<T: Write + Seek + Read> Archive for ArtemisArcWriter<T> {
-    fn new_file<'a>(&'a mut self, name: &str) -> Result<Box<dyn WriteSeek + 'a>> {
+    fn new_file<'a>(
+        &'a mut self,
+        name: &str,
+        _size: Option<u64>,
+    ) -> Result<Box<dyn WriteSeek + 'a>> {
         let entry = self
             .headers
             .get_mut(name)

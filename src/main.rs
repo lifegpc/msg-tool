@@ -1487,7 +1487,7 @@ pub fn import_script(
                 }
             };
             if arg.force_script || f.is_script() {
-                let mut writer = arch.new_file(f.name())?;
+                let mut writer = arch.new_file(f.name(), None)?;
                 let (script_file, _) =
                     match parse_script_from_archive(&mut f, arg, config.clone(), &script) {
                         Ok(s) => s,
@@ -1952,8 +1952,24 @@ pub fn import_script(
                     continue;
                 }
             } else {
-                let mut writer = arch.new_file_non_seek(f.name())?;
                 let out_path = std::path::PathBuf::from(&odir).join(f.name());
+                let size = if out_path.is_file() {
+                    match std::fs::metadata(&out_path) {
+                        Ok(meta) => Some(meta.len()),
+                        Err(e) => {
+                            eprintln!(
+                                "Error getting metadata for file {}: {}",
+                                out_path.display(),
+                                e
+                            );
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                } else {
+                    None
+                };
+                let mut writer = arch.new_file_non_seek(f.name(), size)?;
                 if out_path.is_file() {
                     let f = match std::fs::File::open(&out_path) {
                         Ok(f) => f,
@@ -2357,7 +2373,15 @@ pub fn pack_archive(
                 continue;
             }
         };
-        let mut wf = match archive.new_file_non_seek(name) {
+        let size = match std::fs::metadata(file) {
+            Ok(meta) => meta.len(),
+            Err(e) => {
+                eprintln!("Error getting metadata for file {}: {}", file, e);
+                COUNTER.inc_error();
+                continue;
+            }
+        };
+        let mut wf = match archive.new_file_non_seek(name, Some(size)) {
             Ok(f) => f,
             Err(e) => {
                 eprintln!("Error creating file {} in archive: {}", name, e);
@@ -2487,7 +2511,15 @@ pub fn pack_archive_v2(
                 continue;
             }
         };
-        let mut wf = match archive.new_file_non_seek(name) {
+        let size = match std::fs::metadata(file) {
+            Ok(meta) => meta.len(),
+            Err(e) => {
+                eprintln!("Error getting metadata for file {}: {}", file, e);
+                COUNTER.inc_error();
+                continue;
+            }
+        };
+        let mut wf = match archive.new_file_non_seek(name, Some(size)) {
             Ok(f) => f,
             Err(e) => {
                 eprintln!("Error creating file {} in archive: {}", name, e);

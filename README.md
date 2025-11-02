@@ -201,7 +201,7 @@ msg-tool create -t <script-type> <input> <output>
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
-| `musica-arc` | `musica-arc` | Musica Archive Resource File (.paz) | ✔️ | ❌ | |
+| `musica-arc` | `musica-arc` | Musica Archive Resource File (.paz) | ✔️ | ✔️ | |
 ### Silky Engine
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|

@@ -164,6 +164,20 @@ impl ScriptBuilder for PazArcBuilder {
         }
         None
     }
+
+    fn create_archive(
+        &self,
+        filename: &str,
+        files: &[&str],
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Archive>> {
+        let file = std::fs::File::create(filename)?;
+        let file = std::io::BufWriter::new(file);
+        Ok(Box::new(PazArcWriter::new(
+            file, files, encoding, filename, config,
+        )?))
+    }
 }
 
 #[derive(Debug, StructPack, StructUnpack, Clone)]
@@ -449,27 +463,6 @@ impl<T: Read> ArchiveContent for PazFileEntry<T> {
     }
 }
 
-#[test]
-fn test_deserialize_paz() {
-    for (game, schema) in PAZ_SCHEMA.iter() {
-        println!("Game: {}", game);
-        println!("Version: {}", schema.version);
-        for (arc_name, arc_key) in schema.arc_keys.iter() {
-            println!("  Arc Name: {}", arc_name);
-            println!("    Index Key: {:02X?}", arc_key.index_key.bytes);
-            if let Some(data_key) = &arc_key.data_key {
-                println!("    Data Key: {:02X?}", data_key.bytes);
-            } else {
-                println!("    Data Key: None");
-            }
-        }
-        for (type_name, type_key) in schema.type_keys.iter() {
-            println!("  Type Name: {}, Type Key: {}", type_name, type_key);
-        }
-        println!("Signature: {:08X}", schema.signature);
-    }
-}
-
 struct TableEncryptedStream<T> {
     inner: T,
     table: Vec<u8>,
@@ -522,5 +515,329 @@ impl<T: Write> Write for TableEncryptedStream<T> {
 
     fn flush(&mut self) -> std::io::Result<()> {
         self.inner.flush()
+    }
+}
+
+pub struct PazArcWriter<T: Write + Seek> {
+    writer: T,
+    headers: HashMap<String, PazEntry>,
+    encoding: Encoding,
+    is_audio: bool,
+    mov_key: Option<Vec<u8>>,
+    schema: Schema,
+    arc_key: ArcKey,
+}
+
+impl<T: Write + Seek> PazArcWriter<T> {
+    pub fn new(
+        mut writer: T,
+        files: &[&str],
+        encoding: Encoding,
+        filename: &str,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
+        let schema = config.musica_game_title.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Game title not specified. Use --musica-game-title to specify the game title."
+            )
+        })?;
+        let schema = query_paz_schema(schema).ok_or_else(|| {
+            anyhow::anyhow!("Unsupported game title '{}' for PAZ archive", schema)
+        })?;
+        let arc_name = std::path::Path::new(filename)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?
+            .to_lowercase();
+        let is_audio = AUDIO_PAZ_NAMES.contains(&arc_name.as_str());
+        let is_video = arc_name == "mov";
+        let arc_key = schema.arc_keys.get(&arc_name).ok_or_else(|| {
+            anyhow::anyhow!(
+                "No ARC key found for archive name '{}' in game schema",
+                arc_name
+            )
+        })?;
+        let mov_key = if is_video {
+            let mut key = vec![0u8; 0x100];
+            for i in 0..0x100 {
+                key[i] = i as u8;
+            }
+            Some(key)
+        } else {
+            None
+        };
+        let start_offset = if schema.version > 0 { 0x20 } else { 0 };
+        if start_offset > 0 {
+            if schema.signature != 0 {
+                writer.write_u32(schema.signature)?;
+            }
+            writer.seek(SeekFrom::Start(start_offset))?;
+        }
+        let mut entries = HashMap::new();
+        for file in files {
+            let entry = PazEntry {
+                name: file.to_string(),
+                offset: 0,
+                unpacked_size: 0,
+                size: 0,
+                aligned_size: 0,
+                flags: 0,
+            };
+            entries.insert(file.to_string(), entry);
+        }
+        writer.write_u32(0)?; // Placeholder for index size
+        {
+            let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&arc_key.index_key)?;
+            let mut index_stream = BlowfishEncryptor::new(blowfish, &mut writer);
+            index_stream.write_u32(entries.len() as u32)?;
+            if let Some(mov_data) = &mov_key {
+                index_stream.write_all(mov_data)?;
+            }
+            for entry in entries.values() {
+                index_stream.write_struct(entry, false, encoding)?;
+            }
+        }
+        let index_end = writer.stream_position()?;
+        let index_size = (index_end - start_offset - 4) as u32;
+        if index_size >> 24 != 0 {
+            return Err(anyhow::anyhow!("PAZ index size too large"));
+        }
+        writer.write_u32_at(start_offset, index_size)?;
+        Ok(PazArcWriter {
+            writer,
+            headers: entries,
+            encoding,
+            is_audio,
+            mov_key,
+            schema: schema.clone(),
+            arc_key: arc_key.clone(),
+        })
+    }
+}
+
+impl<T: Write + Seek> Archive for PazArcWriter<T> {
+    fn new_file<'a>(
+        &'a mut self,
+        name: &str,
+        _size: Option<u64>,
+    ) -> Result<Box<dyn WriteSeek + 'a>> {
+        let entry = self
+            .headers
+            .get_mut(name)
+            .ok_or_else(|| anyhow::anyhow!("File '{}' not found in PAZ archive headers", name))?;
+        if entry.offset != 0 || entry.size != 0 {
+            return Err(anyhow::anyhow!(
+                "File '{}' already exists in PAZ archive",
+                name
+            ));
+        }
+        if let Some(data_key) = &self.arc_key.data_key {
+            let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&data_key.bytes)?;
+            entry.offset = self.writer.stream_position()?;
+            let stream = BlowfishEncryptor::new(blowfish, &mut self.writer);
+            let mut type_key = None;
+            if self.schema.version > 0 {
+                if let Some(tkey) = self.schema.get_type_key(&entry, self.is_audio) {
+                    type_key = Some(tkey.to_string());
+                }
+            }
+            let writer = MemDataKeyWriter {
+                inner: stream,
+                cache: MemWriter::new(),
+                type_key,
+                entry,
+                encoding: self.encoding,
+                version: self.schema.version,
+            };
+            return Ok(Box::new(writer));
+        }
+        Err(anyhow::anyhow!("Data encryption key not found."))
+    }
+
+    fn new_file_non_seek<'a>(
+        &'a mut self,
+        name: &str,
+        size: Option<u64>,
+    ) -> Result<Box<dyn Write + 'a>> {
+        if let Some(data_key) = &self.arc_key.data_key {
+            let size = match size {
+                Some(size) => size,
+                None => {
+                    return Ok(Box::new(self.new_file(name, None)?));
+                }
+            };
+            let entry = self.headers.get_mut(name).ok_or_else(|| {
+                anyhow::anyhow!("File '{}' not found in PAZ archive headers", name)
+            })?;
+            if entry.offset != 0 || entry.size != 0 {
+                return Err(anyhow::anyhow!(
+                    "File '{}' already exists in PAZ archive",
+                    name
+                ));
+            }
+            let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&data_key.bytes)?;
+            entry.offset = self.writer.stream_position()?;
+            let stream = BlowfishEncryptor::new(blowfish, &mut self.writer);
+            if self.schema.version > 0 {
+                if let Some(tkey) = self.schema.get_type_key(&entry, self.is_audio) {
+                    let key = format!("{} {:08X} {}", entry.name.to_ascii_lowercase(), size, tkey);
+                    let key = encode_string(self.encoding, &key, false)?;
+                    let mut rc4 = Rc4::new(&key);
+                    if self.schema.version >= 2 {
+                        let crc = crc32fast::hash(&key);
+                        let skip = ((crc >> 12) as i32) & 0xFF;
+                        rc4.skip_bytes(skip as usize);
+                    }
+                    let writer = Rc4Stream::new(stream, rc4);
+                    let writer = DateKeyWriter {
+                        inner: Box::new(writer),
+                        entry,
+                    };
+                    return Ok(Box::new(writer));
+                }
+            }
+            let writer = DateKeyWriter {
+                inner: Box::new(stream),
+                entry,
+            };
+            return Ok(Box::new(writer));
+        }
+        Err(anyhow::anyhow!("Data encryption key not found."))
+    }
+
+    fn write_header(&mut self) -> Result<()> {
+        let start_offset = if self.schema.version > 0 { 0x24 } else { 4 };
+        self.writer.seek(SeekFrom::Start(start_offset))?;
+        {
+            let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&self.arc_key.index_key)?;
+            let mut index_stream = BlowfishEncryptor::new(blowfish, &mut self.writer);
+            index_stream.write_u32(self.headers.len() as u32)?;
+            if let Some(mov_data) = &self.mov_key {
+                index_stream.write_all(mov_data)?;
+            }
+            for entry in self.headers.values() {
+                index_stream.write_struct(entry, false, self.encoding)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+struct DateKeyWriter<'a> {
+    inner: Box<dyn Write + 'a>,
+    entry: &'a mut PazEntry,
+}
+
+impl<'a> Write for DateKeyWriter<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let writed = self.inner.write(buf)?;
+        self.entry.size += writed as u32;
+        Ok(writed)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+impl<'a> Drop for DateKeyWriter<'a> {
+    fn drop(&mut self) {
+        self.entry.unpacked_size = self.entry.size;
+        self.entry.aligned_size = (self.entry.size + 7) & !7;
+    }
+}
+
+struct MemDataKeyWriter<'a, T: Write + Seek> {
+    inner: BlowfishEncryptor<byteorder::LittleEndian, &'a mut T>,
+    cache: MemWriter,
+    type_key: Option<String>,
+    entry: &'a mut PazEntry,
+    encoding: Encoding,
+    version: u32,
+}
+
+impl<'a, T: Write + Seek> Write for MemDataKeyWriter<'a, T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.cache.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.cache.flush()
+    }
+}
+
+impl<'a, T: Write + Seek> Seek for MemDataKeyWriter<'a, T> {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.cache.seek(pos)
+    }
+
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.cache.rewind()
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        self.cache.stream_position()
+    }
+}
+
+impl<'a, T: Write + Seek> Drop for MemDataKeyWriter<'a, T> {
+    fn drop(&mut self) {
+        let data = &self.cache.data;
+        self.entry.unpacked_size = data.len() as u32;
+        self.entry.size = self.entry.unpacked_size;
+        self.entry.aligned_size = (self.entry.size + 7) & !7;
+        let mut stream = if let Some(tkey) = &self.type_key {
+            let key = format!(
+                "{} {:08X} {}",
+                self.entry.name.to_ascii_lowercase(),
+                self.entry.unpacked_size,
+                tkey
+            );
+            let key = match encode_string(self.encoding, &key, false) {
+                Ok(key) => key,
+                Err(e) => {
+                    eprintln!(
+                        "Error encoding key for PAZ file entry '{}': {}",
+                        self.entry.name, e
+                    );
+                    crate::COUNTER.inc_error();
+                    return;
+                }
+            };
+            let mut rc4 = Rc4::new(&key);
+            if self.version >= 2 {
+                let crc = crc32fast::hash(&key);
+                let skip = ((crc >> 12) as i32) & 0xFF;
+                rc4.skip_bytes(skip as usize);
+            }
+            Box::new(Rc4Stream::new(&mut self.inner, rc4)) as Box<dyn Write>
+        } else {
+            Box::new(&mut self.inner) as Box<dyn Write>
+        };
+        if let Err(e) = stream.write_all(&data) {
+            eprintln!("Error writing PAZ file entry '{}': {}", self.entry.name, e);
+            crate::COUNTER.inc_error();
+        }
+    }
+}
+
+#[test]
+fn test_deserialize_paz() {
+    for (game, schema) in PAZ_SCHEMA.iter() {
+        println!("Game: {}", game);
+        println!("Version: {}", schema.version);
+        for (arc_name, arc_key) in schema.arc_keys.iter() {
+            println!("  Arc Name: {}", arc_name);
+            println!("    Index Key: {:02X?}", arc_key.index_key.bytes);
+            if let Some(data_key) = &arc_key.data_key {
+                println!("    Data Key: {:02X?}", data_key.bytes);
+            } else {
+                println!("    Data Key: None");
+            }
+        }
+        for (type_name, type_key) in schema.type_keys.iter() {
+            println!("  Type Name: {}, Type Key: {}", type_name, type_key);
+        }
+        println!("Signature: {:08X}", schema.signature);
     }
 }

@@ -164,15 +164,23 @@ impl<'a> Drop for Writer<'a> {
 }
 
 impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
-    fn new_file<'a>(&'a mut self, name: &str) -> Result<Box<dyn WriteSeek + 'a>> {
-        let inner = self.new_file_non_seek(name)?;
+    fn new_file<'a>(
+        &'a mut self,
+        name: &str,
+        size: Option<u64>,
+    ) -> Result<Box<dyn WriteSeek + 'a>> {
+        let inner = self.new_file_non_seek(name, size)?;
         Ok(Box::new(Writer {
             inner,
             mem: MemWriter::new(),
         }))
     }
 
-    fn new_file_non_seek<'a>(&'a mut self, name: &str) -> Result<Box<dyn Write + 'a>> {
+    fn new_file_non_seek<'a>(
+        &'a mut self,
+        name: &str,
+        _size: Option<u64>,
+    ) -> Result<Box<dyn Write + 'a>> {
         if self.segmenter.is_none() {
             self.runner.join();
         }

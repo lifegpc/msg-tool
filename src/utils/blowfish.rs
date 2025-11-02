@@ -168,7 +168,7 @@ mod consts {
 
 use anyhow::Result;
 use byteorder::{BE, ByteOrder, LE};
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, Write};
 use std::marker::PhantomData;
 
 /// Blowfish variant which uses Little Endian byte order read/writes.s.
@@ -275,6 +275,17 @@ impl<T: ByteOrder> Blowfish<T> {
         }
     }
 
+    /// Encrypts a block of data in-place.
+    pub fn encrypt_block(&self, buf: &mut [u8]) {
+        for i in 0..buf.len() / 8 {
+            let mut l = T::read_u32(&buf[i * 8..]);
+            let mut r = T::read_u32(&buf[i * 8 + 4..]);
+            [l, r] = self.encrypt([l, r]);
+            T::write_u32(&mut buf[i * 8..], l);
+            T::write_u32(&mut buf[i * 8 + 4..], r);
+        }
+    }
+
     /// Creates a new Blowfish cipher instance with the given key.
     pub fn new(key: &[u8]) -> Result<Self> {
         if key.len() < 4 || key.len() > 56 {
@@ -296,7 +307,7 @@ pub struct BlowfishDecryptor<B: ByteOrder, T> {
     stream: T,
 }
 
-impl<B: ByteOrder, T: std::io::Read> BlowfishDecryptor<B, T> {
+impl<B: ByteOrder, T: Read> BlowfishDecryptor<B, T> {
     pub fn new(cipher: Blowfish<B>, stream: T) -> Self {
         Self {
             cipher,
@@ -386,5 +397,68 @@ impl<T: Read + Seek, B: ByteOrder> Seek for BlowfishDecryptor<B, T> {
         }
         self.buffer_is_decrypted = false;
         Ok(newpos)
+    }
+}
+
+pub struct BlowfishEncryptor<B: ByteOrder, T: Write> {
+    cipher: Blowfish<B>,
+    buffer: [u8; 8],
+    buffer_len: usize,
+    stream: T,
+}
+
+impl<B: ByteOrder, T: Write> BlowfishEncryptor<B, T> {
+    pub fn new(cipher: Blowfish<B>, stream: T) -> Self {
+        Self {
+            cipher,
+            buffer: [0u8; 8],
+            buffer_len: 0,
+            stream,
+        }
+    }
+
+    pub fn new_with_key(key: &[u8], stream: T) -> Result<Self> {
+        let cipher = Blowfish::new(key)?;
+        Ok(Self::new(cipher, stream))
+    }
+}
+
+impl<B: ByteOrder, T: Write> Write for BlowfishEncryptor<B, T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let total_bytes = buf.len() + self.buffer_len;
+        let mut wbuf = vec![0u8; total_bytes];
+        if self.buffer_len > 0 {
+            wbuf[..self.buffer_len].copy_from_slice(&self.buffer[..self.buffer_len]);
+        }
+        wbuf[self.buffer_len..].copy_from_slice(buf);
+        self.cipher.encrypt_block(&mut wbuf);
+        self.buffer_len = total_bytes % 8;
+        if self.buffer_len > 0 {
+            let start = total_bytes - self.buffer_len;
+            self.buffer[..self.buffer_len].copy_from_slice(&wbuf[start..]);
+            self.stream.write_all(&wbuf[..start])?;
+        } else {
+            self.stream.write_all(&wbuf)?;
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.stream.flush()
+    }
+}
+
+impl<B: ByteOrder, T: Write> Drop for BlowfishEncryptor<B, T> {
+    fn drop(&mut self) {
+        if self.buffer_len > 0 {
+            for i in self.buffer_len..8 {
+                self.buffer[i] = 0;
+            }
+            self.cipher.encrypt_block(&mut self.buffer);
+            if let Err(e) = self.stream.write_all(&self.buffer) {
+                eprintln!("Error writing final block in BlowfishEncryptor drop: {}", e);
+                crate::COUNTER.inc_error();
+            }
+        }
     }
 }

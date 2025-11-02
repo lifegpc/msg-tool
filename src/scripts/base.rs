@@ -585,10 +585,19 @@ pub trait Script: std::fmt::Debug + std::any::Any {
 /// A trait for creating archives.
 pub trait Archive {
     /// Creates a new file in the archive.
-    fn new_file<'a>(&'a mut self, name: &str) -> Result<Box<dyn WriteSeek + 'a>>;
+    ///
+    /// size is optional, if provided, size must be exactly the size of the file to be created.
+    fn new_file<'a>(&'a mut self, name: &str, size: Option<u64>)
+    -> Result<Box<dyn WriteSeek + 'a>>;
     /// Creates a new file in the archive that does not require seeking.
-    fn new_file_non_seek<'a>(&'a mut self, name: &str) -> Result<Box<dyn Write + 'a>> {
-        self.new_file(name)
+    ///
+    /// size is optional, if provided, size must be exactly the size of the file to be created.
+    fn new_file_non_seek<'a>(
+        &'a mut self,
+        name: &str,
+        size: Option<u64>,
+    ) -> Result<Box<dyn Write + 'a>> {
+        self.new_file(name, size)
             .map(|f| Box::new(f) as Box<dyn Write + 'a>)
     }
     /// Writes the header of the archive. (Must be called after writing all files.)
