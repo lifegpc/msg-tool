@@ -2928,6 +2928,8 @@ fn main() {
         kirikiri_language_insert: arg.kirikiri_language_insert,
         #[cfg(feature = "musica-arc")]
         musica_game_title: arg.musica_game_title.clone(),
+        #[cfg(feature = "musica-arc")]
+        musica_xor_key: arg.musica_xor_key,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

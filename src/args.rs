@@ -541,6 +541,10 @@ pub struct Arg {
     #[arg(long, global = true, value_parser = get_musica_game_title_value_parser())]
     /// Musica game title for paz archive.
     pub musica_game_title: Option<String>,
+    #[cfg(feature = "musica-arc")]
+    #[arg(long, global = true)]
+    /// Musica xor key for paz archive.
+    pub musica_xor_key: Option<u8>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

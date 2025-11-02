@@ -509,6 +509,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "musica-arc")]
     /// Musica game title for paz archive.
     pub musica_game_title: Option<String>,
+    #[cfg(feature = "musica-arc")]
+    /// Musica xor key for paz archive.
+    pub musica_xor_key: Option<u8>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

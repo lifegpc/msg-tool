@@ -265,9 +265,16 @@ impl PazArc {
         stream.seek(SeekFrom::Start(start_offset))?;
         let mut index_size = stream.read_u32()?;
         start_offset += 4;
-        let xor_key = (index_size >> 24) as u8;
+        let xor_key = if let Some(xor_key) = config.musica_xor_key {
+            xor_key
+        } else if schema.xor_key != 0 {
+            schema.xor_key
+        } else {
+            let xor = (index_size >> 24) as u8;
+            eprintln!("Detected xor key from index size: {}", xor);
+            xor
+        };
         if xor_key != 0 {
-            eprintln!("Xor Key: {}", xor_key);
             let t = xor_key as u32;
             index_size ^= t << 24 | t << 16 | t << 8 | t;
         }
@@ -528,6 +535,7 @@ pub struct PazArcWriter<T: Write + Seek> {
     mov_key: Option<Vec<u8>>,
     schema: Schema,
     arc_key: ArcKey,
+    xor_key: u8,
 }
 
 impl<T: Write + Seek> PazArcWriter<T> {
@@ -587,10 +595,15 @@ impl<T: Write + Seek> PazArcWriter<T> {
             };
             entries.insert(file.to_string(), entry);
         }
+        let xor_key = if let Some(xor_key) = config.musica_xor_key {
+            xor_key
+        } else {
+            schema.xor_key
+        };
         writer.write_u32(0)?; // Placeholder for index size
         {
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&arc_key.index_key)?;
-            let stream = XoredStream::new(&mut writer, schema.xor_key);
+            let stream = XoredStream::new(&mut writer, xor_key);
             let mut index_stream = BlowfishEncryptor::new(blowfish, stream);
             index_stream.write_u32(entries.len() as u32)?;
             if let Some(mov_data) = &mov_key {
@@ -602,11 +615,8 @@ impl<T: Write + Seek> PazArcWriter<T> {
         }
         let index_end = writer.stream_position()?;
         let index_size = (index_end - start_offset - 4) as u32;
-        if index_size >> 24 != 0 {
-            return Err(anyhow::anyhow!("PAZ index size too large"));
-        }
-        if schema.xor_key != 0 {
-            let mut stream = XoredStream::new(&mut writer, schema.xor_key);
+        if xor_key != 0 {
+            let mut stream = XoredStream::new(&mut writer, xor_key);
             stream.write_u32_at(start_offset, index_size)?;
         } else {
             writer.write_u32_at(start_offset, index_size)?;
@@ -619,6 +629,7 @@ impl<T: Write + Seek> PazArcWriter<T> {
             mov_key,
             schema: schema.clone(),
             arc_key: arc_key.clone(),
+            xor_key,
         })
     }
 }
@@ -642,7 +653,7 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
         if let Some(data_key) = &self.arc_key.data_key {
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&data_key.bytes)?;
             entry.offset = self.writer.stream_position()?;
-            let stream = XoredStream::new(&mut self.writer, self.schema.xor_key);
+            let stream = XoredStream::new(&mut self.writer, self.xor_key);
             let stream = BlowfishEncryptor::new(blowfish, stream);
             let mut type_key = None;
             if self.schema.version > 0 {
@@ -686,7 +697,7 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
             }
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&data_key.bytes)?;
             entry.offset = self.writer.stream_position()?;
-            let stream = XoredStream::new(&mut self.writer, self.schema.xor_key);
+            let stream = XoredStream::new(&mut self.writer, self.xor_key);
             let stream = BlowfishEncryptor::new(blowfish, stream);
             if self.schema.version > 0 {
                 if let Some(tkey) = self.schema.get_type_key(&entry, self.is_audio) {
@@ -720,7 +731,7 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
         self.writer.seek(SeekFrom::Start(start_offset))?;
         {
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&self.arc_key.index_key)?;
-            let stream = XoredStream::new(&mut self.writer, self.schema.xor_key);
+            let stream = XoredStream::new(&mut self.writer, self.xor_key);
             let mut index_stream = BlowfishEncryptor::new(blowfish, stream);
             index_stream.write_u32(self.headers.len() as u32)?;
             if let Some(mov_data) = &self.mov_key {
