@@ -1808,6 +1808,25 @@ impl<T: Seek> Seek for StreamRegion<T> {
     }
 }
 
+impl<T: Seek + Write> Write for StreamRegion<T> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        if self.cur_pos + self.start_pos >= self.end_pos {
+            return Ok(0); // EOF
+        }
+        self.stream
+            .seek(SeekFrom::Start(self.start_pos + self.cur_pos))?;
+        let bytes_to_write = (self.end_pos - self.start_pos - self.cur_pos) as usize;
+        let m = buf.len().min(bytes_to_write);
+        let written = self.stream.write(&buf[..m])?;
+        self.cur_pos += written as u64;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        self.stream.flush()
+    }
+}
+
 struct RangeMap {
     original: (u64, u64),
     new: (u64, u64),

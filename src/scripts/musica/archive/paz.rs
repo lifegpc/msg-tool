@@ -670,6 +670,32 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
                 version: self.schema.version,
             };
             return Ok(Box::new(writer));
+        } else if let Some(mov_key) = &self.mov_key {
+            entry.offset = self.writer.stream_position()?;
+            let stream = XoredStream::new(&mut self.writer, self.xor_key);
+            if self.schema.version < 1 {
+                let stream = TableEncryptedStream::new(stream, mov_key.clone())?;
+                let writer = MovDataWriter {
+                    inner: Box::new(stream),
+                    entry,
+                };
+                return Ok(Box::new(writer));
+            }
+            let type_key = self
+                .schema
+                .get_type_key(&entry, self.is_audio)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Data decryption key not found for entry '{}'.", entry.name)
+                })?;
+            let writer = MemMovDataKeyWriter {
+                inner: Box::new(stream),
+                cache: MemWriter::new(),
+                type_key: type_key.to_string(),
+                mov_key: mov_key.clone(),
+                entry,
+                encoding: self.encoding,
+            };
+            return Ok(Box::new(writer));
         }
         Err(anyhow::anyhow!("Data encryption key not found."))
     }
@@ -722,6 +748,59 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
                 entry,
             };
             return Ok(Box::new(writer));
+        } else if let Some(mov_key) = &self.mov_key {
+            let size = match size {
+                Some(size) => size,
+                None => {
+                    return Ok(Box::new(self.new_file(name, None)?));
+                }
+            };
+            let entry = self.headers.get_mut(name).ok_or_else(|| {
+                anyhow::anyhow!("File '{}' not found in PAZ archive headers", name)
+            })?;
+            if entry.offset != 0 || entry.size != 0 {
+                return Err(anyhow::anyhow!(
+                    "File '{}' already exists in PAZ archive",
+                    name
+                ));
+            }
+            entry.offset = self.writer.stream_position()?;
+            let stream = XoredStream::new(&mut self.writer, self.xor_key);
+            if self.schema.version < 1 {
+                let stream = TableEncryptedStream::new(stream, mov_key.clone())?;
+                let writer = MovDataWriter {
+                    inner: Box::new(stream),
+                    entry,
+                };
+                return Ok(Box::new(writer));
+            }
+            let type_key = self
+                .schema
+                .get_type_key(&entry, self.is_audio)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Data decryption key not found for entry '{}'.", entry.name)
+                })?;
+            let key = format!(
+                "{} {:08X} {}",
+                entry.name.to_ascii_lowercase(),
+                size,
+                type_key
+            );
+            let key = encode_string(self.encoding, &key, false)?;
+            let mut rkey = mov_key.clone();
+            let key_len = key.len();
+            for i in 0..0x100 {
+                rkey[i] ^= key[i % key_len];
+            }
+            let mut rc4 = Rc4::new(&rkey);
+            let key_block = rc4.generate_block((size as usize).min(0x10000));
+            let region = StreamRegion::new(stream, entry.offset, entry.offset + size)?;
+            let stream = XoredKeyStream::new(region, key_block, 0);
+            let writer = DateKeyWriter {
+                inner: Box::new(stream),
+                entry,
+            };
+            return Ok(Box::new(writer));
         }
         Err(anyhow::anyhow!("Data encryption key not found."))
     }
@@ -766,6 +845,54 @@ impl<'a> Drop for DateKeyWriter<'a> {
     fn drop(&mut self) {
         self.entry.unpacked_size = self.entry.size;
         self.entry.aligned_size = (self.entry.size + 7) & !7;
+    }
+}
+
+trait MyWriteSeek: Write + Seek {}
+impl<T: Write + Seek> MyWriteSeek for T {}
+
+struct MovDataWriter<'a> {
+    inner: Box<dyn MyWriteSeek + 'a>,
+    entry: &'a mut PazEntry,
+}
+
+impl<'a> Write for MovDataWriter<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+impl<'a> Seek for MovDataWriter<'a> {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.inner.seek(pos)
+    }
+
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.inner.rewind()
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        self.inner.stream_position()
+    }
+}
+
+impl<'a> Drop for MovDataWriter<'a> {
+    fn drop(&mut self) {
+        if let Ok(pos) = self.inner.stream_position() {
+            self.entry.unpacked_size = (pos - self.entry.offset) as u32;
+            self.entry.size = self.entry.unpacked_size;
+            self.entry.aligned_size = self.entry.size;
+        } else {
+            eprintln!(
+                "Error getting stream position for PAZ file entry '{}'",
+                self.entry.name
+            );
+            crate::COUNTER.inc_error();
+        }
     }
 }
 
@@ -836,6 +963,92 @@ impl<'a> Drop for MemDataKeyWriter<'a> {
         } else {
             Box::new(&mut self.inner) as Box<dyn Write>
         };
+        if let Err(e) = stream.write_all(&data) {
+            eprintln!("Error writing PAZ file entry '{}': {}", self.entry.name, e);
+            crate::COUNTER.inc_error();
+        }
+    }
+}
+
+struct MemMovDataKeyWriter<'a> {
+    inner: Box<dyn MyWriteSeek + 'a>,
+    cache: MemWriter,
+    type_key: String,
+    entry: &'a mut PazEntry,
+    encoding: Encoding,
+    mov_key: Vec<u8>,
+}
+
+impl<'a> Write for MemMovDataKeyWriter<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.cache.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.cache.flush()
+    }
+}
+
+impl<'a> Seek for MemMovDataKeyWriter<'a> {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.cache.seek(pos)
+    }
+
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.cache.rewind()
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        self.cache.stream_position()
+    }
+}
+
+impl<'a> Drop for MemMovDataKeyWriter<'a> {
+    fn drop(&mut self) {
+        let data = &self.cache.data;
+        self.entry.unpacked_size = data.len() as u32;
+        self.entry.size = self.entry.unpacked_size;
+        self.entry.aligned_size = self.entry.size;
+        let key = format!(
+            "{} {:08X} {}",
+            self.entry.name.to_ascii_lowercase(),
+            self.entry.unpacked_size,
+            self.type_key
+        );
+        let key = match encode_string(self.encoding, &key, false) {
+            Ok(key) => key,
+            Err(e) => {
+                eprintln!(
+                    "Error encoding key for PAZ file entry '{}': {}",
+                    self.entry.name, e
+                );
+                crate::COUNTER.inc_error();
+                return;
+            }
+        };
+        let mut rkey = self.mov_key.clone();
+        let key_len = key.len();
+        for i in 0..0x100 {
+            rkey[i] ^= key[i % key_len];
+        }
+        let mut rc4 = Rc4::new(&rkey);
+        let key_block = rc4.generate_block(data.len().min(0x10000));
+        let region = match StreamRegion::new(
+            &mut self.inner,
+            self.entry.offset,
+            self.entry.offset + self.entry.size as u64,
+        ) {
+            Ok(region) => region,
+            Err(e) => {
+                eprintln!(
+                    "Error creating stream region for PAZ file entry '{}': {}",
+                    self.entry.name, e
+                );
+                crate::COUNTER.inc_error();
+                return;
+            }
+        };
+        let mut stream = XoredKeyStream::new(region, key_block, 0);
         if let Err(e) = stream.write_all(&data) {
             eprintln!("Error writing PAZ file entry '{}': {}", self.entry.name, e);
             crate::COUNTER.inc_error();
