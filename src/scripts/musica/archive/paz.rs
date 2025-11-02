@@ -6,7 +6,7 @@ use crate::utils::encoding::*;
 use crate::utils::rc4::*;
 use crate::utils::serde_base64bytes::Base64Bytes;
 use crate::utils::struct_pack::*;
-use crate::utils::xored_stream::XoredStream;
+use crate::utils::xored_stream::*;
 use anyhow::Result;
 use msg_tool_macro::{StructPack, StructUnpack};
 use serde::Deserialize;
@@ -34,11 +34,17 @@ struct Schema {
 }
 
 impl Schema {
-    pub fn get_type_key(&self, entry: &PazEntry) -> Option<&str> {
-        let name = std::path::Path::new(&entry.name)
+    pub fn get_type_key(&self, entry: &PazEntry, is_audio: bool) -> Option<&str> {
+        if is_audio {
+            return self.type_keys.get("ogg").map(|s| s.as_str());
+        }
+        let mut name = std::path::Path::new(&entry.name)
             .extension()?
             .to_string_lossy()
             .to_lowercase();
+        if name == "mpg" || name == "mpeg" {
+            name = "avi".to_string();
+        }
         self.type_keys.get(&name).map(|s| s.as_str())
     }
 }
@@ -179,7 +185,11 @@ pub struct PazArc {
     entries: Vec<PazEntry>,
     archive_encoding: Encoding,
     xor_key: u8,
+    is_audio: bool,
+    mov_key: Option<Vec<u8>>,
 }
+
+const AUDIO_PAZ_NAMES: &[&str] = &["bgm", "se", "voice", "pmbgm", "pmse", "pmvoice"];
 
 impl PazArc {
     pub fn new<T: ReadSeek + 'static>(
@@ -228,6 +238,8 @@ impl PazArc {
             .and_then(|s| s.to_str())
             .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?
             .to_lowercase();
+        let is_audio = AUDIO_PAZ_NAMES.contains(&arc_name.as_str());
+        let is_video = arc_name == "mov";
         let arc_key = schema.arc_keys.get(&arc_name).ok_or_else(|| {
             anyhow::anyhow!(
                 "No ARC key found for archive name '{}' in game schema",
@@ -246,6 +258,7 @@ impl PazArc {
         if index_size & 7 != 0 {
             return Err(anyhow::anyhow!("Invalid PAZ index size"));
         }
+        let mut mov_key = None;
         let entries = {
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&arc_key.index_key)?;
             let mut index_stream: Box<dyn ReadSeek> = Box::new(StreamRegion::new(
@@ -258,6 +271,17 @@ impl PazArc {
             }
             let mut index_stream = BlowfishDecryptor::new(blowfish.clone(), index_stream);
             let count = index_stream.read_u32()?;
+            if is_video {
+                let mut key = index_stream.read_exact_vec(0x100)?;
+                if schema.version < 1 {
+                    let mut nkey = vec![0u8; 0x100];
+                    for i in 0..0x100 {
+                        nkey[key[i] as usize] = i as u8;
+                    }
+                    key = nkey;
+                }
+                mov_key = Some(key);
+            }
             let mut entries = Vec::with_capacity(count as usize);
             for _ in 0..count {
                 let entry: PazEntry = index_stream.read_struct(false, archive_encoding)?;
@@ -272,6 +296,8 @@ impl PazArc {
             entries,
             archive_encoding,
             xor_key,
+            is_audio,
+            mov_key,
         })
     }
 }
@@ -321,23 +347,52 @@ impl Script for PazArc {
                 0,
                 entry.size as u64,
             )?;
-            if let Some(type_key) = self.schema.get_type_key(&entry) {
-                let key = format!(
-                    "{} {:08X} {}",
-                    entry.name.to_ascii_lowercase(),
-                    entry.unpacked_size,
-                    type_key
-                );
-                let key = encode_string(self.archive_encoding, &key, false)?;
-                let mut rc4 = Rc4::new(&key);
-                if self.schema.version >= 2 {
-                    let crc = crc32fast::hash(&key);
-                    let skip = ((crc >> 12) as i32) & 0xFF;
-                    rc4.skip_bytes(skip as usize);
+            if self.schema.version > 0 {
+                if let Some(type_key) = self.schema.get_type_key(&entry, self.is_audio) {
+                    let key = format!(
+                        "{} {:08X} {}",
+                        entry.name.to_ascii_lowercase(),
+                        entry.unpacked_size,
+                        type_key
+                    );
+                    let key = encode_string(self.archive_encoding, &key, false)?;
+                    let mut rc4 = Rc4::new(&key);
+                    if self.schema.version >= 2 {
+                        let crc = crc32fast::hash(&key);
+                        let skip = ((crc >> 12) as i32) & 0xFF;
+                        rc4.skip_bytes(skip as usize);
+                    }
+                    let stream = Rc4Stream::new(stream, rc4);
+                    return Ok(Box::new(PazFileEntry::new(entry, stream)));
                 }
-                let stream = Rc4Stream::new(stream, rc4);
+            }
+            return Ok(Box::new(PazFileEntry::new(entry, stream)));
+        } else if let Some(mov_key) = &self.mov_key {
+            if self.schema.version < 1 {
+                let stream = TableEncryptedStream::new(stream, mov_key.clone())?;
                 return Ok(Box::new(PazFileEntry::new(entry, stream)));
             }
+            let type_key = self
+                .schema
+                .get_type_key(&entry, self.is_audio)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Data decryption key not found for entry '{}'.", entry.name)
+                })?;
+            let key = format!(
+                "{} {:08X} {}",
+                entry.name.to_ascii_lowercase(),
+                entry.unpacked_size,
+                type_key
+            );
+            let key = encode_string(self.archive_encoding, &key, false)?;
+            let mut rkey = mov_key.clone();
+            let key_len = key.len();
+            for i in 0..0x100 {
+                rkey[i] ^= key[i % key_len];
+            }
+            let mut rc4 = Rc4::new(&rkey);
+            let key_block = rc4.generate_block((entry.size as usize).min(0x10000));
+            let stream = XoredKeyStream::new(stream, key_block, 0);
             return Ok(Box::new(PazFileEntry::new(entry, stream)));
         }
         Err(anyhow::anyhow!("Data decryption key not found."))
@@ -400,5 +455,60 @@ fn test_deserialize_paz() {
             println!("  Type Name: {}, Type Key: {}", type_name, type_key);
         }
         println!("Signature: {:08X}", schema.signature);
+    }
+}
+
+struct TableEncryptedStream<T> {
+    inner: T,
+    table: Vec<u8>,
+}
+
+impl<T> TableEncryptedStream<T> {
+    pub fn new(inner: T, table: Vec<u8>) -> Result<Self> {
+        if table.len() != 256 {
+            return Err(anyhow::anyhow!(
+                "Table length must be 256, got {}",
+                table.len()
+            ));
+        }
+        Ok(TableEncryptedStream { inner, table })
+    }
+}
+
+impl<T: Read> Read for TableEncryptedStream<T> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for i in 0..readed {
+            buf[i] = self.table[buf[i] as usize];
+        }
+        Ok(readed)
+    }
+}
+
+impl<T: Seek> Seek for TableEncryptedStream<T> {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.inner.seek(pos)
+    }
+
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.inner.rewind()
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        self.inner.stream_position()
+    }
+}
+
+impl<T: Write> Write for TableEncryptedStream<T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut encrypted_buf = vec![0u8; buf.len()];
+        for i in 0..buf.len() {
+            encrypted_buf[i] = self.table[buf[i] as usize];
+        }
+        self.inner.write(&encrypted_buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
     }
 }
