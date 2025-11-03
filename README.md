@@ -36,6 +36,10 @@ msg-tool import <input> <output> <patched>
 ### Pack files into an archive
 ```bash
 msg-tool pack <input> -t <archive-type> [output]
+# Pack multiple files/folders into an archive
+# If output is not specified, the archive file will be named with the first input's name with the appropriate extension.
+# Use --dep-file xxxx.d to generate a dep file for other build systems. (such as ninja)
+msg-tool pack-v2 -t <archive-type> -o <output> <input1> <input2> ...
 ```
 
 ### Unpack an archive file
