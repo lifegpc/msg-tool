@@ -57,6 +57,24 @@ lazy_static::lazy_static! {
     static ref PAZ_SCHEMA: BTreeMap<String, Schema> = {
         serde_json::from_str(&PAZ_DATA).expect("Failed to parse paz.json")
     };
+    static ref ALIAS_TABLE: HashMap<String, String> = {
+        let mut table = HashMap::new();
+        for (game, fulltitle) in get_supported_games_with_title() {
+            if let Some(title) = fulltitle {
+                let mut alias_count = 0usize;
+                for part in title.split("|") {
+                    let alias = part.trim();
+                    table.insert(alias.to_string(), game.to_string());
+                    alias_count += 1;
+                }
+                // also insert full title if there are multiple aliases
+                if alias_count > 1 {
+                    table.insert(title.to_string(), game.to_string());
+                }
+            }
+        }
+        table
+    };
 }
 
 /// Get the supported game titles for PAZ archives.
@@ -73,7 +91,11 @@ pub fn get_supported_games_with_title() -> Vec<(&'static str, Option<&'static st
 }
 
 fn query_paz_schema(game: &str) -> Option<&'static Schema> {
-    PAZ_SCHEMA.get(game)
+    PAZ_SCHEMA.get(game).or_else(|| {
+        ALIAS_TABLE
+            .get(game)
+            .and_then(|real_game| PAZ_SCHEMA.get(real_game))
+    })
 }
 
 fn query_paz_schema_by_signature(signature: u32) -> Option<(&'static str, &'static Schema)> {

@@ -79,6 +79,15 @@ pub fn get_musica_game_title_value_parser() -> Vec<clap::builder::PossibleValue>
             let mut pv = clap::builder::PossibleValue::new(*name);
             if let Some(t) = title {
                 pv = pv.help(t);
+                let mut alias_count = 0usize;
+                for i in t.split("|") {
+                    pv = pv.alias(i.trim());
+                    alias_count += 1;
+                }
+                // alias for full title
+                if alias_count > 1 {
+                    pv = pv.alias(t);
+                }
             }
             pv
         })
