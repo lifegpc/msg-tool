@@ -271,6 +271,7 @@ impl PazArc {
                 break;
             }
         }
+        let arc_size = stream.stream_length()?;
         let schema = if let Some(title) = &config.musica_game_title {
             let schema = query_paz_schema(title).ok_or_else(|| {
                 anyhow::anyhow!("Unsupported game title '{}' for PAZ archive", title)
@@ -330,8 +331,8 @@ impl PazArc {
             let t = xor_key as u32;
             index_size ^= t << 24 | t << 16 | t << 8 | t;
         }
-        if index_size & 7 != 0 {
-            return Err(anyhow::anyhow!("Invalid PAZ index size"));
+        if index_size & 7 != 0 || index_size as u64 > arc_size - start_offset {
+            return Err(anyhow::anyhow!("Invalid PAZ index size: {}", index_size));
         }
         let mut mov_key = None;
         let entries = {
@@ -356,6 +357,17 @@ impl PazArc {
                     key = nkey;
                 }
                 mov_key = Some(key);
+            }
+            // Each PAZ entry at least needs 0x18 bytes
+            let least_len = match count.checked_mul(0x18) {
+                Some(v) => v,
+                None => {
+                    return Err(anyhow::anyhow!("Invalid PAZ entry count: {}", count));
+                }
+            };
+            let other_len = if is_video { 0x104 } else { 4 };
+            if least_len > index_size - other_len {
+                return Err(anyhow::anyhow!("Invalid PAZ entry count: {}", count));
             }
             let mut entries = Vec::with_capacity(count as usize);
             for _ in 0..count {
