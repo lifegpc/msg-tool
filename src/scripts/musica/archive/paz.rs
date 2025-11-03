@@ -8,6 +8,7 @@ use crate::utils::serde_base64bytes::Base64Bytes;
 use crate::utils::struct_pack::*;
 use crate::utils::xored_stream::*;
 use anyhow::Result;
+use flate2::read::ZlibDecoder;
 use msg_tool_macro::{StructPack, StructUnpack};
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
@@ -190,6 +191,12 @@ struct PazEntry {
     size: u32,
     aligned_size: u32,
     flags: u32,
+}
+
+impl PazEntry {
+    pub fn is_compressed(&self) -> bool {
+        (self.flags & 0x1) != 0
+    }
 }
 
 #[derive(Debug)]
@@ -386,13 +393,25 @@ impl Script for PazArc {
                         rc4.skip_bytes(skip as usize);
                     }
                     let stream = Rc4Stream::new(stream, rc4);
+                    if entry.is_compressed() {
+                        let stream = ZlibDecoder::new(stream);
+                        return Ok(Box::new(PazFileEntry::new(entry, stream)));
+                    }
                     return Ok(Box::new(PazFileEntry::new(entry, stream)));
                 }
+            }
+            if entry.is_compressed() {
+                let stream = ZlibDecoder::new(stream);
+                return Ok(Box::new(PazFileEntry::new(entry, stream)));
             }
             return Ok(Box::new(PazFileEntry::new(entry, stream)));
         } else if let Some(mov_key) = &self.mov_key {
             if self.schema.version < 1 {
                 let stream = TableEncryptedStream::new(stream, mov_key.clone())?;
+                if entry.is_compressed() {
+                    let stream = ZlibDecoder::new(stream);
+                    return Ok(Box::new(PazFileEntry::new(entry, stream)));
+                }
                 return Ok(Box::new(PazFileEntry::new(entry, stream)));
             }
             let type_key = self
@@ -416,6 +435,10 @@ impl Script for PazArc {
             let mut rc4 = Rc4::new(&rkey);
             let key_block = rc4.generate_block((entry.size as usize).min(0x10000));
             let stream = XoredKeyStream::new(stream, key_block, 0);
+            if entry.is_compressed() {
+                let stream = ZlibDecoder::new(stream);
+                return Ok(Box::new(PazFileEntry::new(entry, stream)));
+            }
             return Ok(Box::new(PazFileEntry::new(entry, stream)));
         }
         Err(anyhow::anyhow!("Data decryption key not found."))
