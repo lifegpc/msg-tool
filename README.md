@@ -10,6 +10,11 @@ cargo build --release  # Build with all features enabled
 cargo build --release --no-default-features --features=circus  # Build with only specific features enabled. See supported types below.
 ```
 
+## Exit Codes
+By default, msg-tool will always return exit code 0 unless a exit signal is received (such as Ctrl+C).  
+You can use the `--exit-code` / `-x` option to specify a non-zero exit code when some jobs failed.  
+If all jobs failed, you can use the `--exit-code-all-failed` / `-X` option to specify a different exit code.
+
 ## Basic Usage
 ### Extract messages from script files
 ```bash

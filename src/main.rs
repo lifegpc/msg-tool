@@ -2944,7 +2944,9 @@ fn main() {
                         if op.exists() {
                             if !op.is_dir() {
                                 eprintln!("Output path is not a directory");
-                                return;
+                                std::process::exit(
+                                    argn.exit_code_all_failed.unwrap_or(argn.exit_code),
+                                );
                             }
                         } else {
                             std::fs::create_dir_all(op).unwrap();
@@ -3057,7 +3059,7 @@ fn main() {
                 if pb.exists() {
                     if !pb.is_dir() {
                         eprintln!("Patched path is not a directory");
-                        return;
+                        std::process::exit(argn.exit_code_all_failed.unwrap_or(argn.exit_code));
                     }
                 } else {
                     std::fs::create_dir_all(pb).unwrap();
@@ -3169,7 +3171,9 @@ fn main() {
                         if op.exists() {
                             if !op.is_dir() {
                                 eprintln!("Output path is not a directory");
-                                return;
+                                std::process::exit(
+                                    argn.exit_code_all_failed.unwrap_or(argn.exit_code),
+                                );
                             }
                         } else {
                             std::fs::create_dir_all(op).unwrap();
@@ -3241,5 +3245,11 @@ fn main() {
             }
         }
     }
-    eprintln!("{}", std::ops::Deref::deref(&COUNTER));
+    let counter = std::ops::Deref::deref(&COUNTER);
+    eprintln!("{}", counter);
+    if counter.all_failed() {
+        std::process::exit(argn.exit_code_all_failed.unwrap_or(argn.exit_code));
+    } else if counter.has_error() {
+        std::process::exit(argn.exit_code);
+    }
 }

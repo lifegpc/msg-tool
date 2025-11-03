@@ -44,6 +44,19 @@ impl Counter {
             ScriptResult::Uncount => {}
         }
     }
+
+    /// Returns true if all jobs failed. (ok == 0 && error > 0)
+    pub fn all_failed(&self) -> bool {
+        let ok = self.ok.load(SeqCst);
+        let error = self.error.load(SeqCst);
+        ok == 0 && error > 0
+    }
+
+    /// Returns true if there were any errors.
+    pub fn has_error(&self) -> bool {
+        let error = self.error.load(SeqCst);
+        error > 0
+    }
 }
 
 impl std::fmt::Display for Counter {
