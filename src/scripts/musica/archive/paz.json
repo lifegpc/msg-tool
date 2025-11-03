@@ -1,4 +1,94 @@
 {
+    "Trinoline": {
+        "Version": 2,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "lV/FrKopNRSit1qKnQZUPOdbIrv6V70El2L8B9QjL38=",
+                "DataKey": "W4FFC8A+XhUQoMxmxBrIBHxaTAWwXEGcihMIglkDPOI="
+            },
+            "bgm": {
+                "IndexKey": "uQaIAi2qR9pTGtahgcyxDtsFYE6KbI3/AQ4t2ek1UVg=",
+                "DataKey": "Q3eN3reFrYi6R+yIfYCt3gD+0lMaho8VHNEKtWESCco="
+            },
+            "mov": {
+                "IndexKey": "nEmJJRTYvjZqUp7O5ogBuvm3s3IO8j+BwO7K8NBc2W4=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "s7PiHu4spcoiA1glbbYDPNQlfQa4ljdlSuocYoO4Q24=",
+                "DataKey": "+44Ypv3mz/+zZgJ+5QjxABdHdxMRLjTXMjd3IfhQVlM="
+            },
+            "se": {
+                "IndexKey": "BHml7ESovwyl03AtTJ3yf4a4XRn+EneHSL6tL6xdMVU=",
+                "DataKey": "Xje7cWeaemVPRo/51Z9G5gQYbwn8fUL0uCMbqoVPu+I="
+            },
+            "st": {
+                "IndexKey": "7H6r9/Ge4+BGbcO/wE2UWjvjt/lQh458aRRvNO+dqqo=",
+                "DataKey": "uVW1AGXpGCKmqXCDZlGeSqX2yG1nHrKG37d497/U7rQ="
+            },
+            "sys": {
+                "IndexKey": "9tvgav04tpaVQ489EPC/dXjDRiaXuhpOzN3huIzFe7k=",
+                "DataKey": "W5NK7fyGh0ONpwFcmTPlJaHvlv/0noeEsNtIWG9J+aw="
+            },
+            "voice": {
+                "IndexKey": "LKQMd2EAZXvL0VCF9zdxiqacR18A/NnQwgblLQf8HDQ=",
+                "DataKey": "vGC+G4KAfh6Ib6tF6ezb0/0wHs2n19PmOepU2uUzJbQ="
+            }
+        },
+        "TypeKeys": {
+            "png": "B64oH18C",
+            "ogg": "PiSKji5i",
+            "sc": "z3Mw9x2r",
+            "avi": "8n4DgsEb"
+        },
+        "Signature": 2408092565,
+        "XorKey": 225
+    },
+    "Trinoline [English]": {
+        "Version": 1,
+        "ArcKeys": {
+            "scr": {
+                "IndexKey": "X1FM6Irm2mgCCsN+7HxV28qjxiXEgMNCkEXhcOR73n0=",
+                "DataKey": "Hwtb4xDUawQcda8EVSq5/KAWIsMmhIcfTYveWw3dWsM="
+            },
+            "bg": {
+                "IndexKey": "Zi2L2e0QmuWhhjoNPfj0YsUegasyZnLWgHRYZ6E/STc=",
+                "DataKey": "rjgWT7DCfh0aavLxL52LbRD2j+r8vgnm1loc5p36juo="
+            },
+            "st": {
+                "IndexKey": "JGJivhySIQggavr3P/+hktTZSTTQ1qtf9uCg5yHASkY=",
+                "DataKey": "5YznHMmqZol+xmUPYtTu4rPNQHezZJhgurmoU5D/b/E="
+            },
+            "sys": {
+                "IndexKey": "GMnxgRld0InZIN81A/WgOkgo6yyV2yzNVBchtXJ0elk=",
+                "DataKey": "QqrLS3Fk+b31J7hf2gLj8+X6O/TfS+x/r/asu2bsSwM="
+            },
+            "bgm": {
+                "IndexKey": "bcX/Ww7gauMkf7q1gm4BlGkWdHzYfXZ/Zm2NToTruz4=",
+                "DataKey": "cfXkUj2xLjv6yecK1OCGAt8qeI1h4+rSCQ9ZazRpvrE="
+            },
+            "voice": {
+                "IndexKey": "6jTSopRY/l4j/XhdmPsG3NFok+tBk6BB/I0aFPEJxXs=",
+                "DataKey": "SvKbuEtSlpp0lh1CQ1f4wEZANf7NqHW3k6eCnVJQg5A="
+            },
+            "se": {
+                "IndexKey": "L2owYyY8c3R21G0xK6D3Z5KgJMFGANgvFyIp+lT1WwM=",
+                "DataKey": "gt9cB5D6Hx0aAo9T46GrkZT3LljrfCIm05bYyvS/AlE="
+            },
+            "mov": {
+                "IndexKey": "QYEGC3S3VLE/zgWwZAS4e22+iRCauLUj2biskCM76T8=",
+                "DataKey": "EnEuEaYfd5Nslwc8vtp54eiz5Gv/vLqyztgDm69ls5A="
+            }
+        },
+        "TypeKeys": {
+            "png": "emUeA3gE",
+            "ogg": "aAxBAv2J",
+            "sc": "3uJ2kCnm",
+            "avi": "4LzoUHLx"
+        },
+        "Signature": 1852404340,
+        "XorKey": 0
+    },
     "Trinoline: Genesis": {
         "Version": 2,
         "ArcKeys": {

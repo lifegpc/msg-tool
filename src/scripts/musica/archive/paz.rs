@@ -257,7 +257,7 @@ impl PazArc {
             let sig = stream.read_u32()?;
             let (game, schema) = query_paz_schema_by_signature(sig).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "Unknown PAZ signature {:08X}. Please specify the game title in the config.",
+                    "Unknown PAZ signature {:08X}. Use --musica-game-title to specify game title.",
                     sig
                 )
             })?;
