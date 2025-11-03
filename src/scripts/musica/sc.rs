@@ -76,8 +76,10 @@ impl Script for MusicaScript {
             }
             // .message <id> <voice> <name> <text>
             if parts[0] == ".message" && parts.len() >= 5 {
-                let name = parts[3].clone();
-                let text = parts[4].clone();
+                let name_index = parts.len() - 2;
+                let text_index = parts.len() - 1;
+                let name = parts[name_index].clone();
+                let text = parts[text_index].clone();
                 let message = Message {
                     name: if name.is_empty() { None } else { Some(name) },
                     message: text,
@@ -110,7 +112,9 @@ impl Script for MusicaScript {
                     Some(m) => m,
                     None => return Err(anyhow::anyhow!("Not enough messages to import.")),
                 };
-                if !parts[3].is_empty() {
+                let name_index = parts.len() - 2;
+                let text_index = parts.len() - 1;
+                if !parts[name_index].is_empty() {
                     let mut name = match &m.name {
                         Some(n) => n.clone(),
                         None => {
@@ -125,7 +129,7 @@ impl Script for MusicaScript {
                             name = name.replace(k, v);
                         }
                     }
-                    parts[3] = name.replace(' ', "\u{3000}");
+                    parts[name_index] = name.replace(' ', "\u{3000}");
                 }
                 let mut text = m.message.clone();
                 if let Some(repl) = replacement {
@@ -133,7 +137,7 @@ impl Script for MusicaScript {
                         text = text.replace(k, v);
                     }
                 }
-                parts[4] = text.replace(' ', "\u{3000}");
+                parts[text_index] = text.replace(' ', "\u{3000}");
                 me = mes.next();
             }
             let line = parts.join(" ");
