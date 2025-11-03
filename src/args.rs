@@ -545,6 +545,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Musica xor key for paz archive.
     pub musica_xor_key: Option<u8>,
+    #[cfg(feature = "musica-arc")]
+    #[arg(long, global = true)]
+    /// Compress files in Musica paz archive when packing paz archive.
+    pub musica_compress: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

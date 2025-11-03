@@ -512,6 +512,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "musica-arc")]
     /// Musica xor key for paz archive.
     pub musica_xor_key: Option<u8>,
+    #[cfg(feature = "musica-arc")]
+    /// Whether to compress files in Musica paz archive when packing paz archive.
+    pub musica_compress: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

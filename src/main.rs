@@ -2930,6 +2930,8 @@ fn main() {
         musica_game_title: arg.musica_game_title.clone(),
         #[cfg(feature = "musica-arc")]
         musica_xor_key: arg.musica_xor_key,
+        #[cfg(feature = "musica-arc")]
+        musica_compress: arg.musica_compress,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

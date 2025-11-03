@@ -2301,3 +2301,34 @@ impl Seek for MultipleReadStream {
         Ok(())
     }
 }
+
+pub struct TrackStream<'a, T> {
+    inner: T,
+    total: &'a mut u64,
+}
+
+impl<'a, T> TrackStream<'a, T> {
+    pub fn new(inner: T, total: &'a mut u64) -> Self {
+        TrackStream { inner, total }
+    }
+}
+
+impl<'a, T: Read> Read for TrackStream<'a, T> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let readed = self.inner.read(buf)?;
+        *self.total += readed as u64;
+        Ok(readed)
+    }
+}
+
+impl<'a, T: Write> Write for TrackStream<'a, T> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        let written = self.inner.write(buf)?;
+        *self.total += written as u64;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        self.inner.flush()
+    }
+}

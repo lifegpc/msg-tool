@@ -9,6 +9,7 @@ use crate::utils::struct_pack::*;
 use crate::utils::xored_stream::*;
 use anyhow::Result;
 use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
 use msg_tool_macro::{StructPack, StructUnpack};
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
@@ -197,6 +198,14 @@ impl PazEntry {
     pub fn is_compressed(&self) -> bool {
         (self.flags & 0x1) != 0
     }
+
+    pub fn set_is_compressed(&mut self, compressed: bool) {
+        if compressed {
+            self.flags |= 0x1;
+        } else {
+            self.flags &= !0x1;
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -377,7 +386,7 @@ impl Script for PazArc {
                 0,
                 entry.size as u64,
             )?;
-            if self.schema.version > 0 {
+            if self.schema.version > 0 && !entry.is_compressed() {
                 if let Some(type_key) = self.schema.get_type_key(&entry, self.is_audio) {
                     let key = format!(
                         "{} {:08X} {}",
@@ -393,10 +402,6 @@ impl Script for PazArc {
                         rc4.skip_bytes(skip as usize);
                     }
                     let stream = Rc4Stream::new(stream, rc4);
-                    if entry.is_compressed() {
-                        let stream = ZlibDecoder::new(stream);
-                        return Ok(Box::new(PazFileEntry::new(entry, stream)));
-                    }
                     return Ok(Box::new(PazFileEntry::new(entry, stream)));
                 }
             }
@@ -559,6 +564,8 @@ pub struct PazArcWriter<T: Write + Seek> {
     schema: Schema,
     arc_key: ArcKey,
     xor_key: u8,
+    compress: bool,
+    compress_level: u32,
 }
 
 impl<T: Write + Seek> PazArcWriter<T> {
@@ -653,6 +660,8 @@ impl<T: Write + Seek> PazArcWriter<T> {
             schema: schema.clone(),
             arc_key: arc_key.clone(),
             xor_key,
+            compress: config.musica_compress,
+            compress_level: config.zlib_compression_level,
         })
     }
 }
@@ -679,7 +688,8 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
             let stream = XoredStream::new(&mut self.writer, self.xor_key);
             let stream = BlowfishEncryptor::new(blowfish, stream);
             let mut type_key = None;
-            if self.schema.version > 0 {
+            entry.set_is_compressed(self.compress);
+            if self.schema.version > 0 && !self.compress {
                 if let Some(tkey) = self.schema.get_type_key(&entry, self.is_audio) {
                     type_key = Some(tkey.to_string());
                 }
@@ -691,6 +701,9 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
                 entry,
                 encoding: self.encoding,
                 version: self.schema.version,
+                compress: self.compress,
+                compress_level: self.compress_level,
+                compressed_size: 0,
             };
             return Ok(Box::new(writer));
         } else if let Some(mov_key) = &self.mov_key {
@@ -748,7 +761,7 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
             entry.offset = self.writer.stream_position()?;
             let stream = XoredStream::new(&mut self.writer, self.xor_key);
             let stream = BlowfishEncryptor::new(blowfish, stream);
-            if self.schema.version > 0 {
+            if self.schema.version > 0 && !self.compress {
                 if let Some(tkey) = self.schema.get_type_key(&entry, self.is_audio) {
                     let key = format!("{} {:08X} {}", entry.name.to_ascii_lowercase(), size, tkey);
                     let key = encode_string(self.encoding, &key, false)?;
@@ -765,6 +778,11 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
                     };
                     return Ok(Box::new(writer));
                 }
+            }
+            if self.compress {
+                entry.set_is_compressed(true);
+                let writer = DataKeyComWriter::new(Box::new(stream), entry, self.compress_level);
+                return Ok(Box::new(writer));
             }
             let writer = DateKeyWriter {
                 inner: Box::new(stream),
@@ -871,6 +889,46 @@ impl<'a> Drop for DateKeyWriter<'a> {
     }
 }
 
+struct DataKeyComWriter<'a> {
+    inner: ZlibEncoder<Box<dyn Write + 'a>>,
+    entry: &'a mut PazEntry,
+}
+
+impl<'a> DataKeyComWriter<'a> {
+    pub fn new(inner: Box<dyn Write + 'a>, entry: &'a mut PazEntry, level: u32) -> Self {
+        DataKeyComWriter {
+            inner: ZlibEncoder::new(inner, flate2::Compression::new(level)),
+            entry,
+        }
+    }
+}
+
+impl<'a> Write for DataKeyComWriter<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+impl<'a> Drop for DataKeyComWriter<'a> {
+    fn drop(&mut self) {
+        if let Err(e) = self.inner.try_finish() {
+            eprintln!(
+                "Error finishing compression for PAZ file entry '{}': {}",
+                self.entry.name, e
+            );
+            crate::COUNTER.inc_error();
+            return;
+        }
+        self.entry.size = self.inner.total_out() as u32;
+        self.entry.unpacked_size = self.inner.total_in() as u32;
+        self.entry.aligned_size = (self.entry.size + 7) & !7;
+    }
+}
+
 trait MyWriteSeek: Write + Seek {}
 impl<T: Write + Seek> MyWriteSeek for T {}
 
@@ -926,6 +984,9 @@ struct MemDataKeyWriter<'a> {
     entry: &'a mut PazEntry,
     encoding: Encoding,
     version: u32,
+    compress: bool,
+    compress_level: u32,
+    compressed_size: u64,
 }
 
 impl<'a> Write for MemDataKeyWriter<'a> {
@@ -958,37 +1019,49 @@ impl<'a> Drop for MemDataKeyWriter<'a> {
         self.entry.unpacked_size = data.len() as u32;
         self.entry.size = self.entry.unpacked_size;
         self.entry.aligned_size = (self.entry.size + 7) & !7;
-        let mut stream = if let Some(tkey) = &self.type_key {
-            let key = format!(
-                "{} {:08X} {}",
-                self.entry.name.to_ascii_lowercase(),
-                self.entry.unpacked_size,
-                tkey
-            );
-            let key = match encode_string(self.encoding, &key, false) {
-                Ok(key) => key,
-                Err(e) => {
-                    eprintln!(
-                        "Error encoding key for PAZ file entry '{}': {}",
-                        self.entry.name, e
-                    );
-                    crate::COUNTER.inc_error();
-                    return;
+        {
+            let mut stream = if let Some(tkey) = &self.type_key {
+                let key = format!(
+                    "{} {:08X} {}",
+                    self.entry.name.to_ascii_lowercase(),
+                    self.entry.unpacked_size,
+                    tkey
+                );
+                let key = match encode_string(self.encoding, &key, false) {
+                    Ok(key) => key,
+                    Err(e) => {
+                        eprintln!(
+                            "Error encoding key for PAZ file entry '{}': {}",
+                            self.entry.name, e
+                        );
+                        crate::COUNTER.inc_error();
+                        return;
+                    }
+                };
+                let mut rc4 = Rc4::new(&key);
+                if self.version >= 2 {
+                    let crc = crc32fast::hash(&key);
+                    let skip = ((crc >> 12) as i32) & 0xFF;
+                    rc4.skip_bytes(skip as usize);
                 }
+                Box::new(Rc4Stream::new(&mut self.inner, rc4)) as Box<dyn Write>
+            } else if self.compress {
+                let stream = ZlibEncoder::new(
+                    TrackStream::new(&mut self.inner, &mut self.compressed_size),
+                    flate2::Compression::new(self.compress_level),
+                );
+                Box::new(stream) as Box<dyn Write>
+            } else {
+                Box::new(&mut self.inner) as Box<dyn Write>
             };
-            let mut rc4 = Rc4::new(&key);
-            if self.version >= 2 {
-                let crc = crc32fast::hash(&key);
-                let skip = ((crc >> 12) as i32) & 0xFF;
-                rc4.skip_bytes(skip as usize);
+            if let Err(e) = stream.write_all(&data) {
+                eprintln!("Error writing PAZ file entry '{}': {}", self.entry.name, e);
+                crate::COUNTER.inc_error();
             }
-            Box::new(Rc4Stream::new(&mut self.inner, rc4)) as Box<dyn Write>
-        } else {
-            Box::new(&mut self.inner) as Box<dyn Write>
-        };
-        if let Err(e) = stream.write_all(&data) {
-            eprintln!("Error writing PAZ file entry '{}': {}", self.entry.name, e);
-            crate::COUNTER.inc_error();
+        }
+        if self.compress {
+            self.entry.size = self.compressed_size as u32;
+            self.entry.aligned_size = (self.entry.size + 7) & !7;
         }
     }
 }
