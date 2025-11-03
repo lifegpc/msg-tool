@@ -73,9 +73,15 @@ fn parse_jxl_distance(s: &str) -> Result<f32, String> {
 
 #[cfg(feature = "musica-arc")]
 pub fn get_musica_game_title_value_parser() -> Vec<clap::builder::PossibleValue> {
-    crate::scripts::musica::archive::paz::get_supported_games()
+    crate::scripts::musica::archive::paz::get_supported_games_with_title()
         .iter()
-        .map(|s| clap::builder::PossibleValue::new(s))
+        .map(|(name, title)| {
+            let mut pv = clap::builder::PossibleValue::new(*name);
+            if let Some(t) = title {
+                pv = pv.help(t);
+            }
+            pv
+        })
         .collect()
 }
 

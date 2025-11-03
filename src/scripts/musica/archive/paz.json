@@ -1,4 +1,545 @@
 {
+    "12 no Tsuki no Eve": {
+        "Version": 2,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "SttOtaLxaWgaobip7QeJtnY8zUM3EuouFv4NULhZ97c=",
+                "DataKey": "KkgPIIIrVf/UToSWaKDSPeTWZnzNfjvHMGdm4MZflaI="
+            },
+            "bgm": {
+                "IndexKey": "YZ0K9q9/nk1fOkOPS2jp0kqDjAO614BHlaSaFXonTtk=",
+                "DataKey": "H3wbq+q4XqV3XDmo7D2aY+vEfMxyyFb69UlupUaBWyY="
+            },
+            "mov": {
+                "IndexKey": "xdzFEdR7QC1HlWMIQ1ldLoxn8ASgH1X6GEIP/oEINk4=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "926jqPWlTduoTF3RZZkQyHUm+2H+xRwMq1t4NojIGPI=",
+                "DataKey": "182o+B6d9RU5PSSVYliy4gE5kk7tBWi0ts4OUWSu9Cc="
+            },
+            "se": {
+                "IndexKey": "OrgM5XURVXBwfSB67iUBDkrZbj8nGOG1ox6rdXuDYyQ=",
+                "DataKey": "YRD91zOkghOZ1WKt+6h3eXzS9SIwLmJIGpQuzQdbfUE="
+            },
+            "st": {
+                "IndexKey": "DI0EQNBIWSCIKmr/xMCKNGcXCh6a7QNrEdzLdF0oRW8=",
+                "DataKey": "0wjniGjDCdKYavi+TrEnSdokCxHcIxEiMCoEOwXoLj0="
+            },
+            "sys": {
+                "IndexKey": "oBDf8fJRPcZxWY4byJqMWObCpOQiHNjlYmFx+tIRb+I=",
+                "DataKey": "IJq7TfgFMwp3DQc2YoeVQ49h60+WJq0jChGz0fcCZv8="
+            },
+            "voice": {
+                "IndexKey": "CIkRLFKOYSiLpeY4kmPjwDLvK1Em07nxRQLwnPupOTM=",
+                "DataKey": "9IJTJX0YLOCU73Vh091HcAnignvr8hZi1v3ZweeJRhc="
+            }
+        },
+        "TypeKeys": {
+            "png": "5pNKE7Au",
+            "ogg": "Aow5oJ45",
+            "sc": "tv5Qxea1",
+            "avi": "5Lgv7XCh"
+        },
+        "Signature": 0,
+        "XorKey": 0,
+        "Title": "12の月のイヴ | 12月的EVE"
+    },
+    "Haru no Ashioto": {
+        "Version": 0,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "wp1HyTfBkQdppMEuCb+5q6IH6zfXHr+r7cs1FYmozAs=",
+                "DataKey": "uhqiPzmG3FTwwkjwuspBE2q11KcO5yFYdYcDpe408zc="
+            },
+            "scr": {
+                "IndexKey": "lhf0cTH7b8oEKSv+bhkVVmN7aym1bR+qkvCABE+dF6k=",
+                "DataKey": "Y5TP5re2WrwdFM/rHaaYT/hBi2/nw1dUpJEilytDcL4="
+            },
+            "bgm": {
+                "IndexKey": "pRCcvYFv6OUnZY2dRHlJvx9sKi/WbfOz6ozBBf5x7ic=",
+                "DataKey": "3E4297kSGAO64H+et7+iND6TKdrbTJEpll3RTb5vPlk="
+            },
+            "mov": {
+                "IndexKey": "1pa6Vd7i7Lv84CqY2iIOMno0QZt40eSEkFcuUl95VnQ=",
+                "DataKey": null
+            },
+            "se": {
+                "IndexKey": "i29LUOACF5hIVMnKF/MHCLwmRf/+JjC9hotNw54F3Vw=",
+                "DataKey": "OEwFLTJaKwzY16MWq9WL+2G9850siULaPzTUpY9v6Fw="
+            },
+            "st": {
+                "IndexKey": "U/MpckZsBUu7V65ZtzH5LlYzjOcThEMCRK7ScORPrOs=",
+                "DataKey": "lREkiuXb0pPRSTmQiFqmpXFpWyBuX+1SYybrnvJhwM8="
+            },
+            "sys": {
+                "IndexKey": "iVrbrp87DdU6gjK+ta8TH8A/i3qo3unv2dmWVqHS+Io=",
+                "DataKey": "NreVB/v1fLj/6OEKxpYHRU2eYxxIa/6Drq0bwHcKGsU="
+            },
+            "voice": {
+                "IndexKey": "5Ves3SxG1rvBQAA2pdDaTLP5qEbeb6CNugiTvz5t0AI=",
+                "DataKey": "yBVGmWF06LVCb1aNmBS5sIWI7ppnQOiGXHRPhAbRbcs="
+            }
+        },
+        "TypeKeys": {},
+        "Signature": 0,
+        "XorKey": 0,
+        "Title": "はるのあしおと | 春天的足音"
+    },
+    "Mashiro Iro Symphony": {
+        "Version": 1,
+        "ArcKeys": {
+            "scr": {
+                "IndexKey": "9COoxKMi9v35dsNGdLY053WALTgsBqoQhdzPDOmH5u4=",
+                "DataKey": "haUrus+JPaWx2hokodRYJD9IVO3sssSv3s3ZZrdRtCo="
+            },
+            "bg": {
+                "IndexKey": "Jgw6SgrKIOOU//Ys80OkPAri2QNixuS4vHgEvOrCcp8=",
+                "DataKey": "gNJDC+u/QRwnd/H14E2GMrzYiFbSZWV9sMW3qATZZsU="
+            },
+            "bgm": {
+                "IndexKey": "p0Y7KoVXw4KoT9y9UGPBcmoN/355NWldqOQjO49Wouo=",
+                "DataKey": "QjgNURHnggjhR4wKP4/FaUr+IYBD86KeE9CE1WtTgo4="
+            },
+            "mov": {
+                "IndexKey": "fuFwBgmYNlDQrtSHHskj7KRyC2PPLtAQ4/Z8VlrZSC8=",
+                "DataKey": null
+            },
+            "se": {
+                "IndexKey": "YkXf6XgPrtogyujC8hvfGlDbD+Qs7BzLEAqDe+nlGXk=",
+                "DataKey": "Q4SGxWVTC7JQ7simTM3JF+UFLaOuvcncDGkbBOmTYVw="
+            },
+            "st": {
+                "IndexKey": "ZSAwo1Dnrh9d3YqJi+zUkI79InZrSDuOgU5Il32x+Qs=",
+                "DataKey": "Dap6ns2h5gKSEuHRnNY8zrNflhP3nfbRPWB5w4ghC/A="
+            },
+            "sys": {
+                "IndexKey": "rERnijyT9sl53ynshFJKLMKRn4nA69V/LGDxAsBZZeE=",
+                "DataKey": "eh0LvqAXTl7T362dBasbq2h8ehoHmuZfmL/HO9ME8bs="
+            },
+            "voice": {
+                "IndexKey": "6PGTCZRHAIx3tDu6dOT1Y7c5Lmch1o0WKOBRmW+XgJg=",
+                "DataKey": "QKAhCbO0903EGvmtwwMo0s1ht5riZfUKTpzowjzIliU="
+            }
+        },
+        "TypeKeys": {
+            "png": "hFx1Bh93",
+            "ogg": "cQ5jhgpb",
+            "sc": "rytKRa38",
+            "avi": "ChFdc6iA"
+        },
+        "Signature": 1752392045,
+        "XorKey": 0,
+        "Title": "ましろ色シンフォニー | 纯白交响曲"
+    },
+    "Natsuzora no Perseus": {
+        "Version": 2,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "Tw1oUjY0GbNyoPDB4BsXJDySd+vNE8fRQUvu+1b4RuM=",
+                "DataKey": "GJyYlnKxbC3dLHuqBjgprJT2dmQUH2hx1NOi6X5bnJA="
+            },
+            "bgm": {
+                "IndexKey": "y2oTTBfYGtcMqYpAqxJUuQ7tOdNX4UzUs8KaLWsMQos=",
+                "DataKey": "qo1V5YSADtdlItT5xjk9zIhWL613wSB9d02Rw793RAc="
+            },
+            "mov": {
+                "IndexKey": "QpUkZ/spLDQ5pkFb0UI8rQuNDfraxesHhdb4qsAfBuU=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "LkkqzS7dur7dA/+aMIm5Ih5qESz66PxM7GXOOHsPJGU=",
+                "DataKey": "VRpjtSwYz/q3O/vxM9F4q1OtQpZUBx0A9hXWC5ytQVc="
+            },
+            "se": {
+                "IndexKey": "WCdVinhtxgTCnto/HQRO/mBTz1ncGrgCb9pR7RNeM5c=",
+                "DataKey": "hVLReq0/XjVvBtjfYDr9+PuF/ZJF6Ef5fnP3tFz6+ok="
+            },
+            "st": {
+                "IndexKey": "8Ha1WzRg64pQ94vzjc9ipRQjZLZGzihLtL7wyuuD5nE=",
+                "DataKey": "cfc6l2cY/2gbSTNL3Dn10I4nW+hl2gT9bclITd7pFDk="
+            },
+            "sys": {
+                "IndexKey": "X/ZmEIA8w3XtRoinzG60+QuESlWfa78Kf1yDsLsEsr0=",
+                "DataKey": "3nNk6JG0tznGzO6hk38TkosPORu/N7I8rENdTo9oaIQ="
+            },
+            "voice": {
+                "IndexKey": "t57AOdmMDJbrK5TpFgpD7QnRJz6p1N7mBlhZa1uEdgQ=",
+                "DataKey": "MR2dcXvUIFSCsLZRkXOfivj8FnyODNa7g86Oxkz5kgU="
+            }
+        },
+        "TypeKeys": {
+            "png": "Tm5t3byk",
+            "ogg": "WX7axuR2",
+            "sc": "mytwR2ed",
+            "avi": "C4UX2f8T"
+        },
+        "Signature": 0,
+        "XorKey": 0,
+        "Title": "夏空のペルセウス | 夏空的英仙座"
+    },
+    "Riddle Garden": {
+        "Version": 1,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "rZHSQyC88J/2obVysvc+T3r93N7ZqcvcqyeL3JYppJA=",
+                "DataKey": "Xi07t8bM7PnukDge11Yn3H7gzA7Cg48lw5Ey7tGVWZU="
+            },
+            "bgm": {
+                "IndexKey": "5riTWxu9HK3FTlwzT843/KeJCM94aKiPNCiReJSM/Mc=",
+                "DataKey": "BWvsrlJ0Lpfwu5NFhALPeh7uEpB1rIlROWMuSxoAOrE="
+            },
+            "mov": {
+                "IndexKey": "HwYsFO8DBy1aoyCLWJ6c9ZAM29wJZ+K7qoBSgqrWHEo=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "2qUSkcOI2NwlpVrcRIgUfsRvRDqDqIxqW727IqcsQM0=",
+                "DataKey": "y55nvlqAhgtMA1pKA8plpnGKtt0KOHwTVzS7rDIfcwk="
+            },
+            "se": {
+                "IndexKey": "RN2d2swAQnkyvDQVmUVZQTLdItHUoa2tcfGXyRuGpdE=",
+                "DataKey": "Yh3bddVXp25+ifSTKZMd18Y+8ewTf80qTulfBp2if1M="
+            },
+            "st": {
+                "IndexKey": "u7dGf9jP1BuaqpANed/kSTJBXC1Pl+Hw6ijnasVbAx0=",
+                "DataKey": "K+2D6RH3HoAyVuwSt9kn7YecdHMkSdOUFriMIs2NPo0="
+            },
+            "sys": {
+                "IndexKey": "cQVhqJovo2Hs4drantNYRQKUKRB7cLsA0y6NK7UzXoc=",
+                "DataKey": "uSnTqyH7oWrx/IBx5oUnBki5I6eFtCbcqubq5Xjwm/0="
+            },
+            "voice": {
+                "IndexKey": "VBpBfiUy2uXmk1UD/EWPtNmB3jxMoB0LutWyPnXVXoc=",
+                "DataKey": "lPs1QkTQpNtzcSOrc4hhjfMUwHlgZ9vWuW82bD3RmJI="
+            }
+        },
+        "TypeKeys": {
+            "png": "kaKMLi3_",
+            "ogg": "POJksI0a",
+            "sc": "AOeicjid",
+            "avi": "jaoim39m"
+        },
+        "Signature": 0,
+        "XorKey": 0
+    },
+    "Sakura no Sakukoro": {
+        "Version": 0,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "gYw4AJ7SO1u6+z73ghPfv/+hmA63St1njyUXd7EIybo=",
+                "DataKey": "A+Stxv4+d8kmNja5X7J8IU/sKasVNirt028TlzVt4y0="
+            },
+            "scr": {
+                "IndexKey": "OUXCH2Xt/7IjUuLyQ543tYau73WfHR1a+PnMrXVoBs0=",
+                "DataKey": "pa+e3VsjNxvc8M2HocYQzHTpS94VT/UsmH02LtNKhX0="
+            },
+            "bgm": {
+                "IndexKey": "lrlHck0RfP58FqzWS+TAfn1br17sm/Rd00DzxA2HcLw=",
+                "DataKey": "usu6ube76hQ6dt/jUuOpuQyD072PFoNaAOt2Sm40Hi8="
+            },
+            "mov": {
+                "IndexKey": "hIIV6iJCujADhixEGYxx0TCZzN3JXJNCwQHuc/hAuto=",
+                "DataKey": null
+            },
+            "se": {
+                "IndexKey": "hUm+0hY+o8HHtJMbzqXmGMxOdHuT81BmolZnhLMhPcU=",
+                "DataKey": "4B+xRQRAT0bCxX2rVA3YXseb73xX8J5QkSRKk4ByRk8="
+            },
+            "st": {
+                "IndexKey": "uQQO42RXzGUBFrhJ7sONnkwdn7NCYBRwAUIF/srVugE=",
+                "DataKey": "N50lmHoSvsdUUJau6AJtyoLpDYp1QSe6v9ULVLAIj9U="
+            },
+            "sys": {
+                "IndexKey": "OKlQqRRgBtjg8GmZd+KiK+S8LeO/5TYgVjzQks+jWxk=",
+                "DataKey": "1xZQc27Fnl2OzEVWaiuF38S9YjrzNZ58odqZ9ZQuTS4="
+            },
+            "voice": {
+                "IndexKey": "qK99oO7P/148Uxwx2X7M7w0YzSbJiUJSALonZRXU+uM=",
+                "DataKey": "9XosCXSYtLT/Wj7FUR358ZCZSVOGKAe+pLWeZA2uRhI="
+            }
+        },
+        "TypeKeys": {},
+        "Signature": 0,
+        "XorKey": 0,
+        "Title": "さくらのさくころ - はるのあしおと Pleasurable Box -"
+    },
+    "Sono Hi no Kemono ni wa": {
+        "Version": 2,
+        "ArcKeys": {
+            "scr": {
+                "IndexKey": "2U6PtAwpoU0hZ4oaPQPtdBY5AOG1ebcTx+vyDHqxe30=",
+                "DataKey": "v2kLJ26yt4UdAXr3Nzbu+LoDmtNgRbrLCG1A/sVnDFs="
+            },
+            "bg": {
+                "IndexKey": "pjDtn0bRmx/dpgl2AiziwR5gnMWNL2r1SKxO9qJ9gDo=",
+                "DataKey": "q03V3N1Mor8p8O5t8JRTDBzMFxrDAt8DSDMTgxhPr00="
+            },
+            "st": {
+                "IndexKey": "+W2SUGr+ImSBVPhn6jGs30FUug7+ZTyp2GuoPFeri8s=",
+                "DataKey": "czEiE1jMcq8laBo1Vuaq6fruj6VreNsgMNK5nAK+6ks="
+            },
+            "sys": {
+                "IndexKey": "qWCPu5aAXouvKNOAA9aX6OVqEO86t5IR5V8R5fSIwns=",
+                "DataKey": "8D98HACibAjtodyfges3PB4rSkpJrRMT8KcOdKddK8k="
+            },
+            "bgm": {
+                "IndexKey": "3y06Bj2eC0PSVepD7cWvAse0F/AQLN+3nrSldvfhbyA=",
+                "DataKey": "mHfyc+5/ivuj0eMqVfSzKgSTZwPi4Gq77fg5K4fRSKo="
+            },
+            "voice": {
+                "IndexKey": "lSprh4t7s2+IaGTDyZiyMTbL30bitr0dRoM9RU0+ZK0=",
+                "DataKey": "NegXc9u30n+zXBJmIghs+N8HlozATnS5CJWkahIsMhY="
+            },
+            "se": {
+                "IndexKey": "B0K0v8/9L8QN8fzJWEyeRUJjVFZO7sWPz2Eu5/UCWDU=",
+                "DataKey": "hkvWfRB07/FxlX1a1PdLWAeeC86oH9N+RMUqBjRdUus="
+            },
+            "mov": {
+                "IndexKey": "VLsHRS8jEuL1VsM7c5OHOEobtBL75JjChUcSY+TJ+yk=",
+                "DataKey": "v8FRAL/A0lRtnYrW5pqJW5tIko0LMRnwNGrOVanqiS4="
+            }
+        },
+        "TypeKeys": {
+            "sc": "MF2v5jw3",
+            "ogg": "FnR366Hn",
+            "png": "SwcaEL01",
+            "avi": "F2rmhmbJ"
+        },
+        "Signature": 2457896067,
+        "XorKey": 0,
+        "Title": "その日の獣には、 | 少女与野兽"
+    },
+    "Sono Hi no Kemono ni wa [Trial]": {
+        "Version": 1,
+        "ArcKeys": {
+            "scr": {
+                "IndexKey": "709LbWGO2A23sW5sOJflQaK3QbvT7nOARQ2V1wjTEbo=",
+                "DataKey": "5CZLgm8nPLaNerfzJaYyBS0ILyeMd3Ku2vyGPIYq2rE="
+            },
+            "bg": {
+                "IndexKey": "iHxlv4D+jLpE2ccm7ONQXsX9nFOrYhJboVrFsu2iwoc=",
+                "DataKey": "sPXbW1kbTEi9WnFddnlL+Z/enZq+bma246SUW9csTKI="
+            },
+            "st": {
+                "IndexKey": "4VBcxU9QQV5XwBLYia6XzI5PruJu+lO5wYJiIIkBeEM=",
+                "DataKey": "uVOMHpRnCwWj08hTkLVjk99jJHbnCxx3LJKpZJpnTZU="
+            },
+            "sys": {
+                "IndexKey": "ZNhUPCzXazSXhSWPu9jsepKoXgLoYjxor3d4gKjDBp0=",
+                "DataKey": "Y2Ja4O18zCxCkuhLcNEpYhPa703JGRN+9mYZbdq0H0s="
+            },
+            "bgm": {
+                "IndexKey": "04A1cFMeoAm8AQ/NSso/LT525/UUMgVssWoSX6/tjJ8=",
+                "DataKey": "1E8tZ3CyVshD9rB9tVUmKfaCvGA6XUw7H90iGtvzq9I="
+            },
+            "voice": {
+                "IndexKey": "pTyX4wVRG5eAPSXJijAwtX0j7em++Nbb/DTgLHOK/wk=",
+                "DataKey": "3iQLVHTrljhh2HTEyKXLTBI1yPQ2ng6lg69As540/Oc="
+            },
+            "se": {
+                "IndexKey": "413048qKfHXNYuVAP6IBFjlosPc0AesPELBVgUiViZA=",
+                "DataKey": "AYkyWYWY0Skqcn7xLc8NTGmsbNMZsBxIY+5c5b7LTvY="
+            },
+            "mov": {
+                "IndexKey": "KVXbGP78Ur5GiCWRJgudBzdYpn9PyPUwa2GwijrIhOA=",
+                "DataKey": "JKa3BjsbX2KEhPi0LCuoTXl3KjPH4yYZD158XugFm3M="
+            }
+        },
+        "TypeKeys": {
+            "png": "Q0aW35Hf",
+            "ogg": "WX88dQcs",
+            "sc": "0G4hmk2i",
+            "avi": "E81LJ9pf"
+        },
+        "Signature": 1935762786,
+        "XorKey": 0,
+        "Title": "その日の獣には、体験版 | 少女与野兽 试玩版"
+    },
+    "Soreyori no Prologue": {
+        "Version": 2,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "PGPSJ5MHfCxXb+WIqTLuxftOOTLLC6THpvdvyn8YkRg=",
+                "DataKey": "Ds3KRbuxx6aaHx3ObqU2BMfy49tcQe/nO00EaZc1E+c="
+            },
+            "bgm": {
+                "IndexKey": "NOn6+ZLtVHHARyoS42HbC3XwdAx8g8vEpGB7/SmBuHE=",
+                "DataKey": "ggLJZjenD3Bo4miSOiImtI9+HHT3q137XpPZSxNmt/s="
+            },
+            "mov": {
+                "IndexKey": "kI8Dfl/8fQqrPEk0dPr/m6/MdlOHMEi//GPfK7vcxfk=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "g2AArQ5G29/n4yx5K0yLLxTO1pydXTgciOP8SZjuEMI=",
+                "DataKey": "5sKf+XUu7q4x+MrsmOUWixKJ0chAcYTPKfSQp3KAmcg="
+            },
+            "se": {
+                "IndexKey": "bqTiLkIA2hTFUg1CQtAaJg5Nv5bKX40w3l7b4TDnOJw=",
+                "DataKey": "I/ot0uGO0Z17sWcopvZ9BURvFfj8fj21rMW/k07bNM8="
+            },
+            "st": {
+                "IndexKey": "lkeaVTnDNQRd//CYEA5P4qMNBe19QSc/UsAZbNJMETA=",
+                "DataKey": "cudW9ydwEkXVbGsnIreW4xq5S9mciBy1fGCaPOydi8o="
+            },
+            "sys": {
+                "IndexKey": "eMYVg3s8UPJ0muplt6+25K/C1N5zKgmVjYfYEMBSqXs=",
+                "DataKey": "kl3Fvh/B9NMXlAAqbZye/9MZWYEwvUNN6HRsH5wa1+I="
+            },
+            "voice": {
+                "IndexKey": "k9ay+59JOlS9PrXrfLXIyhd2CLIjoF+fc4Dii863rew=",
+                "DataKey": "hcAkoGttw4iS81AMTfLk3Z78g1yiC9MX4Sw/TFkD9r4="
+            }
+        },
+        "TypeKeys": {
+            "png": "59nffxSW",
+            "ogg": "7Ufuc6pX",
+            "sc": "yM25L9uG",
+            "avi": "DbF5Svdf"
+        },
+        "Signature": 0,
+        "XorKey": 0,
+        "Title": "ソレヨリノ前奏詩 | 永不落幕的前奏诗"
+    },
+    "Steal My Heart ~Rhapsody of moonlight~": {
+        "Version": 1,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "BVaotnsVV0KOgdZ7QIqb4YWIMO70IxggwQbqHEeOZig=",
+                "DataKey": "hy0ByLl7fFihQ9AOZCXp0sLIBALwwxm+JAyCpUUtDV0="
+            },
+            "bgm": {
+                "IndexKey": "GJPK3wYubMcsF/qkiDu+OMgyXsDy5KaFm5zjRDrduPE=",
+                "DataKey": "iCKiPZYrfXrrl/3aRHVkFXiCTsijGLvElJRCN7eWtbI="
+            },
+            "mov": {
+                "IndexKey": "pko8qeSz0vMN5nn0u9Co/LtM2dB83QHMBL1e/KzWSZ4=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "7zTXoVlcxZ5NZKOqpuxo6s44Thez2kH4bBjXJ9c4nZQ=",
+                "DataKey": "ZPQOgyxkdoaGRBSdeauYXykLb4HjM5U9/5qX75VYR8Q="
+            },
+            "se": {
+                "IndexKey": "6nxM2ch8+u8FWXyQ1esoevb+uNBVBK/X4H4nW5PDAow=",
+                "DataKey": "iF2PgrpJP1i0YRMWJREURTrslS/mn7DokprvQbmAlfE="
+            },
+            "st": {
+                "IndexKey": "IZ7g1kpUqRWILPkerVdmWpaMR3fKc8vi9lrOMjGE9Xk=",
+                "DataKey": "XBEjJvTD3hEIaaqTI2skNxjZSIBd+6lRVXQtvtTdGRI="
+            },
+            "sys": {
+                "IndexKey": "EJLNDj74ynU+lA4Z29XGlvb6C9zDOYOEVVbN2LouLHw=",
+                "DataKey": "o+XZ1F+WyPDY/3RQyGjX0+tHVLcmryofUsbcSSbfY3w="
+            },
+            "voice": {
+                "IndexKey": "6x0xBVNN6LYboeTTvbFepgk2Sypn3AUc1ThUIiQejag=",
+                "DataKey": "3OCes0JszhihGcPSdYvsqyPJVjzHGnrBr07OyvZUy4Y="
+            }
+        },
+        "TypeKeys": {
+            "png": "2bPP5ddJ",
+            "ogg": "siReCkHK",
+            "sc": "bWxazv2V",
+            "avi": "QM37H3Cz"
+        },
+        "Signature": 1634038867,
+        "XorKey": 0,
+        "Title": "すてぃーるMyはぁと～Rhapsody of moonlight～"
+    },
+    "Supipara Story #01 - Spring Has Come!": {
+        "Version": 2,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "Pu7o6Q2UqraqFieDEH9heQWsj4qa78OMBbanodZKISc=",
+                "DataKey": "RChEyvBGbGdhMxDxaZDZJYu4/gXkHfoSNNOu1fql9hU="
+            },
+            "bgm": {
+                "IndexKey": "4OOhozj6tnzgSwnXkhmxdhHMmmvDBtEBuKYusoAv0Gk=",
+                "DataKey": "5ml4k7cYUPwosotDpLPeeJgleE1Panh6NEFQ5Gwxf3M="
+            },
+            "mov": {
+                "IndexKey": "ECzOPre2aUvRrb7G1nUkXWQ6MqDfGKkiqVJGiySSJbo=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "P2vTFeEWGGwWxSDZY01pqWbpMiPRAy0zO3LZygFWncI=",
+                "DataKey": "Z0CcmipZq8n90ndVyDLtIQeo9bFfxPz5C3B7X9BLkvg="
+            },
+            "se": {
+                "IndexKey": "3kaZ2Av47FiQuHUspotslEdK7Nce9dyYmmfGFBTYRgo=",
+                "DataKey": "WqRmb66A6K/nDMCqgfUi4chhzn4LCrKwbsaBVfDiCDQ="
+            },
+            "st": {
+                "IndexKey": "ly8yZUdP2h1/KJYTVpBxbBV4iUHa4zLMC6FRyIcSvoI=",
+                "DataKey": "OX+cruAf9nr3C6xxe6oU0M4Np7yvxc86kmv6RkGGqo0="
+            },
+            "sys": {
+                "IndexKey": "3C6h6gD+pzzLEOhtxW/OsCapwxziMVv7XI9v1pc7joM=",
+                "DataKey": "5q8DP7QZHrpaBnCet/1IKRfgjeZwx+W1uCIkwsjzp28="
+            },
+            "voice": {
+                "IndexKey": "cu/fVC7NZyyh3/BdH3U/ozw/JwqZ4ZGcyZ398Ib6s+g=",
+                "DataKey": "ljqWT/l4SmV9hiGSnBUC+DOZJvHjOZank1/fplP/oaQ="
+            }
+        },
+        "TypeKeys": {
+            "png": "36TXHE5N",
+            "ogg": "oRQCAU1o",
+            "sc": "gTcL74ch",
+            "avi": "hYPH3Fxw"
+        },
+        "Signature": 0,
+        "XorKey": 0,
+        "Title": "すぴぱら STORY ＃01 - Spring Has Come！"
+    },
+    "Tenshi no Nichiyoubi “ef - a fairy tale of the two.” Pleasurable Box": {
+        "Version": 1,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "1LTquLg+LqLUv9T5dRICyQff05AbTrKJIZ85NM67MPY=",
+                "DataKey": "m5lSSsSquGmSqV2pVEVH/8RUgwD0vcKAD59UteHFCOI="
+            },
+            "bgm": {
+                "IndexKey": "6qnjLLOfl3QRpm0P8Cqvc0Ri12JS8l76C2uTNN7qhBg=",
+                "DataKey": "X4sYXN8umEef6sbfLekBSGqvBUU+bfYIWQUXE+kh7p0="
+            },
+            "mov": {
+                "IndexKey": "0zXFWG7BoHozHkvbUH5buNEgTKK9Sdb4vZ5keD/8/Fs=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "RSk4pP2ts3/NclzVoK+j/9nI4ztnVrwNQRpe/MgMUTA=",
+                "DataKey": "C2a9TrJaPiWvTUJE98TuMqN6U7p/hWAC1ONw861uieQ="
+            },
+            "se": {
+                "IndexKey": "yqLOK7FY+XUQRubZQXYGCq5kdYBvaiKNdr8Mtg5s9Vo=",
+                "DataKey": "OcJF55WgOCIV/o3yXt39I2RbuWgb6c7TzZpU3Z6Uit0="
+            },
+            "st": {
+                "IndexKey": "9/CE5rVcKmOSgnMw4YFGWdlpMH2FXxZxHBDQKUwKdVo=",
+                "DataKey": "fN6KVpxrn//W5ueYwJTH2OX8Jv/QklLxNImZ3y2AqyI="
+            },
+            "sys": {
+                "IndexKey": "d2JTEofoGC7Rb4ADGzrfp69iYu+wN3SyxhL82M7I6wg=",
+                "DataKey": "zzTHQdnZWgucDS+8mi2/gAfXLRAFdVAMrgn90WkwaOA="
+            },
+            "voice": {
+                "IndexKey": "WGsWCcJtSDPTeLXoTdDHOaEov3efmiw3u+WzbbxKhU4=",
+                "DataKey": "qAn6ud291ZvaUFD//2Dh99H0+qYrJPSFGYMucK6yr60="
+            }
+        },
+        "TypeKeys": {
+            "png": "umTkCwX7",
+            "ogg": "G4YS36o7",
+            "sc": "31t2Edk4",
+            "mov": "97Hy2gfd"
+        },
+        "Signature": 0,
+        "XorKey": 0,
+        "Title": "天使の日曜日 “ef - a fairy tale of the two.” Pleasurable Box. | 天使的星期日"
+    },
     "Trinoline": {
         "Version": 2,
         "ArcKeys": {
@@ -42,7 +583,8 @@
             "avi": "8n4DgsEb"
         },
         "Signature": 2408092565,
-        "XorKey": 225
+        "XorKey": 225,
+        "Title": "トリノライン | 特里诺兰"
     },
     "Trinoline [English]": {
         "Version": 1,
@@ -132,6 +674,204 @@
             "avi": "wdiz7GQH"
         },
         "Signature": 2223998086,
-        "XorKey": 225
+        "XorKey": 225,
+        "Title": "トリノライン：ジェネシス"
+    },
+    "Tsumi no Hikari Rendezvous": {
+        "Version": 2,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "3Tsdxa3BiVVx4tSkPjpUqTUE6nD3lgGbwOgVMWkJg5E=",
+                "DataKey": "DN9SIzHh4EAv+o+KKTPM6iG1gjGmTJLHVdg7YVDyFlA="
+            },
+            "bgm": {
+                "IndexKey": "aJP9DH1yXDXk8XAOfADi1TA+KLIDvozdgX6x+U8cdjY=",
+                "DataKey": "yHdO0Hw8g7b9yiBcslx3EztQVJ0N5tzuPFrTR+g7XgU="
+            },
+            "mov": {
+                "IndexKey": "hOAC3Sq+mXfZ9FzNRSicAbtiaCTNZTkTaEgLKsN0w6E=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "BLHC4fLjc+2KEBZqWOnksEzWLbTOSIjPvK2toE8cLAE=",
+                "DataKey": "AqxHx7F+PVGRu6q6waQDS/fqalnc6C6ka6QnAGDhWig="
+            },
+            "se": {
+                "IndexKey": "B+d/xHQa6RQxgLd2bP6KKYRKa5fLvNcDFmSBu+NepEs=",
+                "DataKey": "pBitzfYjoTo99sSiN4qQS9b2AVwt1UHZJy4Tyftq0vA="
+            },
+            "st": {
+                "IndexKey": "oEm23Rkj/vsuDmNEjfHBsftBg+BVOydOU3atZ/C8Xy4=",
+                "DataKey": "C1QpTThONqMpRnDWOP9ykcPKpRFM6/nXe4vWcFXLYuc="
+            },
+            "sys": {
+                "IndexKey": "R2WACmR9C7glchRLvpsPoNK5ylepWmPGEV/XNO6Csv4=",
+                "DataKey": "X+pWG6TyXh/VgRrOdOuOh+DJoOk7+RskIy1cVFW6WfQ="
+            },
+            "voice": {
+                "IndexKey": "4aFOk2i0Zz2600sWR5F+Cy+Zt/y06Qg7eUAGCvB8gsw=",
+                "DataKey": "MaJre1hBshvGgUikkB4t0xd7CEQUVSiKPXtbuA9Xbhc="
+            }
+        },
+        "TypeKeys": {
+            "png": "2hEf8KMD",
+            "avi": "bp7MXoHo",
+            "sc": "wFNw2DFA",
+            "ogg": "fp7qo6p2"
+        },
+        "Signature": 2240775315,
+        "XorKey": 0,
+        "Title": "罪ノ光ランデヴー | 罪之光Rendezvous"
+    },
+    "eden*": {
+        "Version": 1,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "OPiEdpjaXpxKzXe0h5uI7pmu7cy+Chbv/HlgO2k+3vg=",
+                "DataKey": "8InI1quXo/y5JdbSn3sw0JEcr58DSW36pj97H/LAcnc="
+            },
+            "bgm": {
+                "IndexKey": "BnUHAGjA8pv7mg7WoZR0I98V1lg4/lcfD8afIM/CQ4k=",
+                "DataKey": "3bjqLjCdEijddo5HBrhNYXoJ3yy2Vgk/U7AR9QH9S6g="
+            },
+            "mov": {
+                "IndexKey": "mInCVPj3nb46VxNrfLGRP5bxOdHwGILsUC0LX+RfsoU=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "B5ZrtvVFECk0jweQDFN9j/s5d+a+hSXSudlytVSnbjg=",
+                "DataKey": "KVwMXjduAxZ5JC9T68KgvVQ6nZE1isC3Ju+63CM5en8="
+            },
+            "se": {
+                "IndexKey": "qNILKhKhFVH0nij8gYTGkT8lRwH+/29gnj5KQAAe8vU=",
+                "DataKey": "BWQhtQPDGg8T/M+0XeGGKY0Lx7P2otS+bYHqshzUhRs="
+            },
+            "sys": {
+                "IndexKey": "CfuEJY/oGpsl2+2gwCJ1JByqq/8/8cq4C5gR8q3px98=",
+                "DataKey": "NRprMbqilKryXRnR6iIcc1fL1E93joU2c0m2YGQTsnc="
+            },
+            "voice": {
+                "IndexKey": "9gOUApI14EMEvg6m1GmmNWHeDnIwAMQcF3D3Kl0jMnY=",
+                "DataKey": "3TUabLqXZJ0eR+5EiXM5Fpe/B36Goz7D0yZswPp1OGg="
+            },
+            "pmbg": {
+                "IndexKey": "OA1hmhoii3p1pbwT8+mhnu+3RIOZ6hHaFO2qcZdf9oY=",
+                "DataKey": "9dKq8OnW1VB9CCZtcJCkZ3oZHgQ5ASt/4+P9u9uZBdY="
+            },
+            "pmbgm": {
+                "IndexKey": "mSQa2TOvsNd5WquqJXhv+ZXQ5+TCovxi3ITBJlkAACA=",
+                "DataKey": "f3PhGVCHNiKJsPhHuf23n2UO5TEeAB0bqP8fRw8/fT4="
+            },
+            "pmscr": {
+                "IndexKey": "Okm0/9BP6WiwzK/SfXYgKqZc6ZnkfOGZp1dda27t/YM=",
+                "DataKey": "yDgMh0rVaJdhZ3qh2SMOkHDg1exh4l0W5efynLiIu80="
+            },
+            "pmse": {
+                "IndexKey": "Qxk1vsAaug2mOM6XE3Dtkp2zGYo3mq1a8zgNUERQFP8=",
+                "DataKey": "lT9VRIsuexA/PfpFb5QAB6ctuD6youzYOHq5GqQyNSo="
+            },
+            "pmsys": {
+                "IndexKey": "4U5RUeo83hF09jozXIFdJ8uZnL/G2Vyr3DibSvNA53M=",
+                "DataKey": "5EaDW/sEEFlt9Xaav7wHaOjBUO8u+HlcIRN/3DPp5ro="
+            },
+            "pmvoice": {
+                "IndexKey": "KF0qL/clS9yuD8Is5z3ETVhc4InjgRA9xAPrkNZTXZk=",
+                "DataKey": "hZdA9JVIBJTKj7txpl/QeOAazCoh6i/209gYey9jlPU="
+            }
+        },
+        "TypeKeys": {
+            "png": "p37j344s",
+            "ogg": "ol0lOrAf",
+            "sc": "N426Fd94",
+            "avi": "Uyiu4Ruy"
+        },
+        "Signature": 0,
+        "XorKey": 0
+    },
+    "eden* PLUS+MOSAIC": {
+        "Version": 1,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "OA1hmhoii3p1pbwT8+mhnu+3RIOZ6hHaFO2qcZdf9oY=",
+                "DataKey": "9dKq8OnW1VB9CCZtcJCkZ3oZHgQ5ASt/4+P9u9uZBdY="
+            },
+            "bgm": {
+                "IndexKey": "mSQa2TOvsNd5WquqJXhv+ZXQ5+TCovxi3ITBJlkAACA=",
+                "DataKey": "f3PhGVCHNiKJsPhHuf23n2UO5TEeAB0bqP8fRw8/fT4="
+            },
+            "mov": {
+                "IndexKey": "WCrCUVgVxC39b4LI0evDFY8cW6Usq5AFY7gajURfk4I=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "Okm0/9BP6WiwzK/SfXYgKqZc6ZnkfOGZp1dda27t/YM=",
+                "DataKey": "yDgMh0rVaJdhZ3qh2SMOkHDg1exh4l0W5efynLiIu80="
+            },
+            "se": {
+                "IndexKey": "Qxk1vsAaug2mOM6XE3Dtkp2zGYo3mq1a8zgNUERQFP8=",
+                "DataKey": "lT9VRIsuexA/PfpFb5QAB6ctuD6youzYOHq5GqQyNSo="
+            },
+            "st": {
+                "IndexKey": "/FMy9Au3oWQlEkkksjEu3CEPvuzUbBRCKBiEV9QNKWw=",
+                "DataKey": "ChyHXwyKmP6vvbSZdmGSPQaPgfppFqyMXHgGwJDF0+0="
+            },
+            "sys": {
+                "IndexKey": "4U5RUeo83hF09jozXIFdJ8uZnL/G2Vyr3DibSvNA53M=",
+                "DataKey": "5EaDW/sEEFlt9Xaav7wHaOjBUO8u+HlcIRN/3DPp5ro="
+            },
+            "voice": {
+                "IndexKey": "KF0qL/clS9yuD8Is5z3ETVhc4InjgRA9xAPrkNZTXZk=",
+                "DataKey": "hZdA9JVIBJTKj7txpl/QeOAazCoh6i/209gYey9jlPU="
+            }
+        },
+        "TypeKeys": {
+            "png": "p37j344s",
+            "ogg": "ol0lOrAf",
+            "sc": "N426Fd94",
+            "avi": "Uyiu4Ruy"
+        },
+        "Signature": 0,
+        "XorKey": 0
+    },
+    "ef - the latter tale": {
+        "Version": 1,
+        "ArcKeys": {
+            "bg": {
+                "IndexKey": "5qeuJ+IcJs8xOmBZbBu/WkPJRSEwE7XCVXOy5mUKO3U=",
+                "DataKey": "YwMeqiCQh7LBunO3OpjezgDThfa51HDpZbz1nx8naOE="
+            },
+            "bgm": {
+                "IndexKey": "BFltypfMn7/x8HhG72Kwwjihb3dMXoKZzVuj0WD5CWY=",
+                "DataKey": "jXyJgbMEZmsK9hozsGZRcaImc/7u9pRJwDvdC/nA2Kg="
+            },
+            "mov": {
+                "IndexKey": "PhYBVWcyHrVmWwMSpjaJNpYNj+sn7LjJLd69L0XKjtE=",
+                "DataKey": null
+            },
+            "scr": {
+                "IndexKey": "+X/VrVFd1cXTWKZFpLCwdQ0zPd18DGEY3AWMWbon5eU=",
+                "DataKey": "LSCjzWGyOWM1TOgCQzaD5cq7M7nPHdbUD/ymG9j3VWA="
+            },
+            "st": {
+                "IndexKey": "96tphywZ823+H2S5aX9LsFJmqiIEfRmzA49C7APZZR8=",
+                "DataKey": "XjQsCEoJN9Fv2B/Tb3GPOYv//Lk42tHGGWP6Js7qCuI="
+            },
+            "sys": {
+                "IndexKey": "IYwxvMYrrPJH964c8VB4ffbA2vrSYJqqrzfqrC8lGz0=",
+                "DataKey": "hnmJenFQXj1iM3vqXfoNL6jdqUzMcBO/EKHASMX0f+Q="
+            },
+            "voice": {
+                "IndexKey": "AGsCCLu+8zUBwar/6Szazi/UkFkC80g8s16daZITHtk=",
+                "DataKey": "g1/VHsTrw9PwhN5cjZf7tmDoYMQLfRZ73lJlxZ0RCFE="
+            }
+        },
+        "TypeKeys": {
+            "png": "957277W1",
+            "ogg": "m24lX440",
+            "sc": "A00U43Mj",
+            "avi": "8fO1Xj6g"
+        },
+        "Signature": 0,
+        "XorKey": 0
     }
 }

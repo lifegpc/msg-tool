@@ -34,6 +34,7 @@ struct Schema {
     /// PAZ file signature
     signature: u32,
     xor_key: u8,
+    title: Option<String>,
 }
 
 impl Schema {
@@ -61,6 +62,14 @@ lazy_static::lazy_static! {
 /// Get the supported game titles for PAZ archives.
 pub fn get_supported_games() -> Vec<&'static str> {
     PAZ_SCHEMA.keys().map(|s| s.as_str()).collect()
+}
+
+/// Get the supported game titles for PAZ archives with their full titles.
+pub fn get_supported_games_with_title() -> Vec<(&'static str, Option<&'static str>)> {
+    PAZ_SCHEMA
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.title.as_deref()))
+        .collect()
 }
 
 fn query_paz_schema(game: &str) -> Option<&'static Schema> {
@@ -246,9 +255,14 @@ impl PazArc {
             })?;
             let sig = stream.read_u32()?;
             if schema.signature != 0 && schema.signature != sig {
+                let extra_title = if let Some(title) = &schema.title {
+                    format!(" ('{}')", title)
+                } else {
+                    "".to_string()
+                };
                 eprintln!(
-                    "Warning: PAZ signature {:08X} does not match expected signature {:08X} for game '{}'",
-                    sig, schema.signature, title
+                    "Warning: PAZ signature {:08X} does not match expected signature {:08X} for game '{}'{}",
+                    sig, schema.signature, title, extra_title
                 );
                 crate::COUNTER.inc_warning();
             }
@@ -630,6 +644,12 @@ impl<T: Write + Seek> PazArcWriter<T> {
         } else {
             schema.xor_key
         };
+        if xor_key == 0 {
+            eprintln!(
+                "WARN: 0 xor key is used for PAZ archive. Output archive may broken. Use --musica-xor-key to specify a xor key. Xor key can be obtained from existing archive by unpacking it."
+            );
+            crate::COUNTER.inc_warning();
+        }
         writer.write_u32(0)?; // Placeholder for index size
         {
             let blowfish: Blowfish<byteorder::LE> = Blowfish::new(&arc_key.index_key)?;
@@ -1170,5 +1190,9 @@ fn test_deserialize_paz() {
             println!("  Type Name: {}, Type Key: {}", type_name, type_key);
         }
         println!("Signature: {:08X}", schema.signature);
+        println!("XOR Key: {:02X}", schema.xor_key);
+        if let Some(title) = &schema.title {
+            println!("Game Title: {}", title);
+        }
     }
 }
