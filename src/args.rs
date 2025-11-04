@@ -638,6 +638,9 @@ pub struct ImportArgs {
     pub replacement_json: Option<String>,
     #[arg(long, action = ArgAction::SetTrue)]
     pub warn_when_output_file_not_found: bool,
+    #[arg(long)]
+    /// Output dependency file path. This file will contain a list of all files used during import.
+    pub dep_file: Option<String>,
     #[arg(short = 'j', long, default_value_t = 1)]
     /// Workers count for import scripts in parallel.
     pub jobs: usize,

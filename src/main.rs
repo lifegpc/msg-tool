@@ -1419,8 +1419,12 @@ pub fn import_script(
     root_dir: Option<&std::path::Path>,
     name_csv: Option<&std::collections::HashMap<String, String>>,
     repl: Option<&types::ReplacementTable>,
+    mut dep_graph: Option<&mut (String, Vec<String>)>,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Importing {}", filename);
+    if let Some(dep_graph) = dep_graph.as_mut() {
+        dep_graph.1.push(filename.to_string());
+    }
     let (script, builder) = parse_script(filename, arg, config.clone())?;
     if script.is_archive() {
         let odir = {
@@ -1458,6 +1462,9 @@ pub fn import_script(
         } else {
             imp_cfg.patched.clone()
         };
+        if let Some(dep_graph) = dep_graph.as_mut() {
+            dep_graph.0 = patched_f.clone();
+        }
         let files: Vec<_> = files.iter().map(|s| s.as_str()).collect();
         let pencoding = get_patched_encoding(imp_cfg, builder);
         let enc = get_patched_archive_encoding(imp_cfg, builder, pencoding);
@@ -1528,6 +1535,9 @@ pub fn import_script(
                             COUNTER.inc(types::ScriptResult::Ignored);
                         }
                         continue;
+                    }
+                    if let Some(dep_graph) = dep_graph.as_mut() {
+                        dep_graph.1.extend_from_slice(&outfiles);
                     }
                     let fmt = match imp_cfg.patched_format {
                         Some(fmt) => match fmt {
@@ -1747,6 +1757,9 @@ pub fn import_script(
                         COUNTER.inc(types::ScriptResult::Ok);
                         continue;
                     } else {
+                        if let Some(dep_graph) = dep_graph.as_mut() {
+                            dep_graph.1.push(out_path.to_string_lossy().into_owned());
+                        }
                         let file = match std::fs::File::open(&out_path) {
                             Ok(f) => f,
                             Err(e) => {
@@ -1767,6 +1780,9 @@ pub fn import_script(
                         COUNTER.inc(types::ScriptResult::Ok);
                         continue;
                     }
+                }
+                if let Some(dep_graph) = dep_graph.as_mut() {
+                    dep_graph.1.push(out_path.to_string_lossy().into_owned());
                 }
                 let mut mes = match of {
                     types::OutputScriptType::Json => {
@@ -1971,6 +1987,9 @@ pub fn import_script(
                 };
                 let mut writer = arch.new_file_non_seek(f.name(), size)?;
                 if out_path.is_file() {
+                    if let Some(dep_graph) = dep_graph.as_mut() {
+                        dep_graph.1.push(out_path.to_string_lossy().into_owned());
+                    }
                     let f = match std::fs::File::open(&out_path) {
                         Ok(f) => f,
                         Err(e) => {
@@ -2037,6 +2056,9 @@ pub fn import_script(
         } else {
             imp_cfg.output.clone()
         };
+        if let Some(dep_graph) = dep_graph.as_mut() {
+            dep_graph.1.push(out_f.clone());
+        }
         let data = utils::img::decode_img(out_type, &out_f)?;
         let patched_f = if let Some(root_dir) = root_dir {
             let f = std::path::PathBuf::from(filename);
@@ -2053,6 +2075,9 @@ pub fn import_script(
         } else {
             imp_cfg.patched.clone()
         };
+        if let Some(dep_graph) = dep_graph.as_mut() {
+            dep_graph.0 = patched_f.clone();
+        }
         utils::files::make_sure_dir_exists(&patched_f)?;
         script.import_image_filename(data, &patched_f)?;
         return Ok(types::ScriptResult::Ok);
@@ -2088,6 +2113,9 @@ pub fn import_script(
         if outfiles.is_empty() {
             eprintln!("No output files found");
             return Ok(types::ScriptResult::Ignored);
+        }
+        if let Some(dep_graph) = dep_graph.as_mut() {
+            dep_graph.1.extend_from_slice(&outfiles);
         }
         let fmt = match imp_cfg.patched_format {
             Some(fmt) => match fmt {
@@ -2180,6 +2208,9 @@ pub fn import_script(
         } else {
             imp_cfg.patched.clone()
         };
+        if let Some(dep_graph) = dep_graph.as_mut() {
+            dep_graph.0 = patched_f.clone();
+        }
         utils::files::make_sure_dir_exists(&patched_f)?;
         let encoding = get_patched_encoding(imp_cfg, builder);
         script.import_multiple_messages_filename(mmes, &patched_f, encoding, repl)?;
@@ -2210,6 +2241,9 @@ pub fn import_script(
     if !std::fs::exists(&out_f).unwrap_or(false) {
         eprintln!("Output file does not exist");
         return Ok(types::ScriptResult::Ignored);
+    }
+    if let Some(dep_graph) = dep_graph.as_mut() {
+        dep_graph.1.push(out_f.clone());
     }
     let mut mes = match of {
         types::OutputScriptType::Json => {
@@ -2270,6 +2304,9 @@ pub fn import_script(
     } else {
         imp_cfg.patched.clone()
     };
+    if let Some(dep_graph) = dep_graph.as_mut() {
+        dep_graph.0 = patched_f.clone();
+    }
     utils::files::make_sure_dir_exists(&patched_f)?;
     if of.is_custom() {
         let enc = get_output_encoding(arg);
@@ -3082,6 +3119,13 @@ fn main() {
             } else {
                 None
             };
+            let dep_files = if args.dep_file.is_some() {
+                Some(std::sync::Arc::new(std::sync::Mutex::new(
+                    std::collections::HashMap::new(),
+                )))
+            } else {
+                None
+            };
             for script in scripts.iter() {
                 if let Some(workers) = workers.as_ref() {
                     let arg = argn.clone();
@@ -3091,8 +3135,14 @@ fn main() {
                     let repl = repl.clone();
                     let root_dir = root_dir.map(|s| s.to_path_buf());
                     let args = args.clone();
+                    let dep_files = dep_files.clone();
                     if let Err(e) = workers.execute(
                         move |_| {
+                            let mut dep_graph = if dep_files.is_some() {
+                                Some((String::new(), Vec::new()))
+                            } else {
+                                None
+                            };
                             let re = import_script(
                                 &script,
                                 &arg,
@@ -3101,10 +3151,20 @@ fn main() {
                                 root_dir.as_ref().map(|s| s.as_path()),
                                 name_csv.as_ref(),
                                 (*repl).as_ref(),
+                                dep_graph.as_mut(),
                             );
                             match re {
                                 Ok(s) => {
                                     COUNTER.inc(s);
+                                    if let Some((fname, deps)) = dep_graph {
+                                        if let Some(dep_files) = dep_files {
+                                            let mut lock =
+                                                crate::ext::mutex::MutexExt::lock_blocking(
+                                                    dep_files.as_ref(),
+                                                );
+                                            lock.insert(fname, deps);
+                                        }
+                                    }
                                 }
                                 Err(e) => {
                                     COUNTER.inc_error();
@@ -3121,6 +3181,11 @@ fn main() {
                         eprintln!("Error executing import worker: {}", e);
                     }
                 } else {
+                    let mut dep_graph = if dep_files.is_some() {
+                        Some((String::new(), Vec::new()))
+                    } else {
+                        None
+                    };
                     let re = import_script(
                         &script,
                         &arg,
@@ -3129,10 +3194,19 @@ fn main() {
                         root_dir,
                         name_csv.as_ref(),
                         (*repl).as_ref(),
+                        dep_graph.as_mut(),
                     );
                     match re {
                         Ok(s) => {
                             COUNTER.inc(s);
+                            if let Some((fname, deps)) = dep_graph {
+                                if let Some(dep_files) = dep_files.as_ref() {
+                                    let mut lock = crate::ext::mutex::MutexExt::lock_blocking(
+                                        dep_files.as_ref(),
+                                    );
+                                    lock.insert(fname, deps);
+                                }
+                            }
                         }
                         Err(e) => {
                             COUNTER.inc_error();
@@ -3141,6 +3215,21 @@ fn main() {
                                 eprintln!("Backtrace: {}", e.backtrace());
                             }
                         }
+                    }
+                }
+            }
+            if let Some(map) = dep_files {
+                let lock = crate::ext::mutex::MutexExt::lock_blocking(map.as_ref());
+                if let Some(dep_file) = &args.dep_file {
+                    let df = std::fs::File::create(dep_file).unwrap();
+                    let mut df = std::io::BufWriter::new(df);
+                    use std::io::Write;
+                    for (fname, deps) in lock.iter() {
+                        write!(df, "{}:", fname).unwrap();
+                        for d in deps {
+                            write!(df, " {}", d).unwrap();
+                        }
+                        writeln!(df).unwrap();
                     }
                 }
             }
