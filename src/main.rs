@@ -1726,6 +1726,85 @@ pub fn import_script(
                     COUNTER.inc(types::ScriptResult::Ok);
                     continue;
                 }
+                #[cfg(feature = "image")]
+                if script_file.is_image() {
+                    let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
+                    let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                    if arg.output_no_extra_ext {
+                        out_path.remove_all_extensions();
+                    }
+                    out_path.set_extension(out_type.as_ref());
+                    if !out_path.exists() {
+                        out_path = std::path::PathBuf::from(&odir).join(f.name());
+                        if !out_path.exists() {
+                            if imp_cfg.warn_when_output_file_not_found {
+                                eprintln!(
+                                    "Warning: File {} does not exist, using file from original archive.",
+                                    out_path.display()
+                                );
+                                COUNTER.inc_warning();
+                            }
+                            match std::io::copy(&mut f, &mut writer) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!(
+                                        "Error writing to file {}: {}",
+                                        out_path.display(),
+                                        e
+                                    );
+                                    COUNTER.inc_error();
+                                    continue;
+                                }
+                            }
+                        } else {
+                            if let Some(dep_graph) = dep_graph.as_mut() {
+                                dep_graph.1.push(out_path.to_string_lossy().into_owned());
+                            }
+                            let file = match std::fs::File::open(&out_path) {
+                                Ok(f) => f,
+                                Err(e) => {
+                                    eprintln!("Error opening file {}: {}", out_path.display(), e);
+                                    COUNTER.inc_error();
+                                    continue;
+                                }
+                            };
+                            let mut f = std::io::BufReader::new(file);
+                            match std::io::copy(&mut f, &mut writer) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    eprintln!(
+                                        "Error writing to file {}: {}",
+                                        out_path.display(),
+                                        e
+                                    );
+                                    COUNTER.inc_error();
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    if let Some(dep_graph) = dep_graph.as_mut() {
+                        dep_graph.1.push(out_path.to_string_lossy().into_owned());
+                    }
+                    let img_data =
+                        match utils::img::decode_img(out_type, &out_path.to_string_lossy()) {
+                            Ok(data) => data,
+                            Err(e) => {
+                                eprintln!("Error decoding image {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                    if let Err(err) = script_file.import_image(img_data, writer) {
+                        eprintln!("Error importing image to script '{}': {}", filename, err);
+                        COUNTER.inc_error();
+                        if arg.backtrace {
+                            eprintln!("Backtrace: {}", err.backtrace());
+                        }
+                        continue;
+                    }
+                    continue;
+                }
                 let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
                 if arg.output_no_extra_ext {
                     out_path.remove_all_extensions();
