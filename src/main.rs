@@ -10,6 +10,10 @@ pub mod utils;
 use ext::path::PathBufExt;
 use scripts::base::ArchiveContent;
 
+fn escape_dep_string(s: &str) -> String {
+    s.replace("\\", "\\\\").replace(" ", "\\ ")
+}
+
 fn get_encoding(
     arg: &args::Arg,
     builder: &Box<dyn scripts::ScriptBuilder + Send + Sync>,
@@ -2609,10 +2613,10 @@ pub fn pack_archive_v2(
             .map_err(|e| anyhow::anyhow!("Failed to create dep file {}: {}", dep_file, e))?;
         let mut df = std::io::BufWriter::new(df);
         use std::io::Write;
-        write!(df, "{}:", output)
+        write!(df, "{}:", escape_dep_string(&output))
             .map_err(|e| anyhow::anyhow!("Failed to write to dep file {}: {}", dep_file, e))?;
         for f in &files {
-            write!(df, " {}", f)
+            write!(df, " {}", escape_dep_string(f))
                 .map_err(|e| anyhow::anyhow!("Failed to write to dep file {}: {}", dep_file, e))?;
         }
         writeln!(df)
@@ -3304,9 +3308,9 @@ fn main() {
                     let mut df = std::io::BufWriter::new(df);
                     use std::io::Write;
                     for (fname, deps) in lock.iter() {
-                        write!(df, "{}:", fname).unwrap();
+                        write!(df, "{}:", escape_dep_string(fname)).unwrap();
                         for d in deps {
-                            write!(df, " {}", d).unwrap();
+                            write!(df, " {}", escape_dep_string(d)).unwrap();
                         }
                         writeln!(df).unwrap();
                     }
