@@ -633,7 +633,8 @@ pub fn export_script(
                             | types::OutputScriptType::M3ta
                             | types::OutputScriptType::M3tTxt => {
                                 let enc = get_output_encoding(arg);
-                                let s = output_scripts::m3t::M3tDumper::dump(&data);
+                                let s =
+                                    output_scripts::m3t::M3tDumper::dump(&data, arg.m3t_no_quote);
                                 let b = match utils::encoding::encode_string(enc, &s, false) {
                                     Ok(b) => b,
                                     Err(e) => {
@@ -816,7 +817,7 @@ pub fn export_script(
                     | types::OutputScriptType::M3ta
                     | types::OutputScriptType::M3tTxt => {
                         let enc = get_output_encoding(arg);
-                        let s = output_scripts::m3t::M3tDumper::dump(&mes);
+                        let s = output_scripts::m3t::M3tDumper::dump(&mes, arg.m3t_no_quote);
                         let b = match utils::encoding::encode_string(enc, &s, false) {
                             Ok(b) => b,
                             Err(e) => {
@@ -1225,7 +1226,7 @@ pub fn export_script(
                 | types::OutputScriptType::M3ta
                 | types::OutputScriptType::M3tTxt => {
                     let enc = get_output_encoding(arg);
-                    let s = output_scripts::m3t::M3tDumper::dump(&data);
+                    let s = output_scripts::m3t::M3tDumper::dump(&data, arg.m3t_no_quote);
                     let b = match utils::encoding::encode_string(enc, &s, false) {
                         Ok(b) => b,
                         Err(e) => {
@@ -1388,7 +1389,7 @@ pub fn export_script(
         | types::OutputScriptType::M3ta
         | types::OutputScriptType::M3tTxt => {
             let enc = get_output_encoding(arg);
-            let s = output_scripts::m3t::M3tDumper::dump(&mes);
+            let s = output_scripts::m3t::M3tDumper::dump(&mes, arg.m3t_no_quote);
             let b = utils::encoding::encode_string(enc, &s, false)?;
             let mut f = utils::files::write_file(&f)?;
             f.write_all(&b)?;

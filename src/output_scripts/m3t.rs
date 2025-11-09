@@ -190,14 +190,14 @@ pub struct M3tDumper {}
 
 impl M3tDumper {
     /// Dumps the messages in M3T format.
-    pub fn dump(messages: &[Message]) -> String {
+    pub fn dump(messages: &[Message], no_quote: bool) -> String {
         let mut result = String::new();
         for message in messages {
             if let Some(name) = &message.name {
                 result.push_str(&format!("○ NAME: {}\n\n", name));
             }
             result.push_str(&format!("○ {}\n", message.message.replace("\n", "\\n")));
-            if message.message.starts_with("「") {
+            if !no_quote && message.message.starts_with("「") {
                 result.push_str("● 「」\n\n");
             } else {
                 result.push_str("●\n\n");

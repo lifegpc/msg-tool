@@ -570,6 +570,8 @@ pub struct Arg {
     #[arg(short = 'X', long)]
     /// Exit code when all jobs failed. By default, this is same as exit_code. This can override exit_code when all jobs failed.
     pub exit_code_all_failed: Option<i32>,
+    /// Do not add quote to translated text when exporting to m3t files.
+    pub m3t_no_quote: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
