@@ -564,12 +564,13 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Compress files in Musica paz archive when packing paz archive.
     pub musica_compress: bool,
-    #[arg(short = 'x', long, default_value_t = 0)]
+    #[arg(short = 'x', long, default_value_t = 0, global = true)]
     /// Exit code when some jobs failed
     pub exit_code: i32,
-    #[arg(short = 'X', long)]
+    #[arg(short = 'X', long, global = true)]
     /// Exit code when all jobs failed. By default, this is same as exit_code. This can override exit_code when all jobs failed.
     pub exit_code_all_failed: Option<i32>,
+    #[arg(long, global = true)]
     /// Do not add quote to translated text when exporting to m3t files.
     pub m3t_no_quote: bool,
     #[command(subcommand)]
