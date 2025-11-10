@@ -3053,6 +3053,8 @@ fn main() {
         musica_xor_key: arg.musica_xor_key,
         #[cfg(feature = "musica-arc")]
         musica_compress: arg.musica_compress,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_no_adler: arg.xp3_no_adler,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

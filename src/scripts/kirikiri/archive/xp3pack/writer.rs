@@ -75,6 +75,7 @@ pub struct Xp3ArchiveWriter<T: Write + Seek> {
     processing_segments: Arc<Mutex<HashSet<[u8; 32]>>>,
     use_zstd: bool,
     zstd_compression_level: i32,
+    no_adler: bool,
 }
 
 impl Xp3ArchiveWriter<std::io::BufWriter<std::fs::File>> {
@@ -117,6 +118,7 @@ impl Xp3ArchiveWriter<std::io::BufWriter<std::fs::File>> {
             processing_segments: Arc::new(Mutex::new(HashSet::new())),
             use_zstd: config.xp3_zstd,
             zstd_compression_level: config.zstd_compression_level,
+            no_adler: config.xp3_no_adler,
         })
     }
 }
@@ -507,7 +509,11 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
             let adlr_data_size = 4;
             file_chunk.write_all(CHUNK_ADLR)?;
             file_chunk.write_u64(adlr_data_size)?;
-            file_chunk.write_u32(item.file_hash)?;
+            if self.no_adler {
+                file_chunk.write_u32(0)?;
+            } else {
+                file_chunk.write_u32(item.file_hash)?;
+            }
             index_data.write_all(CHUNK_FILE)?;
             let file_chunk = file_chunk.into_inner();
             index_data.write_u64(file_chunk.len() as u64)?;

@@ -573,6 +573,11 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Do not add quote to translated text when exporting to m3t files.
     pub m3t_no_quote: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true)]
+    /// Disable adler32 checksum for Kirikiri XP3 archive when creating.
+    /// This will keep compatibility with https://github.com/arcusmaximus/KirikiriTools tool.
+    pub xp3_no_adler: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

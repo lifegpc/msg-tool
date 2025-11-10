@@ -503,6 +503,10 @@ pub struct ExtraConfig {
     /// Workers count for packing file in Kirikiri XP3 archive in parallel. Default is 1.
     /// This not works when segment is disabled.
     pub xp3_pack_workers: usize,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Disable adler32 checksum for Kirikiri XP3 archive when creating.
+    /// This will keep compatibility with https://github.com/arcusmaximus/KirikiriTools tool.
+    pub xp3_no_adler: bool,
     #[cfg(feature = "kirikiri")]
     /// Insert new language at the specified index in Kirikiri SCN script. If index is out of bounds, this flags will be ignored.
     pub kirikiri_language_insert: bool,
