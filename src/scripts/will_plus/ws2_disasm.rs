@@ -189,6 +189,17 @@ impl<'a> DisasmBase<'a> {
         Ok(())
     }
 
+    fn handle_op72(&mut self, operands: &mut Vec<Box<dyn Any>>) -> Result<()> {
+        if operands.len() < 2 {
+            return Err(anyhow::anyhow!("Invalid operands for op72"));
+        }
+        let mes = operands[1]
+            .downcast_mut::<Ws2DString>()
+            .ok_or_else(|| anyhow::anyhow!("Invalid string operand"))?;
+        mes.typ = StringType::Message;
+        Ok(())
+    }
+
     fn handle_name(&mut self, operands: &mut Vec<Box<dyn Any>>) -> Result<()> {
         if operands.len() < 1 {
             return Err(anyhow::anyhow!("Invalid operands for name"));
@@ -215,6 +226,7 @@ impl<'a> Disasm for DisasmBase<'a> {
                 0x14 => self.handle_message(&mut operands)?,
                 0x15 => self.handle_name(&mut operands)?,
                 0x3F => self.handle_op3f(&mut operands)?,
+                0x72 => self.handle_op72(&mut operands)?,
                 _ => {}
             }
             for oper in operands {
@@ -331,7 +343,7 @@ const V1_OPS: [(u8, &'static [Oper]); 103] = [
     (0x6F, &[S]),
     (0x70, &[S, H]),
     (0x71, &[]),
-    (0x72, &[S, H, H, S]),
+    (0x72, &[S, S]),
     (0x73, &[S, S, H]),
     (0xFA, &[]),
     (0xFB, &[B]),
@@ -449,7 +461,7 @@ const V2_OPS: [(u8, &'static [Oper]); 134] = [
     (0x6F, &[S]),
     (0x70, &[S, H]),
     (0x71, &[]),
-    (0x72, &[S, H, H, S]),
+    (0x72, &[S, S]),
     (0x73, &[S, S, H]),
     (0x74, &[S, S]),
     (0x75, &[S, S]),
@@ -593,7 +605,7 @@ const V3_OPS: [(u8, &'static [Oper]); 165] = [
     (0x6F, &[S]),
     (0x70, &[S, H]),
     (0x71, &[]),
-    (0x72, &[S, H, H, S]),
+    (0x72, &[S, S]),
     (0x73, &[S, S, H]),
     (0x74, &[S, S]),
     (0x75, &[S, S]),
