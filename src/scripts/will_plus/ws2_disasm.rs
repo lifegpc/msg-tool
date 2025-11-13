@@ -171,6 +171,24 @@ impl<'a> DisasmBase<'a> {
         Ok(())
     }
 
+    fn handle_op3f(&mut self, operands: &mut Vec<Box<dyn Any>>) -> Result<()> {
+        let mut pre_is_char = false;
+        for oper in operands.iter_mut() {
+            let str = oper
+                .downcast_mut::<Ws2DString>()
+                .ok_or_else(|| anyhow::anyhow!("Invalid string operand"))?;
+            if str.text.as_bytes() == b"char" {
+                pre_is_char = true;
+            } else {
+                if pre_is_char && str.len > 1 {
+                    str.typ = StringType::Message;
+                    pre_is_char = false;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn handle_name(&mut self, operands: &mut Vec<Box<dyn Any>>) -> Result<()> {
         if operands.len() < 1 {
             return Err(anyhow::anyhow!("Invalid operands for name"));
@@ -196,6 +214,7 @@ impl<'a> Disasm for DisasmBase<'a> {
                 0x0F => self.handle_choice_screen(&mut operands)?,
                 0x14 => self.handle_message(&mut operands)?,
                 0x15 => self.handle_name(&mut operands)?,
+                0x3F => self.handle_op3f(&mut operands)?,
                 _ => {}
             }
             for oper in operands {
