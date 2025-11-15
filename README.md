@@ -88,7 +88,7 @@ msg-tool create -t <script-type> <input> <output>
 ### Buriko General Interpreter / Ethornell
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `bgi`/`ethornell` | `bgi` | Buriko General Interpreter/Ethornell Script | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | Some old games' scripts cannot be detected automatically |
+| `bgi`/`ethornell` | `bgi` | Buriko General Interpreter/Ethornell Script | ✔️ | ✔️ | ❌ | ❌ | ✔️ | ✔️ | ❌ | Some old games' scripts cannot be detected automatically |
 | `bgi-bsi`/`ethornell-bsi` | `bgi` | Buriko General Interpreter/Ethornell BSI Script (._bsi) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 | `bgi-bp`/`ethornell-bp` | `bgi` | Buriko General Interpreter/Ethornell BP Script (._bp) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
 | `bgi-dsc`/`ethornell-dsc` | `bgi-arc` | Buriko General Interpreter/Ethornell compressed file in archive | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |

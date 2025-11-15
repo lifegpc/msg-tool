@@ -67,6 +67,7 @@ pub struct BGIScript {
     offset: usize,
     import_duplicate: bool,
     append: bool,
+    custom_yaml: bool,
 }
 
 impl std::fmt::Debug for BGIScript {
@@ -99,6 +100,7 @@ impl BGIScript {
                 offset,
                 import_duplicate: config.bgi_import_duplicate,
                 append: !config.bgi_disable_append,
+                custom_yaml: config.custom_yaml,
             })
         } else {
             let mut is_v1_instr = false;
@@ -123,6 +125,7 @@ impl BGIScript {
                 offset: 0,
                 import_duplicate: config.bgi_import_duplicate,
                 append: !config.bgi_disable_append,
+                custom_yaml: config.custom_yaml,
             })
         }
     }
@@ -158,6 +161,14 @@ impl BGIScript {
 impl Script for BGIScript {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
+    }
+
+    fn is_output_supported(&self, _: OutputScriptType) -> bool {
+        true
+    }
+
+    fn custom_output_extension<'a>(&'a self) -> &'a str {
+        if self.custom_yaml { "yaml" } else { "json" }
     }
 
     fn default_format_type(&self) -> FormatOptions {
@@ -475,6 +486,177 @@ impl Script for BGIScript {
         }
         if cur_mes.is_some() || mes.next().is_some() {
             return Err(anyhow::anyhow!("Some messages were not processed."));
+        }
+        for str in nstrs {
+            file.write_u32_at(str.offset as u64, str.address as u32)?;
+        }
+        if !self.append && old_offset < self.data.data.len() {
+            file.write_all(&self.data.data[old_offset..])?;
+        }
+        Ok(())
+    }
+
+    fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
+        let mut strs = Vec::with_capacity(self.strings.len());
+        for s in &self.strings {
+            let string = self.read_string(s.address)?;
+            strs.push(string);
+        }
+        let data = if self.custom_yaml {
+            serde_yaml_ng::to_string(&strs)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
+        } else {
+            serde_json::to_string_pretty(&strs)
+                .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
+        };
+        let data = encode_string(encoding, &data, false)?;
+        let mut writer = crate::utils::files::write_file(filename)?;
+        writer.write_all(&data)?;
+        writer.flush()?;
+        Ok(())
+    }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        mut file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        let output = crate::utils::files::read_file(custom_filename)?;
+        let s = decode_to_string(output_encoding, &output, true)?;
+        let strs: Vec<String> = if self.custom_yaml {
+            serde_yaml_ng::from_str(&s)
+                .map_err(|e| anyhow::anyhow!("Failed to parse YAML: {}", e))?
+        } else {
+            serde_json::from_str(&s).map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))?
+        };
+        if strs.len() != self.strings.len() {
+            return Err(anyhow::anyhow!(
+                "The number of strings in the imported file ({}) does not match the original ({})",
+                strs.len(),
+                self.strings.len()
+            ));
+        }
+        if !self.import_duplicate {
+            let mut used = HashMap::new();
+            let mut extra = HashMap::new();
+            let mut mes = strs.iter();
+            let mut cur_str = mes.next();
+            let mut old_offset = 0;
+            let mut new_offset = 0;
+            if self.append {
+                file.write_all(&self.data.data)?;
+                new_offset = self.data.data.len();
+            }
+            for curs in &self.strings {
+                let nmes = match cur_str {
+                    Some(s) => s,
+                    None => return Err(anyhow::anyhow!("No enough strings.")),
+                };
+                cur_str = mes.next();
+                let in_used = match used.get(&curs.address) {
+                    Some((s, address)) => {
+                        if s == &nmes {
+                            file.write_u32_at(curs.offset as u64, *address as u32)?;
+                            continue;
+                        }
+                        if let Some(address) = extra.get(nmes) {
+                            file.write_u32_at(curs.offset as u64, *address as u32)?;
+                            continue;
+                        }
+                        true
+                    }
+                    None => false,
+                };
+                let bgi_str_old_offset = curs.address + self.offset;
+                if !self.append && old_offset < bgi_str_old_offset {
+                    file.write_all(&self.data.data[old_offset..bgi_str_old_offset])?;
+                    new_offset += bgi_str_old_offset - old_offset;
+                    old_offset = bgi_str_old_offset;
+                }
+                let old_str_len = self
+                    .data
+                    .cpeek_cstring_at(bgi_str_old_offset as u64)?
+                    .as_bytes_with_nul()
+                    .len();
+                let nmess = encode_string(encoding, nmes, false)?;
+                let write_to_original = self.append && !in_used && nmess.len() + 1 <= old_str_len;
+                if write_to_original {
+                    file.write_all_at(bgi_str_old_offset as u64, &nmess)?;
+                    file.write_u8_at(bgi_str_old_offset as u64 + nmess.len() as u64, 0)?; // null terminator
+                } else {
+                    file.write_all(&nmess)?;
+                    file.write_u8(0)?; // null terminator
+                }
+                let new_address = if write_to_original {
+                    bgi_str_old_offset - self.offset
+                } else {
+                    new_offset - self.offset
+                };
+                file.write_u32_at(curs.offset as u64, new_address as u32)?;
+                if in_used {
+                    extra.insert(nmes, new_address);
+                } else {
+                    used.insert(curs.address, (nmes, new_address));
+                }
+                old_offset += old_str_len;
+                if !write_to_original {
+                    new_offset += nmess.len() + 1; // +1 for null terminator
+                }
+            }
+            if cur_str.is_some() || mes.next().is_some() {
+                return Err(anyhow::anyhow!("Some strings were not processed."));
+            }
+            if !self.append && old_offset < self.data.data.len() {
+                file.write_all(&self.data.data[old_offset..])?;
+            }
+            return Ok(());
+        }
+        let mut mes = strs.iter();
+        let mut cur_mes = mes.next();
+        let mut strs = self.strings.iter();
+        let mut nstrs = Vec::new();
+        let mut cur_str = strs.next();
+        let mut old_offset = 0;
+        let mut new_offset = 0;
+        if self.append {
+            file.write_all(&self.data.data)?;
+            new_offset = self.data.data.len();
+        }
+        while let Some(curs) = cur_str {
+            let bgi_str_old_offset = curs.address + self.offset;
+            if !self.append && old_offset < bgi_str_old_offset {
+                file.write_all(&self.data.data[old_offset..bgi_str_old_offset])?;
+                new_offset += bgi_str_old_offset - old_offset;
+                old_offset = bgi_str_old_offset;
+            }
+            let old_str_len = self
+                .data
+                .cpeek_cstring_at((curs.address + self.offset) as u64)?
+                .as_bytes_with_nul()
+                .len();
+            let nmes = match cur_mes {
+                Some(s) => s,
+                None => return Err(anyhow::anyhow!("No enough strings.")),
+            };
+            cur_mes = mes.next();
+            let nmes = encode_string(encoding, nmes, false)?;
+            file.write_all(&nmes)?;
+            file.write_u8(0)?;
+            let new_str_len = nmes.len() + 1; // +1 for null
+            let new_address = new_offset - self.offset;
+            nstrs.push(BGIString {
+                offset: curs.offset,
+                address: new_address,
+                typ: curs.typ.clone(),
+            });
+            old_offset += old_str_len;
+            new_offset += new_str_len;
+            cur_str = strs.next();
+        }
+        if cur_mes.is_some() || mes.next().is_some() {
+            return Err(anyhow::anyhow!("Some strings were not processed."));
         }
         for str in nstrs {
             file.write_u32_at(str.offset as u64, str.address as u32)?;
