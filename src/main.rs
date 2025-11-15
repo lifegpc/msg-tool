@@ -3055,6 +3055,8 @@ fn main() {
         musica_compress: arg.musica_compress,
         #[cfg(feature = "kirikiri-arc")]
         xp3_no_adler: arg.xp3_no_adler,
+        #[cfg(feature = "bgi")]
+        bgi_add_space: arg.bgi_add_space,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

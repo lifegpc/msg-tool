@@ -578,6 +578,11 @@ pub struct Arg {
     /// Disable adler32 checksum for Kirikiri XP3 archive when creating.
     /// This will keep compatibility with https://github.com/arcusmaximus/KirikiriTools tool.
     pub xp3_no_adler: bool,
+    #[cfg(feature = "bgi")]
+    #[arg(long, global = true)]
+    /// Add an additional space at the end of message in BGI scripts when importing.
+    /// This may help BGI engine to display the message correctly in save/load screen for some games.
+    pub bgi_add_space: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

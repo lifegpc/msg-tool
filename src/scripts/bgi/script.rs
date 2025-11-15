@@ -68,6 +68,7 @@ pub struct BGIScript {
     import_duplicate: bool,
     append: bool,
     custom_yaml: bool,
+    add_space: bool,
 }
 
 impl std::fmt::Debug for BGIScript {
@@ -101,6 +102,7 @@ impl BGIScript {
                 import_duplicate: config.bgi_import_duplicate,
                 append: !config.bgi_disable_append,
                 custom_yaml: config.custom_yaml,
+                add_space: config.bgi_add_space,
             })
         } else {
             let mut is_v1_instr = false;
@@ -126,6 +128,7 @@ impl BGIScript {
                 import_duplicate: config.bgi_import_duplicate,
                 append: !config.bgi_disable_append,
                 custom_yaml: config.custom_yaml,
+                add_space: config.bgi_add_space,
             })
         }
     }
@@ -226,6 +229,13 @@ impl Script for BGIScript {
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
+        if self.add_space {
+            for mes in messages.iter_mut() {
+                if !mes.message.ends_with(' ') {
+                    mes.message.push(' ');
+                }
+            }
+        }
         if !self.import_duplicate {
             let mut used = HashMap::new();
             let mut extra = HashMap::new();

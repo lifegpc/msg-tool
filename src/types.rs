@@ -519,6 +519,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "musica-arc")]
     /// Whether to compress files in Musica paz archive when packing paz archive.
     pub musica_compress: bool,
+    #[cfg(feature = "bgi")]
+    /// Add an additional space at the end of message in BGI scripts when importing.
+    /// This may help BGI engine to display the message correctly in save/load screen for some games.
+    pub bgi_add_space: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
