@@ -302,7 +302,7 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri")]
     /// Kirikiri chat message key. For example, CIRCUS's key is "comumode". Yuzusoft's key is "phonechat".
     /// If not specified, "comumode" will be used.
-    pub kirikiri_chat_key: Option<String>,
+    pub kirikiri_chat_key: Option<Vec<String>>,
     #[cfg(feature = "kirikiri")]
     /// Kirikiri chat message translation. The outter object's key is filename(`global` is a special key).
     /// The inner object: key is original text, value is (translated text, original text count).

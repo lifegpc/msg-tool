@@ -114,7 +114,7 @@ pub struct ScnScript {
     languages: Option<Arc<Vec<String>>>,
     export_chat: bool,
     filename: String,
-    chat_key: Option<String>,
+    chat_key: Option<Vec<String>>,
     chat_json: Option<Arc<HashMap<String, HashMap<String, (String, usize)>>>>,
     custom_yaml: bool,
     title: bool,
@@ -218,7 +218,9 @@ impl Script for ScnScript {
         }
         let mut comu = if self.export_chat {
             Some(ExportMes::new(
-                self.chat_key.clone().unwrap_or("comumode".to_string()),
+                self.chat_key
+                    .clone()
+                    .unwrap_or(vec!["comumode".to_string()]),
                 if self.chat_multilang {
                     language.clone()
                 } else {
@@ -379,11 +381,16 @@ impl Script for ScnScript {
         if let Some(comu) = comu {
             if !comu.messages.is_empty() {
                 let mut pb = std::path::PathBuf::from(&self.filename);
+                let key = self
+                    .chat_key
+                    .clone()
+                    .unwrap_or(vec!["comumode".to_string()])
+                    .join("_");
                 let filename = pb
                     .file_stem()
                     .map(|s| s.to_string_lossy())
-                    .unwrap_or(std::borrow::Cow::from(comu.key.as_str()));
-                pb.set_file_name(format!("{}_{}.json", filename, comu.key));
+                    .unwrap_or(std::borrow::Cow::from(&key));
+                pb.set_file_name(format!("{}_{}.json", filename, key));
                 match std::fs::File::create(&pb) {
                     Ok(mut f) => {
                         let messages: Vec<String> = comu.messages.into_iter().collect();
@@ -458,7 +465,9 @@ impl Script for ScnScript {
             ImportMes::new(
                 json,
                 replacement,
-                self.chat_key.clone().unwrap_or("comumode".to_string()),
+                self.chat_key
+                    .clone()
+                    .unwrap_or(vec!["comumode".to_string()]),
                 if self.chat_multilang {
                     language.clone()
                 } else {
@@ -889,15 +898,15 @@ impl Script for ScnScript {
 #[derive(Debug)]
 struct ExportMes {
     pub messages: HashSet<String>,
-    pub key: String,
+    pub key: HashSet<String>,
     text_key: String,
 }
 
 impl ExportMes {
-    pub fn new(key: String, language: Option<String>) -> Self {
+    pub fn new(key: Vec<String>, language: Option<String>) -> Self {
         Self {
             messages: HashSet::new(),
-            key: key,
+            key: HashSet::from_iter(key.into_iter()),
             text_key: language.map_or_else(|| String::from("text"), |s| format!("text_{}", s)),
         }
     }
@@ -906,7 +915,7 @@ impl ExportMes {
         match value {
             PsbValueFixed::Object(obj) => {
                 for (k, v) in obj.iter() {
-                    if k == &self.key {
+                    if self.key.contains(k) {
                         if let PsbValueFixed::List(list) = v {
                             for item in list.iter() {
                                 if let PsbValueFixed::Object(obj) = item {
@@ -927,7 +936,7 @@ impl ExportMes {
                 let list = list.values();
                 if list.len() > 1 {
                     if let PsbValueFixed::String(s) = &list[0] {
-                        if s.string() == &self.key {
+                        if self.key.contains(s.string()) {
                             for i in 1..list.len() {
                                 if let PsbValueFixed::String(s) = &list[i - 1] {
                                     if s.string() == &self.text_key {
@@ -999,7 +1008,7 @@ fn warn_not_found(original: String) {
 struct ImportMes<'a> {
     messages: &'a Arc<HashMap<String, HashMap<String, (String, usize)>>>,
     replacement: Option<&'a ReplacementTable>,
-    key: String,
+    key: HashSet<String>,
     text_key: String,
     filename: String,
     ori_text_key: Option<String>,
@@ -1009,7 +1018,7 @@ impl<'a> ImportMes<'a> {
     pub fn new(
         messages: &'a Arc<HashMap<String, HashMap<String, (String, usize)>>>,
         replacement: Option<&'a ReplacementTable>,
-        key: String,
+        key: Vec<String>,
         lang: Option<String>,
         filename: String,
         ori_lang: Option<String>,
@@ -1017,7 +1026,7 @@ impl<'a> ImportMes<'a> {
         Self {
             messages,
             replacement,
-            key: key,
+            key: HashSet::from_iter(key.into_iter()),
             text_key: lang.map_or_else(|| String::from("text"), |s| format!("text_{}", s)),
             filename: std::path::Path::new(&filename)
                 .file_stem()
@@ -1054,7 +1063,7 @@ impl<'a> ImportMes<'a> {
         match value {
             PsbValueFixed::Object(obj) => {
                 for (k, v) in obj.iter_mut() {
-                    if k == &self.key {
+                    if self.key.contains(k) {
                         for obj in v.members_mut() {
                             if let Some(text) = obj[&self.text_key].as_str() {
                                 if let Some(replace_text) = self.get_message(text) {
@@ -1103,7 +1112,7 @@ impl<'a> ImportMes<'a> {
             }
             PsbValueFixed::List(list) => {
                 if list.len() > 1 {
-                    if list[0] == self.key {
+                    if list[0].as_str().map_or(false, |s| self.key.contains(s)) {
                         for i in 1..list.len() {
                             if list[i - 1] == self.text_key {
                                 if let Some(text) = list[i].as_str() {

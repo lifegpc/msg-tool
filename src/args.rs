@@ -235,10 +235,10 @@ pub struct Arg {
     /// For example, CIRCUS's comu message. Yuzusoft's phone chat message.
     pub kirikiri_export_chat: bool,
     #[cfg(feature = "kirikiri")]
-    #[arg(long, global = true)]
+    #[arg(long, global = true, value_delimiter = ',')]
     /// Kirikiri chat message key. For example, CIRCUS's key is "comumode". Yuzusoft's key is "phonechat".
-    /// If not specified, "comumode" will be used.
-    pub kirikiri_chat_key: Option<String>,
+    /// If not specified, "comumode" will be used. Multiple keys can be specified separated by comma.
+    pub kirikiri_chat_key: Option<Vec<String>>,
     #[cfg(feature = "kirikiri")]
     #[arg(long, global = true, group = "kirikiri_chat_jsong")]
     /// Kirikiri chat message translation file. (Map<String, String>, key is original text, value is translated text.)
