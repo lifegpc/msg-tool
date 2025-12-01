@@ -617,15 +617,13 @@ impl Script for ScnScript {
                                     }
                                     text[1][self.language_index][1]
                                         .set_string(message.replace("\n", "\\n"));
-                                    // Modify save message if exists
-                                    if text[1][self.language_index][3].is_string() {
-                                        text[1][self.language_index][3]
-                                            .set_string(get_save_message(&message, true));
-                                    }
-                                    if text[1][self.language_index][4].is_string() {
-                                        text[1][self.language_index][4]
-                                            .set_string(get_save_message(&message, false));
-                                    }
+                                    // text length
+                                    text[1][self.language_index][2]
+                                        .set_i64(message.chars().count() as i64);
+                                    text[1][self.language_index][3]
+                                        .set_string(get_save_message(&message, true));
+                                    text[1][self.language_index][4]
+                                        .set_string(get_save_message(&message, false));
                                 }
                             }
                         } else {
@@ -725,15 +723,12 @@ impl Script for ScnScript {
                                         }
                                         text[2][self.language_index][1]
                                             .set_string(message.replace("\n", "\\n"));
-                                        // Modify save message if exists
-                                        if text[2][self.language_index][3].is_string() {
-                                            text[2][self.language_index][3]
-                                                .set_string(get_save_message(&message, true));
-                                        }
-                                        if text[2][self.language_index][4].is_string() {
-                                            text[2][self.language_index][4]
-                                                .set_string(get_save_message(&message, false));
-                                        }
+                                        text[2][self.language_index][2]
+                                            .set_i64(message.chars().count() as i64);
+                                        text[2][self.language_index][3]
+                                            .set_string(get_save_message(&message, true));
+                                        text[2][self.language_index][4]
+                                            .set_string(get_save_message(&message, false));
                                     }
                                 }
                             }
