@@ -65,6 +65,7 @@ pub struct Pgd3 {
     base_header: PgdGeHeader,
     base: ImageData,
     diff: ImageData,
+    fake_compress: bool,
 }
 
 impl Pgd3 {
@@ -72,7 +73,7 @@ impl Pgd3 {
         mut reader: R,
         filename: &str,
         encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
     ) -> Result<Self> {
         let mut sig = [0u8; 4];
@@ -110,6 +111,7 @@ impl Pgd3 {
             base_header,
             base,
             diff,
+            fake_compress: config.pgd_fake_compress,
         })
     }
 }
@@ -146,6 +148,44 @@ impl Script for Pgd3 {
             self.header.offset_y as u32,
         )?;
         Ok(base)
+    }
+
+    fn import_image<'a>(
+        &'a self,
+        data: ImageData,
+        mut file: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
+        let mut header = PgdGeHeader {
+            offset_x: self.base_header.offset_x,
+            offset_y: self.base_header.offset_y,
+            width: self.base_header.width,
+            height: self.base_header.height,
+            canvas_height: self.base_header.canvas_height,
+            canvas_width: self.base_header.canvas_width,
+            mode: self.base_header.mode,
+            _unk: self.base_header._unk,
+        };
+        if data.height != header.height {
+            return Err(anyhow::anyhow!(
+                "Image height does not match: expected {}, got {}",
+                header.height,
+                data.height
+            ));
+        }
+        if data.width != header.width {
+            return Err(anyhow::anyhow!(
+                "Image width does not match: expected {}, got {}",
+                header.width,
+                data.width
+            ));
+        }
+        header.mode = 3;
+        file.write_all(b"GE \0")?;
+        header.pack(&mut file, false, Encoding::Utf8)?;
+        PgdWriter::new(data, self.fake_compress)
+            .with_method(3)
+            .pack_ge(&mut file)?;
+        Ok(())
     }
 }
 
