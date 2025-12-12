@@ -1,8 +1,12 @@
 //! Utilities for File Operations
 use crate::scripts::{ALL_EXTS, ARCHIVE_EXTS};
+#[cfg(not(windows))]
+use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::io::{Read, Write};
+#[cfg(not(windows))]
+use std::path::Component;
 use std::path::{Path, PathBuf};
 
 /// Returns the relative path from `root` to `target`.
@@ -335,4 +339,130 @@ pub fn sanitize_path(path: &str) -> String {
     }
 
     result
+}
+
+pub fn get_ignorecase_path<P: AsRef<Path>>(path: P) -> std::io::Result<PathBuf> {
+    #[cfg(windows)]
+    return Ok(path.as_ref().to_path_buf());
+    #[cfg(not(windows))]
+    {
+        let path = path.as_ref();
+        // If the path exists as is, return it
+        if path.exists() {
+            return Ok(path.to_path_buf());
+        }
+        {
+            // Helper: try to resolve the remaining tail components starting from base,
+            // performing case-insensitive matches for each step.
+            fn resolve_from_base(base: PathBuf, tail: &[OsString]) -> io::Result<Option<PathBuf>> {
+                let mut cur = base;
+                for comp in tail {
+                    let direct = cur.join(comp);
+                    if direct.exists() {
+                        cur = direct;
+                        continue;
+                    }
+
+                    if !cur.is_dir() {
+                        return Ok(None);
+                    }
+
+                    let mut found = None;
+                    for entry in fs::read_dir(&cur)? {
+                        let entry = entry?;
+                        let name = entry.file_name();
+                        if name
+                            .to_string_lossy()
+                            .eq_ignore_ascii_case(&comp.to_string_lossy())
+                        {
+                            found = Some(cur.join(name));
+                            break;
+                        }
+                    }
+
+                    match found {
+                        Some(p) => cur = p,
+                        None => return Ok(None),
+                    }
+                }
+                Ok(Some(cur))
+            }
+
+            let orig = path;
+            // If it exists as-is, return immediately
+            if orig.exists() {
+                return Ok(orig.to_path_buf());
+            }
+
+            // Collect components as OsString (preserve Prefix/RootDir as components)
+            let comps: Vec<OsString> = orig
+                .components()
+                .map(|c| match c {
+                    Component::Prefix(p) => p.as_os_str().to_os_string(),
+                    Component::RootDir => OsString::from(std::path::MAIN_SEPARATOR.to_string()),
+                    other => other.as_os_str().to_os_string(),
+                })
+                .collect();
+
+            // Try replacing components from the bottom (leaf) upward.
+            let len = comps.len();
+            for idx in (0..len).rev() {
+                // Build parent path from comps[0..idx]
+                let mut parent = PathBuf::new();
+                for j in 0..idx {
+                    parent.push(&comps[j]);
+                }
+                if parent.as_os_str().is_empty() {
+                    parent = PathBuf::from(".");
+                }
+
+                // If parent doesn't exist or is not a directory, skip this level
+                if !parent.exists() || !parent.is_dir() {
+                    continue;
+                }
+
+                // Look for a case-insensitive match for the component at idx inside parent
+                let target = &comps[idx];
+                let mut matched_name: Option<OsString> = None;
+                for entry in fs::read_dir(&parent)? {
+                    let entry = entry?;
+                    let name = entry.file_name();
+                    if name
+                        .to_string_lossy()
+                        .eq_ignore_ascii_case(&target.to_string_lossy())
+                    {
+                        matched_name = Some(name);
+                        break;
+                    }
+                }
+
+                if let Some(name) = matched_name {
+                    // Reconstruct candidate path: parent + matched_name + remaining original tail
+                    let candidate_base = parent.join(name);
+                    let tail: Vec<OsString> = comps.iter().skip(idx + 1).cloned().collect();
+                    if tail.is_empty() {
+                        if candidate_base.exists() {
+                            return Ok(candidate_base);
+                        } else {
+                            // Even if leaf matched, final file may not exist (e.g., different deeper casing),
+                            // attempt to resolve remaining components (none here) so treat as not found.
+                            continue;
+                        }
+                    }
+
+                    if let Some(resolved) = resolve_from_base(candidate_base, &tail)? {
+                        return Ok(resolved);
+                    }
+                }
+            }
+
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!(
+                    "Path {} not found (case-insensitive search failed)",
+                    path.display()
+                ),
+            ))
+        }
+    }
 }

@@ -90,7 +90,7 @@ impl Pgd3 {
             let path = {
                 let mut pb = std::path::PathBuf::from(filename);
                 pb.set_file_name(&header.base_name);
-                pb
+                crate::utils::files::get_ignorecase_path(&pb)?
             };
             crate::utils::files::read_file(&path).map_err(|e| {
                 anyhow::anyhow!("Failed to read base image file '{}': {}", path.display(), e)
