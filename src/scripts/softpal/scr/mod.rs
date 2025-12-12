@@ -99,6 +99,7 @@ impl SoftpalScript {
         } else {
             let mut path = std::path::PathBuf::from(filename);
             path.set_file_name(name);
+            path = crate::utils::files::get_ignorecase_path(&path)?;
             std::fs::read(path).map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", name, e))
         }
     }

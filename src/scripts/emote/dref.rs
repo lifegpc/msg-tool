@@ -189,7 +189,8 @@ impl DpakLoader {
         let dpak = match self.map.get(dpak) {
             Some(d) => d,
             None => {
-                let path = dir.join(dpak);
+                let mut path = dir.join(dpak);
+                path = crate::utils::files::get_ignorecase_path(&path)?;
                 let ndpak = Dpak::new(&path)?;
                 self.map.insert(dpak.to_string(), ndpak);
                 self.map.get(dpak).unwrap()

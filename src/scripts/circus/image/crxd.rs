@@ -99,6 +99,7 @@ impl CrxdImage {
         } else {
             let mut nf = std::path::PathBuf::from(filename);
             nf.set_file_name(name);
+            nf = crate::utils::files::get_ignorecase_path(&nf)?;
             let f = std::fs::File::open(nf)?;
             CrxImage::new(std::io::BufReader::new(f), config)?
         }
