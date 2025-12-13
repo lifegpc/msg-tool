@@ -4,3 +4,4 @@
 /patched
 *.log
 .vscode/
+/vendor

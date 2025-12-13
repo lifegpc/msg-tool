@@ -1,6 +1,6 @@
 [package]
 name = "msg_tool"
-version = "0.2.14"
+version = "0.2.15"
 edition = "2024"
 repository = "https://github.com/lifegpc/msg-tool"
 description = "A command-line tool for exporting, importing, packing, and unpacking script files."
@@ -30,8 +30,8 @@ lazy_static = "1.5.0"
 libflac-sys = { version = "0.3", optional = true }
 libtlg-rs = { version = "0.2", optional = true, features = ["encode"] }
 lz4 = { version = "1.28", optional = true }
-markup5ever = { version = "0.35", optional = true }
-markup5ever_rcdom = { version = "0.35", optional = true }
+markup5ever = { version = "0.36", optional = true }
+markup5ever_rcdom = { version = "0.36", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
 msg_tool_macro = { version = "0.2.12" }
@@ -52,7 +52,7 @@ unicode-segmentation = "1.12"
 url = { version = "2.5", optional = true }
 utf16string = "0.2"
 webp = { version = "0.3", default-features = false, optional = true }
-xml5ever = { version = "0.35", optional = true }
+xml5ever = { version = "0.36", optional = true }
 xp3 = { version = "0.3", optional = true}
 zstd = { version = "0.13", optional = true }
 
