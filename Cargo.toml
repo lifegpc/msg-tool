@@ -109,6 +109,7 @@ lossless-audio = ["utils-pcm"]
 audio-flac = ["libflac-sys", "utils-pcm"]
 unstable = ["msg_tool_macro/unstable"]
 jieba = ["jieba-rs"]
+emote-psb = ["dep:emote-psb", "lz4"]
 # utils feature
 utils-bit-stream = []
 utils-blowfish = ["byteorder"]

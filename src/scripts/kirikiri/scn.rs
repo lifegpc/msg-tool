@@ -142,11 +142,7 @@ impl ScnScript {
             return Self::new(MemReader::new(decoded), filename, config);
         }
         reader.rewind()?;
-        let mut psb = PsbReader::open_psb(reader)
-            .map_err(|e| anyhow::anyhow!("Failed to open PSB from {}: {:?}", filename, e))?;
-        let psb = psb
-            .load()
-            .map_err(|e| anyhow::anyhow!("Failed to load PSB from {}: {:?}", filename, e))?;
+        let psb = PsbReader::open_psb_v2(reader)?;
         Ok(Self {
             psb: psb.to_psb_fixed(),
             language_index: config.kirikiri_language_index.unwrap_or(0),

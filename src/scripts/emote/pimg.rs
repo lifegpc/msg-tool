@@ -109,13 +109,8 @@ impl PImg {
     /// * `reader` - The reader containing the PImg script data
     /// * `filename` - The name of the file
     /// * `config` - Extra configuration options
-    pub fn new<R: Read + Seek>(reader: R, filename: &str, config: &ExtraConfig) -> Result<Self> {
-        let mut psb = PsbReader::open_psb(reader)
-            .map_err(|e| anyhow::anyhow!("Failed to open PSB from {}: {:?}", filename, e))?;
-        let psb = psb
-            .load()
-            .map_err(|e| anyhow::anyhow!("Failed to load PSB from {}: {:?}", filename, e))?
-            .to_psb_fixed();
+    pub fn new<R: Read + Seek>(reader: R, _filename: &str, config: &ExtraConfig) -> Result<Self> {
+        let psb = PsbReader::open_psb_v2(reader)?.to_psb_fixed();
         Ok(Self {
             psb,
             overlay: config.emote_pimg_overlay,

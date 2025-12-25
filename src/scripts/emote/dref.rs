@@ -69,21 +69,13 @@ impl Dpak {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let f = std::fs::File::open(path)?;
         let mut f = std::io::BufReader::new(f);
-        let mut psb = PsbReader::open_psb(&mut f)
-            .map_err(|e| anyhow::anyhow!("Failed to read PSB from DPAK: {:?}", e))?;
-        let psb = psb
-            .load()
-            .map_err(|e| anyhow::anyhow!("Failed to load PSB from DPAK: {:?}", e))?;
+        let psb = PsbReader::open_psb_v2(&mut f)?;
         let psb = psb.to_psb_fixed();
         Ok(Self { psb })
     }
 
     pub fn load_from_data(data: &[u8]) -> Result<Self> {
-        let mut psb = PsbReader::open_psb(MemReaderRef::new(data))
-            .map_err(|e| anyhow::anyhow!("Failed to read PSB from DPAK data: {:?}", e))?;
-        let psb = psb
-            .load()
-            .map_err(|e| anyhow::anyhow!("Failed to load PSB from DPAK data: {:?}", e))?;
+        let psb = PsbReader::open_psb_v2(MemReaderRef::new(data))?;
         let psb = psb.to_psb_fixed();
         Ok(Self { psb })
     }

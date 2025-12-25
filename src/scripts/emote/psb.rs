@@ -67,7 +67,7 @@ impl ScriptBuilder for PsbBuilder {
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &[]
+        &["psb"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
@@ -77,6 +77,12 @@ impl ScriptBuilder for PsbBuilder {
     fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
         if buf_len >= 4 && buf.starts_with(b"PSB\0") {
             return Some(10);
+        } else if buf_len >= 4 && buf.starts_with(&[0x04, 0x22, 0x4D, 0x18]) {
+            for i in 4..buf_len - 4 {
+                if buf[i..i + 4] == *b"PSB\0" {
+                    return Some(10);
+                }
+            }
         }
         None
     }
@@ -110,12 +116,7 @@ impl Psb {
         encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<Self> {
-        let mut psb = PsbReader::open_psb(reader)
-            .map_err(|e| anyhow::anyhow!("Failed to open psb file: {:?}", e))?;
-        let psb = psb
-            .load()
-            .map_err(|e| anyhow::anyhow!("Failed to load psb: {:?}", e))?
-            .to_psb_fixed();
+        let psb = PsbReader::open_psb_v2(reader)?.to_psb_fixed();
         Ok(Self {
             psb,
             encoding,

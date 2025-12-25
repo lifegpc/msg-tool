@@ -1,4 +1,7 @@
 //!Extensions for emote_psb crate.
+use crate::ext::io::*;
+use anyhow::Result;
+use emote_psb::PsbReader;
 use emote_psb::VirtualPsb;
 use emote_psb::header::PsbHeader;
 use emote_psb::types::collection::*;
@@ -12,6 +15,7 @@ use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::collections::{BTreeMap, HashMap};
+use std::io::{Read, Seek};
 use std::ops::{Index, IndexMut};
 
 const NONE: PsbValueFixed = PsbValueFixed::None;
@@ -1190,5 +1194,30 @@ impl VirtualPsbExt for VirtualPsb {
     fn to_psb_fixed(self) -> VirtualPsbFixed {
         let (header, resources, extra, root) = self.unwrap();
         VirtualPsbFixed::new(header, resources, extra, root.to_psb_fixed())
+    }
+}
+
+/// Trait to extend PSB reader functionality.
+pub trait PsbReaderExt {
+    /// Opens a PSB v2 file from a stream, handling other formats like LZ4 compression.
+    fn open_psb_v2<T: Read + Seek>(stream: T) -> Result<VirtualPsb>;
+}
+
+const LZ4_SIGNATURE: u32 = 0x184D2204;
+
+impl PsbReaderExt for PsbReader {
+    fn open_psb_v2<T: Read + Seek>(mut stream: T) -> Result<VirtualPsb> {
+        let signature = stream.peek_u32_at(0)?;
+        if signature == LZ4_SIGNATURE {
+            let mut decoder = lz4::Decoder::new(stream)?;
+            let mut mem_stream = MemWriter::new();
+            std::io::copy(&mut decoder, &mut mem_stream)?;
+            return Self::open_psb_v2(MemReader::new(mem_stream.into_inner()));
+        }
+        let mut file = PsbReader::open_psb(stream)
+            .map_err(|e| anyhow::anyhow!("Failed to open PSB: {:?}", e))?;
+        Ok(file
+            .load()
+            .map_err(|e| anyhow::anyhow!("Failed to load PSB: {:?}", e))?)
     }
 }

@@ -41,7 +41,7 @@ def main():
     
     features = cargo_toml.get("features", {})
     feature_names = list(features.keys())
-    feature_names = [name for name in feature_names if filter_name(name)]
+    feature_names = [name for name in feature_names if filter_name(name) and f"dep:{name}" not in features[name]]
     
     if not feature_names:
         print("No features defined in Cargo.toml.")
