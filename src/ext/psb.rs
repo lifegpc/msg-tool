@@ -11,12 +11,55 @@ use emote_psb::types::string::*;
 use emote_psb::types::*;
 #[cfg(feature = "json")]
 use json::JsonValue;
+use json::number::Number;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek};
 use std::ops::{Index, IndexMut};
+
+fn f32_to_number(x: f32) -> Number {
+    if !x.is_finite() {
+        return Number::from_parts(true, 0, 0);
+    }
+
+    let s = format!("{}", x);
+
+    if s.contains('e') || s.contains('E') {
+        let value = x as f64;
+        return if value >= 0.0 {
+            Number::from(value)
+        } else {
+            Number::from(value)
+        };
+    }
+
+    let positive = !s.starts_with('-');
+    let s = s.trim_start_matches('-');
+
+    let parts: Vec<&str> = s.split('.').collect();
+
+    if parts.len() == 1 {
+        let mantissa: u64 = parts[0].parse().unwrap_or(0);
+        Number::from_parts(positive, mantissa, 0)
+    } else {
+        let int_part = parts[0];
+        let frac_part = parts[1].trim_end_matches('0'); // 去除尾部的0
+
+        if frac_part.is_empty() {
+            // 没有实际小数部分
+            let mantissa: u64 = int_part.parse().unwrap_or(0);
+            Number::from_parts(positive, mantissa, 0)
+        } else {
+            let combined = format!("{}{}", int_part, frac_part);
+            let mantissa: u64 = combined.parse().unwrap_or(0);
+            let exponent: i16 = -(frac_part.len() as i16);
+
+            Number::from_parts(positive, mantissa, exponent)
+        }
+    }
+}
 
 const NONE: PsbValueFixed = PsbValueFixed::None;
 
@@ -361,7 +404,7 @@ impl PsbValueFixed {
             PsbValueFixed::Bool(b) => Some(JsonValue::Boolean(*b)),
             PsbValueFixed::Number(n) => match n {
                 PsbNumber::Integer(i) => Some(JsonValue::Number((*i).into())),
-                PsbNumber::Float(f) => Some(JsonValue::Number((*f).into())),
+                PsbNumber::Float(f) => Some(JsonValue::Number(f32_to_number(*f))),
                 PsbNumber::Double(d) => Some(JsonValue::Number((*d).into())),
             },
             PsbValueFixed::String(s) => Some(JsonValue::String(s.string().to_owned())),
@@ -1222,4 +1265,15 @@ impl PsbReaderExt for PsbReader {
             .load()
             .map_err(|e| anyhow::anyhow!("Failed to load PSB: {:?}", e))?)
     }
+}
+
+#[cfg(feature = "json")]
+#[test]
+fn test_f32_to_json() {
+    let num = PsbValueFixed::Number(PsbNumber::Float(3.03));
+    let json_value = num.to_json().unwrap();
+    assert_eq!(json_value.to_string(), "3.03");
+    let num = PsbValueFixed::Number(PsbNumber::Double(3.03));
+    let json_value = num.to_json().unwrap();
+    assert_eq!(json_value.to_string(), "3.03");
 }
