@@ -239,7 +239,9 @@ impl PsbValueFixed {
         match self {
             PsbValueFixed::Number(n) => match n {
                 PsbNumber::Integer(n) => Some(*n),
-                _ => None,
+                PsbNumber::Double(n) if n.fract() == 0.0 => Some(*n as i64),
+                PsbNumber::Float(n) if n.fract() == 0.0 => Some(*n as i64),
+                _ => None
             },
             _ => None,
         }
