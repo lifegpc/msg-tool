@@ -241,7 +241,7 @@ impl PsbValueFixed {
                 PsbNumber::Integer(n) => Some(*n),
                 PsbNumber::Double(n) if n.fract() == 0.0 => Some(*n as i64),
                 PsbNumber::Float(n) if n.fract() == 0.0 => Some(*n as i64),
-                _ => None
+                _ => None,
             },
             _ => None,
         }

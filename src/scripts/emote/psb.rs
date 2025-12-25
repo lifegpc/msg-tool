@@ -303,6 +303,14 @@ impl Script for Psb {
                     let width = pb_data["width"].as_i64();
                     let height = pb_data["height"].as_i64();
                     let compress = pb_data["compress"].as_str();
+                    if compress.is_some_and(|s| s == "RL") && (width.is_none() || height.is_none())
+                    {
+                        eprintln!(
+                            "Warning: Resource {:?} is marked as RL compressed but width/height is missing (width={:?}, height={:?})",
+                            path, pb_data["width"], pb_data["height"]
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
                     if let (Some(w), Some(h), Some(c)) = (width, height, compress) {
                         if c == "RL" {
                             let res_name: Vec<_> = path
