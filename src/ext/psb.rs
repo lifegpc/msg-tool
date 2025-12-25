@@ -11,6 +11,7 @@ use emote_psb::types::string::*;
 use emote_psb::types::*;
 #[cfg(feature = "json")]
 use json::JsonValue;
+#[cfg(feature = "json")]
 use json::number::Number;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek};
 use std::ops::{Index, IndexMut};
 
+#[cfg(feature = "json")]
 fn f32_to_number(x: f32) -> Number {
     if !x.is_finite() {
         return Number::from_parts(true, 0, 0);
