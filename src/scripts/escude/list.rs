@@ -145,7 +145,7 @@ impl EscudeBinList {
                     let id = ent.id;
                     if let ListData::Unknown(unk) = &ent.data {
                         let mut reader = MemReader::new(unk.clone());
-                        let element_size = if id == 0 {
+                        let mut element_size = if id == 0 {
                             132
                         } else if id == 1 {
                             100
@@ -159,6 +159,11 @@ impl EscudeBinList {
                             return Err(anyhow::anyhow!("Unknown enum source ID: {}", id));
                         };
                         let len = unk.len();
+                        let mut script_old = false;
+                        if id == 0 && len % element_size != 0 {
+                            element_size = 128;
+                            script_old = true;
+                        }
                         if len % element_size != 0 {
                             return Err(anyhow::anyhow!(
                                 "Invalid enum source length: {} for ID: {}",
@@ -168,9 +173,19 @@ impl EscudeBinList {
                         }
                         let count = len / element_size;
                         let data_entry = match id {
-                            0 => ListData::Scr(EnumScr::Scripts(
-                                reader.read_struct_vec::<ScriptT>(count, false, encoding)?,
-                            )),
+                            0 => {
+                                if script_old {
+                                    ListData::Scr(EnumScr::Scripts2(
+                                        reader
+                                            .read_struct_vec::<ScriptT2>(count, false, encoding)?,
+                                    ))
+                                } else {
+                                    ListData::Scr(EnumScr::Scripts(
+                                        reader
+                                            .read_struct_vec::<ScriptT>(count, false, encoding)?,
+                                    ))
+                                }
+                            }
                             1 => ListData::Scr(EnumScr::Names(
                                 reader.read_struct_vec::<NameT>(count, false, encoding)?,
                             )),
@@ -355,7 +370,7 @@ impl Script for EscudeBinList {
             serde_yaml_ng::to_string(&self.entries)
                 .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
         } else {
-            serde_json::to_string(&self.entries)
+            serde_json::to_string_pretty(&self.entries)
                 .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
         };
         let mut writer = crate::utils::files::write_file(filename)?;
@@ -391,6 +406,19 @@ pub struct ScriptT {
     pub file: String,
     /// Script ID
     pub source: u32,
+    #[fstring = 64]
+    #[fstring_pad = 0x20]
+    /// Script title
+    pub title: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, StructPack, StructUnpack)]
+/// Script entry in the Escu:de list
+pub struct ScriptT2 {
+    #[fstring = 64]
+    #[fstring_pad = 0x20]
+    /// File name
+    pub file: String,
     #[fstring = 64]
     #[fstring_pad = 0x20]
     /// Script title
@@ -448,6 +476,8 @@ pub struct SceneT {
 pub enum EnumScr {
     /// Scripts data
     Scripts(Vec<ScriptT>),
+    /// Scripts data (old)
+    Scripts2(Vec<ScriptT2>),
     /// Names data
     Names(Vec<NameT>),
     /// Variables data
