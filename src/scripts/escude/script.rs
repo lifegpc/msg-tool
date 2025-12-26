@@ -1,5 +1,5 @@
 //! Escu:de Script File (.bin)
-use super::list::{EnumScr, EscudeBinList, ListData, NameT};
+use super::list::{EnumScr, EscudeBinList, ListData, NameT, VarT};
 use super::ops::base::CustomOps;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -7,11 +7,21 @@ use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use crate::utils::struct_pack::StructPack;
 use anyhow::Result;
+use clap::ValueEnum;
 use int_enum::IntEnum;
 use std::collections::{BTreeSet, HashMap};
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom};
 use unicode_segmentation::UnicodeSegmentation;
+
+#[derive(Debug, ValueEnum, Clone, Copy)]
+/// Game title
+pub enum EscudeOp {
+    /// パニカルコンフュージョン
+    Panicon,
+    /// 花嫁と魔王 ～王室のハーレムは下克上～
+    Hanaou,
+}
 
 #[derive(Debug)]
 /// Builder for Escu:de binary script files
@@ -70,22 +80,46 @@ fn load_enum_script(
     filename: &str,
     encoding: Encoding,
     config: &ExtraConfig,
-) -> Result<Vec<NameT>> {
+) -> Result<(Vec<NameT>, Vec<VarT>)> {
     let buf = crate::utils::files::read_file(filename)?;
     let scr = EscudeBinList::new(buf, filename, encoding, config)?;
+    let mut names = None;
+    let mut vars = None;
     for scr in scr.entries {
         match scr.data {
             ListData::Scr(scr) => match scr {
-                EnumScr::Names(names) => return Ok(names),
+                EnumScr::Names(name) => {
+                    names = Some(name);
+                }
+                EnumScr::Vars(var) => {
+                    vars = Some(var);
+                }
                 _ => {}
             },
             _ => {}
         }
     }
-    Err(anyhow::anyhow!(
-        "Failed to find name table in Escude enum script",
+    Ok((
+        names.ok_or_else(|| anyhow::anyhow!("No names data in enum script"))?,
+        vars.ok_or_else(|| anyhow::anyhow!("No vars data in enum script"))?,
     ))
 }
+
+// fn check_messages_in_vms<'a, T: TryInto<usize> + Copy + 'a, I>(messages: &[String], mes: I)
+// where
+//     I: Iterator<Item = &'a T>,
+// {
+//     let mess = mes.filter_map(|m| (*m).try_into().ok()).collect::<HashSet<usize>>();
+//     for (i, str) in messages.iter().enumerate() {
+//         if str.is_empty() {
+//             continue;
+//         }
+//         if !mess.contains(&i) {
+//             eprintln!("WARN: Message at index {i} not referenced in VMs: {}", str);
+//             crate::COUNTER.inc_warning();
+//         }
+//     }
+// }
 
 impl EscudeBinScript {
     /// Creates a new `EscudeBinScript`
@@ -129,26 +163,53 @@ impl EscudeBinScript {
         }
         let names = match &config.escude_enum_scr {
             Some(loc) => match load_enum_script(loc, encoding, config) {
-                Ok(list) => {
-                    let mut names = HashMap::new();
-                    let mut vm = VM::new(&vms);
-                    vm.vars.insert(1, 1);
-                    vm.vars.insert(132, 0);
-                    vm.vars.insert(133, 0);
-                    vm.vars.insert(134, 0);
-                    vm.vars.insert(1001, 0);
-                    vm.vars.insert(1003, 0);
-                    for i in 135..140 {
-                        vm.vars.insert(i, 1);
-                    }
-                    let _ = vm.run(Some(Box::new(super::ops::panicon::PaniconOps::new())));
-                    for (index, name) in vm.names.iter() {
-                        if let Some(name) = list.get(*name as usize) {
-                            names.insert(*index as usize, name.text.clone());
+                Ok((list, vars)) => match config.escude_op {
+                    Some(EscudeOp::Panicon) => {
+                        let mut names = HashMap::new();
+                        let mut vm = VM::new(&vms);
+                        for var in vars {
+                            vm.vars.insert(var.value as i32, var.flag as i32);
                         }
+                        let _ = vm.run(Some(Box::new(super::ops::panicon::PaniconOps::new())));
+                        for (index, name) in vm.names.iter() {
+                            if let Some(name) = list.get(*name as usize) {
+                                names.insert(*index as usize, name.text.clone());
+                            }
+                        }
+                        // check_messages_in_vms(&strings, vm.mess.iter());
+                        Some(names)
                     }
-                    Some(names)
-                }
+                    Some(EscudeOp::Hanaou) => {
+                        let mut names = HashMap::new();
+                        let mut vm = VM::new(&vms);
+                        for var in vars {
+                            vm.vars.insert(var.value as i32, var.flag as i32);
+                        }
+                        let _ = vm.run(Some(Box::new(super::ops::hanaou::HanaouOps::new())));
+                        for (index, name) in vm.names.iter() {
+                            if let Some(name) = list.get(*name as usize) {
+                                names.insert(*index as usize, name.text.clone());
+                            }
+                        }
+                        // check_messages_in_vms(&strings, vm.mess.iter());
+                        Some(names)
+                    }
+                    None => {
+                        let mut names = HashMap::new();
+                        let mut vm = VM::new(&vms);
+                        for var in vars {
+                            vm.vars.insert(var.value as i32, var.flag as i32);
+                        }
+                        let _ = vm.run(None);
+                        for (index, name) in vm.names.iter() {
+                            if let Some(name) = list.get(*name as usize) {
+                                names.insert(*index as usize, name.text.clone());
+                            }
+                        }
+                        // check_messages_in_vms(&strings, vm.mess.iter());
+                        Some(names)
+                    }
+                },
                 Err(e) => {
                     eprintln!(
                         "WARN: Failed to load Escude enum script from {}: {}",
@@ -636,6 +697,9 @@ where
     }
 
     pub fn skip_n_params(&mut self, n: u64, nbreak: bool) -> Result<bool> {
+        if (self.data.len() as u64) < n {
+            println!("{:?}", self.data);
+        }
         for _ in 0..n {
             self.pop_data()?;
         }

@@ -3057,6 +3057,8 @@ fn main() {
         xp3_no_adler: arg.xp3_no_adler,
         #[cfg(feature = "bgi")]
         bgi_add_space: arg.bgi_add_space,
+        #[cfg(feature = "escude")]
+        escude_op: arg.escude_op,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

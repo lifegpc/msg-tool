@@ -189,6 +189,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// The path to the Escude enum script file (enum_scr.bin)
     pub escude_enum_scr: Option<String>,
+    #[cfg(feature = "escude")]
+    #[arg(long, global = true)]
+    /// Escude game title
+    pub escude_op: Option<crate::scripts::escude::script::EscudeOp>,
     #[cfg(feature = "bgi")]
     #[arg(long, action = ArgAction::SetTrue, global = true)]
     /// Duplicate same strings when importing into BGI scripts.

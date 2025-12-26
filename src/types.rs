@@ -523,6 +523,9 @@ pub struct ExtraConfig {
     /// Add an additional space at the end of message in BGI scripts when importing.
     /// This may help BGI engine to display the message correctly in save/load screen for some games.
     pub bgi_add_space: bool,
+    #[cfg(feature = "escude")]
+    /// Escude game title
+    pub escude_op: Option<crate::scripts::escude::script::EscudeOp>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
