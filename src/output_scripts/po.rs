@@ -3,7 +3,7 @@
 //! See [spec](https://www.gnu.org/software/gettext/manual/html_node/PO-Files.html)
 use crate::types::*;
 use anyhow::{Result, anyhow};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
@@ -269,17 +269,26 @@ impl PoDumper {
             msgid_plural: None,
             msgstr: MsgStr::Single(Self::gen_start_str(encoding)),
         });
-        let mut added_messages: HashMap<&String, usize> = HashMap::new();
+        let mut added: HashSet<&String> = HashSet::new();
+        let mut added_messages: HashMap<(&String, &Option<String>), usize> = HashMap::new();
         for entry in entries {
-            let count = added_messages.get(&entry.message).map(|&s| s).unwrap_or(0);
+            let count = added_messages
+                .get(&(&entry.message, &entry.name))
+                .map(|&s| s)
+                .unwrap_or(0);
+            let inadded = added.contains(&entry.message);
             self.add_entry(PoEntry {
                 comments: entry
                     .name
                     .as_ref()
                     .map(|name| vec![Comment::Translator(format!("NAME: {}", name))])
                     .unwrap_or_default(),
-                msgctxt: if count > 0 {
-                    Some(format!("{}", count))
+                msgctxt: if count > 0 || inadded {
+                    Some(format!(
+                        "{}{}",
+                        entry.name.as_ref().map(|s| s.as_str()).unwrap_or(""),
+                        count
+                    ))
                 } else {
                     None
                 },
@@ -287,7 +296,10 @@ impl PoDumper {
                 msgid_plural: None,
                 msgstr: MsgStr::Single(String::new()),
             });
-            added_messages.insert(&entry.message, count + 1);
+            added_messages.insert((&entry.message, &entry.name), count + 1);
+            if !inadded {
+                added.insert(&entry.message);
+            }
         }
         let mut result = String::new();
         for line in &self.entries {
