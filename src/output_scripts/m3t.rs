@@ -200,11 +200,11 @@ impl<'a> M3tParser<'a> {
                 if line.starts_with("NAME:") {
                     name = Some(line[5..].trim().to_string());
                 } else {
-                    source = Some(line.to_string());
+                    source = Some(line.replace("\\n", "\n"));
                 }
             } else if line.starts_with("△") {
                 let line = line[3..].trim();
-                llm = Some(line.to_string());
+                llm = Some(line.replace("\\n", "\n"));
             } else if line.starts_with("●") {
                 let message = line[3..].trim();
                 let source = match source.take() {
@@ -219,7 +219,7 @@ impl<'a> M3tParser<'a> {
                 let m = ExtendedMessage {
                     name: name.take(),
                     source,
-                    translated: message.to_string(),
+                    translated: message.replace("\\n", "\n"),
                     llm: llm.take(),
                 };
                 messages.push(m);
