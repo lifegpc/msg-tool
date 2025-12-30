@@ -716,6 +716,17 @@ pub enum Command {
         /// Output dependency file path. This file will contain a list of all files packed in the archive.
         dep_file: Option<String>,
     },
+    /// Convert output script to another format
+    Convert {
+        /// Input script format type
+        input_type: OutputScriptType,
+        /// Output script format type
+        output_type: OutputScriptType,
+        /// Input script file
+        input: String,
+        /// Output script file
+        output: Option<String>,
+    },
 }
 
 pub fn parse_args() -> Arg {

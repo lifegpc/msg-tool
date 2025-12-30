@@ -8,7 +8,7 @@
 //! △ LLM message
 //! ● Translated message
 //! ```
-use crate::types::Message;
+use crate::types::*;
 use anyhow::Result;
 
 /// A parser for the M3T format.
@@ -183,6 +183,50 @@ impl<'a> M3tParser<'a> {
         }
         Ok(messages)
     }
+
+    pub fn parse_as_extend(&mut self) -> Result<Vec<ExtendedMessage>> {
+        let mut messages = Vec::new();
+        let mut name = None;
+        let mut llm = None;
+        let mut source = None;
+        while let Some(line) = self.next_line() {
+            if line.is_empty() {
+                continue;
+            }
+            // Remove zero-width space characters
+            let line = line.trim().trim_matches('\u{200b}');
+            if line.starts_with("○") {
+                let line = line[3..].trim();
+                if line.starts_with("NAME:") {
+                    name = Some(line[5..].trim().to_string());
+                } else {
+                    source = Some(line.to_string());
+                }
+            } else if line.starts_with("△") {
+                let line = line[3..].trim();
+                llm = Some(line.to_string());
+            } else if line.starts_with("●") {
+                let message = line[3..].trim();
+                let source = match source.take() {
+                    Some(s) => s,
+                    None => {
+                        return Err(anyhow::anyhow!(
+                            "Missing original message before translated message at line {}",
+                            self.line
+                        ));
+                    }
+                };
+                let m = ExtendedMessage {
+                    name: name.take(),
+                    source,
+                    translated: message.to_string(),
+                    llm: llm.take(),
+                };
+                messages.push(m);
+            }
+        }
+        Ok(messages)
+    }
 }
 
 /// A dumper for the M3T format.
@@ -202,6 +246,25 @@ impl M3tDumper {
             } else {
                 result.push_str("●\n\n");
             }
+        }
+        result
+    }
+
+    /// Dumps the extended messages in M3T format.
+    pub fn dump_extended(messages: &[ExtendedMessage]) -> String {
+        let mut result = String::new();
+        for message in messages {
+            if let Some(name) = &message.name {
+                result.push_str(&format!("○ NAME: {}\n\n", name));
+            }
+            result.push_str(&format!("○ {}\n", message.source.replace("\n", "\\n")));
+            if let Some(llm) = &message.llm {
+                result.push_str(&format!("△ {}\n", llm.replace("\n", "\\n")));
+            }
+            result.push_str(&format!(
+                "● {}\n\n",
+                message.translated.replace("\n", "\\n")
+            ));
         }
         result
     }

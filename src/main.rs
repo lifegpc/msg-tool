@@ -69,6 +69,29 @@ fn get_archived_encoding(
     builder.default_archive_encoding().unwrap_or(encoding)
 }
 
+fn get_input_output_script_encoding(arg: &args::Arg) -> types::Encoding {
+    match &arg.encoding {
+        Some(enc) => {
+            return match enc {
+                &types::TextEncoding::Default => types::Encoding::Utf8,
+                &types::TextEncoding::Auto => types::Encoding::Utf8,
+                &types::TextEncoding::Cp932 => types::Encoding::Cp932,
+                &types::TextEncoding::Utf8 => types::Encoding::Utf8,
+                &types::TextEncoding::Gb2312 => types::Encoding::Gb2312,
+            };
+        }
+        None => {}
+    }
+    #[cfg(windows)]
+    match &arg.code_page {
+        Some(code_page) => {
+            return types::Encoding::CodePage(*code_page);
+        }
+        None => {}
+    }
+    types::Encoding::Utf8
+}
+
 fn get_output_encoding(arg: &args::Arg) -> types::Encoding {
     match &arg.output_encoding {
         Some(enc) => {
@@ -2850,6 +2873,219 @@ pub fn create_file(
     Ok(())
 }
 
+pub fn parse_output_script_as_extend(
+    input: &str,
+    typ: types::OutputScriptType,
+    arg: &args::Arg,
+) -> anyhow::Result<Vec<types::ExtendedMessage>> {
+    match typ {
+        types::OutputScriptType::M3t
+        | types::OutputScriptType::M3ta
+        | types::OutputScriptType::M3tTxt => {
+            let enc = get_input_output_script_encoding(arg);
+            let b = utils::files::read_file(input)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
+            let mut parser = output_scripts::m3t::M3tParser::new(
+                &s,
+                arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+            );
+            let mes = parser.parse_as_extend()?;
+            Ok(mes)
+        }
+        types::OutputScriptType::Po | types::OutputScriptType::Pot => {
+            let enc = get_input_output_script_encoding(arg);
+            let b = utils::files::read_file(input)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
+            let mut parser = output_scripts::po::PoParser::new(
+                &s,
+                arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+            );
+            let mes = parser.parse_as_extend()?;
+            Ok(mes)
+        }
+        _ => Err(anyhow::anyhow!(
+            "Output script type {:?} does not support extended messages",
+            typ
+        )),
+    }
+}
+
+pub fn parse_output_script(
+    input: &str,
+    typ: types::OutputScriptType,
+    arg: &args::Arg,
+) -> anyhow::Result<Vec<types::Message>> {
+    match typ {
+        types::OutputScriptType::M3t
+        | types::OutputScriptType::M3ta
+        | types::OutputScriptType::M3tTxt => {
+            let enc = get_input_output_script_encoding(arg);
+            let b = utils::files::read_file(input)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
+            let mut parser = output_scripts::m3t::M3tParser::new(
+                &s,
+                arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+            );
+            let mes = parser.parse()?;
+            Ok(mes)
+        }
+        types::OutputScriptType::Po | types::OutputScriptType::Pot => {
+            let enc = get_input_output_script_encoding(arg);
+            let b = utils::files::read_file(input)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
+            let mut parser = output_scripts::po::PoParser::new(
+                &s,
+                arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+            );
+            let mes = parser.parse()?;
+            Ok(mes)
+        }
+        types::OutputScriptType::Json => {
+            let enc = get_input_output_script_encoding(arg);
+            let b = utils::files::read_file(input)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
+            let mes = serde_json::from_str::<Vec<types::Message>>(&s)?;
+            Ok(mes)
+        }
+        types::OutputScriptType::Yaml => {
+            let enc = get_input_output_script_encoding(arg);
+            let b = utils::files::read_file(input)?;
+            let s = utils::encoding::decode_to_string(enc, &b, true)?;
+            let mes = serde_yaml_ng::from_str::<Vec<types::Message>>(&s)?;
+            Ok(mes)
+        }
+        _ => Err(anyhow::anyhow!(
+            "Output script type {:?} does not support message parsing",
+            typ
+        )),
+    }
+}
+
+pub fn dump_output_script_as_extend(
+    output: &str,
+    typ: types::OutputScriptType,
+    mes: &[types::ExtendedMessage],
+    arg: &args::Arg,
+) -> anyhow::Result<()> {
+    match typ {
+        types::OutputScriptType::M3t
+        | types::OutputScriptType::M3ta
+        | types::OutputScriptType::M3tTxt => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::m3t::M3tDumper::dump_extended(mes);
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            utils::files::write_file(output)?.write_all(&b)?;
+            Ok(())
+        }
+        types::OutputScriptType::Po | types::OutputScriptType::Pot => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::po::PoDumper::new();
+            let s = s.dump_extended(mes, enc)?;
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            utils::files::write_file(output)?.write_all(&b)?;
+            Ok(())
+        }
+        _ => Err(anyhow::anyhow!(
+            "Output script type {:?} does not support extended messages",
+            typ
+        )),
+    }
+}
+
+pub fn dump_output_script(
+    output: &str,
+    typ: types::OutputScriptType,
+    mes: &[types::Message],
+    arg: &args::Arg,
+) -> anyhow::Result<()> {
+    match typ {
+        types::OutputScriptType::M3t
+        | types::OutputScriptType::M3ta
+        | types::OutputScriptType::M3tTxt => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::m3t::M3tDumper::dump(mes, arg.m3t_no_quote);
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            utils::files::write_file(output)?.write_all(&b)?;
+            Ok(())
+        }
+        types::OutputScriptType::Po | types::OutputScriptType::Pot => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::po::PoDumper::new();
+            let s = s.dump(mes, enc)?;
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            utils::files::write_file(output)?.write_all(&b)?;
+            Ok(())
+        }
+        types::OutputScriptType::Json => {
+            let enc = get_output_encoding(arg);
+            let s = serde_json::to_string_pretty(mes)?;
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            utils::files::write_file(output)?.write_all(&b)?;
+            Ok(())
+        }
+        types::OutputScriptType::Yaml => {
+            let enc = get_output_encoding(arg);
+            let s = serde_yaml_ng::to_string(mes)?;
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            utils::files::write_file(output)?.write_all(&b)?;
+            Ok(())
+        }
+        _ => Err(anyhow::anyhow!(
+            "Output script type {:?} does not support message dumping",
+            typ
+        )),
+    }
+}
+
+pub fn convert_file(
+    input: &str,
+    input_type: types::OutputScriptType,
+    output: Option<&str>,
+    output_type: types::OutputScriptType,
+    arg: &args::Arg,
+    root_dir: Option<&std::path::Path>,
+) -> anyhow::Result<types::ScriptResult> {
+    let input_support_src = input_type.is_src_supported();
+    let output_support_src = output_type.is_src_supported();
+    let output = match output {
+        Some(output) => match root_dir {
+            Some(root_dir) => {
+                let f = std::path::PathBuf::from(input);
+                let mut pb = std::path::PathBuf::from(output);
+                let rpath = utils::files::relative_path(root_dir, &f);
+                if let Some(parent) = rpath.parent() {
+                    pb.push(parent);
+                }
+                if let Some(fname) = f.file_name() {
+                    pb.push(fname);
+                }
+                if arg.output_no_extra_ext {
+                    pb.remove_all_extensions();
+                }
+                pb.set_extension(output_type.as_ref());
+                pb.to_string_lossy().into_owned()
+            }
+            None => output.to_string(),
+        },
+        None => {
+            let mut pb = std::path::PathBuf::from(input);
+            if arg.output_no_extra_ext {
+                pb.remove_all_extensions();
+            }
+            pb.set_extension(output_type.as_ref());
+            pb.to_string_lossy().into_owned()
+        }
+    };
+    if input_support_src && output_support_src {
+        let input_mes = parse_output_script_as_extend(input, input_type, arg)?;
+        dump_output_script_as_extend(&output, output_type, &input_mes, arg)?;
+        return Ok(types::ScriptResult::Ok);
+    }
+    let input_mes = parse_output_script(input, input_type, arg)?;
+    dump_output_script(&output, output_type, &input_mes, arg)?;
+    Ok(types::ScriptResult::Ok)
+}
+
 lazy_static::lazy_static! {
     static ref COUNTER: utils::counter::Counter = utils::counter::Counter::new();
     static ref EXIT_LISTENER: std::sync::Mutex<std::collections::BTreeMap<usize, Box<dyn Fn() + Send + Sync>>> = std::sync::Mutex::new(std::collections::BTreeMap::new());
@@ -3421,6 +3657,69 @@ fn main() {
                 }
             } else {
                 eprintln!("No input files specified for packing.");
+            }
+        }
+        args::Command::Convert {
+            input_type,
+            output_type,
+            input,
+            output,
+        } => {
+            if input_type.is_custom() {
+                eprintln!("Custom input type is not supported for conversion.");
+                std::process::exit(argn.exit_code_all_failed.unwrap_or(argn.exit_code));
+            }
+            if output_type.is_custom() {
+                eprintln!("Custom output type is not supported for conversion.");
+                std::process::exit(argn.exit_code_all_failed.unwrap_or(argn.exit_code));
+            }
+            let (scripts, is_dir) =
+                utils::files::collect_ext_files(input, arg.recursive, &[input_type.as_ref()])
+                    .unwrap();
+            if is_dir {
+                match &output {
+                    Some(output) => {
+                        let op = std::path::Path::new(output);
+                        if op.exists() {
+                            if !op.is_dir() {
+                                eprintln!("Output path is not a directory");
+                                std::process::exit(
+                                    argn.exit_code_all_failed.unwrap_or(argn.exit_code),
+                                );
+                            }
+                        } else {
+                            std::fs::create_dir_all(op).unwrap();
+                        }
+                    }
+                    None => {}
+                }
+            }
+            let root_dir = if is_dir {
+                Some(std::path::Path::new(input))
+            } else {
+                None
+            };
+            for script in scripts.iter() {
+                let re = convert_file(
+                    &script,
+                    *input_type,
+                    output.as_ref().map(|s| s.as_str()),
+                    *output_type,
+                    &arg,
+                    root_dir,
+                );
+                match re {
+                    Ok(s) => {
+                        COUNTER.inc(s);
+                    }
+                    Err(e) => {
+                        COUNTER.inc_error();
+                        eprintln!("Error converting {}: {}", script, e);
+                        if arg.backtrace {
+                            eprintln!("Backtrace: {}", e.backtrace());
+                        }
+                    }
+                }
             }
         }
     }

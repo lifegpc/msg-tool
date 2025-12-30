@@ -130,6 +130,18 @@ impl OutputScriptType {
             OutputScriptType::M3t | OutputScriptType::M3ta | OutputScriptType::M3tTxt
         )
     }
+
+    /// Returns true if the script type supports source messages.
+    pub fn is_src_supported(&self) -> bool {
+        matches!(
+            self,
+            OutputScriptType::M3t
+                | OutputScriptType::M3ta
+                | OutputScriptType::M3tTxt
+                | OutputScriptType::Po
+                | OutputScriptType::Pot
+        )
+    }
 }
 
 impl AsRef<str> for OutputScriptType {
@@ -762,6 +774,19 @@ impl Message {
     pub fn new(message: String, name: Option<String>) -> Self {
         Message { message, name }
     }
+}
+
+#[derive(Clone, Debug)]
+/// Extended message structure for scripts
+pub struct ExtendedMessage {
+    /// Optional name for the message, used in some scripts.
+    pub name: Option<String>,
+    /// Original source text.
+    pub source: String,
+    /// Translated text.
+    pub translated: String,
+    /// Optional LLM translated text.
+    pub llm: Option<String>,
 }
 
 /// Result of script operation.
