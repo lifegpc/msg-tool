@@ -179,6 +179,11 @@ pub enum TxtLineNode {
 }
 
 impl TxtLineNode {
+    /// Checks if the node is a comment.
+    pub fn is_comment(&self) -> bool {
+        matches!(self, TxtLineNode::Comment(_))
+    }
+
     /// Checks if the node is a tag.
     ///
     /// * `tag` - The name of the tag.
@@ -293,6 +298,19 @@ impl TxtLine {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct LineTag {
+    pub name: String,
+    pub list: Vec<String>,
+}
+
+impl Node for LineTag {
+    fn serialize(&self) -> String {
+        let list = self.list.join(",");
+        format!("#{} {}", self.name, list)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 /// Represents a parsed line in Artemis TXT scripts.
 pub enum ParsedLine {
     /// Empty line.
@@ -303,6 +321,10 @@ pub enum ParsedLine {
     Label(LabelNode),
     /// Line
     Line(TxtLine),
+    /// Line tag
+    LineTag(LineTag),
+    /// Comment Line starts with ;>>
+    Comment2(CommentNode),
 }
 
 impl Node for ParsedLine {
@@ -312,6 +334,8 @@ impl Node for ParsedLine {
             ParsedLine::Comment(node) => node.serialize(),
             ParsedLine::Label(node) => node.serialize(),
             ParsedLine::Line(line) => line.serialize(),
+            ParsedLine::LineTag(node) => node.serialize(),
+            ParsedLine::Comment2(node) => format!(";>>{}", node.0),
         }
     }
 }
@@ -324,6 +348,8 @@ impl ParsedLine {
             ParsedLine::Comment(_) => 0,
             ParsedLine::Label(_) => 0,
             ParsedLine::Line(line) => line.len(),
+            ParsedLine::LineTag(_) => 0,
+            ParsedLine::Comment2(_) => 0,
         }
     }
 
@@ -419,6 +445,28 @@ impl Parser {
             if line.starts_with("*") {
                 let label = line[1..].trim().to_string();
                 parsed_script.push(ParsedLine::Label(LabelNode(label)));
+                continue;
+            }
+            if line.starts_with("#") {
+                let rest = line[1..].trim();
+                let mut parts = rest.splitn(2, ' ');
+                let name = parts
+                    .next()
+                    .ok_or(anyhow::anyhow!("Invalid line tag: {}", line))?
+                    .to_string();
+                let list = if let Some(list_str) = parts.next() {
+                    list_str
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                };
+                parsed_script.push(ParsedLine::LineTag(LineTag { name, list }));
+                continue;
+            }
+            if line.starts_with(";>>") {
+                parsed_script.push(ParsedLine::Comment2(CommentNode(line[3..].to_string())));
                 continue;
             }
             let mut temp = String::new();
@@ -652,14 +700,16 @@ struct XMLTextParser<'a> {
     str: &'a str,
     lang: &'a str,
     pos: usize,
+    no_rt2: bool,
 }
 
 impl<'a> XMLTextParser<'a> {
-    pub fn new(text: &'a str, lang: &'a str) -> Self {
+    pub fn new(text: &'a str, lang: &'a str, no_rt2: bool) -> Self {
         Self {
             str: text,
             lang,
             pos: 0,
+            no_rt2,
         }
     }
 
@@ -743,10 +793,12 @@ impl<'a> XMLTextParser<'a> {
         let mut lines = Vec::new();
         let mut current_line = Vec::new();
         let mut text = String::new();
-        current_line.push(TxtLineNode::Tag(TagNode {
-            name: "lang".to_string(),
-            attributes: vec![(self.lang.to_string(), None)],
-        }));
+        if !self.no_rt2 {
+            current_line.push(TxtLineNode::Tag(TagNode {
+                name: "lang".to_string(),
+                attributes: vec![(self.lang.to_string(), None)],
+            }));
+        }
         while let Some(c) = self.next() {
             match c {
                 '<' => {
@@ -767,10 +819,12 @@ impl<'a> XMLTextParser<'a> {
                         current_line.push(TxtLineNode::Text(TextNode(unescape_xml(&text))));
                         text.clear();
                     }
-                    current_line.push(TxtLineNode::Tag(TagNode {
-                        name: "rt2".to_string(),
-                        attributes: Vec::new(),
-                    }));
+                    if !self.no_rt2 {
+                        current_line.push(TxtLineNode::Tag(TagNode {
+                            name: "rt2".to_string(),
+                            attributes: Vec::new(),
+                        }));
+                    }
                     lines.push(ParsedLine::Line(TxtLine(current_line)));
                     current_line = Vec::new();
                 }
@@ -780,10 +834,12 @@ impl<'a> XMLTextParser<'a> {
         if !text.is_empty() {
             current_line.push(TxtLineNode::Text(TextNode(unescape_xml(&text))));
         }
-        current_line.push(TxtLineNode::Tag(TagNode {
-            name: "/lang".to_string(),
-            attributes: Vec::new(),
-        }));
+        if !self.no_rt2 {
+            current_line.push(TxtLineNode::Tag(TagNode {
+                name: "/lang".to_string(),
+                attributes: Vec::new(),
+            }));
+        }
         lines.push(ParsedLine::Line(TxtLine(current_line)));
         Ok(lines)
     }
@@ -839,6 +895,83 @@ impl Script for TxtScript {
         let mut in_lang_block = false;
         let mut droped_lang_block = false;
         let mut is_selectblk = false;
+        let mut has_printlang = false;
+        for line in &self.tree.0 {
+            if let ParsedLine::Line(txt_line) = line {
+                for node in txt_line.iter() {
+                    if node.is_tag("printlang") {
+                        has_printlang = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if !has_printlang {
+            let mut message_started = false;
+            let mut adv_started = false;
+            while i < len {
+                let line = &self.tree[i];
+                match line {
+                    ParsedLine::Empty(_) => {
+                        let mes = message.to_xml();
+                        message.clear();
+                        message_started = false;
+                        if !mes.is_empty() && adv_started {
+                            let name = match &last_tag_block {
+                                Some(block) => Some(if let Some(name) = block.get_attr("name") {
+                                    name.to_string()
+                                } else {
+                                    block.name.clone()
+                                }),
+                                _ => None,
+                            };
+                            messages.push(Message { name, message: mes });
+                        }
+                        last_tag_block = None;
+                    }
+                    ParsedLine::Line(line) => {
+                        if !message.is_empty() && message_started {
+                            message.push(TxtLineNode::Tag(TagNode {
+                                name: "rt2".into(),
+                                attributes: vec![],
+                            }));
+                        }
+                        for node in line.iter() {
+                            if node.is_tag("adv") {
+                                adv_started = true;
+                            } else if node.is_tag("selectbtn_init") {
+                                is_selectblk = true;
+                            } else if node.is_tag("selectbtn") {
+                                let text = node.tag_get_attr("text").ok_or(anyhow::anyhow!(
+                                    "No text attribute found in selectbtn tag"
+                                ))?;
+                                messages.push(Message {
+                                    name: None,
+                                    message: text.to_string(),
+                                });
+                            } else if node.is_tag("/selectbtn") {
+                                is_selectblk = false;
+                            } else if let TxtLineNode::Tag(tag) = node {
+                                if !message_started {
+                                    if !tag.is_blocked_name(&self.blacklist_names) {
+                                        last_tag_block = Some(tag.clone());
+                                    }
+                                } else {
+                                    message.push(node.clone());
+                                }
+                            } else if node.is_comment() {
+                                // Ignore comments
+                            } else {
+                                message_started = true;
+                                message.push(node.clone());
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                i += 1;
+            }
+        }
         while i < len {
             let line = &self.tree[i];
             if let ParsedLine::Line(line) = line {
@@ -961,6 +1094,142 @@ impl Script for TxtScript {
         let mut in_lang_block = false;
         let mut droped_lang_block = false;
         let mut is_selectblk = false;
+        let mut has_printlang = false;
+        for line in &output.0 {
+            if let ParsedLine::Line(txt_line) = line {
+                for node in txt_line.iter() {
+                    if node.is_tag("printlang") {
+                        has_printlang = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if !has_printlang {
+            let mut adv_started = false;
+            let mut started_line: Option<usize> = None;
+            while current_line < output.len() {
+                let line = output[current_line].clone();
+                match &line {
+                    ParsedLine::Empty(_) => {
+                        if adv_started {
+                            if let Some(start) = started_line {
+                                let m = match mess {
+                                    Some(m) => m,
+                                    None => {
+                                        return Err(anyhow::anyhow!("Not enough messages."));
+                                    }
+                                };
+                                let mut message = m.message.clone();
+                                if let Some(repl) = replacement {
+                                    for (k, v) in &repl.map {
+                                        message = message.replace(k, v);
+                                    }
+                                }
+                                if let Some(name) = &m.name {
+                                    let block_index: (usize, usize) =
+                                        match last_tag_block_loc.take() {
+                                            Some(data) => data,
+                                            None => {
+                                                return Err(anyhow::anyhow!(
+                                                    "No name tag block found before message."
+                                                ));
+                                            }
+                                        };
+                                    let mut name = name.clone();
+                                    if let Some(repl) = replacement {
+                                        for (k, v) in &repl.map {
+                                            name = name.replace(k, v);
+                                        }
+                                    }
+                                    let mblock = &mut output[block_index.0];
+                                    if let ParsedLine::Line(txt_line) = mblock {
+                                        let block = txt_line[block_index.1].clone();
+                                        if let TxtLineNode::Tag(mut tag) = block {
+                                            tag.set_attr("name", Some(name));
+                                            txt_line[block_index.1] = TxtLineNode::Tag(tag);
+                                        } else {
+                                            return Err(anyhow::anyhow!(
+                                                "Last tag block is not a tag: {:?}",
+                                                mblock
+                                            ));
+                                        }
+                                    } else {
+                                        return Err(anyhow::anyhow!(
+                                            "Last tag block is not a line: {:?}",
+                                            mblock
+                                        ));
+                                    }
+                                }
+                                let nodes = XMLTextParser::new(&message, "", true).parse()?;
+                                let ori_len = (current_line - start) as isize;
+                                let new_len = nodes.len() as isize;
+                                for _ in start..current_line {
+                                    output.remove(start);
+                                }
+                                let mut start_index = start;
+                                for node in nodes {
+                                    output.insert(start_index, node);
+                                    start_index += 1;
+                                }
+                                current_line = (current_line as isize + new_len - ori_len) as usize;
+                                mess = mes.next();
+                            }
+                        }
+                        started_line = None;
+                        last_tag_block_loc = None;
+                    }
+                    ParsedLine::Line(line) => {
+                        for (i, node) in line.iter().enumerate() {
+                            if node.is_tag("adv") {
+                                adv_started = true;
+                            } else if node.is_tag("selectbtn_init") {
+                                is_selectblk = true;
+                            } else if node.is_tag("selectbtn") {
+                                let m = match mess {
+                                    Some(m) => m,
+                                    None => {
+                                        return Err(anyhow::anyhow!("Not enough messages."));
+                                    }
+                                };
+                                let mut message = m.message.clone();
+                                if let Some(repl) = replacement {
+                                    for (k, v) in &repl.map {
+                                        message = message.replace(k, v);
+                                    }
+                                }
+                                let mut node = node.clone();
+                                node.tag_set_attr("text", Some(message));
+                                let block = &mut output[current_line];
+                                if let ParsedLine::Line(txt_line) = block {
+                                    txt_line[i] = node;
+                                } else {
+                                    return Err(anyhow::anyhow!(
+                                        "Selectbtn line is not a line: {:?}",
+                                        block
+                                    ));
+                                }
+                                mess = mes.next();
+                            } else if let TxtLineNode::Tag(tag) = node {
+                                if started_line.is_none() {
+                                    if !tag.is_blocked_name(&self.blacklist_names) {
+                                        last_tag_block_loc = Some((current_line, i));
+                                    }
+                                }
+                            } else if node.is_comment() {
+                                // Ignore comments
+                            } else {
+                                if started_line.is_none() {
+                                    started_line = Some(current_line);
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                current_line += 1;
+            }
+        }
         while current_line < output.len() {
             let line = output[current_line].clone();
             if let ParsedLine::Line(line) = &line {
@@ -1046,7 +1315,7 @@ impl Script for TxtScript {
                                 message = message.replace(k, v);
                             }
                         }
-                        let mut nodes = XMLTextParser::new(&message, lan).parse()?;
+                        let mut nodes = XMLTextParser::new(&message, lan, false).parse()?;
                         if lang_block_index.is_some() && lang_end_block_index.is_some() {
                             let start_index = lang_block_index.unwrap();
                             let end_index = lang_end_block_index.unwrap();
@@ -1181,7 +1450,7 @@ pub fn read_tags_from_ini<P: AsRef<std::path::Path>>(path: P) -> Result<HashSet<
 #[test]
 fn test_xml_parser() {
     let data = "测试文本\nok<r a=\"b\">测试<b o=\"文本\n换行\">";
-    let data = XMLTextParser::new(data, "en").parse().unwrap();
+    let data = XMLTextParser::new(data, "en", false).parse().unwrap();
     assert_eq!(
         data,
         vec![
