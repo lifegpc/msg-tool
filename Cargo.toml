@@ -54,6 +54,7 @@ utf16string = "0.2"
 webp = { version = "0.3", default-features = false, optional = true }
 xml5ever = { version = "0.36", optional = true }
 xp3 = { version = "0.3", optional = true}
+zopfli = { version = "0.8", optional = true }
 zstd = { version = "0.13", optional = true }
 
 [features]
@@ -88,7 +89,7 @@ hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "adler", "fastcdc", "flate2", "parse-size", "sha2", "xp3", "zstd"]
+kirikiri-arc = ["kirikiri", "adler", "fastcdc", "flate2", "parse-size", "sha2", "xp3", "zopfli", "zstd"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 musica = []
 musica-arc = ["musica", "crc32fast", "flate2", "include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]

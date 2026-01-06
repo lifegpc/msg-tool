@@ -3280,6 +3280,8 @@ fn main() {
         #[cfg(feature = "kirikiri-arc")]
         xp3_zstd: arg.xp3_zstd,
         #[cfg(feature = "kirikiri-arc")]
+        xp3_zopfli: arg.xp3_zopfli,
+        #[cfg(feature = "kirikiri-arc")]
         xp3_pack_workers: arg.xp3_pack_workers,
         #[cfg(feature = "kirikiri")]
         kirikiri_language_insert: arg.kirikiri_language_insert,
@@ -3295,6 +3297,12 @@ fn main() {
         bgi_add_space: arg.bgi_add_space,
         #[cfg(feature = "escude")]
         escude_op: arg.escude_op,
+        #[cfg(feature = "zopfli")]
+        zopfli_iteration_count: arg.zopfli_iteration_count,
+        #[cfg(feature = "zopfli")]
+        zopfli_iterations_without_improvement: arg.zopfli_iterations_without_improvement,
+        #[cfg(feature = "zopfli")]
+        zopfli_maximum_block_splits: arg.zopfli_maximum_block_splits,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

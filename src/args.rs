@@ -106,6 +106,7 @@ pub fn get_musica_game_title_value_parser() -> Vec<clap::builder::PossibleValue>
     group = ArgGroup::new("webp_qualityg").multiple(false),
     group = ArgGroup::new("cat_system_int_encrypt_passwordg").multiple(false),
     group = ArgGroup::new("kirikiri_chat_jsong").multiple(false),
+    group = ArgGroup::new("xp3-compression").multiple(false),
 )]
 #[command(
     version,
@@ -539,9 +540,13 @@ pub struct Arg {
     /// Workers count for compress files in Kirikiri XP3 archive when creating in parallel.
     pub xp3_compress_workers: usize,
     #[cfg(feature = "kirikiri-arc")]
-    #[arg(long, global = true)]
+    #[arg(long, global = true, group = "xp3-compression")]
     /// Use zstd compression for files in Kirikiri XP3 archive when creating. (Warning: Kirikiri engine don't support this. Hook is required.)
     pub xp3_zstd: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true, group = "xp3-compression")]
+    /// Use zopfli compression for files in Kirikiri XP3 archive when creating. This is very slow.
+    pub xp3_zopfli: bool,
     #[cfg(feature = "kirikiri-arc")]
     #[arg(
         long,
@@ -587,6 +592,22 @@ pub struct Arg {
     /// Add an additional space at the end of message in BGI scripts when importing.
     /// This may help BGI engine to display the message correctly in save/load screen for some games.
     pub bgi_add_space: bool,
+    #[cfg(feature = "zopfli")]
+    #[arg(long, global = true, default_value_t = std::num::NonZeroU64::new(15).unwrap(), visible_alias = "zp-ic")]
+    /// Maximum amount of times to rerun forward and backward pass to optimize LZ77 compression cost.
+    /// Good values: 10, 15 for small files, 5 for files over several MB in size or it will be too slow.
+    /// Default is 15.
+    pub zopfli_iteration_count: std::num::NonZeroU64,
+    #[cfg(feature = "zopfli")]
+    #[arg(long, global = true, default_value_t = std::num::NonZeroU64::new(u64::MAX).unwrap(), visible_alias = "zp-iwi")]
+    /// Stop after rerunning forward and backward pass this many times without finding a smaller representation of the block.
+    /// Default value: practically infinite (maximum u64 value)
+    pub zopfli_iterations_without_improvement: std::num::NonZeroU64,
+    #[cfg(feature = "zopfli")]
+    #[arg(long, global = true, default_value_t = 15, visible_alias = "zp-mbs")]
+    /// Maximum amount of blocks to split into (0 for unlimited, but this can give extreme results that hurt compression on some files).
+    /// Default value: 15.
+    pub zopfli_maximum_block_splits: u16,
     #[command(subcommand)]
     /// Command
     pub command: Command,

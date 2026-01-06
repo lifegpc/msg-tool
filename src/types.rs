@@ -511,6 +511,9 @@ pub struct ExtraConfig {
     /// Use zstd compression for files in Kirikiri XP3 archive when creating. (Warning: Kirikiri engine don't support this. Hook is required.)
     pub xp3_zstd: bool,
     #[cfg(feature = "kirikiri-arc")]
+    /// Use zopfli compression for files in Kirikiri XP3 archive when creating. This is very slow.
+    pub xp3_zopfli: bool,
+    #[cfg(feature = "kirikiri-arc")]
     #[default(1)]
     /// Workers count for packing file in Kirikiri XP3 archive in parallel. Default is 1.
     /// This not works when segment is disabled.
@@ -538,6 +541,22 @@ pub struct ExtraConfig {
     #[cfg(feature = "escude")]
     /// Escude game title
     pub escude_op: Option<crate::scripts::escude::script::EscudeOp>,
+    #[cfg(feature = "zopfli")]
+    #[default(std::num::NonZeroU64::new(15).unwrap())]
+    /// Maximum amount of times to rerun forward and backward pass to optimize LZ77 compression cost.
+    /// Good values: 10, 15 for small files, 5 for files over several MB in size or it will be too slow.
+    /// Default is 15.
+    pub zopfli_iteration_count: std::num::NonZeroU64,
+    #[cfg(feature = "zopfli")]
+    #[default(std::num::NonZeroU64::new(u64::MAX).unwrap())]
+    /// Stop after rerunning forward and backward pass this many times without finding a smaller representation of the block.
+    /// Default value: practically infinite (maximum u64 value)
+    pub zopfli_iterations_without_improvement: std::num::NonZeroU64,
+    #[cfg(feature = "zopfli")]
+    #[default(15)]
+    /// Maximum amount of blocks to split into (0 for unlimited, but this can give extreme results that hurt compression on some files).
+    /// Default value: 15.
+    pub zopfli_maximum_block_splits: u16,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

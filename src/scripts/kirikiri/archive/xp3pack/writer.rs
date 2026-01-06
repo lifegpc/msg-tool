@@ -76,6 +76,14 @@ pub struct Xp3ArchiveWriter<T: Write + Seek> {
     use_zstd: bool,
     zstd_compression_level: i32,
     no_adler: bool,
+    #[cfg(feature = "zopfli")]
+    use_zopfli: bool,
+    #[cfg(feature = "zopfli")]
+    zopfli_iteration_count: std::num::NonZeroU64,
+    #[cfg(feature = "zopfli")]
+    zopfli_iterations_without_improvement: std::num::NonZeroU64,
+    #[cfg(feature = "zopfli")]
+    zopfli_maximum_block_splits: u16,
 }
 
 impl Xp3ArchiveWriter<std::io::BufWriter<std::fs::File>> {
@@ -119,6 +127,14 @@ impl Xp3ArchiveWriter<std::io::BufWriter<std::fs::File>> {
             use_zstd: config.xp3_zstd,
             zstd_compression_level: config.zstd_compression_level,
             no_adler: config.xp3_no_adler,
+            #[cfg(feature = "zopfli")]
+            use_zopfli: config.xp3_zopfli,
+            #[cfg(feature = "zopfli")]
+            zopfli_iteration_count: config.zopfli_iteration_count,
+            #[cfg(feature = "zopfli")]
+            zopfli_iterations_without_improvement: config.zopfli_iterations_without_improvement,
+            #[cfg(feature = "zopfli")]
+            zopfli_maximum_block_splits: config.zopfli_maximum_block_splits,
         })
     }
 }
@@ -219,6 +235,14 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
             };
             let processiong_segments = self.processing_segments.clone();
             let use_zstd = self.use_zstd;
+            #[cfg(feature = "zopfli")]
+            let use_zopfli = self.use_zopfli;
+            #[cfg(feature = "zopfli")]
+            let zopfli_iteration_count = self.zopfli_iteration_count;
+            #[cfg(feature = "zopfli")]
+            let zopfli_iterations_without_improvement = self.zopfli_iterations_without_improvement;
+            #[cfg(feature = "zopfli")]
+            let zopfli_maximum_block_splits = self.zopfli_maximum_block_splits;
             let zstd_compression_level = self.zstd_compression_level;
             self.runner.execute(
                 move |_| {
@@ -260,7 +284,18 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
                                         workers.execute(
                                             move |_| {
                                                 let data = {
-                                                    if use_zstd {
+                                                    if use_zopfli {
+                                                        let option = zopfli::Options {
+                                                            iteration_count: zopfli_iteration_count,
+                                                            iterations_without_improvement:
+                                                                zopfli_iterations_without_improvement,
+                                                            maximum_block_splits:
+                                                                zopfli_maximum_block_splits,
+                                                        };
+                                                        let mut e = zopfli::ZlibEncoder::new(option, zopfli::BlockType::Dynamic, Vec::new())?;
+                                                        e.write_all(&seg)?;
+                                                        e.finish()?
+                                                    } else if use_zstd {
                                                         let mut e = zstd::stream::Encoder::new(
                                                             Vec::new(),
                                                             zstd_compression_level,
@@ -410,7 +445,19 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
                         let start = file.seek(std::io::SeekFrom::End(0))?;
                         let size = {
                             let mut writer = if is_compressed {
-                                if use_zstd {
+                                if use_zopfli {
+                                    let e = zopfli::ZlibEncoder::new(
+                                        zopfli::Options {
+                                            iteration_count: zopfli_iteration_count,
+                                            iterations_without_improvement:
+                                                zopfli_iterations_without_improvement,
+                                            maximum_block_splits: zopfli_maximum_block_splits,
+                                        },
+                                        zopfli::BlockType::Dynamic,
+                                        &mut *file,
+                                    )?;
+                                    Box::new(e) as Box<dyn Write>
+                                } else if use_zstd {
                                     let e = zstd::stream::Encoder::new(
                                         &mut *file,
                                         zstd_compression_level,
@@ -521,7 +568,17 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
         }
         let index_data = index_data.into_inner();
         if self.compress_index {
-            let compressed_index = if self.use_zstd {
+            let compressed_index = if self.use_zopfli {
+                let option = zopfli::Options {
+                    iteration_count: self.zopfli_iteration_count,
+                    iterations_without_improvement: self.zopfli_iterations_without_improvement,
+                    maximum_block_splits: self.zopfli_maximum_block_splits,
+                };
+                let mut e =
+                    zopfli::ZlibEncoder::new(option, zopfli::BlockType::Dynamic, Vec::new())?;
+                e.write_all(&index_data)?;
+                e.finish()?
+            } else if self.use_zstd {
                 let mut e = zstd::stream::Encoder::new(Vec::new(), self.zstd_compression_level)?;
                 e.write_all(&index_data)?;
                 e.finish()?
