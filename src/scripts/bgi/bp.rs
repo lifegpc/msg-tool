@@ -74,6 +74,7 @@ impl BGIBpScript {
         let mut last_instr_pos = 0;
         reader.seek(SeekFrom::Start(header_size as u64))?;
         let max_instr_len = reader.data.len() - 4;
+        let mut last_instr_is_valid = true;
         while reader.pos < max_instr_len {
             let instr = reader.cpeek_u32()?;
             if instr == 0x17 {
@@ -86,6 +87,7 @@ impl BGIBpScript {
         if last_instr_pos == 0 {
             // return Err(anyhow::anyhow!("No end instruction found in bp script"));
             last_instr_pos = reader.data.len();
+            last_instr_is_valid = false;
         }
         reader.seek(SeekFrom::Start(header_size as u64))?;
         let mut strings = Vec::new();
@@ -94,7 +96,7 @@ impl BGIBpScript {
             if ins == 5 {
                 let text_offset = reader.peek_u16()?;
                 let text_address = reader.pos + text_offset as usize - 1;
-                if text_address >= last_instr_pos
+                if (text_address >= last_instr_pos || !last_instr_is_valid)
                     && text_address < reader.data.len()
                     && (text_address == last_instr_pos || reader.data[text_address - 1] == 0)
                 {
