@@ -106,7 +106,7 @@ impl BGIBpScript {
                 let text_address = reader.pos + text_offset as usize - 1;
                 if text_address >= last_instr_pos
                     && text_address < reader.data.len()
-                    && (text_address == last_instr_pos || reader.data[text_address - 1] == 0)
+                    && (text_address <= last_instr_pos + 1 || reader.data[text_address - 1] == 0)
                 {
                     strings.push(BpString {
                         offset_pos: reader.pos,
