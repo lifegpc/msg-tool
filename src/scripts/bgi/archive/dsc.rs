@@ -209,7 +209,7 @@ impl<'a> DscDecoder<'a> {
             .0
             .overflowing_add(self.key.overflowing_mul(346).0)
             .0;
-        v1 = (v1 + (v0 >> 16)) & 0xffff;
+        v1 = overf::wrapping!(v1 + (v0 >> 16)) & 0xffff;
         self.key = (v1 << 16) + (v0 & 0xffff) + 1;
         v1 as u8
     }

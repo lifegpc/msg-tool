@@ -73,21 +73,29 @@ impl BGIBpScript {
         }
         let mut last_instr_pos = 0;
         reader.seek(SeekFrom::Start(header_size as u64))?;
-        let max_instr_len = reader.data.len() - 4;
-        let mut last_instr_is_valid = true;
+        let max_instr_len = reader.data.len();
         while reader.pos < max_instr_len {
-            let instr = reader.cpeek_u32()?;
+            let instr = reader.peek_u8()?;
             if instr == 0x17 {
-                last_instr_pos = reader.pos;
-                reader.pos += 4;
-            } else {
-                reader.pos += 1;
+                let need_zero_bytes = 3 - reader.pos % 4;
+                let mut all_zero = true;
+                for i in 0..need_zero_bytes {
+                    let b = reader.peek_u8_at(reader.pos as u64 + 1 + i as u64)?;
+                    if b != 0 {
+                        all_zero = false;
+                        break;
+                    }
+                }
+                if all_zero {
+                    last_instr_pos = reader.pos;
+                    reader.pos += 1 + need_zero_bytes;
+                    continue;
+                }
             }
+            reader.pos += 1;
         }
         if last_instr_pos == 0 {
-            // return Err(anyhow::anyhow!("No end instruction found in bp script"));
-            last_instr_pos = reader.data.len();
-            last_instr_is_valid = false;
+            return Err(anyhow::anyhow!("No end instruction found in bp script"));
         }
         reader.seek(SeekFrom::Start(header_size as u64))?;
         let mut strings = Vec::new();
@@ -96,7 +104,7 @@ impl BGIBpScript {
             if ins == 5 {
                 let text_offset = reader.peek_u16()?;
                 let text_address = reader.pos + text_offset as usize - 1;
-                if (text_address >= last_instr_pos || !last_instr_is_valid)
+                if text_address >= last_instr_pos
                     && text_address < reader.data.len()
                     && (text_address == last_instr_pos || reader.data[text_address - 1] == 0)
                 {
