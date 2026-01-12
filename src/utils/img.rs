@@ -298,6 +298,48 @@ pub fn encode_img(
     }
 }
 
+pub fn convert_grayscale_alpha_to_rgba(
+    raw_data: &[u8],
+    width: usize,
+    height: usize,
+    bit_depth: u8,
+) -> Result<ImageData> {
+    if bit_depth != 8 && bit_depth != 16 {
+        return Err(anyhow::anyhow!(
+            "Unsupported bit depth for GrayscaleAlpha to RGBA conversion: {}",
+            bit_depth
+        ));
+    }
+    let bytes_per_channel = (bit_depth / 8) as usize;
+    let stride = width * 2 * bytes_per_channel;
+    if raw_data.len() != stride * height {
+        return Err(anyhow::anyhow!(
+            "Input data size does not match expected size for GrayscaleAlpha image"
+        ));
+    }
+    let mut data = Vec::with_capacity(width * height * 4 * bytes_per_channel);
+    for y in 0..height {
+        for x in 0..width {
+            let base = y * stride + x * 2 * bytes_per_channel;
+            // Grayscale channel
+            data.extend_from_slice(&raw_data[base..base + bytes_per_channel]);
+            data.extend_from_slice(&raw_data[base..base + bytes_per_channel]);
+            data.extend_from_slice(&raw_data[base..base + bytes_per_channel]);
+            // Alpha channel
+            data.extend_from_slice(
+                &raw_data[base + bytes_per_channel..base + 2 * bytes_per_channel],
+            );
+        }
+    }
+    Ok(ImageData {
+        width: width as u32,
+        height: height as u32,
+        depth: bit_depth,
+        color_type: ImageColorType::Rgba,
+        data,
+    })
+}
+
 /// Loads a PNG image from the given reader and returns its data.
 pub fn load_png<R: std::io::Read + std::io::Seek>(data: R) -> Result<ImageData> {
     let decoder = png::Decoder::new(std::io::BufReader::new(data));
@@ -313,13 +355,66 @@ pub fn load_png<R: std::io::Read + std::io::Seek>(data: R) -> Result<ImageData> 
         png::ColorType::Grayscale => ImageColorType::Grayscale,
         png::ColorType::Rgb => ImageColorType::Rgb,
         png::ColorType::Rgba => ImageColorType::Rgba,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Unsupported color type: {:?}",
-                reader.info().color_type
-            ));
+        png::ColorType::GrayscaleAlpha => ImageColorType::Rgba,
+        png::ColorType::Indexed => {
+            if let Some(palette) = &reader.info().palette {
+                if palette.len() % 3 != 0 {
+                    return Err(anyhow::anyhow!(
+                        "Invalid PNG palette length: {}",
+                        palette.len()
+                    ));
+                }
+                ImageColorType::Rgb
+            } else {
+                return Err(anyhow::anyhow!(
+                    "PNG image has indexed color type but no palette"
+                ));
+            }
         }
     };
+    if reader.info().color_type == png::ColorType::GrayscaleAlpha {
+        let height = reader.info().height as usize;
+        let width = reader.info().width as usize;
+        let raw_stride = width * 2 * bit_depth as usize / 8;
+        let mut raw_data = vec![0; raw_stride * height];
+        reader.next_frame(&mut raw_data)?;
+        return convert_grayscale_alpha_to_rgba(&raw_data, width, height, bit_depth);
+    }
+    if reader.info().color_type == png::ColorType::Indexed {
+        let mut palette = reader
+            .info()
+            .palette
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("PNG image has indexed color type but no palette"))?
+            .to_vec();
+        let mut palette_format = PaletteFormat::Rgb;
+        if let Some(trns) = &reader.info().trns {
+            let mut new_palette = Vec::with_capacity(palette.len() / 3 * 4);
+            let trns_len = trns.len();
+            for i in 0..(palette.len() / 3) {
+                new_palette.push(palette[i * 3]);
+                new_palette.push(palette[i * 3 + 1]);
+                new_palette.push(palette[i * 3 + 2]);
+                let alpha = if i < trns_len { trns[i] } else { 255 };
+                new_palette.push(alpha);
+            }
+            palette = new_palette;
+            palette_format = PaletteFormat::RgbA;
+        }
+        let width = reader.info().width as usize;
+        let height = reader.info().height as usize;
+        let raw_stride = width * bit_depth as usize / 8;
+        let mut raw_data = vec![0; raw_stride * height];
+        reader.next_frame(&mut raw_data)?;
+        return convert_index_palette_to_normal_bitmap(
+            &raw_data,
+            bit_depth as usize,
+            &palette,
+            palette_format,
+            width,
+            height,
+        );
+    }
     let stride = reader.info().width as usize * color_type.bpp(bit_depth) as usize / 8;
     let mut data = vec![0; stride * reader.info().height as usize];
     reader.next_frame(&mut data)?;
