@@ -860,6 +860,7 @@ pub struct TxtScript {
     tree: ParsedScript,
     blacklist_names: Arc<HashSet<String>>,
     lang: Option<String>,
+    multi_lang: bool,
 }
 
 impl TxtScript {
@@ -872,6 +873,7 @@ impl TxtScript {
             tree,
             blacklist_names: config.artemis_panmimisoft_txt_blacklist_names.clone(),
             lang: config.artemis_panmimisoft_txt_lang.clone(),
+            multi_lang: config.artemis_panmimisoft_txt_multi_lang,
         })
     }
 }
@@ -1108,6 +1110,13 @@ impl Script for TxtScript {
         if !has_printlang {
             let mut adv_started = false;
             let mut started_line: Option<usize> = None;
+            if self.multi_lang && lang.is_none() {
+                return Err(anyhow::anyhow!(
+                    "Multi-language import requires a specified language. Use --artemis-panmimisoft-txt-lang to set the language."
+                ));
+            } else if !self.multi_lang {
+                lang = None;
+            }
             while current_line < output.len() {
                 let line = output[current_line].clone();
                 match &line {
@@ -1161,7 +1170,21 @@ impl Script for TxtScript {
                                         ));
                                     }
                                 }
-                                let nodes = XMLTextParser::new(&message, "", true).parse()?;
+                                let mut nodes = XMLTextParser::new(
+                                    &message,
+                                    lang.as_ref().map(|s| s.as_str()).unwrap_or(""),
+                                    !self.multi_lang,
+                                )
+                                .parse()?;
+                                if self.multi_lang {
+                                    // Add a printlang tag
+                                    nodes.push(ParsedLine::Line(TxtLine(vec![TxtLineNode::Tag(
+                                        TagNode {
+                                            name: "printlang".to_string(),
+                                            attributes: Vec::new(),
+                                        },
+                                    )])));
+                                }
                                 let ori_len = (current_line - start) as isize;
                                 let new_len = nodes.len() as isize;
                                 for _ in start..current_line {
@@ -1199,7 +1222,10 @@ impl Script for TxtScript {
                                     }
                                 }
                                 let mut node = node.clone();
-                                node.tag_set_attr("text", Some(message));
+                                node.tag_set_attr(
+                                    lang.as_ref().map(|s| s.as_str()).unwrap_or("text"),
+                                    Some(message),
+                                );
                                 let block = &mut output[current_line];
                                 if let ParsedLine::Line(txt_line) = block {
                                     txt_line[i] = node;

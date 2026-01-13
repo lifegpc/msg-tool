@@ -3303,6 +3303,8 @@ fn main() {
         zopfli_iterations_without_improvement: arg.zopfli_iterations_without_improvement,
         #[cfg(feature = "zopfli")]
         zopfli_maximum_block_splits: arg.zopfli_maximum_block_splits,
+        #[cfg(feature = "artemis-panmimisoft")]
+        artemis_panmimisoft_txt_multi_lang: arg.artemis_panmimisoft_txt_multi_lang,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

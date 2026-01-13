@@ -345,6 +345,11 @@ pub struct Arg {
     /// If not specified, the first language will be used.
     pub artemis_panmimisoft_txt_lang: Option<String>,
     #[cfg(feature = "artemis-panmimisoft")]
+    #[arg(long, global = true, action = ArgAction::SetTrue, requires = "artemis_panmimisoft_txt_lang")]
+    /// Enable multiple language support for single language Artemis TXT (ぱんみみそふと) script.
+    /// --artemis-panmimisoft-txt-lang must be set when enabling this.
+    pub artemis_panmimisoft_txt_multi_lang: bool,
+    #[cfg(feature = "artemis-panmimisoft")]
     #[arg(long, global = true)]
     /// The path to the tag.ini file, which contains the tags to be ignored when finding names in Artemis TXT script (ぱんみみそふと).
     pub artemis_panmimisoft_txt_tag_ini: Option<String>,

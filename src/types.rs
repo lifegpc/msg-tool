@@ -430,6 +430,10 @@ pub struct ExtraConfig {
     /// Specify the language of Artemis TXT (ぱんみみそふと) script.
     /// If not specified, the first language will be used.
     pub artemis_panmimisoft_txt_lang: Option<String>,
+    #[cfg(feature = "artemis-panmimisoft")]
+    /// Enable multiple language support for single language Artemis TXT (ぱんみみそふと) script.
+    /// artemis_panmimisoft_txt_lang must be set when enabling this.
+    pub artemis_panmimisoft_txt_multi_lang: bool,
     #[cfg(feature = "lossless-audio")]
     /// Audio format for output lossless audio files.
     pub lossless_audio_fmt: LosslessAudioFormat,
