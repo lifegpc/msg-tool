@@ -237,6 +237,9 @@ impl ECSExecutionImage {
                                 cmd.addr
                             ));
                         }
+                        if string_stack[0].starts_with("@") {
+                            continue;
+                        }
                         message.push_str(string_stack[0].as_str());
                     }
                 } else if num_args == 2 {
@@ -324,10 +327,6 @@ impl ECSExecutionImage {
                             ));
                         }
                         if string_stack[0].starts_with("@") {
-                            println!(
-                                "Skipping message with special tag at {:08X}: {}",
-                                cmd.addr, string_stack[0]
-                            );
                             continue;
                         }
                         message.push_str(string_stack[0].as_str());
