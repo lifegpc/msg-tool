@@ -154,6 +154,16 @@ pub fn decode_to_string(
                 },
             )
             .map_err(|_| anyhow::anyhow!("Failed to decode UTF-16LE"))?),
+        Encoding::Utf16BE => Ok(encoding::codec::utf_16::UTF_16BE_ENCODING
+            .decode(
+                data,
+                if check {
+                    DecoderTrap::Strict
+                } else {
+                    DecoderTrap::Replace
+                },
+            )
+            .map_err(|_| anyhow::anyhow!("Failed to decode UTF-16BE"))?),
         #[cfg(windows)]
         Encoding::CodePage(code_page) => Ok(super::encoding_win::decode_to_string(
             code_page, data, check,
@@ -258,6 +268,10 @@ pub fn encode_string(
         }
         Encoding::Utf16LE => {
             let re = utf16string::WString::<utf16string::LE>::from(data);
+            Ok(re.as_bytes().to_vec())
+        }
+        Encoding::Utf16BE => {
+            let re = utf16string::WString::<utf16string::BE>::from(data);
             Ok(re.as_bytes().to_vec())
         }
         #[cfg(windows)]

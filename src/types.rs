@@ -17,6 +17,8 @@ pub enum Encoding {
     Gb2312,
     /// UTF-16 Little Endian encoding
     Utf16LE,
+    /// UTF-16 Big Endian encoding
+    Utf16BE,
     /// Code page encoding (Windows only)
     #[cfg(windows)]
     CodePage(u32),
@@ -67,6 +69,7 @@ impl Encoding {
             Self::Cp932 => Some("shift_jis"),
             Self::Gb2312 => Some("gbk"),
             Self::Utf16LE => Some("utf-16le"),
+            Self::Utf16BE => Some("utf-16be"),
             #[cfg(windows)]
             Self::CodePage(code_page) => match *code_page {
                 932 => Some("shift_jis"),
@@ -670,6 +673,9 @@ pub enum ScriptType {
     #[cfg(feature = "entis-gls")]
     /// Entis GLS srcxml Script
     EntisGls,
+    #[cfg(feature = "entis-gls")]
+    /// Entis GLS csx script (version 1)
+    EntisGlsCsx1,
     #[cfg(feature = "escude-arc")]
     /// Escude bin archive
     EscudeArc,
