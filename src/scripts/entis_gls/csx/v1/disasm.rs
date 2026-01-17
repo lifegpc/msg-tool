@@ -396,7 +396,7 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
                     self.addr
                 ));
             }
-            let catch_addr = self.stream.read_u32()? + self.stream.pos as u32;
+            let catch_addr = self.stream.read_i32()? as i64 + self.stream.pos as i64;
             self.line(&format!("Enter \"{}\" Try-Catch {:08x}", name, catch_addr))?;
         }
         Ok(())
@@ -408,14 +408,14 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
     }
 
     fn command_jump(&mut self) -> Result<()> {
-        let target_addr = self.stream.read_u32()? as u64 + self.stream.pos as u64;
+        let target_addr = self.stream.read_i32()? as i64 + self.stream.pos as i64;
         self.line(&format!("Jump {:08x}", target_addr))?;
         Ok(())
     }
 
     fn command_cjump(&mut self) -> Result<()> {
         let cond = self.stream.read_u8()?;
-        let target_addr = self.stream.read_u32()? as u64 + self.stream.pos as u64;
+        let target_addr = self.stream.read_i32()? as i64 + self.stream.pos as i64;
         self.line(&format!("CJump {} {:08x}", cond, target_addr))?;
         Ok(())
     }

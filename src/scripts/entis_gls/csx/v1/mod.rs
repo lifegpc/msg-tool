@@ -111,6 +111,7 @@ impl Script for CSXScript {
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
         if self.disasm {
             let file = crate::utils::files::write_file(filename)?;
+            let file = std::io::BufWriter::new(file);
             self.img.disasm(Box::new(file))?;
         } else {
             let messages = self.img.export_all()?;
