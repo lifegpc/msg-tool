@@ -7,6 +7,7 @@ mod types;
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
+use crate::utils::encoding::*;
 use anyhow::Result;
 use img::ECSExecutionImage;
 
@@ -56,36 +57,72 @@ impl ScriptBuilder for CSXScriptBuilder {
 #[derive(Debug)]
 pub struct CSXScript {
     img: ECSExecutionImage,
+    disasm: bool,
+    custom_yaml: bool,
 }
 
 impl CSXScript {
-    pub fn new(buf: Vec<u8>, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         let reader = MemReader::new(buf);
         let img = ECSExecutionImage::new(reader)?;
-        Ok(Self { img })
+        Ok(Self {
+            img,
+            disasm: config.entis_gls_csx_diasm,
+            custom_yaml: config.custom_yaml,
+        })
     }
 }
 
 impl Script for CSXScript {
     fn default_output_script_type(&self) -> OutputScriptType {
-        OutputScriptType::Custom
+        OutputScriptType::Json
     }
 
-    fn is_output_supported(&self, output: OutputScriptType) -> bool {
-        matches!(output, OutputScriptType::Custom)
+    fn is_output_supported(&self, _output: OutputScriptType) -> bool {
+        true
     }
 
     fn default_format_type(&self) -> FormatOptions {
         FormatOptions::None
     }
 
-    fn custom_output_extension<'a>(&'a self) -> &'a str {
-        "s"
+    fn extract_messages(&self) -> Result<Vec<Message>> {
+        self.img.export()
     }
 
-    fn custom_export(&self, filename: &std::path::Path, _encoding: Encoding) -> Result<()> {
-        let file = crate::utils::files::write_file(filename)?;
-        self.img.disasm(Box::new(file))?;
+    fn multiple_message_files(&self) -> bool {
+        true
+    }
+
+    fn extract_multiple_messages(&self) -> Result<std::collections::HashMap<String, Vec<Message>>> {
+        self.img.export_multi()
+    }
+
+    fn custom_output_extension<'a>(&'a self) -> &'a str {
+        if self.disasm {
+            "d.txt"
+        } else if self.custom_yaml {
+            "yaml"
+        } else {
+            "json"
+        }
+    }
+
+    fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
+        if self.disasm {
+            let file = crate::utils::files::write_file(filename)?;
+            self.img.disasm(Box::new(file))?;
+        } else {
+            let messages = self.img.export_all()?;
+            let s = if self.custom_yaml {
+                serde_yaml_ng::to_string(&messages)?
+            } else {
+                serde_json::to_string_pretty(&messages)?
+            };
+            let s = encode_string(encoding, &s, false)?;
+            let mut file = crate::utils::files::write_file(filename)?;
+            file.write_all(&s)?;
+        }
         Ok(())
     }
 }

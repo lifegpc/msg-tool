@@ -613,6 +613,10 @@ pub struct Arg {
     /// Maximum amount of blocks to split into (0 for unlimited, but this can give extreme results that hurt compression on some files).
     /// Default value: 15.
     pub zopfli_maximum_block_splits: u16,
+    #[cfg(feature = "entis-gls")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Disassemble Entis GLS csx script when exporting in custom mode.
+    pub entis_gls_csx_diasm: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

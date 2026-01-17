@@ -19,9 +19,9 @@ fn escape_string(s: &str) -> String {
 }
 
 pub struct ECSExecutionImageDisassembler<'a> {
-    stream: MemReaderRef<'a>,
+    pub stream: MemReaderRef<'a>,
     conststr: Option<&'a TaggedRefAddressList>,
-    assembly: ECSExecutionImageAssembly,
+    pub assembly: ECSExecutionImageAssembly,
     writer: Option<Box<dyn Write + 'a>>,
     addr: u32,
     code: CSInstructionCode,
@@ -147,7 +147,7 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         }
     }
 
-    fn get_string_literal(&mut self) -> Result<String> {
+    pub fn get_string_literal(&mut self) -> Result<String> {
         let (_, s) = self.get_string_literal2()?;
         Ok(s)
     }
@@ -163,7 +163,7 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         })
     }
 
-    fn read_csom(&mut self) -> Result<CSObjectMode> {
+    pub fn read_csom(&mut self) -> Result<CSObjectMode> {
         let value = self.stream.read_u8()?;
         CSObjectMode::try_from(value).map_err(|_| {
             anyhow::anyhow!("Invalid CSObjectMode value: {} at {:08x}", value, self.addr)
@@ -192,7 +192,7 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         })
     }
 
-    fn read_csvt(&mut self) -> Result<CSVariableType> {
+    pub fn read_csvt(&mut self) -> Result<CSVariableType> {
         let value = self.stream.read_u8()?;
         CSVariableType::try_from(value).map_err(|_| {
             anyhow::anyhow!(
