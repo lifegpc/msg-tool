@@ -1251,9 +1251,49 @@ impl Script for CrxImage {
                 if cur_pos >= buffer.len() {
                     return Err(anyhow::anyhow!("Row type offset exceeds buffer length"));
                 }
-                row_type.push(buffer[cur_pos]);
+                let cur_row_type = buffer[cur_pos];
+                row_type.push(cur_row_type);
+                let true_row_len = if cur_row_type < 4 {
+                    row_len
+                } else {
+                    let mut offset = cur_pos + 1;
+                    for _ in 0..pixel_size {
+                        let mut remaing = self.header.width;
+                        let value = buffer[offset];
+                        offset += 1;
+                        remaing -= 1;
+                        if remaing == 0 {
+                            continue;
+                        }
+                        if value == buffer[offset] {
+                            offset += 1;
+                            let count = buffer[offset] as u16;
+                            offset += 1;
+                            remaing = remaing
+                                .checked_sub(count)
+                                .ok_or_else(|| anyhow::anyhow!("Row run-length overflow"))?;
+                        }
+                        while remaing > 0 {
+                            let value = buffer[offset];
+                            offset += 1;
+                            remaing -= 1;
+                            if remaing == 0 {
+                                break;
+                            }
+                            if value == buffer[offset] {
+                                offset += 1;
+                                let count = buffer[offset] as u16;
+                                offset += 1;
+                                remaing = remaing
+                                    .checked_sub(count)
+                                    .ok_or_else(|| anyhow::anyhow!("Row run-length overflow"))?;
+                            }
+                        }
+                    }
+                    offset - cur_pos
+                };
                 cur_pos = cur_pos
-                    .checked_add(row_len)
+                    .checked_add(true_row_len)
                     .ok_or_else(|| anyhow::anyhow!("Row type offset overflow"))?;
             }
             Self::encode_image_origin(
