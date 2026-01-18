@@ -566,7 +566,7 @@ pub struct ExtraConfig {
     pub zopfli_maximum_block_splits: u16,
     #[cfg(feature = "entis-gls")]
     /// Whether to disassemble Entis GLS csx script when exporting in custom mode.
-    pub entis_gls_csx_diasm: bool,
+    pub entis_gls_csx_disasm: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

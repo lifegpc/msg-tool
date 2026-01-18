@@ -67,7 +67,7 @@ impl CSXScript {
         let img = ECSExecutionImage::new(reader)?;
         Ok(Self {
             img,
-            disasm: config.entis_gls_csx_diasm,
+            disasm: config.entis_gls_csx_disasm,
             custom_yaml: config.custom_yaml,
         })
     }

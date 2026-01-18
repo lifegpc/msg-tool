@@ -3306,7 +3306,7 @@ fn main() {
         #[cfg(feature = "artemis-panmimisoft")]
         artemis_panmimisoft_txt_multi_lang: arg.artemis_panmimisoft_txt_multi_lang,
         #[cfg(feature = "entis-gls")]
-        entis_gls_csx_diasm: arg.entis_gls_csx_diasm,
+        entis_gls_csx_disasm: arg.entis_gls_csx_disasm,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

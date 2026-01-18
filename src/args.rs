@@ -614,9 +614,9 @@ pub struct Arg {
     /// Default value: 15.
     pub zopfli_maximum_block_splits: u16,
     #[cfg(feature = "entis-gls")]
-    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    #[arg(long, global = true, action = ArgAction::SetTrue, alias = "entis-gls-csx-diasm")]
     /// Disassemble Entis GLS csx script when exporting in custom mode.
-    pub entis_gls_csx_diasm: bool,
+    pub entis_gls_csx_disasm: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

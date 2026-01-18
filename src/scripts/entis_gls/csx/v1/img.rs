@@ -209,10 +209,7 @@ impl ECSExecutionImage {
                 let csvt = disasm.read_csvt()?;
                 if csom == CsomImmediate && csvt == CsvtString {
                     let text = disasm.get_string_literal()?;
-                    string_stack.insert(0, text);
-                    if string_stack.len() > 8 {
-                        string_stack.pop();
-                    }
+                    string_stack.push(text);
                 }
             } else if cmd.code == CsicCall {
                 disasm.stream.pos = cmd.addr as usize + 1;
@@ -238,6 +235,7 @@ impl ECSExecutionImage {
                             ));
                         }
                         if string_stack[0].starts_with("@") {
+                            string_stack.clear();
                             continue;
                         }
                         message.push_str(string_stack[0].as_str());
@@ -249,6 +247,11 @@ impl ECSExecutionImage {
                                 "Talk call without string argument at {:08X}",
                                 cmd.addr
                             ));
+                        }
+                        if string_stack[0] == "心の声" {
+                            string_stack.clear();
+                            // 傻逼旁白
+                            continue;
                         }
                         name = Some(string_stack[0].clone());
                     } else if func_name == "AddSelect" {
@@ -265,6 +268,7 @@ impl ECSExecutionImage {
                     messages.push(Message::new(message.clone(), name.take()));
                     message.clear();
                 }
+                string_stack.clear();
                 pre_is_mess = is_mess;
             }
         }
@@ -295,10 +299,7 @@ impl ECSExecutionImage {
                 let csvt = disasm.read_csvt()?;
                 if csom == CsomImmediate && csvt == CsvtString {
                     let text = disasm.get_string_literal()?;
-                    string_stack.insert(0, text);
-                    if string_stack.len() > 8 {
-                        string_stack.pop();
-                    }
+                    string_stack.push(text);
                 }
             } else if cmd.code == CsicCall {
                 disasm.stream.pos = cmd.addr as usize + 1;
@@ -327,6 +328,11 @@ impl ECSExecutionImage {
                             ));
                         }
                         if string_stack[0].starts_with("@") {
+                            eprintln!(
+                                "Skipping control string at 0x{:08x}: {}",
+                                cmd.addr, string_stack[0]
+                            );
+                            string_stack.clear();
                             continue;
                         }
                         message.push_str(string_stack[0].as_str());
@@ -338,6 +344,11 @@ impl ECSExecutionImage {
                                 "Talk call without string argument at {:08X}",
                                 cmd.addr
                             ));
+                        }
+                        if string_stack[0] == "心の声" {
+                            // 傻逼旁白
+                            string_stack.clear();
+                            continue;
                         }
                         name = Some(string_stack[0].clone());
                     } else if func_name == "AddSelect" {
@@ -367,6 +378,7 @@ impl ECSExecutionImage {
                     message.clear();
                 }
                 pre_is_mess = is_mess;
+                string_stack.clear();
             } else if is_enter {
                 disasm.stream.pos = cmd.addr as usize + 1;
                 let name = WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
