@@ -170,6 +170,20 @@ pub struct FunctionNameList {
     pub items: Vec<FunctionNameItem>,
 }
 
+impl Deref for FunctionNameList {
+    type Target = Vec<FunctionNameItem>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.items
+    }
+}
+
+impl DerefMut for FunctionNameList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.items
+    }
+}
+
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub enum ECSObject {
@@ -229,6 +243,58 @@ impl ECSObject {
                 return Err(anyhow::anyhow!("Unsupported CSVariableType: {:?}", obj_typ));
             }
         }
+    }
+
+    pub fn write_to<W: Write>(&self, writer: &mut W, int64: bool) -> Result<()> {
+        match self {
+            ECSObject::ClassInfoObject(name) => {
+                let obj_type: u8 = CSVariableType::CsvtObject.into();
+                writer.write_i32(obj_type as i32)?;
+                WideString(name.clone()).pack(writer, false, Encoding::Utf8)?;
+            }
+            ECSObject::Reference => {
+                let obj_type: u8 = CSVariableType::CsvtReference.into();
+                writer.write_i32(obj_type as i32)?;
+            }
+            ECSObject::Array(items) => {
+                let obj_type: u8 = CSVariableType::CsvtArray.into();
+                writer.write_i32(obj_type as i32)?;
+                writer.write_u32(items.len() as u32)?;
+                for item in items {
+                    item.write_to(writer, int64)?;
+                }
+            }
+            ECSObject::Hash => {
+                let obj_type: u8 = CSVariableType::CsvtHash.into();
+                writer.write_i32(obj_type as i32)?;
+            }
+            ECSObject::Integer(val) => {
+                let obj_type: u8 = CSVariableType::CsvtInteger.into();
+                writer.write_i32(obj_type as i32)?;
+                if int64 {
+                    writer.write_i64(*val)?;
+                } else {
+                    writer.write_i32(*val as i32)?;
+                }
+            }
+            ECSObject::Real(val) => {
+                let obj_type: u8 = CSVariableType::CsvtReal.into();
+                writer.write_i32(obj_type as i32)?;
+                writer.write_f64(*val)?;
+            }
+            ECSObject::String(s) => {
+                let obj_type: u8 = CSVariableType::CsvtString.into();
+                writer.write_i32(obj_type as i32)?;
+                WideString(s.clone()).pack(writer, false, Encoding::Utf8)?;
+            }
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unsupported ECSObject type for writing: {:?}",
+                    self
+                ));
+            }
+        }
+        Ok(())
     }
 }
 

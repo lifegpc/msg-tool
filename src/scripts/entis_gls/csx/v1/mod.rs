@@ -126,4 +126,28 @@ impl Script for CSXScript {
         }
         Ok(())
     }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        file: Box<dyn WriteSeek + 'a>,
+        _encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        if self.disasm {
+            Err(anyhow::anyhow!(
+                "Importing from disassembly is not supported."
+            ))
+        } else {
+            let data = crate::utils::files::read_file(custom_filename)?;
+            let s = decode_to_string(output_encoding, &data, false)?;
+            let messages: Vec<String> = if self.custom_yaml {
+                serde_yaml_ng::from_str(&s)?
+            } else {
+                serde_json::from_str(&s)?
+            };
+            self.img.import_all(messages, file)?;
+            Ok(())
+        }
+    }
 }

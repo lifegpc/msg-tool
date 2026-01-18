@@ -1,6 +1,7 @@
 use super::disasm::*;
 use super::types::*;
 use crate::ext::io::*;
+use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
@@ -177,6 +178,186 @@ impl ECSExecutionImage {
             imp_global_ref,
             imp_data_ref,
         })
+    }
+
+    fn fix_image<'a, 'b>(
+        assembly: &ECSExecutionImageAssembly,
+        mut reader: MemReaderRef<'a>,
+        writer: &mut MemWriter,
+        commands: &HashMap<u32, &'b ECSExecutionImageCommandRecord>,
+    ) -> Result<()> {
+        for cmd in assembly.iter() {
+            // Fix Enter Try Catch address offsets
+            if cmd.code == CsicEnter {
+                reader.pos = cmd.addr as usize + 1;
+                let name_length = reader.read_u32()?;
+                if name_length != 0x80000000 {
+                    reader.pos += name_length as usize * 2;
+                } else {
+                    reader.pos += 4;
+                }
+                let num_args = reader.read_i32()?;
+                if num_args == -1 {
+                    let _flag = reader.read_u8()?;
+                    let offset = reader.pos as i64 - cmd.addr as i64;
+                    let original_addr = reader.read_i32()? as i64 + reader.pos as i64;
+                    let target_cmd = commands.get(&(original_addr as u32)).ok_or_else(|| anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for Enter instruction fixup at {:08X}",
+                        original_addr as u32,
+                        cmd.addr
+                    ))?;
+                    let new_addr = target_cmd.new_addr as i64 - cmd.new_addr as i64 - offset - 4;
+                    writer.write_i32_at(cmd.new_addr as u64 + offset as u64, new_addr as i32)?;
+                }
+            } else if cmd.code == CsicJump {
+                // Fix Jump address offsets
+                reader.pos = cmd.addr as usize + 1;
+                let offset = reader.pos as i64 - cmd.addr as i64;
+                let original_addr = reader.read_i32()? as i64 + reader.pos as i64;
+                let target_cmd = commands.get(&(original_addr as u32)).ok_or_else(|| anyhow::anyhow!(
+                    "Cannot find target command at address {:08X} for Jump instruction fixup at {:08X}",
+                    original_addr as u32,
+                    cmd.addr
+                ))?;
+                let new_addr = target_cmd.new_addr as i64 - cmd.new_addr as i64 - offset - 4;
+                writer.write_i32_at(cmd.new_addr as u64 + offset as u64, new_addr as i32)?;
+            } else if cmd.code == CsicCJump {
+                // Fix CJump address offsets
+                reader.pos = cmd.addr as usize + 2;
+                let offset = reader.pos as i64 - cmd.addr as i64;
+                let original_addr = reader.read_i32()? as i64 + reader.pos as i64;
+                let target_cmd = commands.get(&(original_addr as u32)).ok_or_else(|| anyhow::anyhow!(
+                    "Cannot find target command at address {:08X} for CJump instruction fixup at {:08X}",
+                    original_addr as u32,
+                    cmd.addr
+                ))?;
+                let new_addr = target_cmd.new_addr as i64 - cmd.new_addr as i64 - offset - 4;
+                writer.write_i32_at(cmd.new_addr as u64 + offset as u64, new_addr as i32)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn fix_references(
+        &mut self,
+        commands: &HashMap<u32, &ECSExecutionImageCommandRecord>,
+    ) -> Result<()> {
+        for cmd in self.pif_prologue.iter_mut() {
+            let ocmd = *cmd;
+            *cmd = commands
+                .get(&ocmd)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for PIF prologue fixup",
+                        ocmd
+                    )
+                })?
+                .new_addr;
+        }
+        for cmd in self.pif_epilogue.iter_mut() {
+            let ocmd = *cmd;
+            *cmd = commands
+                .get(&ocmd)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for PIF epilogue fixup",
+                        ocmd
+                    )
+                })?
+                .new_addr;
+        }
+        for func in self.function_list.iter_mut() {
+            let ocmd = func.addr;
+            func.addr = commands
+                .get(&ocmd)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for function list fixup",
+                        ocmd
+                    )
+                })?
+                .new_addr;
+        }
+        Ok(())
+    }
+
+    fn save<'a>(&self, mut writer: Box<dyn Write + 'a>) -> Result<()> {
+        self.file_header.pack(&mut writer, false, Encoding::Utf8)?;
+        if let Some(exi_header) = &self.exi_header {
+            writer.write_u64(0x2020726564616568)?; // header
+            writer.write_u64(exi_header.len() as u64)?;
+            writer.write_all(&exi_header)?;
+        }
+        writer.write_u64(0x2020206567616D69)?; // image
+        writer.write_u64(self.image.data.len() as u64)?;
+        writer.write_all(&self.image.data)?;
+        writer.write_u64(0x6E6F6974636E7566)?; // function
+        let mut mem = MemWriter::new();
+        self.pif_prologue.pack(&mut mem, false, Encoding::Utf8)?;
+        self.pif_epilogue.pack(&mut mem, false, Encoding::Utf8)?;
+        self.function_list.pack(&mut mem, false, Encoding::Utf8)?;
+        let data = mem.into_inner();
+        writer.write_u64(data.len() as u64)?;
+        writer.write_all(&data)?;
+        writer.write_u64(0x20206C61626F6C67)?; // global
+        let mut mem = MemWriter::new();
+        let int64 = if let Some(hdr) = &self.header {
+            hdr.int_base == 64
+        } else {
+            false
+        };
+        mem.write_u32(self.csg_global.len() as u32)?;
+        for item in self.csg_global.iter() {
+            WideString(item.name.clone()).pack(&mut mem, false, Encoding::Utf16LE)?;
+            item.obj.write_to(&mut mem, int64)?;
+        }
+        let data = mem.into_inner();
+        writer.write_u64(data.len() as u64)?;
+        writer.write_all(&data)?;
+        writer.write_u64(0x2020202061746164)?; // data
+        let mut mem = MemWriter::new();
+        mem.write_u32(self.csg_data.len() as u32)?;
+        for item in self.csg_data.iter() {
+            WideString(item.name.clone()).pack(&mut mem, false, Encoding::Utf16LE)?;
+            match &item.obj {
+                ECSObject::Global(g) => {
+                    mem.write_i32(g.len() as i32)?;
+                    for data_item in g.iter() {
+                        WideString(data_item.name.clone()).pack(
+                            &mut mem,
+                            false,
+                            Encoding::Utf16LE,
+                        )?;
+                        data_item.obj.write_to(&mut mem, int64)?;
+                    }
+                }
+                _ => {
+                    mem.write_u32(0x80000000)?;
+                    item.obj.write_to(&mut mem, int64)?;
+                }
+            }
+        }
+        let data = mem.into_inner();
+        writer.write_u64(data.len() as u64)?;
+        writer.write_all(&data)?;
+        if let Some(ext_const_str) = &self.ext_const_str {
+            writer.write_u64(0x72747374736E6F63)?; // conststr
+            let mut mem = MemWriter::new();
+            ext_const_str.pack(&mut mem, false, Encoding::Utf8)?;
+            let data = mem.into_inner();
+            writer.write_u64(data.len() as u64)?;
+            writer.write_all(&data)?;
+        }
+        writer.write_u64(0x20666E696B6E696C)?; // linkinf
+        let mut mem = MemWriter::new();
+        self.ext_global_ref.pack(&mut mem, false, Encoding::Utf8)?;
+        self.ext_data_ref.pack(&mut mem, false, Encoding::Utf8)?;
+        self.imp_global_ref.pack(&mut mem, false, Encoding::Utf8)?;
+        self.imp_data_ref.pack(&mut mem, false, Encoding::Utf8)?;
+        let data = mem.into_inner();
+        writer.write_u64(data.len() as u64)?;
+        writer.write_all(&data)?;
+        Ok(())
     }
 
     pub fn disasm<'a>(&self, writer: Box<dyn Write + 'a>) -> Result<()> {
@@ -413,5 +594,60 @@ impl ECSExecutionImage {
             }
         }
         Ok(messages)
+    }
+
+    pub fn import_all<'a>(
+        &self,
+        messages: Vec<String>,
+        file: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
+        let mut cloned = self.clone();
+        let mut mess = messages.into_iter();
+        let mut mes = mess.next();
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            self.ext_const_str.as_ref(),
+            None,
+        );
+        disasm.execute()?;
+        let mut assembly = disasm.assembly.clone();
+        let mut new_image = MemWriter::new();
+        for cmd in assembly.iter_mut() {
+            cmd.new_addr = new_image.pos as u32;
+            if cmd.code == CsicLoad {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                if csom == CsomImmediate && csvt == CsvtString {
+                    let code: u8 = CsicLoad.into();
+                    let csom: u8 = csom.into();
+                    let csvt: u8 = csvt.into();
+                    let s = match mes.take() {
+                        Some(v) => WideString(v),
+                        None => {
+                            return Err(anyhow::anyhow!(
+                                "Not enough messages to import, ran out at instruction address {:08X}",
+                                cmd.addr
+                            ));
+                        }
+                    };
+                    mes = mess.next();
+                    new_image.write_u8(code)?;
+                    new_image.write_u8(csom)?;
+                    new_image.write_u8(csvt)?;
+                    s.pack(&mut new_image, false, Encoding::Utf8)?;
+                    continue;
+                }
+            }
+            // Copy original instruction
+            new_image.write_from(&mut disasm.stream, cmd.addr as u64, cmd.size as u64)?;
+        }
+        let commands: HashMap<u32, &ECSExecutionImageCommandRecord> =
+            assembly.iter().map(|c| (c.addr, c)).collect();
+        Self::fix_image(&assembly, disasm.stream.clone(), &mut new_image, &commands)?;
+        cloned.image = MemReader::new(new_image.into_inner());
+        cloned.fix_references(&commands)?;
+        cloned.save(file)?;
+        Ok(())
     }
 }

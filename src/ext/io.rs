@@ -1121,6 +1121,14 @@ pub trait WriteExt {
     fn write_i128(&mut self, value: i128) -> Result<()>;
     /// Writes an [i128] to the writer in big-endian order.
     fn write_i128_be(&mut self, value: i128) -> Result<()>;
+    /// Writes a [f32] to the writer in little-endian order.
+    fn write_f32(&mut self, value: f32) -> Result<()>;
+    /// Writes a [f32] to the writer in big-endian order.
+    fn write_f32_be(&mut self, value: f32) -> Result<()>;
+    /// Writes a [f64] to the writer in little-endian order.
+    fn write_f64(&mut self, value: f64) -> Result<()>;
+    /// Writes a [f64] to the writer in big-endian order.
+    fn write_f64_be(&mut self, value: f64) -> Result<()>;
 
     /// Writes a C-style string (null-terminated) to the writer.
     fn write_cstring(&mut self, value: &CString) -> Result<()>;
@@ -1131,6 +1139,8 @@ pub trait WriteExt {
         big: bool,
         encoding: Encoding,
     ) -> Result<()>;
+    /// Writes data from a reader to the writer.
+    fn write_from<R: Read + Seek>(&mut self, reader: &mut R, offset: u64, len: u64) -> Result<()>;
 }
 
 impl<T: Write> WriteExt for T {
@@ -1188,6 +1198,18 @@ impl<T: Write> WriteExt for T {
     fn write_i128_be(&mut self, value: i128) -> Result<()> {
         self.write_all(&value.to_be_bytes())
     }
+    fn write_f32(&mut self, value: f32) -> Result<()> {
+        self.write_all(&value.to_le_bytes())
+    }
+    fn write_f32_be(&mut self, value: f32) -> Result<()> {
+        self.write_all(&value.to_be_bytes())
+    }
+    fn write_f64(&mut self, value: f64) -> Result<()> {
+        self.write_all(&value.to_le_bytes())
+    }
+    fn write_f64_be(&mut self, value: f64) -> Result<()> {
+        self.write_all(&value.to_be_bytes())
+    }
 
     fn write_cstring(&mut self, value: &CString) -> Result<()> {
         self.write_all(value.as_bytes_with_nul())
@@ -1202,6 +1224,22 @@ impl<T: Write> WriteExt for T {
         value
             .pack(self, big, encoding)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    }
+
+    fn write_from<R: Read + Seek>(&mut self, reader: &mut R, offset: u64, len: u64) -> Result<()> {
+        reader.seek(SeekFrom::Start(offset))?;
+        let mut remaining = len;
+        let mut buffer = [0u8; 8192];
+        while remaining > 0 {
+            let to_read = std::cmp::min(remaining, buffer.len() as u64) as usize;
+            let bytes_read = reader.read(&mut buffer[..to_read])?;
+            if bytes_read == 0 {
+                break; // EOF reached
+            }
+            self.write_all(&buffer[..bytes_read])?;
+            remaining -= bytes_read as u64;
+        }
+        Ok(())
     }
 }
 
