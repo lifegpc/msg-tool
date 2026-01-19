@@ -90,6 +90,17 @@ impl Script for CSXScript {
         self.img.export()
     }
 
+    fn import_messages<'a>(
+        &'a self,
+        messages: Vec<Message>,
+        file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
+        _encoding: Encoding,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        self.img.import(messages, file, replacement)
+    }
+
     fn multiple_message_files(&self) -> bool {
         true
     }
