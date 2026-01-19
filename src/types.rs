@@ -567,6 +567,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "entis-gls")]
     /// Whether to disassemble Entis GLS csx script when exporting in custom mode.
     pub entis_gls_csx_disasm: bool,
+    #[cfg(feature = "entis-gls")]
+    #[default(String::from("／"))]
+    /// The line feed character used in Entis GLS csx script.
+    pub entis_gls_csx_lf: String,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

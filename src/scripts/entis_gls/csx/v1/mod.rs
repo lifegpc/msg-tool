@@ -64,7 +64,7 @@ pub struct CSXScript {
 impl CSXScript {
     pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         let reader = MemReader::new(buf);
-        let img = ECSExecutionImage::new(reader)?;
+        let img = ECSExecutionImage::new(reader, config)?;
         Ok(Self {
             img,
             disasm: config.entis_gls_csx_disasm,
@@ -96,6 +96,17 @@ impl Script for CSXScript {
 
     fn extract_multiple_messages(&self) -> Result<std::collections::HashMap<String, Vec<Message>>> {
         self.img.export_multi()
+    }
+
+    fn import_multiple_messages<'a>(
+        &'a self,
+        messages: std::collections::HashMap<String, Vec<Message>>,
+        file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
+        _encoding: Encoding,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        self.img.import_multi(messages, file, replacement)
     }
 
     fn custom_output_extension<'a>(&'a self) -> &'a str {

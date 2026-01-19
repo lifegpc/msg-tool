@@ -1,6 +1,7 @@
 use super::disasm::*;
 use super::types::*;
 use crate::ext::io::*;
+use crate::ext::vec::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::struct_pack::*;
@@ -29,10 +30,11 @@ pub struct ECSExecutionImage {
     ext_data_ref: DWordArray,
     imp_global_ref: TaggedRefAddressList,
     imp_data_ref: TaggedRefAddressList,
+    lf: String,
 }
 
 impl ECSExecutionImage {
-    pub fn new(mut reader: MemReader) -> Result<Self> {
+    pub fn new(mut reader: MemReader, config: &ExtraConfig) -> Result<Self> {
         let file_header = EMCFileHeader::unpack(&mut reader, false, Encoding::Utf8)?;
         // if file_header.signagure != *b"Entis\x1a\0\0" {
         //     return Err(anyhow::anyhow!("Invalid EMC file signature"));
@@ -177,6 +179,7 @@ impl ECSExecutionImage {
             ext_data_ref,
             imp_global_ref,
             imp_data_ref,
+            lf: config.entis_gls_csx_lf.clone(),
         })
     }
 
@@ -446,7 +449,7 @@ impl ECSExecutionImage {
                     }
                 }
                 if pre_is_mess && !is_mess {
-                    messages.push(Message::new(message.clone(), name.take()));
+                    messages.push(Message::new(message.replace(&self.lf, "\n"), name.take()));
                     message.clear();
                 }
                 string_stack.clear();
@@ -555,7 +558,7 @@ impl ECSExecutionImage {
                     messages
                         .entry(key.clone())
                         .or_insert_with(|| Vec::new())
-                        .push(Message::new(message.clone(), name.take()));
+                        .push(Message::new(message.replace(&self.lf, "\n"), name.take()));
                     message.clear();
                 }
                 pre_is_mess = is_mess;
@@ -594,6 +597,413 @@ impl ECSExecutionImage {
             }
         }
         Ok(messages)
+    }
+
+    pub fn import_multi<'a>(
+        &self,
+        mut messages: HashMap<String, Vec<Message>>,
+        file: Box<dyn WriteSeek + 'a>,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        let mut cloned = self.clone();
+        let mut key = String::from("global");
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            self.ext_const_str.as_ref(),
+            None,
+        );
+        disasm.execute()?;
+        let mut assembly = disasm.assembly.clone();
+        let mut index = 0;
+        let mut dumped_index = 0;
+        let mut new_image = MemWriter::new();
+        let mut pre_is_enter = false;
+        let mut pre_enter_name = String::new();
+        let mut pre_is_mess = false;
+        let mut first_mess_index = None;
+        let mut last_mess_index = None;
+        while index < assembly.len() {
+            let cmd = assembly[index].clone();
+            let is_enter = cmd.code == CsicEnter;
+            if cmd.code == CsicCall {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csom = disasm.read_csom()?;
+                let num_args = disasm.stream.read_i32()?;
+                let func_name = WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
+                let mut is_mess = false;
+                if csom == CsomAuto && num_args == 1 && func_name == "Mess" {
+                    is_mess = true;
+                    if first_mess_index.is_none() {
+                        first_mess_index = Some(index);
+                    }
+                    last_mess_index = Some(index);
+                }
+                if pre_is_mess && !is_mess {
+                    let first_index = first_mess_index
+                        .ok_or(anyhow::anyhow!("Internal error: first_mess_index is None"))?;
+                    let last_index = last_mess_index
+                        .ok_or(anyhow::anyhow!("Internal error: last_mess_index is None"))?;
+                    // Load string
+                    let pre_index = first_index - 1;
+                    while dumped_index < pre_index {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original instruction
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                    // Free
+                    let post_index = last_index + 1;
+                    let mut message = messages
+                        .get_mut(&key)
+                        .and_then(|messages| messages.pop_first())
+                        .ok_or(anyhow::anyhow!(
+                            "No available message for Mess at {:08X}.",
+                            cmd.addr
+                        ))?
+                        .message;
+                    if let Some(repl) = replacement {
+                        for (k, v) in repl.map.iter() {
+                            message = message.replace(k, v);
+                        }
+                    }
+                    for i in (first_index..=last_index).step_by(3) {
+                        let tcmd = assembly[i - 1].clone();
+                        disasm.stream.pos = tcmd.addr as usize + 1;
+                        let lcsom = disasm.read_csom()?;
+                        let lcsvt = disasm.read_csvt()?;
+                        if lcsom != CsomImmediate || lcsvt != CsvtString {
+                            return Err(anyhow::anyhow!(
+                                "Invalid load command before Mess at {:08X}.",
+                                tcmd.addr
+                            ));
+                        }
+                    }
+                    let mes_list: Vec<_> = message
+                        .replace("\n", &self.lf)
+                        .split(&self.lf)
+                        .map(|s| s.to_string())
+                        .collect();
+                    let mut new_assembly = Vec::new();
+                    let mes_count = mes_list.len();
+                    let mut tmp_index = pre_index;
+                    for i in 0..mes_count {
+                        let mut mes = mes_list[i].clone();
+                        if i < mes_count - 1 {
+                            mes.push_str(&self.lf);
+                        }
+                        let mut tcmd = if tmp_index <= post_index {
+                            let data = assembly[tmp_index].clone();
+                            tmp_index += 1;
+                            if data.code != CsicLoad {
+                                return Err(anyhow::anyhow!(
+                                    "Internal error: expected Load command at {:08X}.",
+                                    data.addr
+                                ));
+                            }
+                            data
+                        } else {
+                            ECSExecutionImageCommandRecord {
+                                code: CsicLoad,
+                                addr: u32::MAX,
+                                size: 0,
+                                new_addr: 0,
+                            }
+                        };
+                        tcmd.new_addr = new_image.pos as u32;
+                        new_image.write_u8(CsicLoad.into())?;
+                        new_image.write_u8(CsomImmediate.into())?;
+                        new_image.write_u8(CsvtString.into())?;
+                        WideString(mes).pack(&mut new_image, false, Encoding::Utf8)?;
+                        new_assembly.push(tcmd);
+                        let mut tcmd = if tmp_index <= post_index {
+                            let data = assembly[tmp_index].clone();
+                            tmp_index += 1;
+                            if data.code != CsicCall {
+                                return Err(anyhow::anyhow!(
+                                    "Expected Call command at {:08X}.",
+                                    data.addr
+                                ));
+                            }
+                            data
+                        } else {
+                            ECSExecutionImageCommandRecord {
+                                code: CsicCall,
+                                addr: u32::MAX,
+                                size: 0,
+                                new_addr: 0,
+                            }
+                        };
+                        tcmd.new_addr = new_image.pos as u32;
+                        new_image.write_u8(CsicCall.into())?;
+                        new_image.write_u8(CsomAuto.into())?;
+                        new_image.write_i32(1)?; // num_args
+                        WideString("Mess".to_string()).pack(
+                            &mut new_image,
+                            false,
+                            Encoding::Utf16LE,
+                        )?;
+                        new_assembly.push(tcmd);
+                        let mut tcmd = if tmp_index <= post_index {
+                            let data = assembly[tmp_index].clone();
+                            tmp_index += 1;
+                            if data.code != CsicFree {
+                                return Err(anyhow::anyhow!(
+                                    "Expected Free command at {:08X}.",
+                                    data.addr
+                                ));
+                            }
+                            data
+                        } else {
+                            ECSExecutionImageCommandRecord {
+                                code: CsicFree,
+                                addr: u32::MAX,
+                                size: 0,
+                                new_addr: 0,
+                            }
+                        };
+                        tcmd.new_addr = new_image.pos as u32;
+                        new_image.write_u8(CsicFree.into())?;
+                        new_assembly.push(tcmd);
+                    }
+                    let ori_count = post_index - pre_index + 1;
+                    let new_count = new_assembly.len();
+                    dumped_index += new_count;
+                    index = (index as isize + (new_count as isize - ori_count as isize)) as usize;
+                    last_mess_index = None;
+                    first_mess_index = None;
+                    assembly.splice(pre_index..post_index + 1, new_assembly);
+                }
+                if csom == CsomAuto && num_args == 2 && func_name == "Talk" {
+                    if index < 2 {
+                        return Err(anyhow::anyhow!(
+                            "No enough load command at {:08x}.",
+                            cmd.addr
+                        ));
+                    }
+                    let pre_index = index - 2;
+                    while dumped_index < pre_index {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original instruction
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                    let tcmd = &mut assembly[pre_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    disasm.stream.pos = tcmd.addr as usize + 1;
+                    let lcsom = disasm.read_csom()?;
+                    let lcsvt = disasm.read_csvt()?;
+                    if lcsom != CsomImmediate || lcsvt != CsvtString {
+                        return Err(anyhow::anyhow!(
+                            "Invalid load command before Talk at {:08X}.",
+                            tcmd.addr
+                        ));
+                    }
+                    let original_name = disasm.get_string_literal()?;
+                    let name = if original_name == "心の声" {
+                        original_name
+                    } else {
+                        let mut name = messages
+                            .get_mut(&key)
+                            .and_then(|messages| messages.first_mut().map(|m| m.name.take()))
+                            .flatten()
+                            .ok_or(anyhow::anyhow!(
+                                "No available name message for Talk at {:08X}.",
+                                cmd.addr
+                            ))?;
+                        if let Some(repl) = replacement {
+                            for (k, v) in repl.map.iter() {
+                                name = name.replace(k, v);
+                            }
+                        }
+                        name
+                    };
+                    new_image.write_u8(CsicLoad.into())?;
+                    new_image.write_u8(lcsom.into())?;
+                    new_image.write_u8(lcsvt.into())?;
+                    WideString(name).pack(&mut new_image, false, Encoding::Utf8)?;
+                    dumped_index += 1;
+                    while dumped_index <= index {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original instruction
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                } else if csom == CsomAuto && num_args == 2 && func_name == "AddSelect" {
+                    if index < 2 {
+                        return Err(anyhow::anyhow!(
+                            "No enough load command at {:08x}.",
+                            cmd.addr
+                        ));
+                    }
+                    let pre_index = index - 2;
+                    while dumped_index < pre_index {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original instruction
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                    let tcmd = &mut assembly[pre_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    disasm.stream.pos = tcmd.addr as usize + 1;
+                    let lcsom = disasm.read_csom()?;
+                    let lcsvt = disasm.read_csvt()?;
+                    if lcsom != CsomImmediate || lcsvt != CsvtString {
+                        return Err(anyhow::anyhow!(
+                            "Invalid load command before AddSelect at {:08X}.",
+                            tcmd.addr
+                        ));
+                    }
+                    let mut message = messages
+                        .get_mut(&key)
+                        .and_then(|messages| messages.pop_first())
+                        .ok_or(anyhow::anyhow!(
+                            "No available message for AddSelect at {:08X}.",
+                            cmd.addr
+                        ))?
+                        .message;
+                    if let Some(repl) = replacement {
+                        for (k, v) in repl.map.iter() {
+                            message = message.replace(k, v);
+                        }
+                    }
+                    new_image.write_u8(CsicLoad.into())?;
+                    new_image.write_u8(lcsom.into())?;
+                    new_image.write_u8(lcsvt.into())?;
+                    WideString(message).pack(&mut new_image, false, Encoding::Utf8)?;
+                    dumped_index += 1;
+                    while dumped_index <= index {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original instruction
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                } else if csom == CsomAuto && num_args == 0 && func_name == "ScenarioEnter" {
+                    if pre_is_enter {
+                        key = pre_enter_name.clone();
+                    } else {
+                        key = "global".to_string();
+                    }
+                } else if csom == CsomAuto && num_args == 1 && func_name == "SceneTitle" {
+                    if index < 1 {
+                        return Err(anyhow::anyhow!(
+                            "No enough load command at {:08x}.",
+                            cmd.addr
+                        ));
+                    }
+                    let pre_index = index - 1;
+                    while dumped_index < pre_index {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original instruction
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                    let tcmd = &mut assembly[pre_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    disasm.stream.pos = tcmd.addr as usize + 1;
+                    let lcsom = disasm.read_csom()?;
+                    let lcsvt = disasm.read_csvt()?;
+                    if lcsom != CsomImmediate || lcsvt != CsvtString {
+                        return Err(anyhow::anyhow!(
+                            "Invalid load command before SceneTitle at {:08X}.",
+                            tcmd.addr
+                        ));
+                    }
+                    let mut message = messages
+                        .get_mut(&key)
+                        .and_then(|messages| messages.pop_first())
+                        .ok_or(anyhow::anyhow!(
+                            "No available message for SceneTitle at {:08X}.",
+                            cmd.addr
+                        ))?
+                        .message;
+                    if let Some(repl) = replacement {
+                        for (k, v) in repl.map.iter() {
+                            message = message.replace(k, v);
+                        }
+                    }
+                    new_image.write_u8(CsicLoad.into())?;
+                    new_image.write_u8(lcsom.into())?;
+                    new_image.write_u8(lcsvt.into())?;
+                    WideString(message).pack(&mut new_image, false, Encoding::Utf8)?;
+                    dumped_index += 1;
+                    while dumped_index <= index {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original instruction
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                }
+                pre_is_mess = is_mess;
+            } else if is_enter {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let original_name =
+                    WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
+                let num_args = disasm.stream.read_i32()?;
+                if num_args == 0 {
+                    pre_enter_name = original_name.clone();
+                }
+            }
+            pre_is_enter = is_enter;
+            index += 1;
+        }
+        while dumped_index < assembly.len() {
+            let tcmd = &mut assembly[dumped_index];
+            tcmd.new_addr = new_image.pos as u32;
+            // Copy original instruction
+            new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+            dumped_index += 1;
+        }
+        for (s, mes) in messages {
+            if !mes.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "Not all messages were used for key '{}', {} remaining.",
+                    s,
+                    mes.len()
+                ));
+            }
+        }
+        let commands: HashMap<u32, &ECSExecutionImageCommandRecord> =
+            assembly.iter().map(|c| (c.addr, c)).collect();
+        Self::fix_image(&assembly, disasm.stream.clone(), &mut new_image, &commands)?;
+        cloned.image = MemReader::new(new_image.into_inner());
+        cloned.fix_references(&commands)?;
+        cloned.save(file)?;
+        Ok(())
     }
 
     pub fn import_all<'a>(

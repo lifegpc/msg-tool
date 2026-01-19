@@ -5,6 +5,11 @@ pub trait VecExt<T> {
     fn copy_overlapped(&mut self, src: usize, dst: usize, len: usize);
 }
 
+pub trait VecExt2<T> {
+    /// Pop the first element of the vector, returning `None` if empty.
+    fn pop_first(&mut self) -> Option<T>;
+}
+
 impl<T: Copy> VecExt<T> for Vec<T> {
     fn copy_overlapped(&mut self, src: usize, dst: usize, mut len: usize) {
         let mut src = src.min(self.len());
@@ -23,6 +28,16 @@ impl<T: Copy> VecExt<T> for Vec<T> {
             for i in 0..len {
                 self[dst + i] = self[src + i];
             }
+        }
+    }
+}
+
+impl<T> VecExt2<T> for Vec<T> {
+    fn pop_first(&mut self) -> Option<T> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self.remove(0))
         }
     }
 }
