@@ -170,9 +170,13 @@ pub enum CSInstructionCode {
 }
 
 pub use CSInstructionCode::*;
+#[allow(unused_imports)]
 pub use CodeLoadLocal as CodeLoadLocalImm32;
+#[allow(unused_imports)]
 pub use CodeLoadMem as CodeLoadMemBase;
+#[allow(unused_imports)]
 pub use CodeStoreLocal as CodeStoreLocalImm32;
+#[allow(unused_imports)]
 pub use CodeStoreMem as CodeStoreMemBase;
 
 #[repr(u8)]
@@ -822,8 +826,8 @@ pub struct ClassInfoEntry {
 
 #[derive(Clone, Debug)]
 pub struct SectionClassInfo {
-    names: Vec<WideString>,
-    infos: Vec<ClassInfoEntry>,
+    pub names: Vec<WideString>,
+    pub infos: Vec<ClassInfoEntry>,
 }
 
 impl StructUnpack for SectionClassInfo {
@@ -1204,5 +1208,33 @@ impl StructPack for SectionImportNativeFunc {
         writer.write_all(&naked_func_buf)?;
 
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+pub struct ECSExecutionImageCommandRecord {
+    pub code: CSInstructionCode,
+    pub addr: u32,
+    pub size: u32,
+    pub new_addr: u32,
+}
+
+#[derive(Clone, Debug)]
+pub struct ECSExecutionImageAssembly {
+    pub commands: Vec<ECSExecutionImageCommandRecord>,
+}
+
+impl Deref for ECSExecutionImageAssembly {
+    type Target = Vec<ECSExecutionImageCommandRecord>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.commands
+    }
+}
+
+impl DerefMut for ECSExecutionImageAssembly {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.commands
     }
 }

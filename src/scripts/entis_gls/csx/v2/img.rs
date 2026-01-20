@@ -1,4 +1,5 @@
 use super::super::base::*;
+use super::disasm::*;
 use super::types::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -359,8 +360,18 @@ impl ECSExecutionImage {
 }
 
 impl ECSImage for ECSExecutionImage {
-    fn disasm<'a>(&self, _writer: Box<dyn std::io::Write + 'a>) -> Result<()> {
-        Err(anyhow::anyhow!("Disassembly not implemented for CSX v2"))
+    fn disasm<'a>(&self, writer: Box<dyn std::io::Write + 'a>) -> Result<()> {
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            &self.section_function,
+            &self.section_func_info,
+            &self.section_import_native_func,
+            &self.section_class_info,
+            &self.section_const_string,
+            Some(writer),
+        );
+        disasm.execute()?;
+        Ok(())
     }
 
     fn export(&self) -> Result<Vec<Message>> {
