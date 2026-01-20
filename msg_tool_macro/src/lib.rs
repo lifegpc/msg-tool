@@ -220,7 +220,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                 cur = Some(quote::quote! {
                                     let encoded = crate::utils::encoding::encode_string(encoding, &self.#field_name, true)?;
                                     let len = encoded.len() as #pstring_type;
-                                    len.pack(writer, big, encoding, info)?;
+                                    len.pack(writer, big, encoding, __info)?;
                                     writer.write_all(&encoded)?;
                                 });
                             }
@@ -234,15 +234,15 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                         return Err(anyhow::anyhow!("Vector length was not equal to {}", #fixed_vec));
                                     }
                                     for item in &self.#field_name {
-                                        item.pack(writer, big, encoding, info)?;
+                                        item.pack(writer, big, encoding, __info)?;
                                     }
                                 });
                             } else if let Some(pvec_type) = pvec_type {
                                 cur = Some(quote::quote! {
                                     let len = self.#field_name.len() as #pvec_type;
-                                    len.pack(writer, big, encoding, info)?;
+                                    len.pack(writer, big, encoding, __info)?;
                                     for item in &self.#field_name {
-                                        item.pack(writer, big, encoding, info)?;
+                                        item.pack(writer, big, encoding, __info)?;
                                     }
                                 });
                             }
@@ -251,7 +251,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                 }
                 let p = cur.unwrap_or_else(|| {
                     quote::quote! {
-                        self.#field_name.pack(writer, big, encoding, info)?;
+                        self.#field_name.pack(writer, big, encoding, __info)?;
                     }
                 });
                 if let Some(skip_if) = skip_if {
@@ -266,7 +266,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
             });
             let output = quote::quote! {
                 impl StructPack for #name {
-                    fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding, info: &Option<Box<dyn std::any::Any>>) -> Result<()> {
+                    fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding, __info: &Option<Box<dyn std::any::Any>>) -> Result<()> {
                         #(#fields)*
                         Ok(())
                     }
@@ -412,7 +412,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                     cur = Some(quote::quote! {
                                         let encoded = crate::utils::encoding::encode_string(encoding, &#field_name, true)?;
                                         let len = encoded.len() as #pstring_type;
-                                        len.pack(writer, big, encoding, info)?;
+                                        len.pack(writer, big, encoding, __info)?;
                                         writer.write_all(&encoded)?;
                                     });
                                 }
@@ -426,15 +426,15 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                             return Err(anyhow::anyhow!("Vector length was not equal to {}", #fixed_vec));
                                         }
                                         for item in &#field_name {
-                                            item.pack(writer, big, encoding, info)?;
+                                            item.pack(writer, big, encoding, __info)?;
                                         }
                                     });
                                 } else if let Some(pvec_type) = pvec_type {
                                     cur = Some(quote::quote! {
                                         let len = #field_name.len() as #pvec_type;
-                                        len.pack(writer, big, encoding, info)?;
+                                        len.pack(writer, big, encoding, __info)?;
                                         for item in &#field_name {
-                                            item.pack(writer, big, encoding, info)?;
+                                            item.pack(writer, big, encoding, __info)?;
                                         }
                                     });
                                 }
@@ -443,7 +443,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                     }
                     let p = cur.unwrap_or_else(|| {
                         quote::quote! {
-                            #field_name.pack(writer, big, encoding, info)?;
+                            #field_name.pack(writer, big, encoding, __info)?;
                         }
                     });
                     if let Some(skip_if) = skip_if {
@@ -469,7 +469,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
             });
             let output = quote::quote! {
                 impl StructPack for #ident {
-                    fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding, info: &Option<Box<dyn std::any::Any>>) -> Result<()> {
+                    fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding, __info: &Option<Box<dyn std::any::Any>>) -> Result<()> {
                         match self {
                             #(#variants)*
                         }
@@ -625,7 +625,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                         });
                     } else if let Some(pstring_type) = pstring_type {
                         cur = Some(quote::quote! {
-                            let len = <#pstring_type>::unpack(reader, big, encoding, info)? as usize;
+                            let len = <#pstring_type>::unpack(reader, big, encoding, __info)? as usize;
                             let #field_name = reader.read_exact_vec(len)?;
                             let #field_name = crate::utils::encoding::decode_to_string(encoding, &#field_name, true)?;
                         });
@@ -636,12 +636,12 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                 if segment.ident == "Vec" {
                     if let Some(fixed_vec) = fixed_vec {
                         cur = Some(quote::quote! {
-                            let #field_name = reader.read_struct_vec(#fixed_vec, big, encoding, info)?;
+                            let #field_name = reader.read_struct_vec(#fixed_vec, big, encoding, __info)?;
                         });
                     } else if let Some(pvec_type) = pvec_type {
                         cur = Some(quote::quote! {
-                            let len = <#pvec_type>::unpack(reader, big, encoding, info)? as usize;
-                            let #field_name = reader.read_struct_vec(len, big, encoding, info)?;
+                            let len = <#pvec_type>::unpack(reader, big, encoding, __info)? as usize;
+                            let #field_name = reader.read_struct_vec(len, big, encoding, __info)?;
                         });
                     }
                 }
@@ -649,7 +649,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         }
         let p = cur.unwrap_or_else(|| {
             quote::quote! {
-                let #field_name = <#field_type>::unpack(reader, big, encoding, info)?;
+                let #field_name = <#field_type>::unpack(reader, big, encoding, __info)?;
             }
         });
         if let Some(skip_if) = skip_if {
@@ -672,7 +672,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
     };
     let output = quote::quote! {
         impl StructUnpack for #name {
-            fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding, info: &Option<Box<dyn std::any::Any>>) -> Result<Self> {
+            fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding, __info: &Option<Box<dyn std::any::Any>>) -> Result<Self> {
                 #(#smts)*
                 Ok(Self #fields)
             }

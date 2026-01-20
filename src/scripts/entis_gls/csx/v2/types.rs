@@ -6,6 +6,7 @@ use anyhow::Result;
 use int_enum::IntEnum;
 use msg_tool_macro::{StructPack, StructUnpack};
 use std::io::{Read, Seek, Write};
+use std::ops::{Deref, DerefMut};
 
 #[repr(u8)]
 #[derive(Debug, IntEnum, PartialEq, Eq, Clone, Copy)]
@@ -768,6 +769,440 @@ impl StructPack for TypedObject {
                 value.pack(writer, big, encoding, info)?;
             }
         }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct FieldInfoEntry {
+    pub name: WideString,
+    pub flags: u32,
+    pub type_object: TypedObject,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct TypeInfoEntry {
+    pub flags: u32,
+    pub type_object: TypedObject,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct PrototypeInfoEntry {
+    pub flags: u32,
+    pub name: WideString,
+    pub global_name: WideString,
+    pub return_type: TypeInfoEntry,
+    #[pvec(u32)]
+    pub arguments: Vec<TypeInfoEntry>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct MethodInfoEntry {
+    pub prototype_info: PrototypeInfoEntry,
+    pub func_class: WideString,
+    pub pointer_data: [u8; 40],
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct ClassInfoEntry {
+    pub flags: u32,
+    pub name: WideString,
+    pub global_name: WideString,
+    #[pvec(u32)]
+    pub base_class_info: Vec<BaseClassInfoEntry>,
+    #[pvec(u32)]
+    pub base_class_cast_info: Vec<BaseClassCastInfoEntry>,
+    #[pvec(u32)]
+    pub field_info: Vec<FieldInfoEntry>,
+    #[pvec(u32)]
+    pub method_info: Vec<MethodInfoEntry>,
+    #[pvec(u32)]
+    pub extra_data: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SectionClassInfo {
+    names: Vec<WideString>,
+    infos: Vec<ClassInfoEntry>,
+}
+
+impl StructUnpack for SectionClassInfo {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let count = u32::unpack(reader, big, encoding, info)? as usize;
+        let mut names = Vec::with_capacity(count);
+        for _ in 0..count {
+            let name = WideString::unpack(reader, big, encoding, info)?;
+            names.push(name);
+        }
+        let mut infos = Vec::with_capacity(count);
+        for _ in 0..count {
+            let class_info = ClassInfoEntry::unpack(reader, big, encoding, info)?;
+            infos.push(class_info);
+        }
+        Ok(SectionClassInfo { names, infos })
+    }
+}
+
+impl StructPack for SectionClassInfo {
+    fn pack<W: Write>(
+        &self,
+        writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
+        let count = self.names.len() as u32;
+        if count != self.infos.len() as u32 {
+            return Err(anyhow::anyhow!(
+                "SectionClassInfo pack error: names count {} does not match infos count {}",
+                count,
+                self.infos.len()
+            ));
+        }
+        count.pack(writer, big, encoding, info)?;
+        for name in &self.names {
+            name.pack(writer, big, encoding, info)?;
+        }
+        for class_info in &self.infos {
+            class_info.pack(writer, big, encoding, info)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct FuncNameEntry {
+    pub address: u32,
+    pub name: WideString,
+}
+
+#[derive(Clone, Debug, Default, StructPack, StructUnpack)]
+pub struct DWordArray {
+    #[pvec(u32)]
+    pub data: Vec<u32>,
+}
+
+impl Deref for DWordArray {
+    type Target = Vec<u32>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl DerefMut for DWordArray {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionFunction {
+    pub prologue: DWordArray,
+    pub epilogue: DWordArray,
+    #[pvec(u32)]
+    pub func_names: Vec<FuncNameEntry>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionInitNakedFunc {
+    pub naked_prologue: DWordArray,
+    pub naked_epilogue: DWordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct FuncEntryHeader {
+    pub flags: u32,
+    pub address: u32,
+    pub bytes: u32,
+    pub reserved: u32,
+}
+
+#[derive(Clone, Debug, StructPack)]
+pub struct FuncInfoEntry {
+    pub header: FuncEntryHeader,
+    pub name: WideString,
+    pub reserved: Vec<u8>,
+}
+
+impl StructUnpack for FuncInfoEntry {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let header = FuncEntryHeader::unpack(reader, big, encoding, info)?;
+        let name = WideString::unpack(reader, big, encoding, info)?;
+        let reserved_size = header.reserved as usize;
+        let reserved = reader.read_exact_vec(reserved_size)?;
+        Ok(Self {
+            header,
+            name,
+            reserved,
+        })
+    }
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionFuncInfo {
+    #[pvec(u32)]
+    pub functions: Vec<FuncInfoEntry>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct NakedSymbolInfoEntry {
+    pub flags: u32,
+    pub reserved: u32,
+    pub address: u64,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SymbolInfoEntry {
+    pub info: NakedSymbolInfoEntry,
+    pub name: WideString,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionSymbolInfo {
+    #[pvec(u32)]
+    pub symbols: Vec<SymbolInfoEntry>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct TagedObjectEntry {
+    pub tag: WideString,
+    pub object: TypedObject,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionGlobal {
+    #[pvec(u32)]
+    pub objects: Vec<TagedObjectEntry>,
+}
+
+#[derive(Clone, Debug)]
+pub enum GlobalObjectEntryObj {
+    Object(TypedObject),
+    List(Vec<TagedObjectEntry>),
+}
+
+#[derive(Clone, Debug)]
+pub struct GlobalObjectEntry {
+    pub name: WideString,
+    pub object: GlobalObjectEntryObj,
+}
+
+impl StructUnpack for GlobalObjectEntry {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let name = WideString::unpack(reader, big, encoding, info)?;
+        let length = i32::unpack(reader, big, encoding, info)?;
+        if length >= 0 {
+            let obj = reader.read_struct_vec(length as usize, big, encoding, info)?;
+            Ok(Self {
+                name,
+                object: GlobalObjectEntryObj::List(obj),
+            })
+        } else {
+            let obj = TypedObject::unpack(reader, big, encoding, info)?;
+            Ok(Self {
+                name,
+                object: GlobalObjectEntryObj::Object(obj),
+            })
+        }
+    }
+}
+
+impl StructPack for GlobalObjectEntry {
+    fn pack<W: Write>(
+        &self,
+        writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
+        self.name.pack(writer, big, encoding, info)?;
+        match &self.object {
+            GlobalObjectEntryObj::Object(obj) => {
+                (0x80000000u32).pack(writer, big, encoding, info)?;
+                obj.pack(writer, big, encoding, info)?;
+            }
+            GlobalObjectEntryObj::List(list) => {
+                let length = list.len() as i32;
+                length.pack(writer, big, encoding, info)?;
+                for item in list {
+                    item.pack(writer, big, encoding, info)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionData {
+    #[pvec(u32)]
+    pub objects: Vec<GlobalObjectEntry>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct ConstStringEntry {
+    pub string: WideString,
+    pub refs: DWordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionConstString {
+    #[pvec(u32)]
+    pub strings: Vec<ConstStringEntry>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct TagedDwordArrayEntry {
+    pub tag: WideString,
+    pub array: DWordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct TagedDwordArray {
+    #[pvec(u32)]
+    pub elements: Vec<TagedDwordArrayEntry>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionLinkInfo {
+    pub ext_global_ref: DWordArray,
+    pub ext_data_ref: DWordArray,
+    pub imp_global_ref: TagedDwordArray,
+    pub imp_data_ref: TagedDwordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionLinkInfoEx {
+    pub flags: u32,
+    pub ext_naked_global_ref: DWordArray,
+    pub ext_naked_const_ref: DWordArray,
+    pub ext_naked_shared_ref: DWordArray,
+    pub ext_naked_func_ref: DWordArray,
+    pub imp_naked_global_ref: TagedDwordArray,
+    pub imp_naked_const_ref: TagedDwordArray,
+    pub imp_naked_shared_ref: TagedDwordArray,
+    pub imp_naked_func_ref: TagedDwordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionRefFunc {
+    pub refs: TagedDwordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionRefCode {
+    pub refs: DWordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionRefClass {
+    pub refs: DWordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionNativeFunc {
+    #[pvec(u32)]
+    pub names: Vec<WideString>,
+    pub addresses: DWordArray,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct SectionNakedFunc {
+    #[pvec(u32)]
+    pub names: Vec<WideString>,
+    pub addresses: DWordArray,
+}
+
+const ID_NATIVE_FUNC: u64 = 0x636E66766974616E;
+const ID_NAKED_FUNC: u64 = 0x636E6664656B616E;
+
+#[derive(Clone, Debug)]
+pub struct SectionImportNativeFunc {
+    pub native_func: SectionNativeFunc,
+    pub naked_func: SectionNakedFunc,
+}
+
+impl StructUnpack for SectionImportNativeFunc {
+    fn unpack<R: Read + Seek>(
+        mut reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let len = reader.stream_length()?;
+        let mut native_func = None;
+        let mut naked_func = None;
+        while reader.stream_position()? < len {
+            let id = u64::unpack(reader, big, encoding, info)?;
+            let length = u64::unpack(reader, big, encoding, info)?;
+            match id {
+                ID_NATIVE_FUNC => {
+                    let mut mem = StreamRegion::with_size(&mut reader, length)?;
+                    let func = SectionNativeFunc::unpack(&mut mem, big, encoding, info)?;
+                    native_func = Some(func);
+                }
+                ID_NAKED_FUNC => {
+                    let mut mem = StreamRegion::with_size(&mut reader, length)?;
+                    let func = SectionNakedFunc::unpack(&mut mem, big, encoding, info)?;
+                    naked_func = Some(func);
+                }
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "Unknown SectionImportNativeFunc id: {:#X}",
+                        id
+                    ));
+                }
+            }
+        }
+        Ok(Self {
+            native_func: native_func
+                .ok_or_else(|| anyhow::anyhow!("Missing native_func in SectionImportNativeFunc"))?,
+            naked_func: naked_func
+                .ok_or_else(|| anyhow::anyhow!("Missing naked_func in SectionImportNativeFunc"))?,
+        })
+    }
+}
+
+impl StructPack for SectionImportNativeFunc {
+    fn pack<W: Write>(
+        &self,
+        mut writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
+        // Write native_func
+        ID_NATIVE_FUNC.pack(&mut writer, big, encoding, info)?;
+        let mut native_func_buf = Vec::new();
+        self.native_func
+            .pack(&mut native_func_buf, big, encoding, info)?;
+        (native_func_buf.len() as u64).pack(&mut writer, big, encoding, info)?;
+        writer.write_all(&native_func_buf)?;
+
+        // Write naked_func
+        ID_NAKED_FUNC.pack(&mut writer, big, encoding, info)?;
+        let mut naked_func_buf = Vec::new();
+        self.naked_func
+            .pack(&mut naked_func_buf, big, encoding, info)?;
+        (naked_func_buf.len() as u64).pack(&mut writer, big, encoding, info)?;
+        writer.write_all(&naked_func_buf)?;
+
         Ok(())
     }
 }

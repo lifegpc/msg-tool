@@ -6,6 +6,7 @@ use crate::types::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
 use std::collections::HashMap;
+use std::io::Seek;
 
 const ID_HEADER: u64 = 0x2020726564616568; // header
 const ID_IMAGE: u64 = 0x2020206567616D69;
@@ -36,6 +37,20 @@ pub struct ECSExecutionImage {
     image_global: Option<MemReader>,
     image_const: Option<MemReader>,
     image_shared: Option<MemReader>,
+    section_class_info: SectionClassInfo,
+    section_function: SectionFunction,
+    section_init_naked_func: SectionInitNakedFunc,
+    section_func_info: SectionFuncInfo,
+    section_symbol_info: Option<SectionSymbolInfo>,
+    section_global: Option<SectionGlobal>,
+    section_data: Option<SectionData>,
+    section_const_string: SectionConstString,
+    section_link_info: Option<SectionLinkInfo>,
+    section_link_info_ex: Option<SectionLinkInfoEx>,
+    section_ref_func: Option<SectionRefFunc>,
+    section_ref_code: Option<SectionRefCode>,
+    section_ref_class: Option<SectionRefClass>,
+    section_import_native_func: SectionImportNativeFunc,
 }
 
 impl ECSExecutionImage {
@@ -53,6 +68,20 @@ impl ECSExecutionImage {
         let mut image_global = None;
         let mut image_const = None;
         let mut image_shared = None;
+        let mut section_class_info = None;
+        let mut section_function = None;
+        let mut section_init_naked_func = None;
+        let mut section_func_info = None;
+        let mut section_symbol_info = None;
+        let mut section_global = None;
+        let mut section_data = None;
+        let mut section_const_string = None;
+        let mut section_link_info = None;
+        let mut section_link_info_ex = None;
+        let mut section_ref_func = None;
+        let mut section_ref_code = None;
+        let mut section_ref_class = None;
+        let mut section_import_native_func = None;
         while reader.pos < len {
             if len - reader.pos < 16 {
                 break;
@@ -80,6 +109,212 @@ impl ECSExecutionImage {
                 ID_IMAGE_SHARED => {
                     image_shared = Some(MemReader::new(reader.read_exact_vec(size as usize)?));
                 }
+                ID_CLASS_INFO => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_class_info = Some(SectionClassInfo::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::CLASS_INFO"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_FUNCTION => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_function = Some(SectionFunction::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::FUNCTION"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_INIT_NAKED_FUNC => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_init_naked_func = Some(SectionInitNakedFunc::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::INIT_NAKED_FUNC"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_FUNC_INFO => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_func_info = Some(SectionFuncInfo::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::FUNC_INFO"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_SYMBOL_INFO => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_symbol_info = Some(SectionSymbolInfo::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::SYMBOL_INFO"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_GLOBAL => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_global = Some(SectionGlobal::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!("WARNING: Some data is not parsed in ECSExecutionImage::GLOBAL");
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_DATA => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_data = Some(SectionData::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!("WARNING: Some data is not parsed in ECSExecutionImage::DATA");
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_CONST_STRING => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_const_string = Some(SectionConstString::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::CONST_STRING"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_LINK_INFO => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_link_info = Some(SectionLinkInfo::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::LINK_INFO"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_LINK_INFO_EX => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_link_info_ex = Some(SectionLinkInfoEx::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::LINK_INFO_EX"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_REF_FUNC => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_ref_func = Some(SectionRefFunc::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::REF_FUNC"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_REF_CODE => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_ref_code = Some(SectionRefCode::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::REF_CODE"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_REF_CLASS => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_ref_class = Some(SectionRefClass::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::REF_CLASS"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
+                ID_IMPORT_NATIVE_FUNC => {
+                    let mut mem = StreamRegion::with_size(&mut reader, size)?;
+                    section_import_native_func = Some(SectionImportNativeFunc::unpack(
+                        &mut mem,
+                        false,
+                        Encoding::Utf8,
+                        &Some(Box::new(section_header.clone())),
+                    )?);
+                    if mem.stream_position()? != size {
+                        eprintln!(
+                            "WARNING: Some data is not parsed in ECSExecutionImage::IMPORT_NATIVE_FUNC"
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                }
                 0 => {
                     break;
                 }
@@ -99,6 +334,26 @@ impl ECSExecutionImage {
             image_global,
             image_const,
             image_shared,
+            section_class_info: section_class_info
+                .ok_or_else(|| anyhow::anyhow!("Missing class info section"))?,
+            section_function: section_function
+                .ok_or_else(|| anyhow::anyhow!("Missing function section"))?,
+            section_init_naked_func: section_init_naked_func
+                .ok_or_else(|| anyhow::anyhow!("Missing init naked func section"))?,
+            section_func_info: section_func_info
+                .ok_or_else(|| anyhow::anyhow!("Missing func info section"))?,
+            section_symbol_info,
+            section_global,
+            section_data,
+            section_const_string: section_const_string
+                .ok_or_else(|| anyhow::anyhow!("Missing const string section"))?,
+            section_link_info,
+            section_link_info_ex,
+            section_ref_func,
+            section_ref_code,
+            section_ref_class,
+            section_import_native_func: section_import_native_func
+                .ok_or_else(|| anyhow::anyhow!("Missing import native func section"))?,
         })
     }
 }
