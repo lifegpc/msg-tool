@@ -446,3 +446,328 @@ pub struct BaseClassCastInfoEntry {
     pub pci: ECSCastInterface,
     pub flags: u32,
 }
+
+fn get_version(info: &Option<Box<dyn std::any::Any>>) -> Result<u32> {
+    if let Some(boxed) = info {
+        if let Some(version) = boxed.downcast_ref::<SectionHeader>() {
+            return Ok(version.version);
+        }
+    }
+    Err(anyhow::anyhow!(
+        "SectionHeader info not provided for version retrieval"
+    ))
+}
+
+fn get_int_base(info: &Option<Box<dyn std::any::Any>>) -> Result<u32> {
+    if let Some(boxed) = info {
+        if let Some(header) = boxed.downcast_ref::<SectionHeader>() {
+            return Ok(header.int_base);
+        }
+    }
+    Err(anyhow::anyhow!(
+        "SectionHeader info not provided for int_base retrieval"
+    ))
+}
+
+fn get_full_ver(info: &Option<Box<dyn std::any::Any>>) -> Result<u32> {
+    if let Some(boxed) = info {
+        if let Some(header) = boxed.downcast_ref::<SectionHeader>() {
+            return Ok(header.full_ver);
+        }
+    }
+    Err(anyhow::anyhow!(
+        "SectionHeader info not provided for full_ver retrieval"
+    ))
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct ClassInfoObject {
+    pub class_name: WideString,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct ArrayObject {
+    #[pvec(u32)]
+    pub elements: Vec<TypedObject>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct Integer64Object {
+    mask: i64,
+    value: i64,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct PointerObject {
+    ref_type: i32,
+    read_only: u8,
+    ref_type_object: TypedObject,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct ArrayDimensionObject {
+    element_type_object: TypedObject,
+    #[pvec(u32)]
+    bounds: Vec<i32>,
+    #[pvec(u32)]
+    elements: Vec<TypedObject>,
+}
+
+#[derive(Clone, Debug, StructPack, StructUnpack)]
+pub struct HashContainerObject {
+    element_type_object: TypedObject,
+}
+
+#[derive(Clone, Debug)]
+pub enum TypedObject {
+    Invalid,
+    Object(ClassInfoObject),
+    ReferenceV1(Box<TypedObject>),
+    Reference,
+    Array(ArrayObject),
+    Hash,
+    Integer(i64),
+    Real(f64),
+    String(WideString),
+    Integer64V3(Integer64Object),
+    Integer64(i64),
+    PointerV3(Box<PointerObject>),
+    Pointer,
+    Boolean(i64),
+    Int8(i64),
+    Uint8(i64),
+    Int16(i64),
+    Uint16(i64),
+    Int32(i64),
+    Uint32(i64),
+    ArrayDimension(Box<ArrayDimensionObject>),
+    HashContainer(Box<HashContainerObject>),
+    Real32(f64),
+    Real64(f64),
+}
+
+impl StructUnpack for TypedObject {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let typ = i32::unpack(reader, big, encoding, info)?;
+        if typ == -1 {
+            return Ok(TypedObject::Invalid);
+        }
+        let typ = CSVariableType::try_from(typ as u8)
+            .map_err(|_| anyhow::anyhow!("Invalid CSVariableType value: {}", typ))?;
+        match typ {
+            CsvtObject => {
+                let obj = ClassInfoObject::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Object(obj))
+            }
+            CsvtReference => {
+                if get_version(info)? == 1 {
+                    let inner = TypedObject::unpack(reader, big, encoding, info)?;
+                    Ok(TypedObject::ReferenceV1(Box::new(inner)))
+                } else {
+                    Ok(TypedObject::Reference)
+                }
+            }
+            CsvtArray => {
+                let arr = ArrayObject::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Array(arr))
+            }
+            CsvtHash => Ok(TypedObject::Hash),
+            CsvtInteger => {
+                let value = if get_int_base(info)? == 64 {
+                    i64::unpack(reader, big, encoding, info)?
+                } else {
+                    i32::unpack(reader, big, encoding, info)? as i64
+                };
+                Ok(TypedObject::Integer(value))
+            }
+            CsvtReal => {
+                let value = f64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Real(value))
+            }
+            CsvtString => {
+                let s = WideString::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::String(s))
+            }
+            CsvtInteger64 => {
+                if get_full_ver(info)? == 3 {
+                    let obj = Integer64Object::unpack(reader, big, encoding, info)?;
+                    Ok(TypedObject::Integer64V3(obj))
+                } else {
+                    let value = i64::unpack(reader, big, encoding, info)?;
+                    Ok(TypedObject::Integer64(value))
+                }
+            }
+            CsvtPointer => {
+                if get_full_ver(info)? == 3 {
+                    let obj = PointerObject::unpack(reader, big, encoding, info)?;
+                    Ok(TypedObject::PointerV3(Box::new(obj)))
+                } else {
+                    Ok(TypedObject::Pointer)
+                }
+            }
+            CsvtBoolean => {
+                let value = i64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Boolean(value))
+            }
+            CsvtInt8 => {
+                let value = i64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Int8(value))
+            }
+            CsvtUint8 => {
+                let value = i64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Uint8(value))
+            }
+            CsvtInt16 => {
+                let value = i64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Int16(value))
+            }
+            CsvtUint16 => {
+                let value = i64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Uint16(value))
+            }
+            CsvtInt32 => {
+                let value = i64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Int32(value))
+            }
+            CsvtUint32 => {
+                let value = i64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Uint32(value))
+            }
+            CsvtArrayDimension => {
+                let obj = ArrayDimensionObject::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::ArrayDimension(Box::new(obj)))
+            }
+            CsvtHashContainer => {
+                let obj = HashContainerObject::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::HashContainer(Box::new(obj)))
+            }
+            CsvtReal32 => {
+                let value = f64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Real32(value))
+            }
+            CsvtReal64 => {
+                let value = f64::unpack(reader, big, encoding, info)?;
+                Ok(TypedObject::Real64(value))
+            }
+            _ => Err(anyhow::anyhow!(
+                "TypedObject unpack for type {:?} not implemented",
+                typ
+            )),
+        }
+    }
+}
+
+impl StructPack for TypedObject {
+    fn pack<W: Write>(
+        &self,
+        writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
+        match self {
+            TypedObject::Invalid => {
+                (-1i32).pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Object(o) => {
+                (CsvtObject as i32).pack(writer, big, encoding, info)?;
+                o.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::ReferenceV1(inner) => {
+                (CsvtReference as i32).pack(writer, big, encoding, info)?;
+                inner.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Reference => {
+                (CsvtReference as i32).pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Array(arr) => {
+                (CsvtArray as i32).pack(writer, big, encoding, info)?;
+                arr.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Hash => {
+                (CsvtHash as i32).pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Integer(value) => {
+                (CsvtInteger as i32).pack(writer, big, encoding, info)?;
+                if get_int_base(info)? == 64 {
+                    value.pack(writer, big, encoding, info)?;
+                } else {
+                    (*value as i32).pack(writer, big, encoding, info)?;
+                }
+            }
+            TypedObject::Real(value) => {
+                (CsvtReal as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::String(s) => {
+                (CsvtString as i32).pack(writer, big, encoding, info)?;
+                s.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Integer64V3(obj) => {
+                (CsvtInteger64 as i32).pack(writer, big, encoding, info)?;
+                obj.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Integer64(value) => {
+                (CsvtInteger64 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::PointerV3(obj) => {
+                (CsvtPointer as i32).pack(writer, big, encoding, info)?;
+                obj.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Pointer => {
+                (CsvtPointer as i32).pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Boolean(value) => {
+                (CsvtBoolean as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Int8(value) => {
+                (CsvtInt8 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Uint8(value) => {
+                (CsvtUint8 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Int16(value) => {
+                (CsvtInt16 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Uint16(value) => {
+                (CsvtUint16 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Int32(value) => {
+                (CsvtInt32 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Uint32(value) => {
+                (CsvtUint32 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::ArrayDimension(obj) => {
+                (CsvtArrayDimension as i32).pack(writer, big, encoding, info)?;
+                obj.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::HashContainer(obj) => {
+                (CsvtHashContainer as i32).pack(writer, big, encoding, info)?;
+                obj.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Real32(value) => {
+                (CsvtReal32 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+            TypedObject::Real64(value) => {
+                (CsvtReal64 as i32).pack(writer, big, encoding, info)?;
+                value.pack(writer, big, encoding, info)?;
+            }
+        }
+        Ok(())
+    }
+}
