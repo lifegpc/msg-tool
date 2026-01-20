@@ -308,7 +308,12 @@ pub trait Peek {
     /// * `big` indicates whether the struct is in big-endian format.
     /// * `encoding` specifies the encoding to use for string fields in the struct.
     /// Returns the unpacked struct.
-    fn read_struct<T: StructUnpack>(&mut self, big: bool, encoding: Encoding) -> Result<T>;
+    fn read_struct<T: StructUnpack>(
+        &mut self,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<T>;
     /// Reads a vector of structs from the reader.
     /// The structs must implement the `StructUnpack` trait.
     ///
@@ -321,10 +326,11 @@ pub trait Peek {
         count: usize,
         big: bool,
         encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
     ) -> Result<Vec<T>> {
         let mut vec = Vec::with_capacity(count);
         for _ in 0..count {
-            vec.push(self.read_struct(big, encoding)?);
+            vec.push(self.read_struct(big, encoding, info)?);
         }
         Ok(vec)
     }
@@ -448,8 +454,13 @@ impl<T: Read + Seek> Peek for T {
         Ok(buf)
     }
 
-    fn read_struct<S: StructUnpack>(&mut self, big: bool, encoding: Encoding) -> Result<S> {
-        S::unpack(self, big, encoding)
+    fn read_struct<S: StructUnpack>(
+        &mut self,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<S> {
+        S::unpack(self, big, encoding, info)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 }
@@ -1133,11 +1144,12 @@ pub trait WriteExt {
     /// Writes a C-style string (null-terminated) to the writer.
     fn write_cstring(&mut self, value: &CString) -> Result<()>;
     /// Write a struct to the writer.
-    fn write_struct<T: StructPack>(
+    fn write_struct<V: StructPack>(
         &mut self,
-        value: &T,
+        value: &V,
         big: bool,
         encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
     ) -> Result<()>;
     /// Writes data from a reader to the writer.
     fn write_from<R: Read + Seek>(&mut self, reader: &mut R, offset: u64, len: u64) -> Result<()>;
@@ -1220,9 +1232,10 @@ impl<T: Write> WriteExt for T {
         value: &V,
         big: bool,
         encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
     ) -> Result<()> {
         value
-            .pack(self, big, encoding)
+            .pack(self, big, encoding, info)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 

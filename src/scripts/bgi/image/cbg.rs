@@ -149,7 +149,7 @@ impl BgiCBG {
         if !magic.starts_with(b"CompressedBG___") {
             return Err(anyhow::anyhow!("Invalid magic: {:?}", magic));
         }
-        let header = BgiCBGHeader::unpack(&mut reader, false, Encoding::Cp932)?;
+        let header = BgiCBGHeader::unpack(&mut reader, false, Encoding::Cp932, &None)?;
         if header.version > 2 {
             return Err(anyhow::anyhow!("Unsupported version: {}", header.version));
         }
@@ -1129,7 +1129,8 @@ impl CbgEncoder {
 
         let final_pos = self.stream.pos;
         self.stream.pos = header_pos;
-        self.header.pack(&mut self.stream, false, Encoding::Cp932)?;
+        self.header
+            .pack(&mut self.stream, false, Encoding::Cp932, &None)?;
         self.stream.pos = final_pos;
 
         Ok(self.stream.into_inner())

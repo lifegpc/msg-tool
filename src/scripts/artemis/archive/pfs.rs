@@ -169,7 +169,7 @@ impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
         let file_count = reader.read_u32()?;
         let mut entries = Vec::with_capacity(file_count as usize);
         for _ in 0..file_count {
-            let header = reader.read_struct(false, archive_encoding)?;
+            let header = reader.read_struct(false, archive_encoding, &None)?;
             entries.push(header);
         }
         let xor_key = if version == b'8' {
@@ -374,7 +374,7 @@ impl<T: Write + Seek + Read> ArtemisArcWriter<T> {
                 offset: 0,
                 size: 0,
             };
-            header.pack(&mut writer, false, encoding)?;
+            header.pack(&mut writer, false, encoding, &None)?;
             headers.insert(file.to_string(), header);
         }
         let size = writer.stream_position()?;
@@ -418,7 +418,7 @@ impl<T: Write + Seek + Read> Archive for ArtemisArcWriter<T> {
         let mut files = self.headers.values().collect::<Vec<_>>();
         files.sort_by_key(|d| d.offset);
         for file in files.iter() {
-            file.pack(&mut self.writer, false, self.encoding)?;
+            file.pack(&mut self.writer, false, self.encoding, &None)?;
         }
         if !self.disable_xor {
             self.writer.seek(SeekFrom::Start(7))?;

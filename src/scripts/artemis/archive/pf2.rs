@@ -171,7 +171,7 @@ impl<T: Read + Seek + std::fmt::Debug> ArtemisPf2<T> {
         let file_count = reader.read_u32()?;
         let mut entries = Vec::with_capacity(file_count as usize);
         for _ in 0..file_count {
-            let header = reader.read_struct(false, archive_encoding)?;
+            let header = reader.read_struct(false, archive_encoding, &None)?;
             entries.push(header);
         }
         let output_ext = std::path::Path::new(filename)
@@ -346,7 +346,7 @@ impl<T: Write + Seek + Read> ArtemisPf2Writer<T> {
                 offset: 0,
                 size: 0,
             };
-            header.pack(&mut writer, false, encoding)?;
+            header.pack(&mut writer, false, encoding, &None)?;
             headers.insert(file.to_string(), header);
         }
         let size = writer.stream_position()?;
@@ -390,7 +390,7 @@ impl<T: Write + Seek + Read> Archive for ArtemisPf2Writer<T> {
         let mut files = self.headers.values().collect::<Vec<_>>();
         files.sort_by_key(|d| d.offset);
         for file in files.iter() {
-            file.pack(&mut self.writer, false, self.encoding)?;
+            file.pack(&mut self.writer, false, self.encoding, &None)?;
         }
         self.writer.write_u32_at(3, self.index_size)?;
         self.writer.write_u32_at(7, 0)?;

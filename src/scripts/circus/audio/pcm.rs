@@ -132,7 +132,7 @@ impl Pcm {
         if &magic != b"XPCM" {
             return Err(anyhow::anyhow!("Invalid PCM header magic: {:?}", magic));
         }
-        let header = Header::unpack(&mut reader, false, Encoding::Utf8)?;
+        let header = Header::unpack(&mut reader, false, Encoding::Utf8, &None)?;
         let mode = Mode::try_from(header.mode())
             .map_err(|_| anyhow::anyhow!("Unsupported PCM mode: {}", header.mode()))?;
         let data = match mode {

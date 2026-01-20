@@ -231,7 +231,7 @@ impl<T: Read + Seek + std::fmt::Debug> PckArchive<T> {
         }
         let mut entries = Vec::with_capacity(file_count as usize);
         for (i, (offset, size)) in offset_list.into_iter().enumerate() {
-            let header: PckFileHeader = reader.read_struct(false, archive_encoding)?;
+            let header: PckFileHeader = reader.read_struct(false, archive_encoding, &None)?;
             if header.offset != offset {
                 return Err(anyhow::anyhow!(
                     "PckArchive: Header offset mismatch at entry {}: expected {}, got {}",
@@ -357,7 +357,7 @@ impl<T: Write + Seek> PckArchiveWriter<T> {
                 offset: 0,
                 size: 0,
             };
-            header.pack(&mut writer, false, encoding)?;
+            header.pack(&mut writer, false, encoding, &None)?;
             headers.insert(file.to_string(), header);
         }
         Ok(PckArchiveWriter {
@@ -400,7 +400,7 @@ impl<T: Write + Seek> Archive for PckArchiveWriter<T> {
             self.writer.write_u32(file.size)?;
         }
         for file in files {
-            file.pack(&mut self.writer, false, self.encoding)?;
+            file.pack(&mut self.writer, false, self.encoding, &None)?;
         }
         Ok(())
     }

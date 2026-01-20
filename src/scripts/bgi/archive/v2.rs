@@ -281,7 +281,7 @@ impl<T: Read + Seek + std::fmt::Debug> BgiArchive<T> {
         let file_count = reader.read_u32()?;
         let mut entries = Vec::with_capacity(file_count as usize);
         for _ in 0..file_count {
-            let entry = BgiFileHeader::unpack(&mut reader, false, archive_encoding)?;
+            let entry = BgiFileHeader::unpack(&mut reader, false, archive_encoding, &None)?;
             entries.push(entry);
         }
 
@@ -557,7 +557,7 @@ impl<T: Write + Seek> BgiArchiveWriter<T> {
                 _unk: vec![0; 8],
                 _padding: vec![0; 16],
             };
-            header.pack(&mut writer, false, encoding)?;
+            header.pack(&mut writer, false, encoding, &None)?;
             headers.insert(file.to_string(), header);
         }
         Ok(BgiArchiveWriter {
@@ -604,7 +604,7 @@ impl<T: Write + Seek> Archive for BgiArchiveWriter<T> {
         files.sort_by_key(|f| f.offset);
         for file in files {
             file.offset -= base_offset;
-            file.pack(&mut self.writer, false, self.encoding)?;
+            file.pack(&mut self.writer, false, self.encoding, &None)?;
         }
         Ok(())
     }

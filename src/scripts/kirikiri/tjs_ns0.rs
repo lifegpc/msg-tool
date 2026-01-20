@@ -81,7 +81,7 @@ impl ScriptBuilder for TjsNs0Builder {
             iv_len: 0,
         };
         let mut checker = ByteChecker::new(header.seed);
-        header.pack(&mut writer, false, encoding)?;
+        header.pack(&mut writer, false, encoding, &None)?;
         data.pack(&mut checker, &mut writer, false, encoding)?;
         let checksum = checker.final_check();
         writer.write_u32(checksum)?;
@@ -102,7 +102,7 @@ enum TjsValue {
 }
 
 fn unpack_string<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<String> {
-    let len = u32::unpack(reader, big, encoding)? as usize;
+    let len = u32::unpack(reader, big, encoding, &None)? as usize;
     let tlen = if encoding.is_utf16le() { len * 2 } else { len };
     let mut buf = vec![0u8; tlen];
     reader.read_exact(&mut buf)?;
@@ -117,7 +117,7 @@ fn pack_string<W: Write>(s: &str, writer: &mut W, big: bool, encoding: Encoding)
     } else {
         encoded.len() as u32
     };
-    len.pack(writer, big, encoding)?;
+    len.pack(writer, big, encoding, &None)?;
     writer.write_all(&encoded)?;
     Ok(())
 }
@@ -135,36 +135,36 @@ impl TjsValue {
                 let typ_byte = 0;
                 let check_byte = checker.get_seed(typ_byte);
                 let typ = ((check_byte as u16) << 8) | (typ_byte as u16);
-                typ.pack(writer, big, encoding)?;
+                typ.pack(writer, big, encoding, &None)?;
             }
             Self::Str(s) => {
                 let typ_byte = 2;
                 let check_byte = checker.get_seed(typ_byte);
                 let typ = ((check_byte as u16) << 8) | (typ_byte as u16);
-                typ.pack(writer, big, encoding)?;
+                typ.pack(writer, big, encoding, &None)?;
                 pack_string(s, writer, big, encoding)?;
             }
             Self::Int(i) => {
                 let typ_byte = 4;
                 let check_byte = checker.get_seed(typ_byte);
                 let typ = ((check_byte as u16) << 8) | (typ_byte as u16);
-                typ.pack(writer, big, encoding)?;
-                i.pack(writer, big, encoding)?;
+                typ.pack(writer, big, encoding, &None)?;
+                i.pack(writer, big, encoding, &None)?;
             }
             Self::Double(f) => {
                 let typ_byte = 5;
                 let check_byte = checker.get_seed(typ_byte);
                 let typ = ((check_byte as u16) << 8) | (typ_byte as u16);
-                typ.pack(writer, big, encoding)?;
-                f.pack(writer, big, encoding)?;
+                typ.pack(writer, big, encoding, &None)?;
+                f.pack(writer, big, encoding, &None)?;
             }
             Self::Array(arr) => {
                 let typ_byte = 0x81;
                 let check_byte = checker.get_seed(typ_byte);
                 let typ = ((check_byte as u16) << 8) | (typ_byte as u16);
-                typ.pack(writer, big, encoding)?;
+                typ.pack(writer, big, encoding, &None)?;
                 let arr_len = arr.len() as u32;
-                arr_len.pack(writer, big, encoding)?;
+                arr_len.pack(writer, big, encoding, &None)?;
                 for item in arr {
                     item.pack(checker, writer, big, encoding)?;
                 }
@@ -173,9 +173,9 @@ impl TjsValue {
                 let typ_byte = 0xC1;
                 let check_byte = checker.get_seed(typ_byte);
                 let typ = ((check_byte as u16) << 8) | (typ_byte as u16);
-                typ.pack(writer, big, encoding)?;
+                typ.pack(writer, big, encoding, &None)?;
                 let dict_len = dict.len() as u32;
-                dict_len.pack(writer, big, encoding)?;
+                dict_len.pack(writer, big, encoding, &None)?;
                 for (key, value) in dict {
                     pack_string(key, writer, big, encoding)?;
                     value.pack(checker, writer, big, encoding)?;
@@ -191,7 +191,7 @@ impl TjsValue {
         big: bool,
         encoding: Encoding,
     ) -> Result<Self> {
-        let typ = u16::unpack(reader, big, encoding)?;
+        let typ = u16::unpack(reader, big, encoding, &None)?;
         let typ_byte = (typ & 0xff) as u8;
         let check_byte = (typ >> 8) as u8;
         let expected_check = checker.get_seed(typ_byte);
@@ -206,10 +206,10 @@ impl TjsValue {
         Ok(match typ_byte {
             0 => TjsValue::Void(()),
             2 => TjsValue::Str(unpack_string(reader, big, encoding)?),
-            4 => TjsValue::Int(i64::unpack(reader, big, encoding)?),
-            5 => TjsValue::Double(f64::unpack(reader, big, encoding)?),
+            4 => TjsValue::Int(i64::unpack(reader, big, encoding, &None)?),
+            5 => TjsValue::Double(f64::unpack(reader, big, encoding, &None)?),
             0x81 => {
-                let arr_len = u32::unpack(reader, big, encoding)? as usize;
+                let arr_len = u32::unpack(reader, big, encoding, &None)? as usize;
                 let mut arr = Vec::with_capacity(arr_len);
                 for _ in 0..arr_len {
                     arr.push(TjsValue::unpack(checker, reader, big, encoding)?);
@@ -217,7 +217,7 @@ impl TjsValue {
                 TjsValue::Array(arr)
             }
             0xC1 => {
-                let kv_len = u32::unpack(reader, big, encoding)? as usize;
+                let kv_len = u32::unpack(reader, big, encoding, &None)? as usize;
                 let mut dict = BTreeMap::new();
                 for _ in 0..kv_len {
                     let key = unpack_string(reader, big, encoding)?;
@@ -315,7 +315,7 @@ impl TjsNs0 {
         config: &ExtraConfig,
     ) -> Result<Self> {
         let mut reader = MemReader::new(buf);
-        let header = Header::unpack(&mut reader, false, encoding)?;
+        let header = Header::unpack(&mut reader, false, encoding, &None)?;
         if &header.magic != b"TJS/" {
             return Err(anyhow::anyhow!("Not a valid TJS/ns0 file"));
         }
@@ -405,7 +405,7 @@ impl Script for TjsNs0 {
         let mut header = self.header.clone();
         header.check = *b"ns0\0";
         let mut checker = ByteChecker::new(header.seed);
-        header.pack(&mut file, false, encoding)?;
+        header.pack(&mut file, false, encoding, &None)?;
         data.pack(&mut checker, &mut file, false, encoding)?;
         let checksum = checker.final_check();
         file.write_u32(checksum)?;

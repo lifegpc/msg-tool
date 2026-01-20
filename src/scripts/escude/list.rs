@@ -176,24 +176,26 @@ impl EscudeBinList {
                             0 => {
                                 if script_old {
                                     ListData::Scr(EnumScr::Scripts2(
-                                        reader
-                                            .read_struct_vec::<ScriptT2>(count, false, encoding)?,
+                                        reader.read_struct_vec::<ScriptT2>(
+                                            count, false, encoding, &None,
+                                        )?,
                                     ))
                                 } else {
                                     ListData::Scr(EnumScr::Scripts(
-                                        reader
-                                            .read_struct_vec::<ScriptT>(count, false, encoding)?,
+                                        reader.read_struct_vec::<ScriptT>(
+                                            count, false, encoding, &None,
+                                        )?,
                                     ))
                                 }
                             }
                             1 => ListData::Scr(EnumScr::Names(
-                                reader.read_struct_vec::<NameT>(count, false, encoding)?,
+                                reader.read_struct_vec::<NameT>(count, false, encoding, &None)?,
                             )),
                             2 => ListData::Scr(EnumScr::Vars(
-                                reader.read_struct_vec::<VarT>(count, false, encoding)?,
+                                reader.read_struct_vec::<VarT>(count, false, encoding, &None)?,
                             )),
                             3 => ListData::Scr(EnumScr::Scenes(
-                                reader.read_struct_vec::<SceneT>(count, false, encoding)?,
+                                reader.read_struct_vec::<SceneT>(count, false, encoding, &None)?,
                             )),
                             9999 => {
                                 // Special case for unknown enum source ID
@@ -235,19 +237,19 @@ impl EscudeBinList {
                         let count = len / element_size;
                         let data_entry = match id {
                             0 => ListData::Gfx(EnumGfx::Bgs(
-                                reader.read_struct_vec::<BgT>(count, false, encoding)?,
+                                reader.read_struct_vec::<BgT>(count, false, encoding, &None)?,
                             )),
                             1 => ListData::Gfx(EnumGfx::Evs(
-                                reader.read_struct_vec::<EvT>(count, false, encoding)?,
+                                reader.read_struct_vec::<EvT>(count, false, encoding, &None)?,
                             )),
                             2 => ListData::Gfx(EnumGfx::Sts(
-                                reader.read_struct_vec::<StT>(count, false, encoding)?,
+                                reader.read_struct_vec::<StT>(count, false, encoding, &None)?,
                             )),
                             3 => ListData::Gfx(EnumGfx::Efxs(
-                                reader.read_struct_vec::<EfxT>(count, false, encoding)?,
+                                reader.read_struct_vec::<EfxT>(count, false, encoding, &None)?,
                             )),
                             4 => ListData::Gfx(EnumGfx::Locs(
-                                reader.read_struct_vec::<LocT>(count, false, encoding)?,
+                                reader.read_struct_vec::<LocT>(count, false, encoding, &None)?,
                             )),
                             9999 => {
                                 // Special case for unknown enum gfx ID
@@ -287,16 +289,16 @@ impl EscudeBinList {
                         let count = len / element_size;
                         let data_entry = match id {
                             0 => ListData::Snd(EnumSnd::Bgm(
-                                reader.read_struct_vec::<BgmT>(count, false, encoding)?,
+                                reader.read_struct_vec::<BgmT>(count, false, encoding, &None)?,
                             )),
                             1 => ListData::Snd(EnumSnd::Amb(
-                                reader.read_struct_vec::<AmbT>(count, false, encoding)?,
+                                reader.read_struct_vec::<AmbT>(count, false, encoding, &None)?,
                             )),
                             2 => ListData::Snd(EnumSnd::Se(
-                                reader.read_struct_vec::<SeT>(count, false, encoding)?,
+                                reader.read_struct_vec::<SeT>(count, false, encoding, &None)?,
                             )),
                             3 => ListData::Snd(EnumSnd::Sfx(
-                                reader.read_struct_vec::<SfxT>(count, false, encoding)?,
+                                reader.read_struct_vec::<SfxT>(count, false, encoding, &None)?,
                             )),
                             9999 => {
                                 // Special case for unknown enum sound ID
@@ -334,7 +336,7 @@ fn create_file<'a>(
         let cur_pos = writer.stream_position()?;
         writer.write_u32(entry.id)?;
         writer.write_u32(0)?; // Placeholder for size
-        entry.data.pack(&mut writer, false, encoding)?;
+        entry.data.pack(&mut writer, false, encoding, &None)?;
         let end_pos = writer.stream_position()?;
         let size = (end_pos - cur_pos - 8) as u32; // 8 bytes for id and size
         writer.seek(std::io::SeekFrom::Start(cur_pos + 4))?; // Seek to size position

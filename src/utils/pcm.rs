@@ -39,7 +39,7 @@ pub fn write_pcm<W: Write + Seek, R: Read>(
     writer.write_all(b"WAVE")?;
     writer.write_all(b"fmt ")?;
     writer.write_u32(16)?; // Size of fmt chunk
-    format.pack(&mut writer, false, Encoding::Utf8)?;
+    format.pack(&mut writer, false, Encoding::Utf8, &None)?;
     writer.write_all(b"data")?;
     let mut data_size = 0u32;
     writer.write_u32(0)?; // Placeholder for data size

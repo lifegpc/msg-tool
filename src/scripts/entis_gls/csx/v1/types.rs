@@ -129,8 +129,13 @@ impl DerefMut for DWordArray {
 pub struct WideString(pub String);
 
 impl StructUnpack for WideString {
-    fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<Self> {
-        let length = u32::unpack(reader, big, encoding)? as usize;
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let length = u32::unpack(reader, big, encoding, info)? as usize;
         let to_read = length * 2;
         let buf = reader.read_exact_vec(to_read)?;
         let enc = if big {
@@ -144,7 +149,13 @@ impl StructUnpack for WideString {
 }
 
 impl StructPack for WideString {
-    fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding) -> Result<()> {
+    fn pack<W: Write>(
+        &self,
+        writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
         let enc = if big {
             Encoding::Utf16BE
         } else {
@@ -152,7 +163,7 @@ impl StructPack for WideString {
         };
         let encoded = encode_string(enc, &self.0, false)?;
         let length = (encoded.len() / 2) as u32;
-        length.pack(writer, big, encoding)?;
+        length.pack(writer, big, encoding, info)?;
         writer.write_all(&encoded)?;
         Ok(())
     }
@@ -204,7 +215,7 @@ impl ECSObject {
             .map_err(|typ| anyhow::anyhow!("Invalid CSVariableType: {}", typ))?;
         match obj_typ {
             CSVariableType::CsvtObject => {
-                let class_name = WideString::unpack(reader, false, Encoding::Utf8)?.0;
+                let class_name = WideString::unpack(reader, false, Encoding::Utf8, &None)?.0;
                 return Ok(ECSObject::ClassInfoObject(class_name));
             }
             CSVariableType::CsvtReference => {
@@ -236,7 +247,7 @@ impl ECSObject {
                 return Ok(ECSObject::Real(val));
             }
             CSVariableType::CsvtString => {
-                let s = WideString::unpack(reader, false, Encoding::Utf8)?.0;
+                let s = WideString::unpack(reader, false, Encoding::Utf8, &None)?.0;
                 return Ok(ECSObject::String(s));
             }
             _ => {
@@ -250,7 +261,7 @@ impl ECSObject {
             ECSObject::ClassInfoObject(name) => {
                 let obj_type: u8 = CSVariableType::CsvtObject.into();
                 writer.write_i32(obj_type as i32)?;
-                WideString(name.clone()).pack(writer, false, Encoding::Utf8)?;
+                WideString(name.clone()).pack(writer, false, Encoding::Utf8, &None)?;
             }
             ECSObject::Reference => {
                 let obj_type: u8 = CSVariableType::CsvtReference.into();
@@ -285,7 +296,7 @@ impl ECSObject {
             ECSObject::String(s) => {
                 let obj_type: u8 = CSVariableType::CsvtString.into();
                 writer.write_i32(obj_type as i32)?;
-                WideString(s.clone()).pack(writer, false, Encoding::Utf8)?;
+                WideString(s.clone()).pack(writer, false, Encoding::Utf8, &None)?;
             }
             _ => {
                 return Err(anyhow::anyhow!(
@@ -380,7 +391,7 @@ impl DerefMut for ECSExecutionImageAssembly {
 fn test_exi_header_unpack() {
     let data = b"\x01\x00\x00\x00";
     let mut cursor = MemReaderRef::new(data);
-    let header = EXIHeader::unpack(&mut cursor, false, Encoding::Utf8).unwrap();
+    let header = EXIHeader::unpack(&mut cursor, false, Encoding::Utf8, &None).unwrap();
     assert_eq!(header.version, 1);
     assert_eq!(header.int_base, 0);
 }

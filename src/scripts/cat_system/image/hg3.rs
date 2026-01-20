@@ -103,7 +103,7 @@ impl Hg3Image {
                 .is_ok()
             {
                 reader.pos = (offset + 16) as usize;
-                let entry = Hg3Entry::unpack(&mut reader, false, Encoding::Cp932)?;
+                let entry = Hg3Entry::unpack(&mut reader, false, Encoding::Cp932, &None)?;
                 entries.push((entry, (offset + 8) as usize, section_size as usize - 8));
             }
             offset += section_size as u64;

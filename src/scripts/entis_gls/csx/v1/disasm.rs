@@ -128,7 +128,7 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         let length = self.stream.read_u32()?;
         if length != 0x80000000 {
             self.stream.seek_relative(-4)?;
-            let s = WideString::unpack(&mut self.stream, false, Encoding::Utf16LE)?.0;
+            let s = WideString::unpack(&mut self.stream, false, Encoding::Utf16LE, &None)?.0;
             Ok((None, s))
         } else if let Some(conststr) = &self.conststr {
             let index = self.stream.read_u32()? as usize;

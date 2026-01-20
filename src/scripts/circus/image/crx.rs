@@ -239,7 +239,7 @@ impl CrxImage {
         if magic != *b"CRXG" {
             return Err(anyhow::anyhow!("Invalid CRX image magic"));
         }
-        let header: Header = reader.read_struct(false, Encoding::Utf8)?;
+        let header: Header = reader.read_struct(false, Encoding::Utf8, &None)?;
         if header.version == 0 || header.version > 3 {
             return Err(anyhow::anyhow!(
                 "Unsupported CRX version: {}",
@@ -1014,7 +1014,7 @@ impl CrxImage {
             compressed_data.into_inner()
         };
         writer.write_all(b"CRXG")?;
-        header.pack(&mut writer, false, Encoding::Utf8)?;
+        header.pack(&mut writer, false, Encoding::Utf8, &None)?;
         writer.write_u32(compressed.len() as u32)?;
         writer.write_all(&compressed)?;
         Ok(())
@@ -1336,7 +1336,7 @@ impl Script for CrxImage {
             compressed_data.into_inner()
         };
         file.write_all(b"CRXG")?;
-        new_header.pack(&mut file, false, Encoding::Utf8)?;
+        new_header.pack(&mut file, false, Encoding::Utf8, &None)?;
         file.write_u32(compressed.len() as u32)?;
         file.write_all(&compressed)?;
         Ok(())

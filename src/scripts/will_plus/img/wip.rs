@@ -123,7 +123,7 @@ impl WillPlusWipImage {
         for frame_index in 0..frame_count {
             let header_offset = 8 + frame_index * 0x18;
             data.seek(SeekFrom::Start(header_offset as u64))?;
-            let header = FrameHeader::unpack(&mut data, false, Encoding::Utf8)
+            let header = FrameHeader::unpack(&mut data, false, Encoding::Utf8, &None)
                 .with_context(|| format!("Failed to read header for frame {}", frame_index))?;
             let frame_size = usize::try_from(header.frame_size)
                 .map_err(|_| anyhow!("Frame {} data size too large", frame_index))?;

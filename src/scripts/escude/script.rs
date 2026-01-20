@@ -276,7 +276,7 @@ impl Script for EscudeBinScript {
             strs.push(CString::new(encoded)?);
         }
         writer.write_u32(offsets.len() as u32)?;
-        offsets.pack(&mut writer, false, encoding)?;
+        offsets.pack(&mut writer, false, encoding, &None)?;
         writer.write_u32(self.vms.len() as u32)?;
         writer.write_all(&self.vms)?;
         writer.write_u32(self.unk1)?;

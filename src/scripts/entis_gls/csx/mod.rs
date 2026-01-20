@@ -4,6 +4,7 @@
 //! Original license: GPL-3.0
 mod base;
 mod v1;
+mod v2;
 
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -12,6 +13,7 @@ use crate::utils::encoding::*;
 use anyhow::Result;
 use base::ECSImage;
 use v1::ECSExecutionImageV1;
+use v2::ECSExecutionImageV2;
 
 #[derive(Debug)]
 pub struct CSXScriptBuilder {}
@@ -66,9 +68,15 @@ pub struct CSXScript {
 impl CSXScript {
     pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         let reader = MemReader::new(buf);
-        let img = ECSExecutionImageV1::new(reader.to_ref(), config)?;
+        let img = {
+            match ECSExecutionImageV1::new(reader.to_ref(), config) {
+                Ok(img) => Box::new(img),
+                Err(_) => Box::new(ECSExecutionImageV2::new(reader.to_ref(), config)?)
+                    as Box<dyn ECSImage>,
+            }
+        };
         Ok(Self {
-            img: Box::new(img),
+            img,
             disasm: config.entis_gls_csx_disasm,
             custom_yaml: config.custom_yaml,
         })

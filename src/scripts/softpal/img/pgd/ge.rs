@@ -72,7 +72,7 @@ impl ScriptBuilder for PgdGeBuilder {
             _unk: 0,
         };
         writer.write_all(b"GE \0")?;
-        header.pack(&mut writer, false, Encoding::Utf8)?;
+        header.pack(&mut writer, false, Encoding::Utf8, &None)?;
         PgdWriter::new(data, options.pgd_fake_compress)
             .with_method(3)
             .pack_ge(&mut writer)?;
@@ -94,7 +94,7 @@ impl PgdGe {
         if &magic != b"GE \0" {
             return Err(anyhow::anyhow!("Not a valid PGD GE image"));
         }
-        let header = PgdGeHeader::unpack(&mut input, false, Encoding::Utf8)?;
+        let header = PgdGeHeader::unpack(&mut input, false, Encoding::Utf8, &None)?;
         let reader = PgdReader::with_ge_header(input, &header)?;
         let data = reader.unpack_ge()?;
         Ok(Self {
@@ -144,7 +144,7 @@ impl Script for PgdGe {
         }
         header.mode = 3;
         file.write_all(b"GE \0")?;
-        header.pack(&mut file, false, Encoding::Utf8)?;
+        header.pack(&mut file, false, Encoding::Utf8, &None)?;
         PgdWriter::new(data, self.fake_compress)
             .with_method(3)
             .pack_ge(&mut file)?;

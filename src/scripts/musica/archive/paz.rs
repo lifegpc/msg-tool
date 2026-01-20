@@ -371,7 +371,7 @@ impl PazArc {
             }
             let mut entries = Vec::with_capacity(count as usize);
             for _ in 0..count {
-                let entry: PazEntry = index_stream.read_struct(false, archive_encoding)?;
+                let entry: PazEntry = index_stream.read_struct(false, archive_encoding, &None)?;
                 entries.push(entry);
             }
             entries
@@ -694,7 +694,7 @@ impl<T: Write + Seek> PazArcWriter<T> {
                 index_stream.write_all(mov_data)?;
             }
             for entry in entries.values() {
-                index_stream.write_struct(entry, false, encoding)?;
+                index_stream.write_struct(entry, false, encoding, &None)?;
             }
         }
         let index_end = writer.stream_position()?;
@@ -912,7 +912,7 @@ impl<T: Write + Seek> Archive for PazArcWriter<T> {
                 index_stream.write_all(mov_data)?;
             }
             for entry in self.headers.values() {
-                index_stream.write_struct(entry, false, self.encoding)?;
+                index_stream.write_struct(entry, false, self.encoding, &None)?;
             }
         }
         Ok(())

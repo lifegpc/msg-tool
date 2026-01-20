@@ -1,4 +1,4 @@
-//! Ported from CSXTools C# project
+//! Ported from CSXTool C# project  
 //! See parent module documentation for more details.
 mod disasm;
 mod img;

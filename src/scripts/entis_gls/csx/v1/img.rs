@@ -36,10 +36,10 @@ pub struct ECSExecutionImage {
 
 impl ECSExecutionImage {
     pub fn new(mut reader: MemReaderRef<'_>, config: &ExtraConfig) -> Result<Self> {
-        let file_header = EMCFileHeader::unpack(&mut reader, false, Encoding::Utf8)?;
-        // if file_header.signagure != *b"Entis\x1a\0\0" {
-        //     return Err(anyhow::anyhow!("Invalid EMC file signature"));
-        // }
+        let file_header = EMCFileHeader::unpack(&mut reader, false, Encoding::Utf8, &None)?;
+        if file_header.signagure != *b"Entis\x1a\0\0" {
+            return Err(anyhow::anyhow!("Invalid EMC file signature"));
+        }
         let len = reader.data.len();
         let mut exi_header = None;
         let mut header = None;
@@ -70,7 +70,7 @@ impl ECSExecutionImage {
                     let buf = reader.read_exact_vec(size as usize)?;
                     {
                         let mut sread = MemReaderRef::new(&buf);
-                        header = Some(EXIHeader::unpack(&mut sread, false, Encoding::Utf8)?);
+                        header = Some(EXIHeader::unpack(&mut sread, false, Encoding::Utf8, &None)?);
                     }
                     exi_header = Some(buf);
                     if let Some(hdr) = &header {
@@ -85,12 +85,23 @@ impl ECSExecutionImage {
                 }
                 // function
                 0x6E6F6974636E7566 => {
-                    pif_prologue = Some(DWordArray::unpack(&mut reader, false, Encoding::Utf8)?);
-                    pif_epilogue = Some(DWordArray::unpack(&mut reader, false, Encoding::Utf8)?);
+                    pif_prologue = Some(DWordArray::unpack(
+                        &mut reader,
+                        false,
+                        Encoding::Utf8,
+                        &None,
+                    )?);
+                    pif_epilogue = Some(DWordArray::unpack(
+                        &mut reader,
+                        false,
+                        Encoding::Utf8,
+                        &None,
+                    )?);
                     function_list = Some(FunctionNameList::unpack(
                         &mut reader,
                         false,
                         Encoding::Utf8,
+                        &None,
                     )?);
                 }
                 // global
@@ -98,7 +109,8 @@ impl ECSExecutionImage {
                     let count = reader.read_u32()?;
                     let mut items = Vec::with_capacity(count as usize);
                     for _ in 0..count {
-                        let name = WideString::unpack(&mut reader, false, Encoding::Utf16LE)?.0;
+                        let name =
+                            WideString::unpack(&mut reader, false, Encoding::Utf16LE, &None)?.0;
                         let obj = ECSObject::read_from(&mut reader, int64)?;
                         items.push(ECSObjectItem { name, obj });
                     }
@@ -109,13 +121,19 @@ impl ECSExecutionImage {
                     let count = reader.read_u32()?;
                     let mut items = Vec::with_capacity(count as usize);
                     for _ in 0..count {
-                        let name = WideString::unpack(&mut reader, false, Encoding::Utf16LE)?.0;
+                        let name =
+                            WideString::unpack(&mut reader, false, Encoding::Utf16LE, &None)?.0;
                         let length = reader.read_i32()?;
                         let obj = if length >= 0 {
                             let mut datas = Vec::with_capacity(length as usize);
                             for _ in 0..length {
-                                let name =
-                                    WideString::unpack(&mut reader, false, Encoding::Utf16LE)?.0;
+                                let name = WideString::unpack(
+                                    &mut reader,
+                                    false,
+                                    Encoding::Utf16LE,
+                                    &None,
+                                )?
+                                .0;
                                 let obj = ECSObject::read_from(&mut reader, int64)?;
                                 datas.push(ECSObjectItem { name, obj });
                             }
@@ -133,16 +151,17 @@ impl ECSExecutionImage {
                         &mut reader,
                         false,
                         Encoding::Utf8,
+                        &None,
                     )?);
                 }
                 // linkinf
                 0x20666E696B6E696C => {
-                    ext_global_ref = DWordArray::unpack(&mut reader, false, Encoding::Utf8)?;
-                    ext_data_ref = DWordArray::unpack(&mut reader, false, Encoding::Utf8)?;
+                    ext_global_ref = DWordArray::unpack(&mut reader, false, Encoding::Utf8, &None)?;
+                    ext_data_ref = DWordArray::unpack(&mut reader, false, Encoding::Utf8, &None)?;
                     imp_global_ref =
-                        TaggedRefAddressList::unpack(&mut reader, false, Encoding::Utf8)?;
+                        TaggedRefAddressList::unpack(&mut reader, false, Encoding::Utf8, &None)?;
                     imp_data_ref =
-                        TaggedRefAddressList::unpack(&mut reader, false, Encoding::Utf8)?;
+                        TaggedRefAddressList::unpack(&mut reader, false, Encoding::Utf8, &None)?;
                     if !ext_global_ref.is_empty()
                         || !ext_data_ref.is_empty()
                         || !imp_global_ref.is_empty()
@@ -286,7 +305,8 @@ impl ECSExecutionImage {
     }
 
     fn save<'a>(&self, mut writer: Box<dyn Write + 'a>) -> Result<()> {
-        self.file_header.pack(&mut writer, false, Encoding::Utf8)?;
+        self.file_header
+            .pack(&mut writer, false, Encoding::Utf8, &None)?;
         if let Some(exi_header) = &self.exi_header {
             writer.write_u64(0x2020726564616568)?; // header
             writer.write_u64(exi_header.len() as u64)?;
@@ -297,9 +317,12 @@ impl ECSExecutionImage {
         writer.write_all(&self.image.data)?;
         writer.write_u64(0x6E6F6974636E7566)?; // function
         let mut mem = MemWriter::new();
-        self.pif_prologue.pack(&mut mem, false, Encoding::Utf8)?;
-        self.pif_epilogue.pack(&mut mem, false, Encoding::Utf8)?;
-        self.function_list.pack(&mut mem, false, Encoding::Utf8)?;
+        self.pif_prologue
+            .pack(&mut mem, false, Encoding::Utf8, &None)?;
+        self.pif_epilogue
+            .pack(&mut mem, false, Encoding::Utf8, &None)?;
+        self.function_list
+            .pack(&mut mem, false, Encoding::Utf8, &None)?;
         let data = mem.into_inner();
         writer.write_u64(data.len() as u64)?;
         writer.write_all(&data)?;
@@ -312,7 +335,7 @@ impl ECSExecutionImage {
         };
         mem.write_u32(self.csg_global.len() as u32)?;
         for item in self.csg_global.iter() {
-            WideString(item.name.clone()).pack(&mut mem, false, Encoding::Utf16LE)?;
+            WideString(item.name.clone()).pack(&mut mem, false, Encoding::Utf16LE, &None)?;
             item.obj.write_to(&mut mem, int64)?;
         }
         let data = mem.into_inner();
@@ -322,7 +345,7 @@ impl ECSExecutionImage {
         let mut mem = MemWriter::new();
         mem.write_u32(self.csg_data.len() as u32)?;
         for item in self.csg_data.iter() {
-            WideString(item.name.clone()).pack(&mut mem, false, Encoding::Utf16LE)?;
+            WideString(item.name.clone()).pack(&mut mem, false, Encoding::Utf16LE, &None)?;
             match &item.obj {
                 ECSObject::Global(g) => {
                     mem.write_i32(g.len() as i32)?;
@@ -331,6 +354,7 @@ impl ECSExecutionImage {
                             &mut mem,
                             false,
                             Encoding::Utf16LE,
+                            &None,
                         )?;
                         data_item.obj.write_to(&mut mem, int64)?;
                     }
@@ -347,17 +371,21 @@ impl ECSExecutionImage {
         if let Some(ext_const_str) = &self.ext_const_str {
             writer.write_u64(0x72747374736E6F63)?; // conststr
             let mut mem = MemWriter::new();
-            ext_const_str.pack(&mut mem, false, Encoding::Utf8)?;
+            ext_const_str.pack(&mut mem, false, Encoding::Utf8, &None)?;
             let data = mem.into_inner();
             writer.write_u64(data.len() as u64)?;
             writer.write_all(&data)?;
         }
         writer.write_u64(0x20666E696B6E696C)?; // linkinf
         let mut mem = MemWriter::new();
-        self.ext_global_ref.pack(&mut mem, false, Encoding::Utf8)?;
-        self.ext_data_ref.pack(&mut mem, false, Encoding::Utf8)?;
-        self.imp_global_ref.pack(&mut mem, false, Encoding::Utf8)?;
-        self.imp_data_ref.pack(&mut mem, false, Encoding::Utf8)?;
+        self.ext_global_ref
+            .pack(&mut mem, false, Encoding::Utf8, &None)?;
+        self.ext_data_ref
+            .pack(&mut mem, false, Encoding::Utf8, &None)?;
+        self.imp_global_ref
+            .pack(&mut mem, false, Encoding::Utf8, &None)?;
+        self.imp_data_ref
+            .pack(&mut mem, false, Encoding::Utf8, &None)?;
         let data = mem.into_inner();
         writer.write_u64(data.len() as u64)?;
         writer.write_all(&data)?;
@@ -402,7 +430,8 @@ impl ECSImage for ECSExecutionImage {
                 disasm.stream.pos = cmd.addr as usize + 1;
                 let _csom = disasm.read_csom()?;
                 let num_args = disasm.stream.read_i32()?;
-                let func_name = WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
+                let func_name =
+                    WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE, &None)?.0;
                 let mut is_mess = false;
                 if num_args == 1 {
                     if func_name == "SceneTitle" {
@@ -492,7 +521,8 @@ impl ECSImage for ECSExecutionImage {
                 disasm.stream.pos = cmd.addr as usize + 1;
                 let csom = disasm.read_csom()?;
                 let num_args = disasm.stream.read_i32()?;
-                let func_name = WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
+                let func_name =
+                    WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE, &None)?.0;
                 let mut is_mess = false;
                 if num_args == 1 {
                     if func_name == "SceneTitle" {
@@ -568,7 +598,8 @@ impl ECSImage for ECSExecutionImage {
                 string_stack.clear();
             } else if is_enter {
                 disasm.stream.pos = cmd.addr as usize + 1;
-                let name = WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
+                let name =
+                    WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE, &None)?.0;
                 let num_args = disasm.stream.read_i32()?;
                 if num_args == 0 {
                     pre_enter_name = name.clone();
@@ -630,7 +661,8 @@ impl ECSImage for ECSExecutionImage {
                 disasm.stream.pos = cmd.addr as usize + 1;
                 let csom = disasm.read_csom()?;
                 let num_args = disasm.stream.read_i32()?;
-                let func_name = WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
+                let func_name =
+                    WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE, &None)?.0;
                 let mut is_mess = false;
                 if csom == CsomAuto && num_args == 1 && func_name == "Mess" {
                     is_mess = true;
@@ -718,7 +750,7 @@ impl ECSImage for ECSExecutionImage {
                         new_image.write_u8(CsicLoad.into())?;
                         new_image.write_u8(CsomImmediate.into())?;
                         new_image.write_u8(CsvtString.into())?;
-                        WideString(mes).pack(&mut new_image, false, Encoding::Utf8)?;
+                        WideString(mes).pack(&mut new_image, false, Encoding::Utf8, &None)?;
                         new_assembly.push(tcmd);
                         let mut tcmd = if tmp_index <= post_index {
                             let data = assembly[tmp_index].clone();
@@ -746,6 +778,7 @@ impl ECSImage for ECSExecutionImage {
                             &mut new_image,
                             false,
                             Encoding::Utf16LE,
+                            &None,
                         )?;
                         new_assembly.push(tcmd);
                         let mut tcmd = if tmp_index <= post_index {
@@ -825,7 +858,7 @@ impl ECSImage for ECSExecutionImage {
                     new_image.write_u8(CsicLoad.into())?;
                     new_image.write_u8(lcsom.into())?;
                     new_image.write_u8(lcsvt.into())?;
-                    WideString(name).pack(&mut new_image, false, Encoding::Utf8)?;
+                    WideString(name).pack(&mut new_image, false, Encoding::Utf8, &None)?;
                     dumped_index += 1;
                     while dumped_index <= index {
                         let tcmd = &mut assembly[dumped_index];
@@ -886,7 +919,7 @@ impl ECSImage for ECSExecutionImage {
                     new_image.write_u8(CsicLoad.into())?;
                     new_image.write_u8(lcsom.into())?;
                     new_image.write_u8(lcsvt.into())?;
-                    WideString(message).pack(&mut new_image, false, Encoding::Utf8)?;
+                    WideString(message).pack(&mut new_image, false, Encoding::Utf8, &None)?;
                     dumped_index += 1;
                     while dumped_index <= index {
                         let tcmd = &mut assembly[dumped_index];
@@ -947,7 +980,7 @@ impl ECSImage for ECSExecutionImage {
                     new_image.write_u8(CsicLoad.into())?;
                     new_image.write_u8(lcsom.into())?;
                     new_image.write_u8(lcsvt.into())?;
-                    WideString(message).pack(&mut new_image, false, Encoding::Utf8)?;
+                    WideString(message).pack(&mut new_image, false, Encoding::Utf8, &None)?;
                     dumped_index += 1;
                     while dumped_index <= index {
                         let tcmd = &mut assembly[dumped_index];
@@ -1014,7 +1047,8 @@ impl ECSImage for ECSExecutionImage {
                 disasm.stream.pos = cmd.addr as usize + 1;
                 let csom = disasm.read_csom()?;
                 let num_args = disasm.stream.read_i32()?;
-                let func_name = WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
+                let func_name =
+                    WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE, &None)?.0;
                 let mut is_mess = false;
                 if csom == CsomAuto && num_args == 1 && func_name == "Mess" {
                     is_mess = true;
@@ -1103,7 +1137,7 @@ impl ECSImage for ECSExecutionImage {
                         new_image.write_u8(CsicLoad.into())?;
                         new_image.write_u8(CsomImmediate.into())?;
                         new_image.write_u8(CsvtString.into())?;
-                        WideString(mes).pack(&mut new_image, false, Encoding::Utf8)?;
+                        WideString(mes).pack(&mut new_image, false, Encoding::Utf8, &None)?;
                         new_assembly.push(tcmd);
                         let mut tcmd = if tmp_index <= post_index {
                             let data = assembly[tmp_index].clone();
@@ -1131,6 +1165,7 @@ impl ECSImage for ECSExecutionImage {
                             &mut new_image,
                             false,
                             Encoding::Utf16LE,
+                            &None,
                         )?;
                         new_assembly.push(tcmd);
                         let mut tcmd = if tmp_index <= post_index {
@@ -1215,7 +1250,7 @@ impl ECSImage for ECSExecutionImage {
                     new_image.write_u8(CsicLoad.into())?;
                     new_image.write_u8(lcsom.into())?;
                     new_image.write_u8(lcsvt.into())?;
-                    WideString(name).pack(&mut new_image, false, Encoding::Utf8)?;
+                    WideString(name).pack(&mut new_image, false, Encoding::Utf8, &None)?;
                     dumped_index += 1;
                     while dumped_index <= index {
                         let tcmd = &mut assembly[dumped_index];
@@ -1274,7 +1309,7 @@ impl ECSImage for ECSExecutionImage {
                     new_image.write_u8(CsicLoad.into())?;
                     new_image.write_u8(lcsom.into())?;
                     new_image.write_u8(lcsvt.into())?;
-                    WideString(message).pack(&mut new_image, false, Encoding::Utf8)?;
+                    WideString(message).pack(&mut new_image, false, Encoding::Utf8, &None)?;
                     dumped_index += 1;
                     while dumped_index <= index {
                         let tcmd = &mut assembly[dumped_index];
@@ -1339,7 +1374,7 @@ impl ECSImage for ECSExecutionImage {
                     new_image.write_u8(CsicLoad.into())?;
                     new_image.write_u8(lcsom.into())?;
                     new_image.write_u8(lcsvt.into())?;
-                    WideString(message).pack(&mut new_image, false, Encoding::Utf8)?;
+                    WideString(message).pack(&mut new_image, false, Encoding::Utf8, &None)?;
                     dumped_index += 1;
                     while dumped_index <= index {
                         let tcmd = &mut assembly[dumped_index];
@@ -1357,7 +1392,7 @@ impl ECSImage for ECSExecutionImage {
             } else if is_enter {
                 disasm.stream.pos = cmd.addr as usize + 1;
                 let original_name =
-                    WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE)?.0;
+                    WideString::unpack(&mut disasm.stream, false, Encoding::Utf16LE, &None)?.0;
                 let num_args = disasm.stream.read_i32()?;
                 if num_args == 0 {
                     pre_enter_name = original_name.clone();
@@ -1426,7 +1461,7 @@ impl ECSImage for ECSExecutionImage {
                     new_image.write_u8(code)?;
                     new_image.write_u8(csom)?;
                     new_image.write_u8(csvt)?;
-                    s.pack(&mut new_image, false, Encoding::Utf8)?;
+                    s.pack(&mut new_image, false, Encoding::Utf8, &None)?;
                     continue;
                 }
             }

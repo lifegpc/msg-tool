@@ -65,7 +65,12 @@ struct DataArea {
 }
 
 impl StructUnpack for DataArea {
-    fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<Self> {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
         reader.align(4)?;
         let start_loc = reader.stream_position()?;
         let mut data_tag = [0; 4];
@@ -73,23 +78,23 @@ impl StructUnpack for DataArea {
         if &data_tag != b"DATA" {
             return Err(anyhow::anyhow!("Invalid DATA tag"));
         }
-        let data_size = u32::unpack(reader, big, encoding)?;
-        let count = u32::unpack(reader, big, encoding)? as usize;
+        let data_size = u32::unpack(reader, big, encoding, info)?;
+        let count = u32::unpack(reader, big, encoding, info)? as usize;
         let byte_array = reader.read_exact_vec(count)?;
         reader.align(4)?;
-        let short_count = u32::unpack(reader, big, encoding)? as usize;
-        let short_array = reader.read_struct_vec(short_count, big, encoding)?;
+        let short_count = u32::unpack(reader, big, encoding, info)? as usize;
+        let short_array = reader.read_struct_vec(short_count, big, encoding, info)?;
         reader.align(4)?;
-        let long_count = u32::unpack(reader, big, encoding)? as usize;
-        let long_array = reader.read_struct_vec(long_count, big, encoding)?;
-        let longlong_count = u32::unpack(reader, big, encoding)? as usize;
-        let longlong_array = reader.read_struct_vec(longlong_count, big, encoding)?;
-        let double_count = u32::unpack(reader, big, encoding)? as usize;
-        let double_array = reader.read_struct_vec(double_count, big, encoding)?;
-        let str_count = u32::unpack(reader, big, encoding)? as usize;
+        let long_count = u32::unpack(reader, big, encoding, info)? as usize;
+        let long_array = reader.read_struct_vec(long_count, big, encoding, info)?;
+        let longlong_count = u32::unpack(reader, big, encoding, info)? as usize;
+        let longlong_array = reader.read_struct_vec(longlong_count, big, encoding, info)?;
+        let double_count = u32::unpack(reader, big, encoding, info)? as usize;
+        let double_array = reader.read_struct_vec(double_count, big, encoding, info)?;
+        let str_count = u32::unpack(reader, big, encoding, info)? as usize;
         let mut string_array = Vec::with_capacity(str_count);
         for _ in 0..str_count {
-            let str_len = u32::unpack(reader, big, encoding)? as usize;
+            let str_len = u32::unpack(reader, big, encoding, info)? as usize;
             let str_bytes = reader.read_exact_vec(if encoding.is_utf16le() {
                 str_len * 2
             } else {
@@ -99,10 +104,10 @@ impl StructUnpack for DataArea {
             reader.align(4)?;
             string_array.push(s);
         }
-        let octet_count = u32::unpack(reader, big, encoding)? as usize;
+        let octet_count = u32::unpack(reader, big, encoding, info)? as usize;
         let mut octet_array = Vec::with_capacity(octet_count);
         for _ in 0..octet_count {
-            let octet_len = u32::unpack(reader, big, encoding)? as usize;
+            let octet_len = u32::unpack(reader, big, encoding, info)? as usize;
             let octet_bytes = reader.read_exact_vec(octet_len)?;
             reader.align(4)?;
             octet_array.push(octet_bytes);
@@ -128,30 +133,36 @@ impl StructUnpack for DataArea {
 }
 
 impl StructPack for DataArea {
-    fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding) -> Result<()> {
+    fn pack<W: Write>(
+        &self,
+        writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
         writer.write_all(b"DATA")?;
         let mut tmp = MemWriter::new();
-        tmp.write_struct(&(self.byte_array.len() as u32), big, encoding)?;
+        tmp.write_struct(&(self.byte_array.len() as u32), big, encoding, info)?;
         tmp.write_all(&self.byte_array)?;
         tmp.align(4)?;
-        tmp.write_struct(&(self.short_array.len() as u32), big, encoding)?;
+        tmp.write_struct(&(self.short_array.len() as u32), big, encoding, info)?;
         for v in &self.short_array {
-            tmp.write_struct(v, big, encoding)?;
+            tmp.write_struct(v, big, encoding, info)?;
         }
         tmp.align(4)?;
-        tmp.write_struct(&(self.long_array.len() as u32), big, encoding)?;
+        tmp.write_struct(&(self.long_array.len() as u32), big, encoding, info)?;
         for v in &self.long_array {
-            tmp.write_struct(v, big, encoding)?;
+            tmp.write_struct(v, big, encoding, info)?;
         }
-        tmp.write_struct(&(self.longlong_array.len() as u32), big, encoding)?;
+        tmp.write_struct(&(self.longlong_array.len() as u32), big, encoding, info)?;
         for v in &self.longlong_array {
-            tmp.write_struct(v, big, encoding)?;
+            tmp.write_struct(v, big, encoding, info)?;
         }
-        tmp.write_struct(&(self.double_array.len() as u32), big, encoding)?;
+        tmp.write_struct(&(self.double_array.len() as u32), big, encoding, info)?;
         for v in &self.double_array {
-            tmp.write_struct(v, big, encoding)?;
+            tmp.write_struct(v, big, encoding, info)?;
         }
-        tmp.write_struct(&(self.string_array.len() as u32), big, encoding)?;
+        tmp.write_struct(&(self.string_array.len() as u32), big, encoding, info)?;
         for s in &self.string_array {
             let encoded = encode_string(encoding, s, false)?;
             let str_len = if encoding.is_utf16le() {
@@ -159,20 +170,20 @@ impl StructPack for DataArea {
             } else {
                 encoded.len()
             };
-            tmp.write_struct(&(str_len as u32), big, encoding)?;
+            tmp.write_struct(&(str_len as u32), big, encoding, info)?;
             tmp.write_all(&encoded)?;
             tmp.align(4)?;
         }
-        tmp.write_struct(&(self.octet_array.len() as u32), big, encoding)?;
+        tmp.write_struct(&(self.octet_array.len() as u32), big, encoding, info)?;
         for o in &self.octet_array {
-            tmp.write_struct(&(o.len() as u32), big, encoding)?;
+            tmp.write_struct(&(o.len() as u32), big, encoding, info)?;
             tmp.write_all(o)?;
             tmp.align(4)?;
         }
         // make sure final size is aligned to 4 bytes
         tmp.data.resize(tmp.pos, 0);
         let data = tmp.into_inner();
-        writer.write_struct(&(data.len() as u32 + 8), big, encoding)?;
+        writer.write_struct(&(data.len() as u32 + 8), big, encoding, info)?;
         writer.write_all(&data)?;
         Ok(())
     }
@@ -200,7 +211,7 @@ impl Tjs2 {
             return Err(anyhow::anyhow!("Invalid TJS2 header: {:?}", &header));
         }
         let _file_size = reader.read_u32()?;
-        let data_area = DataArea::unpack(&mut reader, false, encoding)?;
+        let data_area = DataArea::unpack(&mut reader, false, encoding, &None)?;
         let mut remaing = Vec::new();
         reader.read_to_end(&mut remaing)?;
         Ok(Self {
@@ -262,7 +273,7 @@ impl Script for Tjs2 {
             .collect();
         file.write_all(b"TJS2100\0")?;
         file.write_u32(0)?; // placeholder for file size
-        data_area.pack(&mut file, false, encoding)?;
+        data_area.pack(&mut file, false, encoding, &None)?;
         file.write_all(&self.remaing)?;
         let file_size = file.stream_length()?;
         file.write_u32_at(8, file_size as u32)?; // write actual file size
@@ -297,7 +308,7 @@ impl Script for Tjs2 {
         };
         file.write_all(b"TJS2100\0")?;
         file.write_u32(0)?; // placeholder for file size
-        data_area.pack(&mut file, false, encoding)?;
+        data_area.pack(&mut file, false, encoding, &None)?;
         file.write_all(&self.remaing)?;
         let file_size = file.stream_length()?;
         file.write_u32_at(8, file_size as u32)?; // write actual file size

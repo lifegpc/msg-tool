@@ -81,7 +81,7 @@ impl Pgd3 {
         if &sig != b"PGD3" && &sig != b"PGD2" {
             return Err(anyhow::anyhow!("Not a valid PGD3/PGD2 file"));
         }
-        let header = PgdDiffHeader::unpack(&mut reader, false, encoding)?;
+        let header = PgdDiffHeader::unpack(&mut reader, false, encoding, &None)?;
         let diff = PgdReader::with_diff_header(reader, &header)?.unpack_overlay()?;
         let base: Vec<u8> = if let Some(archive) = archive {
             let mut file = archive.open_file_by_name(&header.base_name, true)?;
@@ -104,7 +104,7 @@ impl Pgd3 {
                 header.base_name
             ));
         }
-        let base_header = PgdGeHeader::unpack(&mut reader, false, encoding)?;
+        let base_header = PgdGeHeader::unpack(&mut reader, false, encoding, &None)?;
         let base = PgdReader::with_ge_header(reader, &base_header)?.unpack_ge()?;
         Ok(Self {
             header,
@@ -181,7 +181,7 @@ impl Script for Pgd3 {
         }
         header.mode = 3;
         file.write_all(b"GE \0")?;
-        header.pack(&mut file, false, Encoding::Utf8)?;
+        header.pack(&mut file, false, Encoding::Utf8, &None)?;
         PgdWriter::new(data, self.fake_compress)
             .with_method(3)
             .pack_ge(&mut file)?;

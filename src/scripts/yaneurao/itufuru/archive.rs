@@ -194,7 +194,7 @@ impl<T: Read + Seek + std::fmt::Debug> ItufuruArchive<T> {
         let mut reader = Crypto::new(reader, 0xA5);
         let mut tfiles = Vec::with_capacity(file_count as usize);
         for _ in 0..file_count {
-            let file = ItufuruFileHeader::unpack(&mut reader, false, archive_encoding)?;
+            let file = ItufuruFileHeader::unpack(&mut reader, false, archive_encoding, &None)?;
             tfiles.push(file);
         }
         let mut files = Vec::with_capacity(tfiles.len());
@@ -318,7 +318,7 @@ impl<T: Write + Seek> ItufuruArchiveWriter<T> {
         }
         let mut crypto = Crypto::new(&mut writer, 0xA5);
         for (_, header) in headers.iter() {
-            header.pack(&mut crypto, false, encoding)?;
+            header.pack(&mut crypto, false, encoding, &None)?;
         }
         Ok(ItufuruArchiveWriter {
             writer,
@@ -355,7 +355,7 @@ impl<T: Write + Seek> Archive for ItufuruArchiveWriter<T> {
         entries.sort_by_key(|h| h.offset);
         crypto.seek(SeekFrom::Start(16))?;
         for entry in entries.iter() {
-            entry.pack(&mut crypto, false, self.encoding)?;
+            entry.pack(&mut crypto, false, self.encoding, &None)?;
         }
         Ok(())
     }

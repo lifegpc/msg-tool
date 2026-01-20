@@ -136,14 +136,20 @@ impl Serialize for OpExt {
 }
 
 impl StructPack for OpExt {
-    fn pack<W: Write>(&self, writer: &mut W, big: bool, encoding: Encoding) -> Result<()> {
-        self.op.op.pack(writer, big, encoding)?;
+    fn pack<W: Write>(
+        &self,
+        writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
+        self.op.op.pack(writer, big, encoding, info)?;
         let init_count = self.ints.len() as u8;
-        init_count.pack(writer, big, encoding)?;
+        init_count.pack(writer, big, encoding, info)?;
         let unk = (self.op.unk & 0xF0) | (self.strs.len() as u8 & 0xF);
-        unk.pack(writer, big, encoding)?;
+        unk.pack(writer, big, encoding, info)?;
         for i in &self.ints {
-            i.pack(writer, big, encoding)?;
+            i.pack(writer, big, encoding, info)?;
         }
         for s in &self.strs {
             let encoded = encode_string(encoding, s, true)?;
@@ -155,11 +161,16 @@ impl StructPack for OpExt {
 }
 
 impl StructUnpack for OpExt {
-    fn unpack<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<Self> {
-        let op = Op::unpack(reader, big, encoding)?;
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let op = Op::unpack(reader, big, encoding, info)?;
         let mut ints = Vec::with_capacity(op.init_count as usize);
         for _ in 0..op.init_count {
-            let i = u32::unpack(reader, big, encoding)?;
+            let i = u32::unpack(reader, big, encoding, info)?;
             ints.push(i);
         }
         let mut strs = Vec::with_capacity(op.str_count() as usize);
@@ -243,7 +254,7 @@ impl RldScript {
                 None
             }
         };
-        let header = Header::unpack(&mut reader, false, encoding)?;
+        let header = Header::unpack(&mut reader, false, encoding, &None)?;
         let mut decrypted = false;
         if let Some(key) = &xor_key {
             Self::xor(&mut reader.data, key);
@@ -259,7 +270,7 @@ impl RldScript {
         reader.pos = header.offset as usize;
         let mut ops = Vec::with_capacity(header.count as usize);
         for _ in 0..header.count {
-            let op = OpExt::unpack(&mut reader, false, encoding)?;
+            let op = OpExt::unpack(&mut reader, false, encoding, &None)?;
             ops.push(op);
         }
         let name_table = if is_def_chara {
@@ -348,7 +359,7 @@ impl RldScript {
             writer.write_u32_at(12, op_count)?;
         }
         for op in ops {
-            op.pack(&mut writer, false, encoding)?;
+            op.pack(&mut writer, false, encoding, &None)?;
         }
         if self.data.data.len() > self.data.pos {
             writer.write_all(&self.data.data[self.data.pos..])?;
