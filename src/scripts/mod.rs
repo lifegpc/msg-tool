@@ -163,7 +163,7 @@ lazy_static::lazy_static! {
         #[cfg(feature = "musica-arc")]
         Box::new(musica::archive::paz::PazArcBuilder::new()),
         #[cfg(feature = "entis-gls")]
-        Box::new(entis_gls::csx::v1::CSXScriptBuilder::new()),
+        Box::new(entis_gls::csx::CSXScriptBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

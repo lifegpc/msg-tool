@@ -681,8 +681,8 @@ pub enum ScriptType {
     /// Entis GLS srcxml Script
     EntisGls,
     #[cfg(feature = "entis-gls")]
-    /// Entis GLS csx script (version 1)
-    EntisGlsCsx1,
+    /// Entis GLS csx script
+    EntisGlsCsx,
     #[cfg(feature = "escude-arc")]
     /// Escude bin archive
     EscudeArc,

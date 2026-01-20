@@ -1,3 +1,4 @@
+use super::super::base::*;
 use super::disasm::*;
 use super::types::*;
 use crate::ext::io::*;
@@ -34,7 +35,7 @@ pub struct ECSExecutionImage {
 }
 
 impl ECSExecutionImage {
-    pub fn new(mut reader: MemReader, config: &ExtraConfig) -> Result<Self> {
+    pub fn new(mut reader: MemReaderRef<'_>, config: &ExtraConfig) -> Result<Self> {
         let file_header = EMCFileHeader::unpack(&mut reader, false, Encoding::Utf8)?;
         // if file_header.signagure != *b"Entis\x1a\0\0" {
         //     return Err(anyhow::anyhow!("Invalid EMC file signature"));
@@ -362,8 +363,10 @@ impl ECSExecutionImage {
         writer.write_all(&data)?;
         Ok(())
     }
+}
 
-    pub fn disasm<'a>(&self, writer: Box<dyn Write + 'a>) -> Result<()> {
+impl ECSImage for ECSExecutionImage {
+    fn disasm<'a>(&self, writer: Box<dyn Write + 'a>) -> Result<()> {
         let mut disasm = ECSExecutionImageDisassembler::new(
             self.image.to_ref(),
             self.ext_const_str.as_ref(),
@@ -373,7 +376,7 @@ impl ECSExecutionImage {
         Ok(())
     }
 
-    pub fn export(&self) -> Result<Vec<Message>> {
+    fn export(&self) -> Result<Vec<Message>> {
         let mut disasm = ECSExecutionImageDisassembler::new(
             self.image.to_ref(),
             self.ext_const_str.as_ref(),
@@ -459,7 +462,7 @@ impl ECSExecutionImage {
         Ok(messages)
     }
 
-    pub fn export_multi(&self) -> Result<HashMap<String, Vec<Message>>> {
+    fn export_multi(&self) -> Result<HashMap<String, Vec<Message>>> {
         let mut key = String::from("global");
         let mut messages = HashMap::new();
         let mut disasm = ECSExecutionImageDisassembler::new(
@@ -576,7 +579,7 @@ impl ECSExecutionImage {
         Ok(messages)
     }
 
-    pub fn export_all(&self) -> Result<Vec<String>> {
+    fn export_all(&self) -> Result<Vec<String>> {
         let mut disasm = ECSExecutionImageDisassembler::new(
             self.image.to_ref(),
             self.ext_const_str.as_ref(),
@@ -599,7 +602,7 @@ impl ECSExecutionImage {
         Ok(messages)
     }
 
-    pub fn import<'a>(
+    fn import<'a>(
         &self,
         messages: Vec<Message>,
         file: Box<dyn WriteSeek + 'a>,
@@ -981,7 +984,7 @@ impl ECSExecutionImage {
         Ok(())
     }
 
-    pub fn import_multi<'a>(
+    fn import_multi<'a>(
         &self,
         mut messages: HashMap<String, Vec<Message>>,
         file: Box<dyn WriteSeek + 'a>,
@@ -1388,11 +1391,7 @@ impl ECSExecutionImage {
         Ok(())
     }
 
-    pub fn import_all<'a>(
-        &self,
-        messages: Vec<String>,
-        file: Box<dyn WriteSeek + 'a>,
-    ) -> Result<()> {
+    fn import_all<'a>(&self, messages: Vec<String>, file: Box<dyn WriteSeek + 'a>) -> Result<()> {
         let mut cloned = self.clone();
         let mut mess = messages.into_iter();
         let mut mes = mess.next();
