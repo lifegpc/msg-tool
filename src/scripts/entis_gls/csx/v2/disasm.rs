@@ -149,32 +149,53 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
                 CodeLoadMem => self.shell_command_load_mem()?,
                 CodeLoadMemBaseImm32 => self.shell_command_load_mem_base_imm32()?,
                 CodeLoadMemBaseIndex => self.shell_command_load_mem_base_index()?,
+                CodeLoadMemBaseIndexImm32 => self.shell_command_load_mem_base_index_imm32()?,
                 CodeStoreMem => self.shell_command_store_mem()?,
                 CodeStoreMemBaseImm32 => self.shell_command_store_mem_base_imm32()?,
                 CodeStoreMemBaseIndex => self.shell_command_store_mem_base_index()?,
+                CodeStoreMemBaseIndexImm32 => self.shell_command_store_mem_base_index_imm32()?,
                 CodeLoadLocal => self.shell_command_load_local()?,
+                CodeLoadLocalIndexImm32 => self.shell_command_load_local_index_imm32()?,
                 CodeStoreLocal => self.shell_command_store_local()?,
+                CodeStoreLocalIndexImm32 => self.shell_command_store_local_index_imm32()?,
                 CodeMoveReg => self.shell_command_move_reg()?,
+                CodeCvtFloat2Int => self.shell_command_cvt_float_2_int()?,
                 CodeCvtInt2Float => self.shell_command_cvt_int_2_float()?,
                 CodeSrlImm8 => self.shell_command_srl_imm8()?,
+                CodeSraImm8 => self.shell_command_sra_imm8()?,
                 CodeSllImm8 => self.shell_command_sll_imm8()?,
+                CodeMaskMove => self.shell_command_mask_move()?,
                 CodeAddImm32 => self.shell_command_add_imm32()?,
                 CodeMulImm32 => self.shell_command_mul_imm32()?,
                 CodeAddSPImm32 => self.shell_command_add_sp_imm32()?,
                 CodeLoadImm64 => self.shell_command_load_imm64()?,
+                CodeNegInt => self.shell_command_neg_int()?,
+                CodeNotInt => self.shell_command_not_int()?,
                 CodeNegFloat => self.shell_command_neg_float()?,
                 CodeAddReg => self.shell_command_add_reg()?,
                 CodeSubReg => self.shell_command_sub_reg()?,
                 CodeMulReg => self.shell_command_mul_reg()?,
                 CodeDivReg => self.shell_command_div_reg()?,
+                CodeModReg => self.shell_command_mod_reg()?,
                 CodeAndReg => self.shell_command_and_reg()?,
                 CodeOrReg => self.shell_command_or_reg()?,
+                CodeXorReg => self.shell_command_xor_reg()?,
+                CodeSrlReg => self.shell_command_srl_reg()?,
+                CodeSraReg => self.shell_command_sra_reg()?,
                 CodeSllReg => self.shell_command_sll_reg()?,
+                CodeMoveSx32Reg => self.shell_command_move_sx32_reg()?,
+                CodeMoveSx16Reg => self.shell_command_move_sx16_reg()?,
+                CodeMoveSx8Reg => self.shell_command_move_sx8_reg()?,
                 CodeFAddReg => self.shell_command_f_add_reg()?,
                 CodeFSubReg => self.shell_command_f_sub_reg()?,
                 CodeFMulReg => self.shell_command_f_mul_reg()?,
                 CodeFDivReg => self.shell_command_f_div_reg()?,
+                CodeMul32Reg => self.shell_command_mul32_reg()?,
+                CodeIMul32Reg => self.shell_command_i_mul32_reg()?,
+                CodeDiv32Reg => self.shell_command_div32_reg()?,
                 CodeIDiv32Reg => self.shell_command_i_div32_reg()?,
+                CodeMod32Reg => self.shell_command_mod32_reg()?,
+                CodeIMod32Reg => self.shell_command_i_mod32_reg()?,
                 CodeCmpNeReg => self.shell_command_cmp_ne_reg()?,
                 CodeCmpEqReg => self.shell_command_cmp_eq_reg()?,
                 CodeCmpLtReg => self.shell_command_cmp_lt_reg()?,
@@ -182,25 +203,35 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
                 CodeCmpGtReg => self.shell_command_cmp_gt_reg()?,
                 CodeCmpGeReg => self.shell_command_cmp_ge_reg()?,
                 CodeCmpCReg => self.shell_command_cmp_c_reg()?,
+                CodeCmpCZReg => self.shell_command_cmp_cz_reg()?,
+                CodeFCmpNeReg => self.shell_command_f_cmp_ne_reg()?,
+                CodeFCmpEqReg => self.shell_command_f_cmp_eq_reg()?,
                 CodeFCmpLtReg => self.shell_command_f_cmp_lt_reg()?,
+                CodeFCmpLeReg => self.shell_command_f_cmp_le_reg()?,
+                CodeFCmpGtReg => self.shell_command_f_cmp_gt_reg()?,
                 CodeFCmpGeReg => self.shell_command_f_cmp_ge_reg()?,
                 CodeJumpOffset32 => self.shell_command_jump_offset32()?,
+                CodeJumpReg => self.shell_command_jump_reg()?,
                 CodeCNJumpOffset32 => self.shell_command_cn_jump_offset32()?,
                 CodeCJumpOffset32 => self.shell_command_c_jump_offset32()?,
                 CodeCallImm32 => self.shell_command_call_imm32()?,
+                CodeCallReg => self.shell_command_call_reg()?,
                 CodeSysCallImm32 => self.shell_command_sys_call_imm32()?,
+                CodeSysCallReg => self.shell_command_sys_call_reg()?,
                 CodeReturn => self.shell_command_return()?,
                 CodePushReg => self.shell_command_push_reg()?,
                 CodePopReg => self.shell_command_pop_reg()?,
                 CodePushRegs => self.shell_command_push_regs()?,
                 CodePopRegs => self.shell_command_pop_regs()?,
-                _ => {
-                    return Err(anyhow::anyhow!(
-                        "Unimplemented instruction: {:?} at {:08x}",
-                        self.code,
-                        self.addr
-                    ));
-                }
+                CodeMemoryHint => self.shell_command_memory_hint()?,
+                CodeFloatExtension => self.shell_command_float_extension()?,
+                CodeSIMD64Extension2Op => self.shell_command_simd64_extension_2op()?,
+                CodeSIMD64Extension3Op => self.shell_command_simd64_extension_3op()?,
+                CodeSIMD128Extension2Op => self.shell_command_simd128_extension_2op()?,
+                CodeSIMD128Extension3Op => self.shell_command_simd128_extension_3op()?,
+                CodeEscape => self.shell_command_escape()?,
+                CodeNoOperation => self.shell_command_no_operation()?,
+                CodeSystemReserved => self.shell_command_system_reserved()?,
             }
             let size = self.stream.pos as u32 - self.addr;
             self.assembly.push(ECSExecutionImageCommandRecord {
@@ -888,6 +919,16 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         self.line(&format!("LoadMemBaseIndex {data_type}, %{reg}, {index}"))
     }
 
+    fn shell_command_load_mem_base_index_imm32(&mut self) -> Result<()> {
+        let data_type = self.stream.read_u8()?;
+        let index = self.stream.read_u8()?;
+        let reg = self.stream.read_u8()?;
+        let imm32 = self.stream.read_i32()?;
+        self.line(&format!(
+            "LoadMemBaseIndexImm32 {data_type}, %{reg}, {index}, {imm32}"
+        ))
+    }
+
     fn shell_command_store_mem(&mut self) -> Result<()> {
         let data_type = self.stream.read_u8()?;
         let reg = self.stream.read_u8()?;
@@ -908,11 +949,31 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         self.line(&format!("StoreMemBaseIndex {data_type}, %{reg}, {index}"))
     }
 
+    fn shell_command_store_mem_base_index_imm32(&mut self) -> Result<()> {
+        let data_type = self.stream.read_u8()?;
+        let index = self.stream.read_u8()?;
+        let reg = self.stream.read_u8()?;
+        let imm32 = self.stream.read_i32()?;
+        self.line(&format!(
+            "StoreMemBaseIndexImm32 {data_type}, %{reg}, {index}, {imm32}"
+        ))
+    }
+
     fn shell_command_load_local(&mut self) -> Result<()> {
         let data_type = self.stream.read_u8()?;
         let reg = self.stream.read_u8()?;
         let mem = self.stream.read_i32()?;
         self.line(&format!("LoadLocal {data_type}, %{reg}, {mem}"))
+    }
+
+    fn shell_command_load_local_index_imm32(&mut self) -> Result<()> {
+        let data_type = self.stream.read_u8()?;
+        let index = self.stream.read_u8()?;
+        let reg = self.stream.read_u8()?;
+        let imm32 = self.stream.read_i32()?;
+        self.line(&format!(
+            "LoadLocalIndexImm32 {data_type}, %{reg}, {index}, {imm32}"
+        ))
     }
 
     fn shell_command_store_local(&mut self) -> Result<()> {
@@ -922,10 +983,26 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         self.line(&format!("StoreLocal {data_type}, %{reg}, {mem}"))
     }
 
+    fn shell_command_store_local_index_imm32(&mut self) -> Result<()> {
+        let data_type = self.stream.read_u8()?;
+        let index = self.stream.read_u8()?;
+        let reg = self.stream.read_u8()?;
+        let imm32 = self.stream.read_i32()?;
+        self.line(&format!(
+            "StoreLocalIndexImm32 {data_type}, %{reg}, {index}, {imm32}"
+        ))
+    }
+
     fn shell_command_move_reg(&mut self) -> Result<()> {
         let dst = self.stream.read_u8()?;
         let src = self.stream.read_u8()?;
         self.line(&format!("MoveReg %{dst}, %{src}"))
+    }
+
+    fn shell_command_cvt_float_2_int(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("CvtFloat2Int %{dst}, %{src}"))
     }
 
     fn shell_command_cvt_int_2_float(&mut self) -> Result<()> {
@@ -941,11 +1018,25 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         self.line(&format!("SrlImm8 %{dst}, %{src}, {imm}"))
     }
 
+    fn shell_command_sra_imm8(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        let imm = self.stream.read_u8()?;
+        self.line(&format!("SraImm8 %{dst}, %{src}, {imm}"))
+    }
+
     fn shell_command_sll_imm8(&mut self) -> Result<()> {
         let dst = self.stream.read_u8()?;
         let src = self.stream.read_u8()?;
         let imm = self.stream.read_u8()?;
         self.line(&format!("SllImm8 %{dst}, %{src}, {imm}"))
+    }
+
+    fn shell_command_mask_move(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src1 = self.stream.read_u8()?;
+        let src2 = self.stream.read_u8()?;
+        self.line(&format!("MaskMove %{dst}, %{src1}, %{src2}"))
     }
 
     fn shell_command_add_imm32(&mut self) -> Result<()> {
@@ -971,6 +1062,16 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         let reg = self.stream.read_u8()?;
         let imm = self.stream.read_i64()?;
         self.line(&format!("LoadImm64 %{reg}, {imm}"))
+    }
+
+    fn shell_command_neg_int(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        self.line(&format!("NegInt %{dst}"))
+    }
+
+    fn shell_command_not_int(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        self.line(&format!("NotInt %{dst}"))
     }
 
     fn shell_command_neg_float(&mut self) -> Result<()> {
@@ -1002,6 +1103,12 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         self.line(&format!("DivReg %{dst}, %{src}"))
     }
 
+    fn shell_command_mod_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("ModReg %{dst}, %{src}"))
+    }
+
     fn shell_command_and_reg(&mut self) -> Result<()> {
         let dst = self.stream.read_u8()?;
         let src = self.stream.read_u8()?;
@@ -1014,10 +1121,46 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         self.line(&format!("OrReg %{dst}, %{src}"))
     }
 
+    fn shell_command_xor_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("XorReg %{dst}, %{src}"))
+    }
+
+    fn shell_command_srl_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("SrlReg %{dst}, %{src}"))
+    }
+
+    fn shell_command_sra_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("SraReg %{dst}, %{src}"))
+    }
+
     fn shell_command_sll_reg(&mut self) -> Result<()> {
         let dst = self.stream.read_u8()?;
         let src = self.stream.read_u8()?;
         self.line(&format!("SllReg %{dst}, %{src}"))
+    }
+
+    fn shell_command_move_sx32_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("MoveSx32Reg %{dst}, %{src}"))
+    }
+
+    fn shell_command_move_sx16_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("MoveSx16Reg %{dst}, %{src}"))
+    }
+
+    fn shell_command_move_sx8_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("MoveSx8Reg %{dst}, %{src}"))
     }
 
     fn shell_command_f_add_reg(&mut self) -> Result<()> {
@@ -1044,10 +1187,40 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         self.line(&format!("FDivReg %{dst}, %{src}"))
     }
 
+    fn shell_command_mul32_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("Mul32Reg %{dst}, %{src}"))
+    }
+
+    fn shell_command_i_mul32_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("IMul32Reg %{dst}, %{src}"))
+    }
+
+    fn shell_command_div32_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("Div32Reg %{dst}, %{src}"))
+    }
+
     fn shell_command_i_div32_reg(&mut self) -> Result<()> {
         let dst = self.stream.read_u8()?;
         let src = self.stream.read_u8()?;
         self.line(&format!("IDiv32Reg %{dst}, %{src}"))
+    }
+
+    fn shell_command_mod32_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("Mod32Reg %{dst}, %{src}"))
+    }
+
+    fn shell_command_i_mod32_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("IMod32Reg %{dst}, %{src}"))
     }
 
     fn shell_command_cmp_ne_reg(&mut self) -> Result<()> {
@@ -1092,10 +1265,40 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         self.line(&format!("CmpCReg %{dst}, %{src}"))
     }
 
+    fn shell_command_cmp_cz_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("CmpCZReg %{dst}, %{src}"))
+    }
+
+    fn shell_command_f_cmp_ne_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("FCmpNeReg %{dst}, %{src}"))
+    }
+
+    fn shell_command_f_cmp_eq_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("FCmpEqReg %{dst}, %{src}"))
+    }
+
     fn shell_command_f_cmp_lt_reg(&mut self) -> Result<()> {
         let dst = self.stream.read_u8()?;
         let src = self.stream.read_u8()?;
         self.line(&format!("FCmpLtReg %{dst}, %{src}"))
+    }
+
+    fn shell_command_f_cmp_le_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("FCmpLeReg %{dst}, %{src}"))
+    }
+
+    fn shell_command_f_cmp_gt_reg(&mut self) -> Result<()> {
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("FCmpGtReg %{dst}, %{src}"))
     }
 
     fn shell_command_f_cmp_ge_reg(&mut self) -> Result<()> {
@@ -1108,6 +1311,11 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         let offset = self.stream.read_i32()? as i64;
         let dest = self.addr as i64 + offset + 5;
         self.line(&format!("JumpOffset32 {dest:08x}"))
+    }
+
+    fn shell_command_jump_reg(&mut self) -> Result<()> {
+        let reg = self.stream.read_u8()?;
+        self.line(&format!("JumpReg %{reg}"))
     }
 
     fn shell_command_cn_jump_offset32(&mut self) -> Result<()> {
@@ -1133,9 +1341,19 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         }
     }
 
+    fn shell_command_call_reg(&mut self) -> Result<()> {
+        let reg = self.stream.read_u8()?;
+        self.line(&format!("CallReg %{reg}"))
+    }
+
     fn shell_command_sys_call_imm32(&mut self) -> Result<()> {
         let num = self.stream.read_i32()?;
         self.line(&format!("SysCallImm32 {num:02x}"))
+    }
+
+    fn shell_command_sys_call_reg(&mut self) -> Result<()> {
+        let reg = self.stream.read_u8()?;
+        self.line(&format!("SysCallReg %{reg}"))
     }
 
     fn shell_command_return(&mut self) -> Result<()> {
@@ -1162,5 +1380,68 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         let reg_first = self.stream.read_u8()?;
         let count = self.stream.read_u8()?;
         self.line(&format!("PopRegs %{reg_first}, {count}"))
+    }
+
+    fn shell_command_memory_hint(&mut self) -> Result<()> {
+        let hint = self.stream.read_u8()?;
+        let reg = self.stream.read_u8()?;
+        self.line(&format!("MemoryHint {hint}, %{reg}"))
+    }
+
+    fn shell_command_float_extension(&mut self) -> Result<()> {
+        let ext = self.stream.read_u8()?;
+        let reg1 = self.stream.read_u8()?;
+        let reg2 = self.stream.read_u8()?;
+        self.line(&format!("FloatExtension {ext}, %{reg1}, %{reg2}"))
+    }
+
+    fn shell_command_simd64_extension_2op(&mut self) -> Result<()> {
+        let ext = self.stream.read_u8()?;
+        let reg1 = self.stream.read_u8()?;
+        let reg2 = self.stream.read_u8()?;
+        self.line(&format!("SIMD64Extension2Op {ext}, %{reg1}, %{reg2}"))
+    }
+
+    fn shell_command_simd64_extension_3op(&mut self) -> Result<()> {
+        let ext = self.stream.read_u8()?;
+        let reg1 = self.stream.read_u8()?;
+        let reg2 = self.stream.read_u8()?;
+        let imm = self.stream.read_u8()?;
+        self.line(&format!(
+            "SIMD64Extension3Op {ext}, %{reg1}, %{reg2}, {imm}"
+        ))
+    }
+
+    fn shell_command_simd128_extension_2op(&mut self) -> Result<()> {
+        let ext = self.stream.read_u8()?;
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        self.line(&format!("SIMD128Extension2Op {ext}, %{dst}, %{src}"))
+    }
+
+    fn shell_command_simd128_extension_3op(&mut self) -> Result<()> {
+        let ext = self.stream.read_u8()?;
+        let dst = self.stream.read_u8()?;
+        let src = self.stream.read_u8()?;
+        let imm = self.stream.read_u8()?;
+        if ext == 0 {
+            self.line(&format!(
+                "SIMD128Extension3Op {ext}, %{dst}, %{src}, %{imm}"
+            ))
+        } else {
+            self.line(&format!("SIMD128Extension3Op {ext}, %{dst}, %{src}, {imm}"))
+        }
+    }
+
+    fn shell_command_escape(&mut self) -> Result<()> {
+        self.line("Escape")
+    }
+
+    fn shell_command_no_operation(&mut self) -> Result<()> {
+        self.line("NoOperation")
+    }
+
+    fn shell_command_system_reserved(&mut self) -> Result<()> {
+        self.line("SystemReserved")
     }
 }
