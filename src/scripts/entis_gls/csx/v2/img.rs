@@ -1,3 +1,4 @@
+use super::super::CSXScriptV2FullVer;
 use super::super::base::*;
 use super::disasm::*;
 use super::types::*;
@@ -52,10 +53,25 @@ pub struct ECSExecutionImage {
     section_ref_code: Option<SectionRefCode>,
     section_ref_class: Option<SectionRefClass>,
     section_import_native_func: SectionImportNativeFunc,
+    no_part_label: bool,
 }
 
 impl ECSExecutionImage {
-    pub fn new(mut reader: MemReaderRef<'_>, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(reader: MemReaderRef<'_>, config: &ExtraConfig) -> Result<Self> {
+        if let Some(ver) = config.entis_gls_csx_v2_ver {
+            match ver {
+                CSXScriptV2FullVer::V3 => Self::inner_new(reader, config, 3),
+                CSXScriptV2FullVer::V2 => Self::inner_new(reader, config, 2),
+            }
+        } else {
+            match Self::inner_new(reader.clone(), config, 3) {
+                Ok(img) => Ok(img),
+                Err(_) => Self::inner_new(reader, config, 2),
+            }
+        }
+    }
+
+    fn inner_new(mut reader: MemReaderRef<'_>, config: &ExtraConfig, ver: u32) -> Result<Self> {
         let file_header = FileHeader::unpack(&mut reader, false, Encoding::Utf8, &None)?;
         if file_header.signagure != *b"Entis\x1a\0\0" {
             return Err(anyhow::anyhow!("Invalid EMC file signature"));
@@ -64,6 +80,7 @@ impl ECSExecutionImage {
             return Err(anyhow::anyhow!("Invalid EMC file format description"));
         }
         let mut section_header = SectionHeader::default();
+        section_header.full_ver = ver;
         let len = reader.data.len();
         let mut image = None;
         let mut image_global = None;
@@ -97,6 +114,7 @@ impl ECSExecutionImage {
                 ID_HEADER => {
                     let mut mem = StreamRegion::with_size(&mut reader, size)?;
                     section_header = SectionHeader::unpack(&mut mem, false, Encoding::Utf8, &None)?;
+                    section_header.full_ver = ver;
                 }
                 ID_IMAGE => {
                     image = Some(MemReader::new(reader.read_exact_vec(size as usize)?));
@@ -355,6 +373,7 @@ impl ECSExecutionImage {
             section_ref_class,
             section_import_native_func: section_import_native_func
                 .ok_or_else(|| anyhow::anyhow!("Missing import native func section"))?,
+            no_part_label: config.entis_gls_csx_no_part_label,
         })
     }
 }
@@ -375,15 +394,310 @@ impl ECSImage for ECSExecutionImage {
     }
 
     fn export(&self) -> Result<Vec<Message>> {
-        Err(anyhow::anyhow!("Export not implemented for CSX v2"))
+        let mut messages = Vec::new();
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            &self.section_function,
+            &self.section_func_info,
+            &self.section_import_native_func,
+            &self.section_class_info,
+            &self.section_const_string,
+            None,
+        );
+        disasm.execute()?;
+        let assembly = disasm.assembly.clone();
+        let mut string_stack = Vec::new();
+        let mut stacks = Vec::new();
+        let mut index = 0;
+        let len = assembly.len();
+        while index < len {
+            let cmd = &assembly[index];
+            if cmd.code == CsicLoad {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                let is_string = csom == CsomImmediate && csvt == CsvtString;
+                if is_string {
+                    let s = disasm.get_string_literal()?;
+                    string_stack.push(s);
+                }
+                stacks.push(is_string);
+            } else if matches!(
+                cmd.code,
+                CsicCall
+                    | CsicCallMember
+                    | CsicCallNativeFunction
+                    | CsicCallNativeMember
+                    | CsicEnter
+                    | CsicElementIndirect
+            ) {
+                string_stack.clear();
+                stacks.clear();
+            } else if cmd.code == CsicOperate {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csot = disasm.read_csot()?;
+                if csot == CsotAdd {
+                    if string_stack.len() >= 2
+                        && index >= 2
+                        && stacks.len() >= 2
+                        && stacks[stacks.len() - 1]
+                        && stacks[stacks.len() - 2]
+                    {
+                        let s2 = string_stack.pop().unwrap();
+                        let s1 = string_stack.pop().unwrap();
+                        let s = s1 + &s2;
+                        string_stack.push(s);
+                        stacks.pop();
+                        // Remove the two previous load commands and replace with this one
+                        index += 1;
+                        continue;
+                    }
+                }
+                if let Some(is_str) = stacks.pop() {
+                    if is_str && string_stack.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "String stack is empty when processing Operate at {:08X}",
+                            cmd.addr,
+                        ));
+                    }
+                    if is_str {
+                        string_stack.pop();
+                    }
+                }
+            } else if cmd.code == CsicExCall {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let arg_count = disasm.stream.read_i32()?;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                if csom == CsomImmediate {
+                    let func_name = if csvt == CsvtString {
+                        disasm.get_string_literal()?
+                    } else if csvt == CsvtInteger {
+                        let func_address = disasm.stream.read_u32()?;
+                        let func = disasm.func_map.get(&func_address).ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Function address 0x{:08X} not found in ExCall",
+                                func_address
+                            )
+                        })?;
+                        func.name.0.clone()
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "Unexpected CSVT for function name in ExCall"
+                        ));
+                    };
+                    if func_name == "WitchWizard::OutMsg" && arg_count == 8 {
+                        if string_stack.len() < 2 {
+                            return Err(anyhow::anyhow!(
+                                "String stack has less than 2 items when processing OutMsg at {:08X}",
+                                cmd.addr,
+                            ));
+                        }
+                        if string_stack.len() > 2 {
+                            eprintln!(
+                                "WARNING: String stack has more than 2 items when processing OutMsg at {:08X}",
+                                cmd.addr,
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        let name = string_stack[0].clone();
+                        let message = string_stack[1].clone();
+                        messages.push(Message {
+                            name: if name.is_empty() { None } else { Some(name) },
+                            message,
+                        });
+                    }
+                }
+                string_stack.clear();
+                stacks.clear();
+            }
+            index += 1;
+        }
+        Ok(messages)
     }
 
     fn export_multi(&self) -> Result<HashMap<String, Vec<Message>>> {
-        Err(anyhow::anyhow!("Export multi not implemented for CSX v2"))
+        let mut key = String::from("global");
+        let mut messages: HashMap<String, Vec<Message>> = HashMap::new();
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            &self.section_function,
+            &self.section_func_info,
+            &self.section_import_native_func,
+            &self.section_class_info,
+            &self.section_const_string,
+            None,
+        );
+        disasm.execute()?;
+        let assembly = disasm.assembly.clone();
+        let mut string_stack = Vec::new();
+        let mut stacks = Vec::new();
+        let mut index = 0;
+        let len = assembly.len();
+        while index < len {
+            let cmd = &assembly[index];
+            if cmd.code == CsicLoad {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                let is_string = csom == CsomImmediate && csvt == CsvtString;
+                if is_string {
+                    let s = disasm.get_string_literal()?;
+                    string_stack.push(s);
+                }
+                stacks.push(is_string);
+            } else if matches!(
+                cmd.code,
+                CsicCall
+                    | CsicCallMember
+                    | CsicCallNativeFunction
+                    | CsicCallNativeMember
+                    | CsicEnter
+                    | CsicElementIndirect
+            ) {
+                string_stack.clear();
+                stacks.clear();
+            } else if cmd.code == CsicOperate {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csot = disasm.read_csot()?;
+                if csot == CsotAdd {
+                    if string_stack.len() >= 2
+                        && index >= 2
+                        && stacks.len() >= 2
+                        && stacks[stacks.len() - 1]
+                        && stacks[stacks.len() - 2]
+                    {
+                        let s2 = string_stack.pop().unwrap();
+                        let s1 = string_stack.pop().unwrap();
+                        let s = s1 + &s2;
+                        string_stack.push(s);
+                        stacks.pop();
+                        // Remove the two previous load commands and replace with this one
+                        index += 1;
+                        continue;
+                    }
+                }
+                if let Some(is_str) = stacks.pop() {
+                    if is_str && string_stack.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "String stack is empty when processing Operate at {:08X}",
+                            cmd.addr,
+                        ));
+                    }
+                    if is_str {
+                        string_stack.pop();
+                    }
+                }
+            } else if cmd.code == CsicExCall {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let arg_count = disasm.stream.read_i32()?;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                if csom == CsomImmediate {
+                    let func_name = if csvt == CsvtString {
+                        disasm.get_string_literal()?
+                    } else if csvt == CsvtInteger {
+                        let func_address = disasm.stream.read_u32()?;
+                        let func = disasm.func_map.get(&func_address).ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Function address 0x{:08X} not found in ExCall",
+                                func_address
+                            )
+                        })?;
+                        func.name.0.clone()
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "Unexpected CSVT for function name in ExCall"
+                        ));
+                    };
+                    if func_name == "WitchWizard::SetPastLabel"
+                        && arg_count == 2
+                        && !self.no_part_label
+                    {
+                        if string_stack.is_empty() {
+                            return Err(anyhow::anyhow!(
+                                "String stack is empty when processing SetPastLabel"
+                            ));
+                        }
+                        if string_stack.len() > 1 {
+                            eprintln!(
+                                "WARNING: String stack has more than 1 item when processing SetPastLabel at {:08X}",
+                                cmd.addr,
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        key = string_stack[0].clone();
+                    } else if func_name == "WitchWizard::OutMsg" && arg_count == 8 {
+                        if string_stack.len() < 2 {
+                            return Err(anyhow::anyhow!(
+                                "String stack has less than 2 items when processing OutMsg at {:08X}",
+                                cmd.addr,
+                            ));
+                        }
+                        if string_stack.len() > 2 {
+                            eprintln!(
+                                "WARNING: String stack has more than 2 items when processing OutMsg at {:08X}",
+                                cmd.addr,
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        let name = string_stack[0].clone();
+                        let message = string_stack[1].clone();
+                        messages
+                            .entry(key.clone())
+                            .or_insert_with(Vec::new)
+                            .push(Message {
+                                name: if name.is_empty() { None } else { Some(name) },
+                                message,
+                            });
+                    } else if func_name == "WitchWizard::SetCurrentScriptName" && arg_count == 2 {
+                        if string_stack.is_empty() {
+                            return Err(anyhow::anyhow!(
+                                "String stack is empty when processing SetCurrentScriptName"
+                            ));
+                        }
+                        if string_stack.len() > 1 {
+                            eprintln!(
+                                "WARNING: String stack has more than 1 item when processing SetCurrentScriptName at {:08X}",
+                                cmd.addr,
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        key = string_stack[0].clone();
+                    }
+                }
+                string_stack.clear();
+                stacks.clear();
+            }
+            index += 1;
+        }
+        Ok(messages)
     }
 
     fn export_all(&self) -> Result<Vec<String>> {
-        Err(anyhow::anyhow!("Export all not implemented for CSX v2"))
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            &self.section_function,
+            &self.section_func_info,
+            &self.section_import_native_func,
+            &self.section_class_info,
+            &self.section_const_string,
+            None,
+        );
+        disasm.execute()?;
+        let mut messages = Vec::new();
+        for cmd in disasm.assembly.clone().iter() {
+            if cmd.code == CsicLoad {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                if csom == CsomImmediate && csvt == CsvtString {
+                    let s = disasm.get_string_literal()?;
+                    messages.push(s);
+                }
+            }
+        }
+        Ok(messages)
     }
 
     fn import<'a>(

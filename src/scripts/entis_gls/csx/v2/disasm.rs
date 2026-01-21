@@ -25,7 +25,7 @@ pub struct ECSExecutionImageDisassembler<'a> {
     writer: Option<Box<dyn Write + 'a>>,
     addr: u32,
     code: CSInstructionCode,
-    func_map: HashMap<u32, &'a FuncInfoEntry>,
+    pub func_map: HashMap<u32, &'a FuncInfoEntry>,
 }
 
 impl<'a> ECSExecutionImageDisassembler<'a> {
@@ -286,7 +286,7 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         })
     }
 
-    fn read_csot(&mut self) -> Result<CSOperatorType> {
+    pub fn read_csot(&mut self) -> Result<CSOperatorType> {
         let value = self.stream.read_u8()?;
         CSOperatorType::try_from(value).map_err(|_| {
             anyhow::anyhow!(

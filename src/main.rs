@@ -3309,6 +3309,12 @@ fn main() {
         entis_gls_csx_disasm: arg.entis_gls_csx_disasm,
         #[cfg(feature = "entis-gls")]
         entis_gls_csx_lf: arg.entis_gls_csx_lf.clone(),
+        #[cfg(feature = "entis-gls")]
+        entis_gls_csx_ver: arg.entis_gls_csx_ver,
+        #[cfg(feature = "entis-gls")]
+        entis_gls_csx_v2_ver: arg.entis_gls_csx_v2_ver,
+        #[cfg(feature = "entis-gls")]
+        entis_gls_csx_no_part_label: arg.entis_gls_csx_no_part_label,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

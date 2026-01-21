@@ -15,6 +15,25 @@ use base::ECSImage;
 use v1::ECSExecutionImageV1;
 use v2::ECSExecutionImageV2;
 
+#[derive(Clone, Copy, Debug, clap::ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+/// CSX Script Version
+pub enum CSXScriptVersion {
+    /// Version 1
+    V1,
+    /// Version 2 (2.x-3.x)
+    V2,
+}
+
+#[derive(Clone, Copy, Debug, clap::ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+/// CSX Script Full Version
+pub enum CSXScriptV2FullVer {
+    /// Version 2.x
+    V2,
+    /// Version 3.x
+    /// Example game: お兄ちゃん、右手の使用を禁止します！
+    V3,
+}
+
 #[derive(Debug)]
 pub struct CSXScriptBuilder {}
 
@@ -68,7 +87,18 @@ pub struct CSXScript {
 impl CSXScript {
     pub fn new(buf: Vec<u8>, config: &ExtraConfig) -> Result<Self> {
         let reader = MemReader::new(buf);
-        let img = {
+        let img = if let Some(ver) = &config.entis_gls_csx_ver {
+            match ver {
+                CSXScriptVersion::V1 => {
+                    Box::new(ECSExecutionImageV1::new(reader.to_ref(), config)?)
+                        as Box<dyn ECSImage>
+                }
+                CSXScriptVersion::V2 => {
+                    Box::new(ECSExecutionImageV2::new(reader.to_ref(), config)?)
+                        as Box<dyn ECSImage>
+                }
+            }
+        } else {
             match ECSExecutionImageV1::new(reader.to_ref(), config) {
                 Ok(img) => Box::new(img),
                 Err(_) => Box::new(ECSExecutionImageV2::new(reader.to_ref(), config)?)

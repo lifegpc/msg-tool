@@ -621,6 +621,20 @@ pub struct Arg {
     #[arg(long, global = true, default_value = "／")]
     /// The line feed character used in Entis GLS csx script.
     pub entis_gls_csx_lf: String,
+    #[cfg(feature = "entis-gls")]
+    #[arg(long, global = true)]
+    /// Entis GLS csx script version.
+    /// If not specified. Will try use lower version first.
+    pub entis_gls_csx_ver: Option<crate::scripts::entis_gls::csx::CSXScriptVersion>,
+    #[cfg(feature = "entis-gls")]
+    #[arg(long, global = true)]
+    /// Entis GLS csx script version2 full version.
+    /// If not specified. Will try use higher version first.
+    pub entis_gls_csx_v2_ver: Option<crate::scripts::entis_gls::csx::CSXScriptV2FullVer>,
+    #[cfg(feature = "entis-gls")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Disable part labels in Entis GLS csx script when exporting.
+    pub entis_gls_csx_no_part_label: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
