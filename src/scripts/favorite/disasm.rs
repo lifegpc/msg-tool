@@ -3,6 +3,7 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek, SeekFrom};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,6 +112,12 @@ pub struct Data {
     pub functions: Vec<Func>,
     pub main_script: Vec<Func>,
     pub extra_data: Vec<u8>,
+    #[serde(skip)]
+    speak_func_indices: HashSet<u32>,
+    #[serde(skip)]
+    func_pos_map: HashMap<u64, usize>,
+    #[serde(skip)]
+    speaker_names: HashMap<usize, Vec<String>>,
 }
 
 impl Data {
@@ -119,6 +126,9 @@ impl Data {
             functions: Vec::new(),
             main_script: Vec::new(),
             extra_data: Vec::new(),
+            speak_func_indices: HashSet::new(),
+            func_pos_map: HashMap::new(),
+            speaker_names: HashMap::new(),
         };
         let script_len = reader.read_u32()? as u64;
         let main_script_data = reader.peek_u32_at(script_len)? as u64;
@@ -135,7 +145,122 @@ impl Data {
         }
         reader.seek(SeekFrom::Start(script_len + 4))?;
         reader.read_to_end(&mut data.extra_data)?;
+
+        data.index_functions();
+        data.find_speak_functions();
+        data.collect_speaker_names();
+
         Ok(data)
+    }
+
+    fn index_functions(&mut self) {
+        for (idx, func) in self.functions.iter().enumerate() {
+            if func.opcode == 0x01 {
+                self.func_pos_map.insert(func.pos, idx);
+            }
+        }
+    }
+
+    fn find_speak_functions(&mut self) {
+        for (idx, func) in self.functions.iter().enumerate() {
+            if func.opcode == 0x01 {
+                // SPEAK functions have initstack with (3, 0) or (5, 0) parameters
+                if let (Some(Operand::B(arg_count)), Some(Operand::B(0))) =
+                    (func.operands.first(), func.operands.get(1))
+                {
+                    if *arg_count == 3 || *arg_count == 5 {
+                        self.speak_func_indices.insert(idx as u32);
+                    }
+                }
+            }
+        }
+    }
+
+    fn collect_speaker_names(&mut self) {
+        let func_starts: Vec<usize> = self
+            .functions
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| f.opcode == 0x01)
+            .map(|(i, _)| i)
+            .collect();
+
+        for &speak_idx in &self.speak_func_indices {
+            let speak_idx = speak_idx as usize;
+
+            let start_pos = func_starts.iter().position(|&s| s == speak_idx);
+            if let Some(pos) = start_pos {
+                let end = func_starts.get(pos + 1).copied().unwrap_or(self.functions.len());
+                let names: Vec<String> = (speak_idx..end)
+                    .filter(|&i| self.functions[i].opcode == 0x0e)
+                    .filter_map(|i| match self.functions[i].operands.first() {
+                        Some(Operand::S(s)) if !s.trim().is_empty() => Some(s.clone()),
+                        _ => None,
+                    })
+                    .collect();
+
+                if !names.is_empty() {
+                    self.speaker_names.insert(speak_idx, names);
+                }
+            }
+        }
+    }
+
+    fn get_speaker(&self, func_idx: usize) -> Option<String> {
+        let names = self.speaker_names.get(&func_idx)?;
+
+        // Prefer names without '？' prefix, take the last one (usually the "known" name)
+        if let Some(name) = names.iter().filter(|n| !n.contains('？')).last() {
+            return Some(name.trim().to_string());
+        }
+
+        // If all names have '？', strip it from the last one
+        names.last().and_then(|name| {
+            let cleaned = name.trim().trim_start_matches('？').trim();
+            if !cleaned.is_empty() {
+                Some(cleaned.to_string())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn extract_messages(&self, filter_ascii: bool) -> Vec<(Option<String>, String)> {
+        let mut messages = Vec::new();
+
+        // Extract strings from functions section (no speakers)
+        for func in &self.functions {
+            if func.opcode == 0x0e {
+                if let Some(Operand::S(s)) = func.operands.first() {
+                    if !(filter_ascii && s.chars().all(|c| c.is_ascii())) {
+                        messages.push((None, s.clone()));
+                    }
+                }
+            }
+        }
+
+        // Process main_script, track SPEAK calls for speaker names
+        let mut current_speaker: Option<String> = None;
+
+        for func in &self.main_script {
+            if func.opcode == 0x02 {
+                if let Some(Operand::D(call_target)) = func.operands.first() {
+                    if let Some(&func_idx) = self.func_pos_map.get(&(*call_target as u64)) {
+                        if self.speak_func_indices.contains(&(func_idx as u32)) {
+                            current_speaker = self.get_speaker(func_idx);
+                        }
+                    }
+                }
+            } else if func.opcode == 0x0e {
+                if let Some(Operand::S(s)) = func.operands.first() {
+                    if !(filter_ascii && s.chars().all(|c| c.is_ascii())) {
+                        messages.push((current_speaker.clone(), s.clone()));
+                    }
+                }
+            }
+        }
+
+        messages
     }
 
     fn read_func<R: Read + Seek>(reader: &mut R, encoding: Encoding) -> Result<Func> {
