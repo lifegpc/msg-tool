@@ -1218,6 +1218,8 @@ pub struct ECSExecutionImageCommandRecord {
     pub addr: u32,
     pub size: u32,
     pub new_addr: u32,
+    /// true if this command is internal (not from original code)
+    pub internal: bool,
 }
 
 #[derive(Clone, Debug)]

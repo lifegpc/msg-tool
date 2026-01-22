@@ -8,7 +8,7 @@ use crate::types::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
 use std::collections::HashMap;
-use std::io::Seek;
+use std::io::{Seek, Write};
 
 const ID_HEADER: u64 = 0x2020726564616568; // header
 const ID_IMAGE: u64 = 0x2020206567616D69;
@@ -376,6 +376,385 @@ impl ECSExecutionImage {
             no_part_label: config.entis_gls_csx_no_part_label,
         })
     }
+
+    fn fix_image<'a, 'b>(
+        assembly: &ECSExecutionImageAssembly,
+        disasm: &mut ECSExecutionImageDisassembler<'a>,
+        writer: &mut MemWriter,
+        commands: &HashMap<u32, &'b ECSExecutionImageCommandRecord>,
+    ) -> Result<()> {
+        for cmd in assembly.iter() {
+            if cmd.code == CsicEnter {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let name_length = disasm.stream.read_u32()?;
+                if name_length != 0x80000000 {
+                    disasm.stream.pos += name_length as usize * 2;
+                } else {
+                    disasm.stream.pos += 4;
+                }
+                let num_args = disasm.stream.read_i32()?;
+                if num_args == -1 {
+                    let _flag = disasm.stream.read_u8()?;
+                    let offset = disasm.stream.pos as i64 - cmd.addr as i64;
+                    let original_addr = disasm.stream.read_i32()? as i64 + disasm.stream.pos as i64;
+                    let target_cmd = commands.get(&(original_addr as u32)).ok_or_else(|| anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for Enter instruction fixup at {:08X}",
+                        original_addr as u32,
+                        cmd.addr
+                    ))?;
+                    let new_addr = target_cmd.new_addr as i64 - cmd.new_addr as i64 - offset - 4;
+                    writer.write_i32_at(cmd.new_addr as u64 + offset as u64, new_addr as i32)?;
+                }
+            } else if matches!(cmd.code, CsicJump | CodeJumpOffset32) {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let offset = disasm.stream.pos as i64 - cmd.addr as i64;
+                let original_addr = disasm.stream.read_i32()? as i64 + disasm.stream.pos as i64;
+                let target_cmd = commands.get(&(original_addr as u32)).ok_or_else(|| anyhow::anyhow!(
+                    "Cannot find target command at address {:08X} for {:?} instruction fixup at {:08X}",
+                    original_addr as u32,
+                    cmd.code,
+                    cmd.addr
+                ))?;
+                let new_addr = target_cmd.new_addr as i64 - cmd.new_addr as i64 - offset - 4;
+                writer.write_i32_at(cmd.new_addr as u64 + offset as u64, new_addr as i32)?;
+            } else if matches!(cmd.code, CsicCJump | CodeCJumpOffset32 | CodeCNJumpOffset32) {
+                disasm.stream.pos = cmd.addr as usize + 2;
+                let offset = disasm.stream.pos as i64 - cmd.addr as i64;
+                let original_addr = disasm.stream.read_i32()? as i64 + disasm.stream.pos as i64;
+                let target_cmd = commands.get(&(original_addr as u32)).ok_or_else(|| anyhow::anyhow!(
+                    "Cannot find target command at address {:08X} for {:?} instruction fixup at {:08X}",
+                    original_addr as u32,
+                    cmd.code,
+                    cmd.addr
+                ))?;
+                let new_addr = target_cmd.new_addr as i64 - cmd.new_addr as i64 - offset - 4;
+                writer.write_i32_at(cmd.new_addr as u64 + offset as u64, new_addr as i32)?;
+            } else if cmd.code == CsicExCall {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let _arg_count = disasm.stream.read_i32()?;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                if csom == CsomImmediate && csvt == CsvtInteger {
+                    let offset = disasm.stream.pos as i64 - cmd.addr as i64;
+                    let addr = disasm.stream.read_u32()?;
+                    let target_cmd = commands.get(&addr).ok_or_else(|| anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for ExCall instruction fixup at {:08X}",
+                        addr,
+                        cmd.addr
+                    ))?;
+                    let new_addr = target_cmd.new_addr;
+                    writer.write_u32_at(cmd.new_addr as u64 + offset as u64, new_addr)?;
+                }
+            } else if cmd.code == CodeCallImm32 {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let offset = disasm.stream.pos as i64 - cmd.addr as i64;
+                let addr = disasm.stream.read_u32()?;
+                let target_cmd = commands.get(&addr).ok_or_else(|| anyhow::anyhow!(
+                    "Cannot find target command at address {:08X} for CallImm32 instruction fixup at {:08X}",
+                    addr,
+                    cmd.addr
+                ))?;
+                let new_addr = target_cmd.new_addr;
+                writer.write_u32_at(cmd.new_addr as u64 + offset as u64, new_addr)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn fix_references(
+        &mut self,
+        commands: &HashMap<u32, &ECSExecutionImageCommandRecord>,
+    ) -> Result<()> {
+        let mut list: Vec<u32> = commands.iter().map(|(&k, _)| k).collect();
+        list.sort();
+        for cmd in self.section_function.prologue.iter_mut() {
+            let ocmd = *cmd;
+            if let Some(tcmd) = commands.get(&ocmd) {
+                *cmd = tcmd.new_addr;
+            } else {
+                let pre_one_idx = match list.binary_search(&ocmd) {
+                    Ok(idx) => idx,
+                    Err(idx) => {
+                        if idx == 0 {
+                            idx
+                        } else {
+                            idx - 1
+                        }
+                    }
+                };
+                let tcmd = &commands[&list[pre_one_idx]];
+                if !tcmd.internal || tcmd.size + tcmd.addr < ocmd {
+                    return Err(anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for PIF prologue fixup",
+                        ocmd
+                    ));
+                }
+                let offset = tcmd.new_addr as i64 - tcmd.addr as i64;
+                *cmd = (ocmd as i64 + offset) as u32;
+            }
+        }
+        for cmd in self.section_function.epilogue.iter_mut() {
+            let ocmd = *cmd;
+            *cmd = commands
+                .get(&ocmd)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for PIF epilogue fixup",
+                        ocmd
+                    )
+                })?
+                .new_addr;
+        }
+        for func in self.section_function.func_names.iter_mut() {
+            let ocmd = func.address;
+            func.address = commands
+                .get(&ocmd)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for function names list fixup",
+                        ocmd
+                    )
+                })?
+                .new_addr;
+        }
+        for cmd in self.section_init_naked_func.naked_prologue.iter_mut() {
+            let ocmd = *cmd;
+            *cmd = commands
+                .get(&ocmd)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for NNF prologue fixup",
+                        ocmd
+                    )
+                })?
+                .new_addr;
+        }
+        for cmd in self.section_init_naked_func.naked_epilogue.iter_mut() {
+            let ocmd = *cmd;
+            *cmd = commands
+                .get(&ocmd)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for NNF epilogue fixup",
+                        ocmd
+                    )
+                })?
+                .new_addr;
+        }
+        for func in self.section_func_info.functions.iter_mut() {
+            let ocmd = func.header.address;
+            func.header.address = commands
+                .get(&ocmd)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot find target command at address {:08X} for function info list fixup",
+                        ocmd
+                    )
+                })?
+                .new_addr;
+            if func.header.bytes != u32::MAX {
+                let end_ocmd = ocmd + func.header.bytes;
+                let end_tcmd = commands
+                    .get(&end_ocmd)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Cannot find target command at address {:08X} for function info list fixup",
+                            end_ocmd
+                        )
+                    })?.new_addr;
+                func.header.bytes = end_tcmd - func.header.address;
+            }
+        }
+        Ok(())
+    }
+
+    fn save<'a>(&self, mut writer: Box<dyn Write + 'a>) -> Result<()> {
+        self.file_header
+            .pack(&mut writer, false, Encoding::Utf8, &None)?;
+        if self.section_header.header_size > 0 {
+            let mut mem = MemWriter::new();
+            self.section_header
+                .pack(&mut mem, false, Encoding::Utf8, &None)?;
+            writer.write_u64(ID_HEADER)?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        writer.write_u64(ID_IMAGE)?;
+        writer.write_u64(self.image.data.len() as u64)?;
+        writer.write_all(&self.image.data)?;
+        if let Some(img_global) = &self.image_global {
+            writer.write_u64(ID_IMAGE_GLOBAL)?;
+            writer.write_u64(img_global.data.len() as u64)?;
+            writer.write_all(&img_global.data)?;
+        }
+        if let Some(img_const) = &self.image_const {
+            writer.write_u64(ID_IMAGE_CONST)?;
+            writer.write_u64(img_const.data.len() as u64)?;
+            writer.write_all(&img_const.data)?;
+        }
+        if let Some(img_shared) = &self.image_shared {
+            writer.write_u64(ID_IMAGE_SHARED)?;
+            writer.write_u64(img_shared.data.len() as u64)?;
+            writer.write_all(&img_shared.data)?;
+        }
+        writer.write_u64(ID_CLASS_INFO)?;
+        let mut mem = MemWriter::new();
+        self.section_class_info.pack(
+            &mut mem,
+            false,
+            Encoding::Utf8,
+            &Some(Box::new(self.section_header.clone())),
+        )?;
+        writer.write_u64(mem.data.len() as u64)?;
+        writer.write_all(&mem.into_inner())?;
+        writer.write_u64(ID_FUNCTION)?;
+        let mut mem = MemWriter::new();
+        self.section_function.pack(
+            &mut mem,
+            false,
+            Encoding::Utf8,
+            &Some(Box::new(self.section_header.clone())),
+        )?;
+        writer.write_u64(mem.data.len() as u64)?;
+        writer.write_all(&mem.into_inner())?;
+        writer.write_u64(ID_INIT_NAKED_FUNC)?;
+        let mut mem = MemWriter::new();
+        self.section_init_naked_func.pack(
+            &mut mem,
+            false,
+            Encoding::Utf8,
+            &Some(Box::new(self.section_header.clone())),
+        )?;
+        writer.write_u64(mem.data.len() as u64)?;
+        writer.write_all(&mem.into_inner())?;
+        writer.write_u64(ID_FUNC_INFO)?;
+        let mut mem = MemWriter::new();
+        self.section_func_info.pack(
+            &mut mem,
+            false,
+            Encoding::Utf8,
+            &Some(Box::new(self.section_header.clone())),
+        )?;
+        writer.write_u64(mem.data.len() as u64)?;
+        writer.write_all(&mem.into_inner())?;
+        if let Some(section_symbol_info) = &self.section_symbol_info {
+            writer.write_u64(ID_SYMBOL_INFO)?;
+            let mut mem = MemWriter::new();
+            section_symbol_info.pack(
+                &mut mem,
+                false,
+                Encoding::Utf8,
+                &Some(Box::new(self.section_header.clone())),
+            )?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        if let Some(section_global) = &self.section_global {
+            writer.write_u64(ID_GLOBAL)?;
+            let mut mem = MemWriter::new();
+            section_global.pack(
+                &mut mem,
+                false,
+                Encoding::Utf8,
+                &Some(Box::new(self.section_header.clone())),
+            )?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        if let Some(section_data) = &self.section_data {
+            writer.write_u64(ID_DATA)?;
+            let mut mem = MemWriter::new();
+            section_data.pack(
+                &mut mem,
+                false,
+                Encoding::Utf8,
+                &Some(Box::new(self.section_header.clone())),
+            )?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        writer.write_u64(ID_CONST_STRING)?;
+        let mut mem = MemWriter::new();
+        self.section_const_string.pack(
+            &mut mem,
+            false,
+            Encoding::Utf8,
+            &Some(Box::new(self.section_header.clone())),
+        )?;
+        writer.write_u64(mem.data.len() as u64)?;
+        writer.write_all(&mem.into_inner())?;
+        if let Some(section_link_info) = &self.section_link_info {
+            writer.write_u64(ID_LINK_INFO)?;
+            let mut mem = MemWriter::new();
+            section_link_info.pack(
+                &mut mem,
+                false,
+                Encoding::Utf8,
+                &Some(Box::new(self.section_header.clone())),
+            )?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        if let Some(section_link_info_ex) = &self.section_link_info_ex {
+            writer.write_u64(ID_LINK_INFO_EX)?;
+            let mut mem = MemWriter::new();
+            section_link_info_ex.pack(
+                &mut mem,
+                false,
+                Encoding::Utf8,
+                &Some(Box::new(self.section_header.clone())),
+            )?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        if let Some(section_ref_func) = &self.section_ref_func {
+            writer.write_u64(ID_REF_FUNC)?;
+            let mut mem = MemWriter::new();
+            section_ref_func.pack(
+                &mut mem,
+                false,
+                Encoding::Utf8,
+                &Some(Box::new(self.section_header.clone())),
+            )?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        if let Some(section_ref_code) = &self.section_ref_code {
+            writer.write_u64(ID_REF_CODE)?;
+            let mut mem = MemWriter::new();
+            section_ref_code.pack(
+                &mut mem,
+                false,
+                Encoding::Utf8,
+                &Some(Box::new(self.section_header.clone())),
+            )?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        if let Some(section_ref_class) = &self.section_ref_class {
+            writer.write_u64(ID_REF_CLASS)?;
+            let mut mem = MemWriter::new();
+            section_ref_class.pack(
+                &mut mem,
+                false,
+                Encoding::Utf8,
+                &Some(Box::new(self.section_header.clone())),
+            )?;
+            writer.write_u64(mem.data.len() as u64)?;
+            writer.write_all(&mem.into_inner())?;
+        }
+        writer.write_u64(ID_IMPORT_NATIVE_FUNC)?;
+        let mut mem = MemWriter::new();
+        self.section_import_native_func.pack(
+            &mut mem,
+            false,
+            Encoding::Utf8,
+            &Some(Box::new(self.section_header.clone())),
+        )?;
+        writer.write_u64(mem.data.len() as u64)?;
+        writer.write_all(&mem.into_inner())?;
+        Ok(())
+    }
 }
 
 impl ECSImage for ECSExecutionImage {
@@ -718,7 +1097,78 @@ impl ECSImage for ECSExecutionImage {
         Err(anyhow::anyhow!("Import multi not implemented for CSX v2"))
     }
 
-    fn import_all<'a>(&self, _messages: Vec<String>, _file: Box<dyn WriteSeek + 'a>) -> Result<()> {
-        Err(anyhow::anyhow!("Import all not implemented for CSX v2"))
+    fn import_all<'a>(&self, messages: Vec<String>, file: Box<dyn WriteSeek + 'a>) -> Result<()> {
+        let mut cloned = self.clone();
+        let mut mess = messages.into_iter();
+        let mut mes = mess.next();
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            &self.section_function,
+            &self.section_func_info,
+            &self.section_import_native_func,
+            &self.section_class_info,
+            &self.section_const_string,
+            None,
+        );
+        disasm.execute()?;
+        let mut conststr_map: HashMap<String, u32> = cloned
+            .section_const_string
+            .strings
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.string.0.clone(), i as u32))
+            .collect();
+        let mut assembly = disasm.assembly.clone();
+        let mut new_image = MemWriter::new();
+        for cmd in assembly.iter_mut() {
+            cmd.new_addr = new_image.pos as u32;
+            if cmd.code == CsicLoad {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                if csom == CsomImmediate && csvt == CsvtString {
+                    let s = match mes {
+                        Some(s) => s,
+                        None => {
+                            return Err(anyhow::anyhow!(
+                                "Not enough messages for import_all at {:08X}",
+                                cmd.addr,
+                            ));
+                        }
+                    };
+                    mes = mess.next();
+                    let constr_idx = if let Some(&idx) = conststr_map.get(&s) {
+                        idx
+                    } else {
+                        // Add new string to const string section
+                        let idx = cloned.section_const_string.strings.len() as u32;
+                        cloned.section_const_string.strings.push(ConstStringEntry {
+                            string: WideString(s.clone()),
+                            refs: DWordArray { data: Vec::new() },
+                        });
+                        conststr_map.insert(s.clone(), idx);
+                        idx
+                    };
+                    new_image.write_u8(CsicLoad as u8)?;
+                    new_image.write_u8(CsomImmediate as u8)?;
+                    new_image.write_u8(CsvtString as u8)?;
+                    new_image.write_u32(0x80000000)?;
+                    new_image.write_u32(constr_idx)?;
+                    continue;
+                }
+            }
+            // Copy original command
+            new_image.write_from(&mut disasm.stream, cmd.addr as u64, cmd.size as u64)?;
+        }
+        if mes.is_some() || mess.next().is_some() {
+            return Err(anyhow::anyhow!("Too many messages for import_all"));
+        }
+        let commands: HashMap<u32, &ECSExecutionImageCommandRecord> =
+            assembly.iter().map(|c| (c.addr, c)).collect();
+        Self::fix_image(&assembly, &mut disasm, &mut new_image, &commands)?;
+        cloned.image = MemReader::new(new_image.into_inner());
+        cloned.fix_references(&commands)?;
+        cloned.save(file)?;
+        Ok(())
     }
 }

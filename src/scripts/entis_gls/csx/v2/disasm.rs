@@ -69,9 +69,14 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
         let mut ordered = self.func_info.functions.clone();
         ordered.sort_by_key(|f| f.header.address);
         let img_len = self.stream.data.len() as u32;
+        let mut pre_end = 0;
         for e in ordered {
             // ignore inline functions
             if e.header.flags == 0x11 {
+                eprintln!(
+                    "Skipping inline function at {:#x}, {}",
+                    e.header.address, e.name.0
+                );
                 continue;
             }
             let start = e.header.address;
@@ -88,7 +93,26 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
                 crate::COUNTER.inc_warning();
                 continue;
             }
+            if pre_end != 0 && pre_end < start {
+                self.assembly.push(ECSExecutionImageCommandRecord {
+                    code: CodeSystemReserved,
+                    addr: pre_end,
+                    size: start - pre_end,
+                    new_addr: pre_end,
+                    internal: true,
+                });
+            }
             self.execute_range(start, end)?;
+            pre_end = end;
+        }
+        if pre_end != 0 && pre_end < img_len {
+            self.assembly.push(ECSExecutionImageCommandRecord {
+                code: CodeSystemReserved,
+                addr: pre_end,
+                size: img_len - pre_end,
+                new_addr: pre_end,
+                internal: true,
+            });
         }
         if self.func_info.functions.is_empty() {
             // older format without function info
@@ -109,6 +133,7 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
     fn execute_range(&mut self, start: u32, end: u32) -> Result<()> {
         self.stream.pos = start as usize;
         let end = end as usize;
+        // println!("Disassembling range {:#08x} - {:#08x}", start, end);
         while self.stream.pos < end {
             self.addr = self.stream.pos as u32;
             let code = self.stream.read_u8()?;
@@ -239,6 +264,7 @@ impl<'a> ECSExecutionImageDisassembler<'a> {
                 addr: self.addr,
                 size,
                 new_addr: self.addr,
+                internal: false,
             });
         }
         Ok(())
