@@ -806,7 +806,6 @@ impl ECSImage for ECSExecutionImage {
                 CsicCall
                     | CsicCallMember
                     | CsicCallNativeFunction
-                    | CsicCallNativeMember
                     | CsicEnter
                     | CsicElementIndirect
             ) {
@@ -889,6 +888,53 @@ impl ECSImage for ECSExecutionImage {
                 }
                 string_stack.clear();
                 stacks.clear();
+            } else if cmd.code == CsicCallNativeMember {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let arg_count = disasm.stream.read_i32()?;
+                let class_index = disasm.stream.read_u32()?;
+                let class = self
+                    .section_class_info
+                    .infos
+                    .get(class_index as usize)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid class info index: {} (max {}) at {:08x}",
+                            class_index,
+                            self.section_class_info.infos.len(),
+                            cmd.addr
+                        )
+                    })?;
+                let func_index = disasm.stream.read_u32()?;
+                let func = class.method_info.get(func_index as usize).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Invalid method info index: {} (max {}) at {:08x}",
+                        func_index,
+                        class.method_info.len(),
+                        cmd.addr
+                    )
+                })?;
+                let func_name = func.prototype_info.global_name.0.as_str();
+                if func_name == "Window::CreateDisplay@2" && arg_count == 5 {
+                    if string_stack.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "String stack is empty when processing Window::CreateDisplay@2"
+                        ));
+                    }
+                    if string_stack.len() > 1 {
+                        eprintln!(
+                            "WARNING: String stack has more than 1 item when processing Window::CreateDisplay@2 at {:08X}",
+                            cmd.addr,
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                    let message = string_stack[0].clone();
+                    messages.push(Message {
+                        name: None,
+                        message,
+                    });
+                }
+                string_stack.clear();
+                stacks.clear();
             }
             index += 1;
         }
@@ -930,7 +976,6 @@ impl ECSImage for ECSExecutionImage {
                 CsicCall
                     | CsicCallMember
                     | CsicCallNativeFunction
-                    | CsicCallNativeMember
                     | CsicEnter
                     | CsicElementIndirect
             ) {
@@ -1044,6 +1089,56 @@ impl ECSImage for ECSExecutionImage {
                         }
                         key = string_stack[0].clone();
                     }
+                }
+                string_stack.clear();
+                stacks.clear();
+            } else if cmd.code == CsicCallNativeMember {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let arg_count = disasm.stream.read_i32()?;
+                let class_index = disasm.stream.read_u32()?;
+                let class = self
+                    .section_class_info
+                    .infos
+                    .get(class_index as usize)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid class info index: {} (max {}) at {:08x}",
+                            class_index,
+                            self.section_class_info.infos.len(),
+                            cmd.addr
+                        )
+                    })?;
+                let func_index = disasm.stream.read_u32()?;
+                let func = class.method_info.get(func_index as usize).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Invalid method info index: {} (max {}) at {:08x}",
+                        func_index,
+                        class.method_info.len(),
+                        cmd.addr
+                    )
+                })?;
+                let func_name = func.prototype_info.global_name.0.as_str();
+                if func_name == "Window::CreateDisplay@2" && arg_count == 5 {
+                    if string_stack.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "String stack is empty when processing Window::CreateDisplay@2"
+                        ));
+                    }
+                    if string_stack.len() > 1 {
+                        eprintln!(
+                            "WARNING: String stack has more than 1 item when processing Window::CreateDisplay@2 at {:08X}",
+                            cmd.addr,
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                    let message = string_stack[0].clone();
+                    messages
+                        .entry(key.clone())
+                        .or_insert_with(Vec::new)
+                        .push(Message {
+                            name: None,
+                            message,
+                        });
                 }
                 string_stack.clear();
                 stacks.clear();
