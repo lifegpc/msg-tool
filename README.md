@@ -151,6 +151,7 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `entis-gls` | `entis-gls` | Entis GLS engine XML Script (.srcxml) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
+| `entis-gls-csx` | `entis-gls` | Entis GLS engine CSX Script (.csx) | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ✔️ | ❌ | |
 ### Escu:de
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|

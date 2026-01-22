@@ -3,6 +3,7 @@ use super::super::base::*;
 use super::disasm::*;
 use super::types::*;
 use crate::ext::io::*;
+use crate::ext::vec::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::struct_pack::*;
@@ -1176,20 +1177,789 @@ impl ECSImage for ECSExecutionImage {
 
     fn import<'a>(
         &self,
-        _messages: Vec<Message>,
-        _file: Box<dyn WriteSeek + 'a>,
-        _replacement: Option<&'a ReplacementTable>,
+        messages: Vec<Message>,
+        file: Box<dyn WriteSeek + 'a>,
+        replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
-        Err(anyhow::anyhow!("Import not implemented for CSX v2"))
+        let mut cloned = self.clone();
+        let mut mess = messages.iter();
+        let mut mes = mess.next();
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            &self.section_function,
+            &self.section_func_info,
+            &self.section_import_native_func,
+            &self.section_class_info,
+            &self.section_const_string,
+            None,
+        );
+        disasm.execute()?;
+        let mut constr_map: HashMap<String, u32> = cloned
+            .section_const_string
+            .strings
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.string.0.clone(), i as u32))
+            .collect();
+        let mut assembly = disasm.assembly.clone();
+        let mut new_image = MemWriter::new();
+        let mut index = 0;
+        let mut dumped_index = 0;
+        let mut string_stack = Vec::new();
+        let mut stacks = Vec::new();
+        let len = assembly.len();
+        while index < len {
+            let cmd = assembly[index].clone();
+            if cmd.code == CsicLoad {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                let is_string = csom == CsomImmediate && csvt == CsvtString;
+                if is_string {
+                    let s = disasm.get_string_literal()?;
+                    string_stack.push((Some(index), s));
+                }
+                stacks.push(is_string);
+            } else if matches!(
+                cmd.code,
+                CsicCall
+                    | CsicCallMember
+                    | CsicCallNativeFunction
+                    | CsicEnter
+                    | CsicElementIndirect
+            ) {
+                string_stack.clear();
+                stacks.clear();
+                while dumped_index <= index {
+                    let tcmd = &mut assembly[dumped_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    // Copy original command
+                    new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+                    dumped_index += 1;
+                }
+            } else if cmd.code == CsicOperate {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csot = disasm.read_csot()?;
+                if csot == CsotAdd {
+                    if string_stack.len() >= 2
+                        && index >= 2
+                        && stacks.len() >= 2
+                        && stacks[stacks.len() - 1]
+                        && stacks[stacks.len() - 2]
+                    {
+                        let s2 = string_stack.pop().unwrap().1;
+                        let s1 = string_stack.pop().unwrap().1;
+                        let s = s1 + &s2;
+                        string_stack.push((None, s));
+                        stacks.pop();
+                        // Remove the two previous load commands and replace with this one
+                        index += 1;
+                        continue;
+                    }
+                }
+                if let Some(is_str) = stacks.pop() {
+                    if is_str && string_stack.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "String stack is empty when processing Operate at {:08X}",
+                            cmd.addr,
+                        ));
+                    }
+                    if is_str {
+                        string_stack.pop();
+                    }
+                }
+            } else if cmd.code == CsicExCall {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let arg_count = disasm.stream.read_i32()?;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                if csom == CsomImmediate {
+                    let func_name = if csvt == CsvtString {
+                        disasm.get_string_literal()?
+                    } else if csvt == CsvtInteger {
+                        let func_address = disasm.stream.read_u32()?;
+                        let func = disasm.func_map.get(&func_address).ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Function address 0x{:08X} not found in ExCall",
+                                func_address
+                            )
+                        })?;
+                        func.name.0.clone()
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "Unexpected CSVT for function name in ExCall"
+                        ));
+                    };
+                    if func_name == "WitchWizard::OutMsg" && arg_count == 8 {
+                        if string_stack.len() < 2 {
+                            return Err(anyhow::anyhow!(
+                                "String stack has less than 2 items when processing OutMsg at {:08X}",
+                                cmd.addr,
+                            ));
+                        }
+                        if string_stack.len() > 2 {
+                            eprintln!(
+                                "WARNING: String stack has more than 2 items when processing OutMsg at {:08X}",
+                                cmd.addr,
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        let name = string_stack[0].clone();
+                        let message = string_stack[1].clone();
+                        let message_idx = message.0.ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Cannot replace constructed string for message at {:08X}",
+                                cmd.addr,
+                            )
+                        })?;
+                        if !name.1.is_empty() {
+                            let name_idx = name.0.ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "Cannot replace constructed string for message name at {:08X}",
+                                    cmd.addr,
+                                )
+                            })?;
+                            let mut name = match mes {
+                                Some(m) => match &m.name {
+                                    Some(n) => n.clone(),
+                                    None => {
+                                        return Err(anyhow::anyhow!(
+                                            "No name available for OutMsg at {:08X}",
+                                            cmd.addr,
+                                        ));
+                                    }
+                                },
+                                None => {
+                                    return Err(anyhow::anyhow!(
+                                        "No more messages available for OutMsg at {:08X}",
+                                        cmd.addr,
+                                    ));
+                                }
+                            };
+                            if let Some(repl) = replacement {
+                                for (k, v) in repl.map.iter() {
+                                    name = name.replace(k, v);
+                                }
+                            }
+                            let constr_idx = if let Some(&idx) = constr_map.get(&name) {
+                                idx
+                            } else {
+                                // Add new string to const string section
+                                let idx = cloned.section_const_string.strings.len() as u32;
+                                cloned.section_const_string.strings.push(ConstStringEntry {
+                                    string: WideString(name.clone()),
+                                    refs: DWordArray { data: Vec::new() },
+                                });
+                                constr_map.insert(name.clone(), idx);
+                                idx
+                            };
+                            while dumped_index < name_idx {
+                                let tcmd = &mut assembly[dumped_index];
+                                tcmd.new_addr = new_image.pos as u32;
+                                // Copy original command
+                                new_image.write_from(
+                                    &mut disasm.stream,
+                                    tcmd.addr as u64,
+                                    tcmd.size as u64,
+                                )?;
+                                dumped_index += 1;
+                            }
+                            let name_cmd = &mut assembly[name_idx];
+                            name_cmd.new_addr = new_image.pos as u32;
+                            // Write new load command for name
+                            new_image.write_u8(CsicLoad as u8)?;
+                            new_image.write_u8(CsomImmediate as u8)?;
+                            new_image.write_u8(CsvtString as u8)?;
+                            new_image.write_u32(0x80000000)?;
+                            new_image.write_u32(constr_idx)?;
+                            dumped_index += 1;
+                        }
+                        let mut message = match mes {
+                            Some(m) => m.message.clone(),
+                            None => {
+                                return Err(anyhow::anyhow!(
+                                    "No more messages available for OutMsg at {:08X}",
+                                    cmd.addr,
+                                ));
+                            }
+                        };
+                        mes = mess.next();
+                        if let Some(repl) = replacement {
+                            for (k, v) in repl.map.iter() {
+                                message = message.replace(k, v);
+                            }
+                        }
+                        while dumped_index < message_idx {
+                            let tcmd = &mut assembly[dumped_index];
+                            tcmd.new_addr = new_image.pos as u32;
+                            // Copy original command
+                            new_image.write_from(
+                                &mut disasm.stream,
+                                tcmd.addr as u64,
+                                tcmd.size as u64,
+                            )?;
+                            dumped_index += 1;
+                        }
+                        let message_cmd = &mut assembly[message_idx];
+                        message_cmd.new_addr = new_image.pos as u32;
+                        // Write new load command for message
+                        new_image.write_u8(CsicLoad as u8)?;
+                        new_image.write_u8(CsomImmediate as u8)?;
+                        new_image.write_u8(CsvtString as u8)?;
+                        new_image.write_u32(0x80000000)?;
+                        let constr_idx = if let Some(&idx) = constr_map.get(&message) {
+                            idx
+                        } else {
+                            // Add new string to const string section
+                            let idx = cloned.section_const_string.strings.len() as u32;
+                            cloned.section_const_string.strings.push(ConstStringEntry {
+                                string: WideString(message.clone()),
+                                refs: DWordArray { data: Vec::new() },
+                            });
+                            constr_map.insert(message.clone(), idx);
+                            idx
+                        };
+                        new_image.write_u32(constr_idx)?;
+                        dumped_index += 1;
+                    }
+                }
+                string_stack.clear();
+                stacks.clear();
+                while dumped_index <= index {
+                    let tcmd = &mut assembly[dumped_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    // Copy original command
+                    new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+                    dumped_index += 1;
+                }
+            } else if cmd.code == CsicCallNativeMember {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let arg_count = disasm.stream.read_i32()?;
+                let class_index = disasm.stream.read_u32()?;
+                let class = self
+                    .section_class_info
+                    .infos
+                    .get(class_index as usize)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid class info index: {} (max {}) at {:08x}",
+                            class_index,
+                            self.section_class_info.infos.len(),
+                            cmd.addr
+                        )
+                    })?;
+                let func_index = disasm.stream.read_u32()?;
+                let func = class.method_info.get(func_index as usize).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Invalid method info index: {} (max {}) at {:08x}",
+                        func_index,
+                        class.method_info.len(),
+                        cmd.addr
+                    )
+                })?;
+                let func_name = func.prototype_info.global_name.0.as_str();
+                if func_name == "Window::CreateDisplay@2" && arg_count == 5 {
+                    if string_stack.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "String stack is empty when processing Window::CreateDisplay@2"
+                        ));
+                    }
+                    if string_stack.len() > 1 {
+                        eprintln!(
+                            "WARNING: String stack has more than 1 item when processing Window::CreateDisplay@2 at {:08X}",
+                            cmd.addr,
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                    let message = string_stack[0].clone();
+                    let message_idx = message.0.ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Cannot replace constructed string for message at {:08X}",
+                            cmd.addr,
+                        )
+                    })?;
+                    let mut message = match mes {
+                        Some(m) => m.message.clone(),
+                        None => {
+                            return Err(anyhow::anyhow!(
+                                "No more messages available for Window::CreateDisplay@2 at {:08X}",
+                                cmd.addr,
+                            ));
+                        }
+                    };
+                    mes = mess.next();
+                    if let Some(repl) = replacement {
+                        for (k, v) in repl.map.iter() {
+                            message = message.replace(k, v);
+                        }
+                    }
+                    while dumped_index < message_idx {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original command
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                    let message_cmd = &mut assembly[message_idx];
+                    message_cmd.new_addr = new_image.pos as u32;
+                    // Write new load command for message
+                    new_image.write_u8(CsicLoad as u8)?;
+                    new_image.write_u8(CsomImmediate as u8)?;
+                    new_image.write_u8(CsvtString as u8)?;
+                    new_image.write_u32(0x80000000)?;
+                    let constr_idx = if let Some(&idx) = constr_map.get(&message) {
+                        idx
+                    } else {
+                        // Add new string to const string section
+                        let idx = cloned.section_const_string.strings.len() as u32;
+                        cloned.section_const_string.strings.push(ConstStringEntry {
+                            string: WideString(message.clone()),
+                            refs: DWordArray { data: Vec::new() },
+                        });
+                        constr_map.insert(message.clone(), idx);
+                        idx
+                    };
+                    new_image.write_u32(constr_idx)?;
+                    dumped_index += 1;
+                }
+                string_stack.clear();
+                stacks.clear();
+                while dumped_index <= index {
+                    let tcmd = &mut assembly[dumped_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    // Copy original command
+                    new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+                    dumped_index += 1;
+                }
+            }
+            index += 1;
+        }
+        while dumped_index < len {
+            let tcmd = &mut assembly[dumped_index];
+            tcmd.new_addr = new_image.pos as u32;
+            // Copy original command
+            new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+            dumped_index += 1;
+        }
+        if mes.is_some() || mess.next().is_some() {
+            return Err(anyhow::anyhow!("Not all messages were used."));
+        }
+        let commands: HashMap<u32, &ECSExecutionImageCommandRecord> =
+            assembly.iter().map(|c| (c.addr, c)).collect();
+        Self::fix_image(&assembly, &mut disasm, &mut new_image, &commands)?;
+        cloned.image = MemReader::new(new_image.into_inner());
+        cloned.fix_references(&commands)?;
+        cloned.save(file)?;
+        Ok(())
     }
 
     fn import_multi<'a>(
         &self,
-        _messages: HashMap<String, Vec<Message>>,
-        _file: Box<dyn WriteSeek + 'a>,
-        _replacement: Option<&'a ReplacementTable>,
+        mut messages: HashMap<String, Vec<Message>>,
+        file: Box<dyn WriteSeek + 'a>,
+        replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
-        Err(anyhow::anyhow!("Import multi not implemented for CSX v2"))
+        let mut cloned = self.clone();
+        let mut key = String::from("global");
+        let mut disasm = ECSExecutionImageDisassembler::new(
+            self.image.to_ref(),
+            &self.section_function,
+            &self.section_func_info,
+            &self.section_import_native_func,
+            &self.section_class_info,
+            &self.section_const_string,
+            None,
+        );
+        disasm.execute()?;
+        let mut constr_map: HashMap<String, u32> = cloned
+            .section_const_string
+            .strings
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.string.0.clone(), i as u32))
+            .collect();
+        let mut assembly = disasm.assembly.clone();
+        let mut new_image = MemWriter::new();
+        let mut index = 0;
+        let mut dumped_index = 0;
+        let mut string_stack = Vec::new();
+        let mut stacks = Vec::new();
+        let len = assembly.len();
+        while index < len {
+            let cmd = assembly[index].clone();
+            if cmd.code == CsicLoad {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                let is_string = csom == CsomImmediate && csvt == CsvtString;
+                if is_string {
+                    let s = disasm.get_string_literal()?;
+                    string_stack.push((Some(index), s));
+                }
+                stacks.push(is_string);
+            } else if matches!(
+                cmd.code,
+                CsicCall
+                    | CsicCallMember
+                    | CsicCallNativeFunction
+                    | CsicEnter
+                    | CsicElementIndirect
+            ) {
+                string_stack.clear();
+                stacks.clear();
+                while dumped_index <= index {
+                    let tcmd = &mut assembly[dumped_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    // Copy original command
+                    new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+                    dumped_index += 1;
+                }
+            } else if cmd.code == CsicOperate {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let csot = disasm.read_csot()?;
+                if csot == CsotAdd {
+                    if string_stack.len() >= 2
+                        && index >= 2
+                        && stacks.len() >= 2
+                        && stacks[stacks.len() - 1]
+                        && stacks[stacks.len() - 2]
+                    {
+                        let s2 = string_stack.pop().unwrap().1;
+                        let s1 = string_stack.pop().unwrap().1;
+                        let s = s1 + &s2;
+                        string_stack.push((None, s));
+                        stacks.pop();
+                        // Remove the two previous load commands and replace with this one
+                        index += 1;
+                        continue;
+                    }
+                }
+                if let Some(is_str) = stacks.pop() {
+                    if is_str && string_stack.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "String stack is empty when processing Operate at {:08X}",
+                            cmd.addr,
+                        ));
+                    }
+                    if is_str {
+                        string_stack.pop();
+                    }
+                }
+            } else if cmd.code == CsicExCall {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let arg_count = disasm.stream.read_i32()?;
+                let csom = disasm.read_csom()?;
+                let csvt = disasm.read_csvt()?;
+                if csom == CsomImmediate {
+                    let func_name = if csvt == CsvtString {
+                        disasm.get_string_literal()?
+                    } else if csvt == CsvtInteger {
+                        let func_address = disasm.stream.read_u32()?;
+                        let func = disasm.func_map.get(&func_address).ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Function address 0x{:08X} not found in ExCall",
+                                func_address
+                            )
+                        })?;
+                        func.name.0.clone()
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "Unexpected CSVT for function name in ExCall"
+                        ));
+                    };
+                    if func_name == "WitchWizard::SetPastLabel"
+                        && arg_count == 2
+                        && !self.no_part_label
+                    {
+                        if string_stack.is_empty() {
+                            return Err(anyhow::anyhow!(
+                                "String stack is empty when processing SetPastLabel"
+                            ));
+                        }
+                        if string_stack.len() > 1 {
+                            eprintln!(
+                                "WARNING: String stack has more than 1 item when processing SetPastLabel at {:08X}",
+                                cmd.addr,
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        key = string_stack[0].1.clone();
+                    } else if func_name == "WitchWizard::OutMsg" && arg_count == 8 {
+                        if string_stack.len() < 2 {
+                            return Err(anyhow::anyhow!(
+                                "String stack has less than 2 items when processing OutMsg at {:08X}",
+                                cmd.addr,
+                            ));
+                        }
+                        if string_stack.len() > 2 {
+                            eprintln!(
+                                "WARNING: String stack has more than 2 items when processing OutMsg at {:08X}",
+                                cmd.addr,
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        let name = string_stack[0].clone();
+                        let message = string_stack[1].clone();
+                        let message_idx = message.0.ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Cannot replace constructed string for message at {:08X}",
+                                cmd.addr,
+                            )
+                        })?;
+                        if !name.1.is_empty() {
+                            let name_idx = name.0.ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "Cannot replace constructed string for message name at {:08X}",
+                                    cmd.addr,
+                                )
+                            })?;
+                            let mut name = messages
+                                .get_mut(&key)
+                                .and_then(|messages| messages.first_mut().map(|m| m.name.take()))
+                                .flatten()
+                                .ok_or(anyhow::anyhow!(
+                                    "No available name message at {:08X}.",
+                                    cmd.addr
+                                ))?;
+                            if let Some(repl) = replacement {
+                                for (k, v) in repl.map.iter() {
+                                    name = name.replace(k, v);
+                                }
+                            }
+                            let constr_idx = if let Some(&idx) = constr_map.get(&name) {
+                                idx
+                            } else {
+                                // Add new string to const string section
+                                let idx = cloned.section_const_string.strings.len() as u32;
+                                cloned.section_const_string.strings.push(ConstStringEntry {
+                                    string: WideString(name.clone()),
+                                    refs: DWordArray { data: Vec::new() },
+                                });
+                                constr_map.insert(name.clone(), idx);
+                                idx
+                            };
+                            while dumped_index < name_idx {
+                                let tcmd = &mut assembly[dumped_index];
+                                tcmd.new_addr = new_image.pos as u32;
+                                // Copy original command
+                                new_image.write_from(
+                                    &mut disasm.stream,
+                                    tcmd.addr as u64,
+                                    tcmd.size as u64,
+                                )?;
+                                dumped_index += 1;
+                            }
+                            let name_cmd = &mut assembly[name_idx];
+                            name_cmd.new_addr = new_image.pos as u32;
+                            // Write new load command for name
+                            new_image.write_u8(CsicLoad as u8)?;
+                            new_image.write_u8(CsomImmediate as u8)?;
+                            new_image.write_u8(CsvtString as u8)?;
+                            new_image.write_u32(0x80000000)?;
+                            new_image.write_u32(constr_idx)?;
+                            dumped_index += 1;
+                        }
+                        let mut message = messages
+                            .get_mut(&key)
+                            .and_then(|messages| messages.pop_first())
+                            .ok_or(anyhow::anyhow!(
+                                "No available message for AddSelect at {:08X}.",
+                                cmd.addr
+                            ))?
+                            .message;
+                        if let Some(repl) = replacement {
+                            for (k, v) in repl.map.iter() {
+                                message = message.replace(k, v);
+                            }
+                        }
+                        while dumped_index < message_idx {
+                            let tcmd = &mut assembly[dumped_index];
+                            tcmd.new_addr = new_image.pos as u32;
+                            // Copy original command
+                            new_image.write_from(
+                                &mut disasm.stream,
+                                tcmd.addr as u64,
+                                tcmd.size as u64,
+                            )?;
+                            dumped_index += 1;
+                        }
+                        let message_cmd = &mut assembly[message_idx];
+                        message_cmd.new_addr = new_image.pos as u32;
+                        // Write new load command for message
+                        new_image.write_u8(CsicLoad as u8)?;
+                        new_image.write_u8(CsomImmediate as u8)?;
+                        new_image.write_u8(CsvtString as u8)?;
+                        new_image.write_u32(0x80000000)?;
+                        let constr_idx = if let Some(&idx) = constr_map.get(&message) {
+                            idx
+                        } else {
+                            // Add new string to const string section
+                            let idx = cloned.section_const_string.strings.len() as u32;
+                            cloned.section_const_string.strings.push(ConstStringEntry {
+                                string: WideString(message.clone()),
+                                refs: DWordArray { data: Vec::new() },
+                            });
+                            constr_map.insert(message.clone(), idx);
+                            idx
+                        };
+                        new_image.write_u32(constr_idx)?;
+                        dumped_index += 1;
+                    } else if func_name == "WitchWizard::SetCurrentScriptName" && arg_count == 2 {
+                        if string_stack.is_empty() {
+                            return Err(anyhow::anyhow!(
+                                "String stack is empty when processing SetCurrentScriptName"
+                            ));
+                        }
+                        if string_stack.len() > 1 {
+                            eprintln!(
+                                "WARNING: String stack has more than 1 item when processing SetCurrentScriptName at {:08X}",
+                                cmd.addr,
+                            );
+                            crate::COUNTER.inc_warning();
+                        }
+                        key = string_stack[0].1.clone();
+                    }
+                }
+                string_stack.clear();
+                stacks.clear();
+                while dumped_index <= index {
+                    let tcmd = &mut assembly[dumped_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    // Copy original command
+                    new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+                    dumped_index += 1;
+                }
+            } else if cmd.code == CsicCallNativeMember {
+                disasm.stream.pos = cmd.addr as usize + 1;
+                let arg_count = disasm.stream.read_i32()?;
+                let class_index = disasm.stream.read_u32()?;
+                let class = self
+                    .section_class_info
+                    .infos
+                    .get(class_index as usize)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid class info index: {} (max {}) at {:08x}",
+                            class_index,
+                            self.section_class_info.infos.len(),
+                            cmd.addr
+                        )
+                    })?;
+                let func_index = disasm.stream.read_u32()?;
+                let func = class.method_info.get(func_index as usize).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Invalid method info index: {} (max {}) at {:08x}",
+                        func_index,
+                        class.method_info.len(),
+                        cmd.addr
+                    )
+                })?;
+                let func_name = func.prototype_info.global_name.0.as_str();
+                if func_name == "Window::CreateDisplay@2" && arg_count == 5 {
+                    if string_stack.is_empty() {
+                        return Err(anyhow::anyhow!(
+                            "String stack is empty when processing Window::CreateDisplay@2"
+                        ));
+                    }
+                    if string_stack.len() > 1 {
+                        eprintln!(
+                            "WARNING: String stack has more than 1 item when processing Window::CreateDisplay@2 at {:08X}",
+                            cmd.addr,
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                    let message = string_stack[0].clone();
+                    let message_idx = message.0.ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Cannot replace constructed string for message at {:08X}",
+                            cmd.addr,
+                        )
+                    })?;
+                    let mut message = messages
+                        .get_mut(&key)
+                        .and_then(|messages| messages.pop_first())
+                        .ok_or(anyhow::anyhow!(
+                            "No available message for CreateDisplay at {:08X}.",
+                            cmd.addr,
+                        ))?
+                        .message;
+                    if let Some(repl) = replacement {
+                        for (k, v) in repl.map.iter() {
+                            message = message.replace(k, v);
+                        }
+                    }
+                    while dumped_index < message_idx {
+                        let tcmd = &mut assembly[dumped_index];
+                        tcmd.new_addr = new_image.pos as u32;
+                        // Copy original command
+                        new_image.write_from(
+                            &mut disasm.stream,
+                            tcmd.addr as u64,
+                            tcmd.size as u64,
+                        )?;
+                        dumped_index += 1;
+                    }
+                    let message_cmd = &mut assembly[message_idx];
+                    message_cmd.new_addr = new_image.pos as u32;
+                    // Write new load command for message
+                    new_image.write_u8(CsicLoad as u8)?;
+                    new_image.write_u8(CsomImmediate as u8)?;
+                    new_image.write_u8(CsvtString as u8)?;
+                    new_image.write_u32(0x80000000)?;
+                    let constr_idx = if let Some(&idx) = constr_map.get(&message) {
+                        idx
+                    } else {
+                        // Add new string to const string section
+                        let idx = cloned.section_const_string.strings.len() as u32;
+                        cloned.section_const_string.strings.push(ConstStringEntry {
+                            string: WideString(message.clone()),
+                            refs: DWordArray { data: Vec::new() },
+                        });
+                        constr_map.insert(message.clone(), idx);
+                        idx
+                    };
+                    new_image.write_u32(constr_idx)?;
+                    dumped_index += 1;
+                }
+                string_stack.clear();
+                stacks.clear();
+                while dumped_index <= index {
+                    let tcmd = &mut assembly[dumped_index];
+                    tcmd.new_addr = new_image.pos as u32;
+                    // Copy original command
+                    new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+                    dumped_index += 1;
+                }
+            }
+            index += 1;
+        }
+        while dumped_index < len {
+            let tcmd = &mut assembly[dumped_index];
+            tcmd.new_addr = new_image.pos as u32;
+            // Copy original command
+            new_image.write_from(&mut disasm.stream, tcmd.addr as u64, tcmd.size as u64)?;
+            dumped_index += 1;
+        }
+        for (s, mes) in messages {
+            if !mes.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "Not all messages were used for key '{}', {} remaining.",
+                    s,
+                    mes.len()
+                ));
+            }
+        }
+        let commands: HashMap<u32, &ECSExecutionImageCommandRecord> =
+            assembly.iter().map(|c| (c.addr, c)).collect();
+        Self::fix_image(&assembly, &mut disasm, &mut new_image, &commands)?;
+        cloned.image = MemReader::new(new_image.into_inner());
+        cloned.fix_references(&commands)?;
+        cloned.save(file)?;
+        Ok(())
     }
 
     fn import_all<'a>(&self, messages: Vec<String>, file: Box<dyn WriteSeek + 'a>) -> Result<()> {
