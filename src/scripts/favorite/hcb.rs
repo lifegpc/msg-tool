@@ -84,19 +84,12 @@ impl Script for HcbScript {
     }
 
     fn extract_messages(&self) -> Result<Vec<Message>> {
-        let mut messages = Vec::new();
-        for funcs in [&self.data.functions, &self.data.main_script] {
-            for func in funcs {
-                for operand in &func.operands {
-                    if let Operand::S(s) = operand {
-                        if self.filter_ascii && s.chars().all(|c| c.is_ascii()) {
-                            continue;
-                        }
-                        messages.push(Message::new(s.clone(), None));
-                    }
-                }
-            }
-        }
+        let messages = self
+            .data
+            .extract_messages(self.filter_ascii)
+            .into_iter()
+            .map(|(speaker, message)| Message::new(message, speaker))
+            .collect();
         Ok(messages)
     }
 
