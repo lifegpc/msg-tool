@@ -1328,7 +1328,7 @@ dependencies = [
 
 [[package]]
 name = "msg_tool"
-version = "0.2.17"
+version = "0.2.18"
 dependencies = [
  "adler",
  "anyhow",
@@ -1383,7 +1383,9 @@ dependencies = [
 
 [[package]]
 name = "msg_tool_macro"
-version = "0.2.12"
+version = "0.2.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "948d9a6a94cfa8de09f3e4c7030cd28b94ead994784d2b7226c311e3d0a8b0ec"
 dependencies = [
  "quote",
  "syn 2.0.114",

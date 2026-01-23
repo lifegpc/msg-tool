@@ -1,6 +1,6 @@
 [package]
 name = "msg_tool_macro"
-version = "0.2.12"
+version = "0.2.18"
 edition = "2024"
 repository = "https://github.com/lifegpc/msg-tool"
 description = "A procedural macro for the msg-tool project."
