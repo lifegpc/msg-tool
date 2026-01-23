@@ -190,7 +190,10 @@ impl Data {
 
             let start_pos = func_starts.iter().position(|&s| s == speak_idx);
             if let Some(pos) = start_pos {
-                let end = func_starts.get(pos + 1).copied().unwrap_or(self.functions.len());
+                let end = func_starts
+                    .get(pos + 1)
+                    .copied()
+                    .unwrap_or(self.functions.len());
                 let names: Vec<String> = (speak_idx..end)
                     .filter(|&i| self.functions[i].opcode == 0x0e)
                     .filter_map(|i| match self.functions[i].operands.first() {

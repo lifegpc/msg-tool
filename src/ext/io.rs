@@ -328,7 +328,28 @@ pub trait Peek {
         encoding: Encoding,
         info: &Option<Box<dyn std::any::Any>>,
     ) -> Result<Vec<T>> {
-        let mut vec = Vec::with_capacity(count);
+        self.read_struct_vec2(count, big, encoding, info, 4194304)
+    }
+    /// Reads a vector of structs from the reader.
+    /// The structs must implement the `StructUnpack` trait.
+    ///
+    /// * `count` is the number of structs to read.
+    /// * `big` indicates whether the structs are in big-endian format.
+    /// * `encoding` specifies the encoding to use for string fields in the structs.
+    /// Returns a vector of unpacked structs.
+    fn read_struct_vec2<T: StructUnpack>(
+        &mut self,
+        count: usize,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+        max_preallocated_size: usize,
+    ) -> Result<Vec<T>> {
+        let mut vec = if size_of::<T>() * count <= max_preallocated_size {
+            Vec::with_capacity(count)
+        } else {
+            Vec::new()
+        };
         for _ in 0..count {
             vec.push(self.read_struct(big, encoding, info)?);
         }

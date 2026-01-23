@@ -490,7 +490,7 @@ impl Script for RldScript {
                 serde_yaml_ng::to_string(&names)
                     .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
             } else {
-                serde_json::to_string(&names)
+                serde_json::to_string_pretty(&names)
                     .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
             }
         } else {
@@ -498,7 +498,7 @@ impl Script for RldScript {
                 serde_yaml_ng::to_string(&self.ops)
                     .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
             } else {
-                serde_json::to_string(&self.ops)
+                serde_json::to_string_pretty(&self.ops)
                     .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
             }
         };

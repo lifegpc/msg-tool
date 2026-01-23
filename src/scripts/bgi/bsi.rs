@@ -133,7 +133,7 @@ impl Script for BGIBsiScript {
             serde_yaml_ng::to_string(&self.data)
                 .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
         } else {
-            serde_json::to_string(&self.data)
+            serde_json::to_string_pretty(&self.data)
                 .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
         };
         let mut writer = crate::utils::files::write_file(filename)?;

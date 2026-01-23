@@ -367,7 +367,7 @@ impl Script for CstlScript {
             serde_yaml_ng::to_string(&d)
                 .map_err(|e| anyhow::anyhow!("Failed to serialize to YAML: {}", e))?
         } else {
-            serde_json::to_string(&d)
+            serde_json::to_string_pretty(&d)
                 .map_err(|e| anyhow::anyhow!("Failed to serialize to JSON: {}", e))?
         };
         let s = encode_string(encoding, &s, false)?;

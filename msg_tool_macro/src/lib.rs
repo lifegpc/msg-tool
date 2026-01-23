@@ -501,6 +501,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 /// * `pvec(<number_type>)` attribute can be used to specify a packed vector length for Vec<_> fields, where `<number_type>` can be `u8`, `u16`, `u32` or `u64`.
 /// length is read as a prefix before the vector data.
 /// * `skip_unpack_if(<expr>)` attribute can be used to skip unpacking a field if the expression evaluates to true. The expression must be a valid Rust expression that evaluates to a boolean.
+/// * `pvec_max_preallocated_size(<size>)` attribute can be used to limit the maximum preallocated size for packed vectors to prevent excessive memory allocation. If the unpacked size exceeds this limit, preallocation will be disabled. Default size is 0x400000 (4 MB).
 #[proc_macro_derive(
     StructUnpack,
     attributes(
@@ -511,7 +512,8 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
         fvec,
         pstring,
         pvec,
-        skip_unpack_if
+        skip_unpack_if,
+        pvec_max_preallocated_size,
     )
 )]
 pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
@@ -530,6 +532,10 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         let mut cur = None;
         let mut skip_if: Option<syn::Expr> = None;
         let mut is_cstring = false;
+        let mut pvec_max_preallocated_size = syn::Expr::Lit(syn::ExprLit {
+            attrs: Vec::new(),
+            lit: syn::Lit::Int(syn::LitInt::new("4194304", field.span())), // Default 4 MB
+        });
         for attr in &field.attrs {
             let path = attr.path();
             if path.is_ident("skip_unpack") {
@@ -592,6 +598,10 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                 if let syn::Meta::List(list) = &attr.meta {
                     skip_if = Some(list.parse_args::<syn::Expr>().unwrap());
                 }
+            } else if path.is_ident("pvec_max_preallocated_size") {
+                if let syn::Meta::List(list) = &attr.meta {
+                    pvec_max_preallocated_size = list.parse_args::<syn::Expr>().unwrap();
+                }
             }
         }
         let field_name = match &field.ident {
@@ -636,12 +646,12 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                 if segment.ident == "Vec" {
                     if let Some(fixed_vec) = fixed_vec {
                         cur = Some(quote::quote! {
-                            let #field_name = reader.read_struct_vec(#fixed_vec, big, encoding, __info)?;
+                            let #field_name = reader.read_struct_vec2(#fixed_vec, big, encoding, __info, #pvec_max_preallocated_size)?;
                         });
                     } else if let Some(pvec_type) = pvec_type {
                         cur = Some(quote::quote! {
                             let len = <#pvec_type>::unpack(reader, big, encoding, __info)? as usize;
-                            let #field_name = reader.read_struct_vec(len, big, encoding, __info)?;
+                            let #field_name = reader.read_struct_vec2(len, big, encoding, __info, #pvec_max_preallocated_size)?;
                         });
                     }
                 }
