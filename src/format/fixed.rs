@@ -105,6 +105,8 @@ pub struct FixedFormatter {
     jieba: Option<Jieba>,
     #[cfg(not(feature = "jieba"))]
     jieba: Option<()>,
+    /// Do not remove space at the start of the line
+    no_remove_space_at_line_start: bool,
     #[allow(unused)]
     typ: Option<ScriptType>,
 }
@@ -118,6 +120,7 @@ impl FixedFormatter {
         break_with_sentence: bool,
         #[cfg(feature = "jieba")] break_chinese_words: bool,
         #[cfg(feature = "jieba")] jieba_dict: Option<String>,
+        no_remove_space_at_line_start: bool,
         typ: Option<ScriptType>,
     ) -> Result<Self> {
         #[cfg(feature = "jieba")]
@@ -142,6 +145,7 @@ impl FixedFormatter {
             jieba,
             #[cfg(not(feature = "jieba"))]
             jieba: None,
+            no_remove_space_at_line_start,
             typ,
         })
     }
@@ -156,6 +160,7 @@ impl FixedFormatter {
             break_with_sentence: false,
             jieba: None,
             typ: None,
+            no_remove_space_at_line_start: false,
         }
     }
 
@@ -199,6 +204,12 @@ impl FixedFormatter {
         if let Some(ref mut jieba) = self.jieba {
             jieba.add_word(&dict, freq, tag);
         }
+        self
+    }
+
+    #[cfg(test)]
+    fn no_remove_space_at_line_start(mut self, no_remove: bool) -> Self {
+        self.no_remove_space_at_line_start = no_remove;
         self
     }
 
@@ -566,7 +577,10 @@ impl FixedFormatter {
                 }
             }
 
-            if (current_length == 0 || pre_is_lf) && SPACE_STR_LIST.contains(&grapheme) {
+            if !self.no_remove_space_at_line_start
+                && (current_length == 0 || pre_is_lf)
+                && SPACE_STR_LIST.contains(&grapheme)
+            {
                 i += 1;
                 continue;
             }
@@ -727,6 +741,15 @@ fn test_format() {
     assert_eq!(
         formatter3.format("（This） 「is a test."),
         "（This） 「is\n\u{3000}a test."
+    );
+
+    let formatter3b = FixedFormatter::builder(10)
+        .break_words(false)
+        .no_remove_space_at_line_start(true);
+
+    assert_eq!(
+        formatter3b.format("（This） 「is a test."),
+        "（This） 「is\n a test."
     );
 
     let formatter4 = FixedFormatter::builder(10)

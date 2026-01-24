@@ -695,6 +695,9 @@ pub struct ImportArgs {
     #[arg(long, action = ArgAction::SetTrue)]
     /// Whether to disable break Chinese words at the end of the line.
     pub patched_no_break_chinese_words: bool,
+    #[arg(long, action = ArgAction::SetTrue)]
+    /// Do not remove space at the start of the line
+    pub patched_no_remove_space_at_line_start: bool,
     #[arg(long)]
     /// Name table file
     pub name_csv: Option<String>,

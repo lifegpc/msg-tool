@@ -1580,6 +1580,8 @@ pub fn import_script(
                                 break_chinese_words: !imp_cfg.patched_no_break_chinese_words,
                                 #[cfg(feature = "jieba")]
                                 jieba_dict: arg.jieba_dict.clone(),
+                                no_remove_space_at_line_start: imp_cfg
+                                    .patched_no_remove_space_at_line_start,
                             },
                             types::FormatType::None => types::FormatOptions::None,
                         },
@@ -2051,6 +2053,8 @@ pub fn import_script(
                             break_chinese_words: !imp_cfg.patched_no_break_chinese_words,
                             #[cfg(feature = "jieba")]
                             jieba_dict: arg.jieba_dict.clone(),
+                            no_remove_space_at_line_start: imp_cfg
+                                .patched_no_remove_space_at_line_start,
                         },
                         types::FormatType::None => types::FormatOptions::None,
                     },
@@ -2237,6 +2241,7 @@ pub fn import_script(
                     break_chinese_words: !imp_cfg.patched_no_break_chinese_words,
                     #[cfg(feature = "jieba")]
                     jieba_dict: arg.jieba_dict.clone(),
+                    no_remove_space_at_line_start: imp_cfg.patched_no_remove_space_at_line_start,
                 },
                 types::FormatType::None => types::FormatOptions::None,
             },
@@ -2433,6 +2438,7 @@ pub fn import_script(
                 break_chinese_words: !imp_cfg.patched_no_break_chinese_words,
                 #[cfg(feature = "jieba")]
                 jieba_dict: arg.jieba_dict.clone(),
+                no_remove_space_at_line_start: imp_cfg.patched_no_remove_space_at_line_start,
             },
             types::FormatType::None => types::FormatOptions::None,
         },

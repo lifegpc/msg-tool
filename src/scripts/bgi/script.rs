@@ -188,6 +188,7 @@ impl Script for BGIScript {
                 break_chinese_words: true,
                 #[cfg(feature = "jieba")]
                 jieba_dict: None,
+                no_remove_space_at_line_start: false,
             }
         }
     }

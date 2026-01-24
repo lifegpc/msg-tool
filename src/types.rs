@@ -878,6 +878,8 @@ pub enum FormatOptions {
         #[cfg(feature = "jieba")]
         /// Path to custom jieba dictionary
         jieba_dict: Option<String>,
+        /// Do not remove space at the start of the line
+        no_remove_space_at_line_start: bool,
     },
     /// Do not wrap line
     None,

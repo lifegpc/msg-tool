@@ -17,6 +17,7 @@ pub fn fmt_message(mes: &mut Vec<Message>, opt: FormatOptions, typ: ScriptType) 
             break_chinese_words,
             #[cfg(feature = "jieba")]
             jieba_dict,
+            no_remove_space_at_line_start,
         } => {
             let formatter = fixed::FixedFormatter::new(
                 length,
@@ -28,6 +29,7 @@ pub fn fmt_message(mes: &mut Vec<Message>, opt: FormatOptions, typ: ScriptType) 
                 break_chinese_words,
                 #[cfg(feature = "jieba")]
                 jieba_dict,
+                no_remove_space_at_line_start,
                 Some(typ),
             )?;
             for message in mes.iter_mut() {
