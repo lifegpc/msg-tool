@@ -24,6 +24,8 @@ pub mod hexen_haus;
 pub mod kirikiri;
 #[cfg(feature = "musica")]
 pub mod musica;
+#[cfg(feature = "qlie")]
+pub mod qlie;
 #[cfg(feature = "silky")]
 pub mod silky;
 #[cfg(feature = "softpal")]
@@ -164,6 +166,8 @@ lazy_static::lazy_static! {
         Box::new(musica::archive::paz::PazArcBuilder::new()),
         #[cfg(feature = "entis-gls")]
         Box::new(entis_gls::csx::CSXScriptBuilder::new()),
+        #[cfg(feature = "qlie")]
+        Box::new(qlie::script::QlieScriptBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

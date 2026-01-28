@@ -51,6 +51,16 @@ impl Encoding {
         }
     }
 
+    /// Returns true if the encoding is UTF-16BE.
+    pub fn is_utf16be(&self) -> bool {
+        match self {
+            Self::Utf16BE => true,
+            #[cfg(windows)]
+            Self::CodePage(code_page) => *code_page == 1201,
+            _ => false,
+        }
+    }
+
     /// Returns true if the encoding is UTF8.
     pub fn is_utf8(&self) -> bool {
         match self {
@@ -765,6 +775,9 @@ pub enum ScriptType {
     #[cfg(feature = "musica-arc")]
     /// Musica Engine Resource Archive (.paz)
     MusicaPaz,
+    #[cfg(feature = "qlie")]
+    /// Qlie Engine Scenario script (.s)
+    Qlie,
     #[cfg(feature = "silky")]
     /// Silky Engine Mes script
     Silky,
