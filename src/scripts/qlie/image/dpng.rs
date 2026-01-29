@@ -120,16 +120,26 @@ impl Script for DpngImage {
     }
 
     fn export_image(&self) -> Result<ImageData> {
-        let mut base = load_png(MemReaderRef::new(&self.img.tiles[0].png_data))?;
+        let (idx, tile) = self
+            .img
+            .tiles
+            .iter()
+            .enumerate()
+            .find(|(_, t)| t.size != 0)
+            .ok_or_else(|| anyhow::anyhow!("DPNG image has no valid tiles with PNG data"))?;
+        let mut base = load_png(MemReaderRef::new(&tile.png_data))?;
         convert_to_rgba(&mut base)?;
         let mut base = draw_on_canvas(
             base,
             self.img.header.image_width,
             self.img.header.image_height,
-            self.img.tiles[0].x,
-            self.img.tiles[0].y,
+            tile.x,
+            tile.y,
         )?;
-        for tile in &self.img.tiles[1..] {
+        for tile in &self.img.tiles[idx + 1..] {
+            if tile.size == 0 {
+                continue;
+            }
             let mut diff = load_png(MemReaderRef::new(&tile.png_data))?;
             convert_to_rgba(&mut diff)?;
             draw_on_image(&mut base, &diff, tile.x, tile.y)?;

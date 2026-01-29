@@ -601,7 +601,8 @@ impl Script for ScnScript {
                                             text[1][self.language_index][0].set_string(name);
                                         } else {
                                             return Err(anyhow::anyhow!(
-                                                "Name is missing for message. (text {j} at scene {i})"
+                                                "Name is missing for message. (text {j} at scene {i}, message: {})",
+                                                m.message
                                             ));
                                         }
                                     }
