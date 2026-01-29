@@ -262,11 +262,31 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for QliePackArchive<T> {
             MutexWrapper::new(self.reader.clone(), entry.offset),
             entry.size as u64,
         )?;
+        let stream_clone = StreamRegion::with_size(
+            MutexWrapper::new(self.reader.clone(), entry.offset),
+            entry.size as u64,
+        )?;
         let mut stream = self.encryption.decrypt_entry(Box::new(stream), &entry)?;
+        let mut stream_clone = self
+            .encryption
+            .decrypt_entry(Box::new(stream_clone), &entry)?;
         if entry.is_packed != 0 {
             stream = encryption::decompress(stream)?;
+            stream_clone = encryption::decompress(stream_clone)?;
         }
-        Ok(Box::new(QliePackArchiveContent::new(stream, entry)))
+        let mut entry = QliePackArchiveContent::new(stream, entry);
+        let mut header_buffer = [0u8; 1024];
+        let readed = stream_clone.read_most(&mut header_buffer)?;
+        entry.typ = detect_script_type(&entry.entry.name, &header_buffer, readed);
+        Ok(Box::new(entry))
+    }
+}
+
+fn detect_script_type(_name: &str, buf: &[u8], buf_len: usize) -> Option<ScriptType> {
+    if super::super::script::is_this_format(buf, buf_len) {
+        Some(ScriptType::Qlie)
+    } else {
+        None
     }
 }
 
@@ -274,11 +294,16 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for QliePackArchive<T> {
 struct QliePackArchiveContent<T: Read + std::fmt::Debug> {
     reader: T,
     entry: QlieEntry,
+    typ: Option<ScriptType>,
 }
 
 impl<T: Read + std::fmt::Debug> QliePackArchiveContent<T> {
     pub fn new(reader: T, entry: QlieEntry) -> Self {
-        Self { reader, entry }
+        Self {
+            reader,
+            entry,
+            typ: None,
+        }
     }
 }
 
@@ -291,5 +316,9 @@ impl<T: Read + std::fmt::Debug> Read for QliePackArchiveContent<T> {
 impl<T: Read + std::fmt::Debug> ArchiveContent for QliePackArchiveContent<T> {
     fn name(&self) -> &str {
         &self.entry.name
+    }
+
+    fn script_type(&self) -> Option<&ScriptType> {
+        self.typ.as_ref()
     }
 }

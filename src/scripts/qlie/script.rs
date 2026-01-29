@@ -72,7 +72,7 @@ pub fn is_this_format(buf: &[u8], buf_len: usize) -> bool {
             Err(_) => return false,
         };
         let line = line.trim();
-        if line.to_lowercase() == "@@@avg/header.s" {
+        if line.to_lowercase() == "@@@avg\\header.s" {
             return true;
         }
     }

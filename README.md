@@ -216,6 +216,10 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `qlie` | `qlie` | Qlie Engine Scenario script (.s) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
+
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `qlie-pack` | `qlie-arc` | Qlie Pack Archive (.pack) | ✔️ | ❌ | Currently only v3.1 are supported |
 ### Silky Engine
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
