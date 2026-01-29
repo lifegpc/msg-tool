@@ -179,6 +179,60 @@ pub fn convert_rgba_to_bgra(data: &mut ImageData) -> Result<()> {
     Ok(())
 }
 
+/// Converts a Grayscale image to RGB format.
+pub fn convert_grayscale_to_rgb(data: &mut ImageData) -> Result<()> {
+    if data.color_type != ImageColorType::Grayscale {
+        return Err(anyhow::anyhow!("Image is not Grayscale"));
+    }
+    if data.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "Grayscale to RGB conversion only supports 8-bit depth"
+        ));
+    }
+    let mut new_data = Vec::with_capacity(data.data.len() * 3);
+    for &gray in &data.data {
+        new_data.push(gray); // R
+        new_data.push(gray); // G
+        new_data.push(gray); // B
+    }
+    data.data = new_data;
+    data.color_type = ImageColorType::Rgb;
+    Ok(())
+}
+
+/// Converts a Grayscale image to RGBA format.
+pub fn convert_grayscale_to_rgba(data: &mut ImageData) -> Result<()> {
+    if data.color_type != ImageColorType::Grayscale {
+        return Err(anyhow::anyhow!("Image is not Grayscale"));
+    }
+    if data.depth != 8 {
+        return Err(anyhow::anyhow!(
+            "Grayscale to RGBA conversion only supports 8-bit depth"
+        ));
+    }
+    let mut new_data = Vec::with_capacity(data.data.len() * 4);
+    for &gray in &data.data {
+        new_data.push(gray); // R
+        new_data.push(gray); // G
+        new_data.push(gray); // B
+        new_data.push(255); // A
+    }
+    data.data = new_data;
+    data.color_type = ImageColorType::Rgba;
+    Ok(())
+}
+
+/// Converts an image to RGBA format.
+pub fn convert_to_rgba(data: &mut ImageData) -> Result<()> {
+    match data.color_type {
+        ImageColorType::Rgb => convert_rgb_to_rgba(data),
+        ImageColorType::Bgr => convert_bgr_to_bgra(data),
+        ImageColorType::Rgba => Ok(()),
+        ImageColorType::Bgra => convert_bgra_to_rgba(data),
+        ImageColorType::Grayscale => convert_grayscale_to_rgba(data),
+    }
+}
+
 /// Encodes an image to the specified format and writes it to a file.
 ///
 /// * `data` - The image data to encode.
@@ -598,6 +652,60 @@ pub fn apply_opacity(img: &mut ImageData, opacity: u8) -> Result<()> {
     for i in (0..img.data.len()).step_by(4) {
         img.data[i + 3] = (img.data[i + 3] as u16 * opacity as u16 / 255) as u8;
     }
+    Ok(())
+}
+
+/// Draws an image on another image. The pixel data of `diff` will completely overwrite the pixel data of `base`.
+///
+/// * `base` - The base image to draw on.
+/// * `diff` - The image to draw.
+/// * `left` - The horizontal offset to start drawing the image.
+/// * `top` - The vertical offset to start drawing the image.
+pub fn draw_on_image(base: &mut ImageData, diff: &ImageData, left: u32, top: u32) -> Result<()> {
+    if base.color_type != diff.color_type {
+        return Err(anyhow::anyhow!("Image color types do not match"));
+    }
+    if base.depth != diff.depth {
+        return Err(anyhow::anyhow!("Image depths do not match"));
+    }
+
+    let bits_per_pixel = base.color_type.bpp(base.depth) as usize;
+    if bits_per_pixel == 0 || bits_per_pixel % 8 != 0 {
+        return Err(anyhow::anyhow!(
+            "Unsupported pixel bit layout: {} bits",
+            bits_per_pixel
+        ));
+    }
+    let bpp = bits_per_pixel / 8;
+
+    let base_stride = base.width as usize * bpp;
+    let diff_stride = diff.width as usize * bpp;
+
+    for y in 0..diff.height {
+        let base_y = top + y;
+        if base_y >= base.height {
+            continue;
+        }
+
+        for x in 0..diff.width {
+            let base_x = left + x;
+            if base_x >= base.width {
+                continue;
+            }
+
+            let diff_idx = (y as usize * diff_stride) + (x as usize * bpp);
+            let base_idx = (base_y as usize * base_stride) + (base_x as usize * bpp);
+
+            // safety: bounds should hold given width/height checks, but guard to avoid panics
+            if diff_idx + bpp > diff.data.len() || base_idx + bpp > base.data.len() {
+                continue;
+            }
+
+            base.data[base_idx..base_idx + bpp]
+                .copy_from_slice(&diff.data[diff_idx..diff_idx + bpp]);
+        }
+    }
+
     Ok(())
 }
 

@@ -220,6 +220,10 @@ msg-tool create -t <script-type> <input> <output>
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
 | `qlie-pack` | `qlie-arc` | Qlie Pack Archive (.pack) | ✔️ | ❌ | Currently only v3.1 are supported |
+
+| Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `qlie-dpng` | `qlie-img` | Qlie tiled PNG image (.png) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
 ### Silky Engine
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|

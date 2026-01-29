@@ -284,10 +284,15 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for QliePackArchive<T> {
 
 fn detect_script_type(_name: &str, buf: &[u8], buf_len: usize) -> Option<ScriptType> {
     if super::super::script::is_this_format(buf, buf_len) {
-        Some(ScriptType::Qlie)
-    } else {
-        None
+        return Some(ScriptType::Qlie);
     }
+    #[cfg(feature = "qlie-img")]
+    {
+        if buf_len >= 4 && buf.starts_with(b"DPNG") {
+            return Some(ScriptType::QlieDpng);
+        }
+    }
+    None
 }
 
 #[derive(Debug)]

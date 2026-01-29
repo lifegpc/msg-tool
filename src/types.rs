@@ -781,6 +781,9 @@ pub enum ScriptType {
     #[cfg(feature = "qlie-arc")]
     /// Qlie Pack Archive (.pack)
     QliePack,
+    #[cfg(feature = "qlie-img")]
+    /// Qlie tiled PNG image (.png)
+    QlieDpng,
     #[cfg(feature = "silky")]
     /// Silky Engine Mes script
     Silky,
