@@ -34,7 +34,7 @@ markup5ever = { version = "0.36", optional = true }
 markup5ever_rcdom = { version = "0.36", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
-msg_tool_macro = { version = "0.2.18" }
+msg_tool_macro = { path = "./msg_tool_macro" }
 num_cpus = "1.17"
 overf = "0.1"
 parse-size = { version = "1.1", optional = true }
@@ -62,7 +62,7 @@ default = ["all-fmt", "image-jpg", "image-jxl", "image-webp", "audio-flac", "jie
 all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
 all-script = ["artemis", "artemis-panmimisoft", "bgi", "cat-system", "circus", "entis-gls", "escude", "ex-hibit", "favorite", "hexen-haus", "kirikiri", "musica", "qlie", "silky", "softpal", "will-plus", "yaneurao", "yaneurao-itufuru"]
 all-img = ["bgi-img", "cat-system-img", "circus-img", "emote-img", "hexen-haus-img", "kirikiri-img", "softpal-img", "will-plus-img"]
-all-arc = ["artemis-arc", "bgi-arc", "cat-system-arc", "circus-arc", "escude-arc", "ex-hibit-arc", "hexen-haus-arc", "kirikiri-arc", "musica-arc", "softpal-arc"]
+all-arc = ["artemis-arc", "bgi-arc", "cat-system-arc", "circus-arc", "escude-arc", "ex-hibit-arc", "hexen-haus-arc", "kirikiri-arc", "musica-arc", "qlie-arc", "softpal-arc"]
 all-audio = ["bgi-audio", "circus-audio"]
 artemis = ["stylua", "utils-escape"]
 artemis-panmimisoft = ["artemis", "rust-ini"]
@@ -94,6 +94,7 @@ kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 musica = []
 musica-arc = ["musica", "crc32fast", "flate2", "include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]
 qlie = []
+qlie-arc = ["qlie", "utils-mmx"]
 silky = []
 softpal = ["int-enum"]
 softpal-arc = ["softpal"]
@@ -117,6 +118,7 @@ utils-bit-stream = []
 utils-blowfish = ["byteorder"]
 utils-crc32 = []
 utils-escape = ["fancy-regex"]
+utils-mmx = []
 utils-pcm = []
 utils-rc4 = []
 utils-serde-base64bytes = ["base64"]

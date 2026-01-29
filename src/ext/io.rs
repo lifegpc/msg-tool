@@ -943,6 +943,10 @@ pub trait ReadExt {
 
     /// Reads data and checks if it matches the provided data.
     fn read_and_equal(&mut self, data: &[u8]) -> Result<()>;
+
+    /// Reads as much data as possible into the provided buffer.
+    /// Returns the number of bytes read.
+    fn read_most(&mut self, buf: &mut [u8]) -> Result<usize>;
 }
 
 impl<T: Read> ReadExt for T {
@@ -1112,6 +1116,18 @@ impl<T: Read> ReadExt for T {
             ));
         }
         Ok(())
+    }
+
+    fn read_most(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let mut total_read = 0;
+        while total_read < buf.len() {
+            match self.read(&mut buf[total_read..]) {
+                Ok(0) => break, // EOF reached
+                Ok(n) => total_read += n,
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(total_read)
     }
 }
 
@@ -1681,6 +1697,14 @@ impl MemWriter {
         }
     }
 
+    /// Creates a new `MemWriter` with the given capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        MemWriter {
+            data: Vec::with_capacity(capacity),
+            pos: 0,
+        }
+    }
+
     /// Creates a new `MemWriter` with the given data.
     pub fn from_vec(data: Vec<u8>) -> Self {
         MemWriter { data, pos: 0 }
@@ -1788,6 +1812,102 @@ impl CPeek for MemWriter {
 
     fn cpeek_u16string(&self) -> Result<Vec<u8>> {
         self.to_ref().cpeek_u16string()
+    }
+}
+
+/// A memory reader that can read data from a slice of bytes.
+pub struct MemWriterRef<'a> {
+    /// The data to read from.
+    pub data: &'a mut [u8],
+    /// The current position in the data.
+    pub pos: usize,
+}
+
+impl<'a> MemWriterRef<'a> {
+    /// Creates a new `MemWriterRef` with the given data.
+    pub fn new(data: &'a mut [u8]) -> Self {
+        MemWriterRef { data, pos: 0 }
+    }
+}
+
+impl<'a> Read for MemWriterRef<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if self.pos >= self.data.len() {
+            return Ok(0);
+        }
+        let bytes_to_read = buf.len().min(self.data.len() - self.pos);
+        let mut bu = &self.data[self.pos..self.pos + bytes_to_read];
+        bu.read(buf)?;
+        self.pos += bytes_to_read;
+        Ok(bytes_to_read)
+    }
+}
+
+impl<'a> Seek for MemWriterRef<'a> {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        match pos {
+            SeekFrom::Start(offset) => {
+                if offset > self.data.len() as u64 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Seek position is beyond the end of the data",
+                    ));
+                }
+                self.pos = offset as usize;
+            }
+            SeekFrom::End(offset) => {
+                let end_pos = self.data.len() as i64 + offset;
+                if end_pos < 0 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Seek from end resulted in negative position",
+                    ));
+                }
+                if end_pos as usize > self.data.len() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Seek position is beyond the end of the data",
+                    ));
+                }
+                self.pos = end_pos as usize;
+            }
+            SeekFrom::Current(offset) => {
+                let new_pos = (self.pos as i64 + offset) as usize;
+                if new_pos > self.data.len() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Seek position is beyond the end of the data",
+                    ));
+                }
+                self.pos = new_pos;
+            }
+        }
+        Ok(self.pos as u64)
+    }
+
+    fn stream_position(&mut self) -> Result<u64> {
+        Ok(self.pos as u64)
+    }
+
+    fn rewind(&mut self) -> Result<()> {
+        self.pos = 0;
+        Ok(())
+    }
+}
+
+impl Write for MemWriterRef<'_> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        if self.pos >= self.data.len() {
+            return Ok(0);
+        }
+        let bytes_to_write = buf.len().min(self.data.len() - self.pos);
+        self.data[self.pos..self.pos + bytes_to_write].copy_from_slice(&buf[..bytes_to_write]);
+        self.pos += bytes_to_write;
+        Ok(bytes_to_write)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
     }
 }
 
@@ -2402,5 +2522,64 @@ impl<'a, T: Write> Write for TrackStream<'a, T> {
 
     fn flush(&mut self) -> Result<()> {
         self.inner.flush()
+    }
+}
+
+/// A reader that forwards reads to an inner reader, but ensures that all reads are aligned to a specified alignment boundary.
+#[derive(Debug)]
+pub struct AlignedReader<const A: usize, T: Read> {
+    inner: T,
+    buffer: [u8; A],
+    buffer_size: usize,
+}
+
+impl<const A: usize, T: Read> AlignedReader<A, T> {
+    /// Creates a new `AlignedReader` with the given inner reader.
+    pub fn new(inner: T) -> Self {
+        AlignedReader {
+            inner,
+            buffer: [0; A],
+            buffer_size: 0,
+        }
+    }
+}
+
+impl<const A: usize, T: Read> Read for AlignedReader<A, T> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let mut total_read = 0;
+        let mut needed = buf.len();
+        if needed <= self.buffer_size {
+            buf[..needed].copy_from_slice(&self.buffer[..needed]);
+            self.buffer.copy_within(needed..self.buffer_size, 0);
+            self.buffer_size -= needed;
+            return Ok(needed);
+        }
+        if self.buffer_size > 0 {
+            buf[..self.buffer_size].copy_from_slice(&self.buffer[..self.buffer_size]);
+            total_read += self.buffer_size;
+            needed -= self.buffer_size;
+            self.buffer_size = 0;
+        }
+        let read_len = needed / A * A;
+        if read_len > 0 {
+            let readed = self
+                .inner
+                .read(&mut buf[total_read..total_read + read_len])?;
+            total_read += readed;
+            needed -= readed;
+            // EOF reached
+            if readed < read_len {
+                return Ok(total_read);
+            }
+        }
+        if needed > 0 {
+            let readed = self.inner.read(&mut self.buffer)?;
+            let to_copy = needed.min(readed);
+            buf[total_read..total_read + to_copy].copy_from_slice(&self.buffer[..to_copy]);
+            total_read += to_copy;
+            self.buffer_size = readed - to_copy;
+            self.buffer.copy_within(to_copy..readed, 0);
+        }
+        Ok(total_read)
     }
 }

@@ -778,6 +778,9 @@ pub enum ScriptType {
     #[cfg(feature = "qlie")]
     /// Qlie Engine Scenario script (.s)
     Qlie,
+    #[cfg(feature = "qlie-arc")]
+    /// Qlie Pack Archive (.pack)
+    QliePack,
     #[cfg(feature = "silky")]
     /// Silky Engine Mes script
     Silky,

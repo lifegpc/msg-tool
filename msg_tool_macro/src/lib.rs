@@ -80,6 +80,7 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 /// * `pvec(<len_type>)` attribute can be used to specify a packed vector length for Vec<_> fields, where `<len_type>` can be `u8`, `u16`, `u32`, or `u64`.
 /// Length is read as a prefix before the vector data.
 /// * `skip_pack_if(<expr>)` attribute can be used to skip packing a field if the expression evaluates to true. The expression must be a valid Rust expression that evaluates to a boolean.
+/// * `pack_vec_len(<expr>)` can be used to specify the length of a Vec field based on an expression. The expression must evaluate to a usize and can reference previously packed fields.
 #[proc_macro_derive(
     StructPack,
     attributes(
@@ -90,7 +91,8 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
         fvec,
         pstring,
         pvec,
-        skip_pack_if
+        skip_pack_if,
+        pack_vec_len,
     )
 )]
 pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
@@ -109,6 +111,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                 let mut cur = None;
                 let mut skip_if = None;
                 let mut is_cstring = false;
+                let mut vec_len: Option<syn::Expr> = None;
                 for attr in &field.attrs {
                     let path = attr.path();
                     if path.is_ident("skip_pack") {
@@ -176,6 +179,10 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                     } else if path.is_ident("skip_pack_if") {
                         if let syn::Meta::List(list) = &attr.meta {
                             skip_if = Some(list.parse_args::<syn::Expr>().unwrap());
+                        }
+                    } else if path.is_ident("pack_vec_len") {
+                        if let syn::Meta::List(list) = &attr.meta {
+                            vec_len = Some(list.parse_args::<syn::Expr>().unwrap());
                         }
                     }
                 }
@@ -245,6 +252,16 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                         item.pack(writer, big, encoding, __info)?;
                                     }
                                 });
+                            } else if let Some(vec_len) = vec_len {
+                                cur = Some(quote::quote! {
+                                    let len = (#vec_len) as usize;
+                                    if self.#field_name.len() != len {
+                                        return Err(anyhow::anyhow!("Vector length was not equal to the specified length for field '{}'", stringify!(#field_name)));
+                                    }
+                                    for item in &self.#field_name {
+                                        item.pack(writer, big, encoding, __info)?;
+                                    }
+                                });
                             }
                         }
                     }
@@ -300,6 +317,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                     let mut cur = None;
                     let mut skip_if = None;
                     let mut is_cstring = false;
+                    let mut vec_len: Option<syn::Expr> = None;
                     for attr in &field.attrs {
                         let path = attr.path();
                         if path.is_ident("skip_pack") {
@@ -367,6 +385,10 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                         } else if path.is_ident("skip_pack_if") {
                             if let syn::Meta::List(list) = &attr.meta {
                                 skip_if = Some(list.parse_args::<syn::Expr>().unwrap());
+                            }
+                        } else if path.is_ident("pack_vec_len") {
+                            if let syn::Meta::List(list) = &attr.meta {
+                                vec_len = Some(list.parse_args::<syn::Expr>().unwrap());
                             }
                         }
                     }
@@ -437,6 +459,16 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
                                             item.pack(writer, big, encoding, __info)?;
                                         }
                                     });
+                                } else if let Some(vec_len) = vec_len {
+                                    cur = Some(quote::quote! {
+                                        let len = (#vec_len) as usize;
+                                        if #field_name.len() != len {
+                                            return Err(anyhow::anyhow!("Vector length was not equal to the specified length for field '{}'", stringify!(#field_name)));
+                                        }
+                                        for item in &#field_name {
+                                            item.pack(writer, big, encoding, __info)?;
+                                        }
+                                    });
                                 }
                             }
                         }
@@ -502,6 +534,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
 /// length is read as a prefix before the vector data.
 /// * `skip_unpack_if(<expr>)` attribute can be used to skip unpacking a field if the expression evaluates to true. The expression must be a valid Rust expression that evaluates to a boolean.
 /// * `pvec_max_preallocated_size(<size>)` attribute can be used to limit the maximum preallocated size for packed vectors to prevent excessive memory allocation. If the unpacked size exceeds this limit, preallocation will be disabled. Default size is 0x400000 (4 MB).
+/// * `unpack_vec_len(<expr>)` can be used to specify the length of a Vec field based on an expression. The expression must evaluate to a usize and can reference previously unpacked fields.
 #[proc_macro_derive(
     StructUnpack,
     attributes(
@@ -514,6 +547,7 @@ pub fn struct_pack_derive(input: TokenStream) -> TokenStream {
         pvec,
         skip_unpack_if,
         pvec_max_preallocated_size,
+        unpack_vec_len,
     )
 )]
 pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
@@ -532,6 +566,7 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
         let mut cur = None;
         let mut skip_if: Option<syn::Expr> = None;
         let mut is_cstring = false;
+        let mut vec_len : Option<syn::Expr> = None;
         let mut pvec_max_preallocated_size = syn::Expr::Lit(syn::ExprLit {
             attrs: Vec::new(),
             lit: syn::Lit::Int(syn::LitInt::new("4194304", field.span())), // Default 4 MB
@@ -602,6 +637,10 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                 if let syn::Meta::List(list) = &attr.meta {
                     pvec_max_preallocated_size = list.parse_args::<syn::Expr>().unwrap();
                 }
+            } else if path.is_ident("unpack_vec_len") {
+                if let syn::Meta::List(list) = &attr.meta {
+                    vec_len = Some(list.parse_args::<syn::Expr>().unwrap());
+                }
             }
         }
         let field_name = match &field.ident {
@@ -651,6 +690,11 @@ pub fn struct_unpack_derive(input: TokenStream) -> TokenStream {
                     } else if let Some(pvec_type) = pvec_type {
                         cur = Some(quote::quote! {
                             let len = <#pvec_type>::unpack(reader, big, encoding, __info)? as usize;
+                            let #field_name = reader.read_struct_vec2(len, big, encoding, __info, #pvec_max_preallocated_size)?;
+                        });
+                    } else if let Some(vec_len) = vec_len {
+                        cur = Some(quote::quote! {
+                            let len = (#vec_len) as usize;
                             let #field_name = reader.read_struct_vec2(len, big, encoding, __info, #pvec_max_preallocated_size)?;
                         });
                     }

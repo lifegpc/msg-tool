@@ -21,6 +21,8 @@ pub mod jxl;
 #[cfg(feature = "lossless-audio")]
 pub mod lossless_audio;
 mod macros;
+#[cfg(feature = "utils-mmx")]
+pub mod mmx;
 pub mod name_replacement;
 pub mod num_range;
 #[cfg(feature = "utils-pcm")]

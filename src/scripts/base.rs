@@ -14,7 +14,12 @@ pub trait WriteSeek: Write + Seek {}
 /// A trait for types that can be displayed in debug format and are also support downcasting.
 pub trait AnyDebug: std::fmt::Debug + std::any::Any {}
 
+/// A trait for reading in a stream with debug format.
+pub trait ReadDebug: Read + std::fmt::Debug {}
+
 impl<T: Read + Seek + std::fmt::Debug> ReadSeek for T {}
+
+impl<T: Read + std::fmt::Debug> ReadDebug for T {}
 
 impl<T: Write + Seek> WriteSeek for T {}
 

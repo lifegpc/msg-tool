@@ -168,6 +168,8 @@ lazy_static::lazy_static! {
         Box::new(entis_gls::csx::CSXScriptBuilder::new()),
         #[cfg(feature = "qlie")]
         Box::new(qlie::script::QlieScriptBuilder::new()),
+        #[cfg(feature = "qlie-arc")]
+        Box::new(qlie::archive::pack::QliePackArchiveBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =
