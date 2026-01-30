@@ -512,9 +512,15 @@ struct AbmpImage {
     resource_filenames: Vec<String>,
 }
 
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Resource {
     path: String,
+    #[serde(skip_serializing_if = "is_false", default)]
+    ambp10: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -566,7 +572,8 @@ impl AbmpImage {
 #[derive(Debug)]
 pub struct Abmp10Image {
     img: AbmpImage,
-    custom_yaml: bool,
+    encoding: Encoding,
+    config: ExtraConfig,
 }
 
 impl Abmp10Image {
@@ -578,7 +585,8 @@ impl Abmp10Image {
         let img = AbmpImage::new_from(&mut data, encoding)?;
         Ok(Abmp10Image {
             img,
-            custom_yaml: config.custom_yaml,
+            encoding,
+            config: config.clone(),
         })
     }
 
@@ -587,11 +595,31 @@ impl Abmp10Image {
         folder_path: &std::path::PathBuf,
         path: String,
         data: &[u8],
+        encoding: Encoding,
     ) -> Result<Resource> {
-        let res = Resource { path };
-        let path = folder_path.join(&res.path);
-        make_sure_dir_exists(&path)?;
-        std::fs::write(&path, data)?;
+        let mut res = Resource {
+            path,
+            ambp10: false,
+        };
+        if self.config.qlie_abmp10_process_abmp10
+            && data.len() > 6
+            && data.starts_with(b"abmp1")
+            && data[5] >= b'0'
+            && data[5] <= b'2'
+        {
+            res.ambp10 = true;
+            let another = Abmp10Image::new(MemReaderRef::new(data), self.encoding, &self.config)?;
+            let mut np = std::path::PathBuf::from(&res.path);
+            np.set_extension(another.custom_output_extension());
+            res.path = np.to_string_lossy().to_string();
+            let path = folder_path.join(&res.path);
+            make_sure_dir_exists(&path)?;
+            another.custom_export(&path, encoding)?;
+        } else {
+            let path = folder_path.join(&res.path);
+            make_sure_dir_exists(&path)?;
+            std::fs::write(&path, data)?;
+        }
         Ok(res)
     }
 }
@@ -610,7 +638,11 @@ impl Script for Abmp10Image {
     }
 
     fn custom_output_extension<'a>(&'a self) -> &'a str {
-        if self.custom_yaml { "yaml" } else { "json" }
+        if self.config.custom_yaml {
+            "yaml"
+        } else {
+            "json"
+        }
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
@@ -626,10 +658,10 @@ impl Script for Abmp10Image {
             .zip(self.img.resource_filenames.iter())
         {
             let res_name = sanitize_path(res_name);
-            let res = self.output_resource(&base_path, res_name, res)?;
+            let res = self.output_resource(&base_path, res_name, res, encoding)?;
             img.resources.push(res);
         }
-        let s = if self.custom_yaml {
+        let s = if self.config.custom_yaml {
             serde_yaml_ng::to_string(&img)?
         } else {
             serde_json::to_string_pretty(&img)?

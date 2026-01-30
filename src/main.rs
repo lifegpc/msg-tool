@@ -3321,6 +3321,8 @@ fn main() {
         entis_gls_csx_v2_ver: arg.entis_gls_csx_v2_ver,
         #[cfg(feature = "entis-gls")]
         entis_gls_csx_no_part_label: arg.entis_gls_csx_no_part_label,
+        #[cfg(feature = "qlie-img")]
+        qlie_abmp10_process_abmp10: !arg.qlie_abmp10_no_process_abmp10,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

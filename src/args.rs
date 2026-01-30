@@ -635,6 +635,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Disable part labels in Entis GLS csx script when exporting.
     pub entis_gls_csx_no_part_label: bool,
+    #[cfg(feature = "qlie-img")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Disable process ABMP10 images in ABMP10 images.
+    pub qlie_abmp10_no_process_abmp10: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

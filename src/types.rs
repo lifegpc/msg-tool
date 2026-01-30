@@ -592,6 +592,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "entis-gls")]
     /// Disable part labels in Entis GLS csx script when exporting.
     pub entis_gls_csx_no_part_label: bool,
+    #[cfg(feature = "qlie-img")]
+    #[default(true)]
+    /// Whether to process ABMP10 images in ABMP10 images.
+    pub qlie_abmp10_process_abmp10: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
