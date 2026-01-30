@@ -230,6 +230,130 @@ impl AbmpRes for AbImgData15 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// tag: abimgdat14
+struct AbImgData14 {
+    name: String,
+    internal_name: String,
+    typ: u8,
+    param: Vec<u8>,
+    data: ResourceRef,
+}
+
+impl AbmpRes for AbImgData14 {
+    fn read_from<T: Read + Seek>(
+        data: &mut T,
+        encoding: Encoding,
+        img: &mut AbmpImage,
+    ) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let tag = data.read_fstring(0x10, encoding, true)?;
+        if tag != "abimgdat14" {
+            anyhow::bail!("Invalid AbImgData14 tag: {}", tag);
+        }
+        let name_length = data.read_u16()? as usize;
+        let name = data.read_fstring(name_length, encoding, false)?;
+        let internal_name_length = data.read_u16()? as usize;
+        let internal_name = data.read_fstring(internal_name_length, encoding, false)?;
+        let typ = data.read_u8()?;
+        let param = data.read_exact_vec(0x4C)?;
+        let size = data.read_u32()?;
+        let resource = data.read_exact_vec(size as usize)?;
+        img.resources.push(resource);
+        let index = img.resources.len() - 1;
+        let mut nname = if !name.is_empty() {
+            name.clone()
+        } else if !internal_name.is_empty() {
+            internal_name.clone()
+        } else {
+            format!("abimage14_{index}")
+        };
+        match typ {
+            0 => nname.push_str(".bmp"),
+            1 => nname.push_str(".jpg"),
+            3 => nname.push_str(".png"),
+            4 => nname.push_str(".m"),
+            5 => nname.push_str(".argb"),
+            6 => nname.push_str(".b"),
+            7 => nname.push_str(".ogv"),
+            8 => nname.push_str(".mdl"),
+            _ => {}
+        }
+        img.resource_filenames.push(nname);
+        Ok(AbImgData14 {
+            name,
+            internal_name,
+            typ,
+            param,
+            data: ResourceRef { index },
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+/// tag: abimgdat13
+struct AbImgData13 {
+    name: String,
+    internal_name: String,
+    typ: u8,
+    param: Vec<u8>,
+    data: ResourceRef,
+}
+
+impl AbmpRes for AbImgData13 {
+    fn read_from<T: Read + Seek>(
+        data: &mut T,
+        encoding: Encoding,
+        img: &mut AbmpImage,
+    ) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let tag = data.read_fstring(0x10, encoding, true)?;
+        if tag != "abimgdat13" {
+            anyhow::bail!("Invalid AbImgData13 tag: {}", tag);
+        }
+        let name_length = data.read_u16()? as usize;
+        let name = data.read_fstring(name_length, encoding, false)?;
+        let internal_name_length = data.read_u16()? as usize;
+        let internal_name = data.read_fstring(internal_name_length, encoding, false)?;
+        let typ = data.read_u8()?;
+        let param = data.read_exact_vec(0xC)?;
+        let size = data.read_u32()?;
+        let resource = data.read_exact_vec(size as usize)?;
+        img.resources.push(resource);
+        let index = img.resources.len() - 1;
+        let mut nname = if !name.is_empty() {
+            name.clone()
+        } else if !internal_name.is_empty() {
+            internal_name.clone()
+        } else {
+            format!("abimage13_{index}")
+        };
+        match typ {
+            0 => nname.push_str(".bmp"),
+            1 => nname.push_str(".jpg"),
+            3 => nname.push_str(".png"),
+            4 => nname.push_str(".m"),
+            5 => nname.push_str(".argb"),
+            6 => nname.push_str(".b"),
+            7 => nname.push_str(".ogv"),
+            8 => nname.push_str(".mdl"),
+            _ => {}
+        }
+        img.resource_filenames.push(nname);
+        Ok(AbImgData13 {
+            name,
+            internal_name,
+            typ,
+            param,
+            data: ResourceRef { index },
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 /// tag: absnddat12
 struct AbSndData12 {
     version: u32,
@@ -278,13 +402,61 @@ impl AbmpRes for AbSndData12 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// tag: absnddat11
+struct AbSndData11 {
+    name: String,
+    internal_name: String,
+    data: ResourceRef,
+}
+
+impl AbmpRes for AbSndData11 {
+    fn read_from<T: Read + Seek>(
+        data: &mut T,
+        encoding: Encoding,
+        img: &mut AbmpImage,
+    ) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let tag = data.read_fstring(0x10, encoding, true)?;
+        if tag != "absnddat11" {
+            anyhow::bail!("Invalid AbSndData11 tag: {}", tag);
+        }
+        let name_length = data.read_u16()? as usize;
+        let name = data.read_fstring(name_length, encoding, false)?;
+        let internal_name_length = data.read_u16()? as usize;
+        let internal_name = data.read_fstring(internal_name_length, encoding, false)?;
+        let size = data.read_u32()?;
+        let resource = data.read_exact_vec(size as usize)?;
+        img.resources.push(resource);
+        let index = img.resources.len() - 1;
+        let nname = if !name.is_empty() {
+            name.clone()
+        } else if !internal_name.is_empty() {
+            internal_name.clone()
+        } else {
+            format!("absnddat11_{index}")
+        };
+        img.resource_filenames.push(nname);
+        Ok(AbSndData11 {
+            name,
+            internal_name,
+            data: ResourceRef { index },
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "@type")]
 enum AbmpResource {
     Data(AbData),
     Image10(AbImage10),
     ImgData15(AbImgData15),
+    ImgData14(AbImgData14),
+    ImgData13(AbImgData13),
     Sound10(AbSound10),
     SndData12(AbSndData12),
+    SndData11(AbSndData11),
 }
 
 impl AbmpRes for AbmpResource {
@@ -304,7 +476,16 @@ impl AbmpRes for AbmpResource {
             "abimgdat15" => Ok(AbmpResource::ImgData15(AbImgData15::read_from(
                 data, encoding, img,
             )?)),
+            "abimgdat14" => Ok(AbmpResource::ImgData14(AbImgData14::read_from(
+                data, encoding, img,
+            )?)),
+            "abimgdat13" => Ok(AbmpResource::ImgData13(AbImgData13::read_from(
+                data, encoding, img,
+            )?)),
             "absound10" => Ok(AbmpResource::Sound10(AbSound10::read_from(
+                data, encoding, img,
+            )?)),
+            "absnddat11" => Ok(AbmpResource::SndData11(AbSndData11::read_from(
                 data, encoding, img,
             )?)),
             "absnddat12" => Ok(AbmpResource::SndData12(AbSndData12::read_from(
@@ -323,6 +504,7 @@ struct AbmpImage {
     /// Valid version: 10, 11, 12
     version: u8,
     datas: Vec<AbmpResource>,
+    extra: Vec<u8>,
     #[serde(skip)]
     resources: Vec<Vec<u8>>,
     /// Just used for dump
@@ -339,6 +521,8 @@ struct Resource {
 struct AbmpImage2 {
     version: u8,
     datas: Vec<AbmpResource>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    extra: Vec<u8>,
     resources: Vec<Resource>,
 }
 
@@ -354,11 +538,17 @@ impl AbmpImage {
             datas: Vec::new(),
             resources: Vec::new(),
             resource_filenames: Vec::new(),
+            extra: Vec::new(),
         };
         let len = reader.stream_length()?;
-        while reader.stream_position()? < len {
+        let mut pos = reader.stream_position()?;
+        while pos < len - 16 {
             let data = AbmpResource::read_from(reader, encoding, &mut img)?;
             img.datas.push(data);
+            pos = reader.stream_position()?;
+        }
+        if pos < len {
+            img.extra = reader.read_exact_vec((len - pos) as usize)?;
         }
         Ok(img)
     }
@@ -368,6 +558,7 @@ impl AbmpImage {
             version: self.version,
             datas: self.datas.clone(),
             resources: Vec::new(),
+            extra: self.extra.clone(),
         }
     }
 }
