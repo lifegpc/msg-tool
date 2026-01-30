@@ -639,6 +639,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Disable process ABMP10 images in ABMP10 images.
     pub qlie_abmp10_no_process_abmp10: bool,
+    #[cfg(feature = "qlie-arc")]
+    #[arg(long, global = true)]
+    /// Path to qlie pack archive key file (pack_keyfile_kfueheish15538fa9or.key)
+    pub qlie_pack_keyfile: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

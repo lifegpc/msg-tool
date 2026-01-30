@@ -596,6 +596,9 @@ pub struct ExtraConfig {
     #[default(true)]
     /// Whether to process ABMP10 images in ABMP10 images.
     pub qlie_abmp10_process_abmp10: bool,
+    #[cfg(feature = "qlie-arc")]
+    /// Path to qlie pack archive key file (pack_keyfile_kfueheish15538fa9or.key)
+    pub qlie_pack_keyfile: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

@@ -2,6 +2,7 @@
 mod encryption;
 mod twister;
 mod types;
+mod v31;
 
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -110,6 +111,20 @@ impl ScriptBuilder for QliePackArchiveBuilder {
     fn is_archive(&self) -> bool {
         true
     }
+
+    fn create_archive(
+        &self,
+        filename: &str,
+        files: &[&str],
+        _encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Archive>> {
+        let f = std::fs::File::create(filename)?;
+        let buf = std::io::BufWriter::new(f);
+        Ok(Box::new(v31::QliePackArchiveWriterV31::new(
+            buf, files, config,
+        )?))
+    }
 }
 
 /// Check if the given file is Qlie Pack Archive format
@@ -163,7 +178,7 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
                 key = encryption.compute_hash(&qk.key[..0x100])? & 0xFFFFFFF;
             }
             encryption::decrypt(&mut qk.signature, key)?;
-            if &qk.signature != b"8hr48uky,8ugi8ewra4g8d5vbf5hb5s6" {
+            if &qk.signature != QLIE_KEY_SIGNATURE {
                 eprintln!(
                     "WARNING: Invalid Qlie Pack Archive key signature, decryption key may be incorrect"
                 );
@@ -204,10 +219,7 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
         }
         let mut common_key = None;
         if major >= 3 && minor >= 1 {
-            if let Some(common_key_entry) = entries
-                .iter()
-                .find(|e| e.name == "pack_keyfile_kfueheish15538fa9or.key")
-            {
+            if let Some(common_key_entry) = entries.iter().find(|e| e.name == QLIE_KEY_FILE) {
                 reader.seek(SeekFrom::Start(common_key_entry.offset))?;
                 let stream = StreamRegion::with_size(&mut reader, common_key_entry.size as u64)?;
                 let mut decrypted = encryption.decrypt_entry(Box::new(stream), common_key_entry)?;

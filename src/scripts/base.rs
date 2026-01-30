@@ -589,6 +589,12 @@ pub trait Script: std::fmt::Debug + std::any::Any {
 
 /// A trait for creating archives.
 pub trait Archive {
+    /// Returns an iterator of a list of filenames must writed before other files.
+    ///
+    /// Should return None if no such requirement.
+    fn prelist<'a>(&'a self) -> Result<Option<Box<dyn Iterator<Item = Result<String>> + 'a>>> {
+        Ok(None)
+    }
     /// Creates a new file in the archive.
     ///
     /// size is optional, if provided, size must be exactly the size of the file to be created.

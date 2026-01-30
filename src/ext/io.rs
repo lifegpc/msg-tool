@@ -2583,3 +2583,86 @@ impl<const A: usize, T: Read> Read for AlignedReader<A, T> {
         Ok(total_read)
     }
 }
+
+/// A writer that forwards reads to an inner writer, but ensures that all writes are aligned to a specified alignment boundary.
+#[derive(Debug)]
+pub struct AlignedWriter<const A: usize, T: Write> {
+    inner: T,
+    buffer: [u8; A],
+    buffer_size: usize,
+}
+
+impl<const A: usize, T: Write> AlignedWriter<A, T> {
+    /// Creates a new `AlignedWriter` with the given inner writer.
+    pub fn new(inner: T) -> Self {
+        AlignedWriter {
+            inner,
+            buffer: [0; A],
+            buffer_size: 0,
+        }
+    }
+}
+
+impl<const A: usize, T: Write> Write for AlignedWriter<A, T> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        let mut total_writted = 0;
+        let mut needed = buf.len();
+        if self.buffer_size > 0 {
+            let to_copy = (A - self.buffer_size).min(needed);
+            self.buffer[self.buffer_size..self.buffer_size + to_copy]
+                .copy_from_slice(&buf[..to_copy]);
+            self.buffer_size += to_copy;
+            total_writted += to_copy;
+            needed -= to_copy;
+            if self.buffer_size == A {
+                let writed = self.inner.write(&self.buffer)?;
+                if writed % A != 0 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::WriteZero,
+                        "Failed to write all aligned bytes",
+                    ));
+                }
+                self.buffer_size -= writed;
+            } else {
+                return Ok(total_writted);
+            }
+        }
+        let mut write_len = needed / A * A;
+        while write_len > 0 {
+            let writed = self
+                .inner
+                .write(&buf[total_writted..total_writted + write_len])?;
+            if writed % A != 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::WriteZero,
+                    "Failed to write all aligned bytes",
+                ));
+            }
+            total_writted += writed;
+            needed -= writed;
+            write_len = needed / A * A;
+        }
+        if needed > 0 {
+            self.buffer[..needed].copy_from_slice(&buf[total_writted..total_writted + needed]);
+            self.buffer_size = needed;
+            total_writted += needed;
+        }
+        Ok(total_writted)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        self.inner.flush()
+    }
+}
+
+impl<const A: usize, T: Write> Drop for AlignedWriter<A, T> {
+    fn drop(&mut self) {
+        if self.buffer_size > 0 {
+            if let Err(err) = self.inner.write_all(&self.buffer[..self.buffer_size]) {
+                eprintln!("Failed to flush AlignedWriter buffer: {}", err);
+                crate::COUNTER.inc_error();
+            }
+            self.buffer_size = 0;
+        }
+    }
+}

@@ -5,7 +5,7 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use crate::utils::mmx::*;
 use anyhow::Result;
-use std::io::Read;
+use std::io::{Read, Write};
 
 pub trait Hasher {
     fn update(&mut self, data: &[u8]) -> Result<()>;
@@ -67,6 +67,29 @@ pub fn decrypt(data: &mut [u8], key: u32) -> Result<()> {
     Ok(())
 }
 
+pub fn encrypt(data: &mut [u8], key: u32) -> Result<()> {
+    let length = data.len();
+    if length < 8 {
+        // Nothing to encrypt
+        return Ok(());
+    }
+    let mut data = MemWriterRef::new(data);
+    const C1: u64 = 0xA73C5F9D;
+    const C2: u64 = 0xCE24F523;
+    const C3: u64 = 0xFEC9753E;
+    let mut v5 = mmx_punpckldq2(C1);
+    const V7: u64 = mmx_punpckldq2(C2);
+    let mut v9 = mmx_punpckldq2(((length as u32).wrapping_add(key) as u64) ^ C3);
+    for _ in 0..length / 8 {
+        let mut d = data.peek_u64()?;
+        v5 = mmx_p_add_d(v5, V7) ^ v9;
+        v9 = d;
+        d ^= v5;
+        data.write_u64(d)?;
+    }
+    Ok(())
+}
+
 pub fn get_common_key(data: &[u8]) -> Result<Vec<u8>> {
     let mut reader = MemReaderRef::new(data);
     let mut key = vec![0u8; 0x400];
@@ -111,6 +134,44 @@ impl Encryption31 {
             mem.write_u32(i)?;
         }
         Ok(mem.into_inner())
+    }
+
+    pub fn compute_name_hash(&self, name: &[u16]) -> Result<u32> {
+        let mut v2 = 0u32;
+        let mut v3 = name.len() as u32;
+        let mut v4 = 1u32;
+        if v3 > 0 {
+            loop {
+                let n = (name[(v4 - 1) as usize] as u32) << (v4 & 7);
+                v2 = v2.wrapping_add(n) & 0x3FFFFFFF;
+                v4 += 1;
+                v3 -= 1;
+                if v3 == 0 {
+                    break;
+                }
+            }
+        }
+        Ok(v2)
+    }
+
+    pub fn encrypt_name(&self, name: &mut [u8], hash: i32) -> Result<()> {
+        if name.len() % 2 != 0 {
+            return Err(anyhow::anyhow!(
+                "Invalid name length for Unicode encryption"
+            ));
+        }
+        let char_len = name.len() / 2;
+        let cl = char_len as i32;
+        let temp = (cl.wrapping_mul(cl) ^ cl ^ 0x3e13 ^ (hash >> 16) ^ hash) & 0xFFFF;
+        let mut key = temp;
+        for i in 0..char_len {
+            key = temp
+                .wrapping_add(i as i32)
+                .wrapping_add(key.wrapping_mul(8));
+            name[i * 2] ^= key as u8;
+            name[i * 2 + 1] ^= (key >> 8) as u8;
+        }
+        Ok(())
     }
 }
 
@@ -299,6 +360,67 @@ impl<'a> Read for Encryption31DecryptV1<'a> {
 }
 
 #[derive(Debug)]
+pub struct Encryption31EncryptV1<T: Write> {
+    stream: T,
+    table: MemReader,
+    v4: u32,
+    v6: u64,
+}
+
+impl<T: Write> Encryption31EncryptV1<T> {
+    pub fn new(stream: T, size: u32, name: String, key: u32) -> Result<AlignedWriter<8, Self>> {
+        let mut v1 = 0x85F532u32;
+        let mut v2 = 0x33F641u32;
+        for (i, n) in name.encode_utf16().enumerate() {
+            v1 = v1.wrapping_add((n as u32) << (i & 7));
+            v2 ^= v1;
+        }
+        v2 = v2.wrapping_add(
+            key ^ ((7 * (size & 0xFFFFFF))
+                .wrapping_add(size)
+                .wrapping_add(v1)
+                .wrapping_add(v1 ^ size ^ 0x8F32DC)),
+        );
+        v2 = 9 * (v2 & 0xFFFFFF);
+        let table = MemReader::new(Encryption31::create_table(0x40, v2, true)?);
+        let v4 = 8 * (table.cpeek_u32_at(52)? & 0xF);
+        let v6 = table.cpeek_u64_at(24)?;
+        let inner = Self {
+            stream,
+            table,
+            v4,
+            v6,
+        };
+        Ok(AlignedWriter::new(inner))
+    }
+}
+
+impl<T: Write> Write for Encryption31EncryptV1<T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let round = buf.len() / 8;
+        let mut reader = MemReaderRef::new(buf);
+        for _ in 0..round {
+            let d = reader.read_u64()?;
+            let temp = self.table.cpeek_u64_at(self.v4 as u64)?;
+            let v7 = mmx_p_add_d(self.v6 ^ temp, temp);
+            let v8 = d ^ v7;
+            self.stream.write_u64(v8)?;
+            self.v6 = mmx_p_add_w(mmx_p_sll_d(mmx_p_add_b(v7, d) ^ d, 1), d);
+            self.v4 = (self.v4 + 8) & 0x7F;
+        }
+        let remain = buf.len() % 8;
+        if remain > 0 {
+            self.stream.write_all(&buf[buf.len() - remain..])?;
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.stream.flush()
+    }
+}
+
+#[derive(Debug)]
 struct Encryption31DecryptV2<'a> {
     stream: Box<dyn ReadSeek + 'a>,
     table: MemReader,
@@ -360,6 +482,78 @@ impl<'a> Read for Encryption31DecryptV2<'a> {
             self.v4 = (self.v4 + 1) & 0x7F;
         }
         Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct Encryption31EncryptV2<T: Write> {
+    stream: T,
+    table: MemReader,
+    v4: u32,
+    v6: u64,
+    common_key: MemReader,
+}
+
+impl<T: Write> Encryption31EncryptV2<T> {
+    pub fn new(
+        stream: T,
+        size: u32,
+        name: String,
+        key: u32,
+        common_key: Vec<u8>,
+    ) -> Result<AlignedWriter<8, Self>> {
+        let mut v1 = 0x86F7E2u32;
+        let mut v2 = 0x4437F1u32;
+        for (i, n) in name.encode_utf16().enumerate() {
+            v1 = v1.wrapping_add((n as u32) << (i & 7));
+            v2 ^= v1;
+        }
+        v2 = v2.wrapping_add(
+            key ^ ((13 * (size & 0xFFFFFF))
+                .wrapping_add(size)
+                .wrapping_add(v1)
+                .wrapping_add(v1 ^ size ^ 0x56E213)),
+        );
+        v2 = 13 * (v2 & 0xFFFFFF);
+        let table = MemReader::new(Encryption31::create_table(0x40, v2, false)?);
+        let v4 = 8 * (table.cpeek_u32_at(32)? & 0xD);
+        let v6 = table.cpeek_u64_at(24)?;
+        let inner = Self {
+            stream,
+            table,
+            v4,
+            v6,
+            common_key: MemReader::new(common_key),
+        };
+        Ok(AlignedWriter::new(inner))
+    }
+}
+
+impl<T: Write> Write for Encryption31EncryptV2<T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let round = buf.len() / 8;
+        let mut reader = MemReaderRef::new(buf);
+        for _ in 0..round {
+            let d = reader.read_u64()?;
+            let temp_index1 = ((self.v4 & 0xF) * 8) as u64;
+            let temp_index2 = ((self.v4 & 0x7F) * 8) as u64;
+            let temp = self.table.cpeek_u64_at(temp_index1)?
+                ^ self.common_key.cpeek_u64_at(temp_index2)?;
+            let v7 = mmx_p_add_d(self.v6 ^ temp, temp);
+            let v8 = d ^ v7;
+            self.stream.write_u64(v8)?;
+            self.v6 = mmx_p_add_w(mmx_p_sll_d(mmx_p_add_b(v7, d) ^ d, 1), d);
+            self.v4 = (self.v4 + 1) & 0x7F;
+        }
+        let remain = buf.len() % 8;
+        if remain > 0 {
+            self.stream.write_all(&buf[buf.len() - remain..])?;
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.stream.flush()
     }
 }
 

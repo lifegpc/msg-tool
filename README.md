@@ -220,7 +220,7 @@ msg-tool create -t <script-type> <input> <output>
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
-| `qlie-pack` | `qlie-arc` | Qlie Pack Archive (.pack) | ✔️ | ❌ | Currently only v3.1 are supported |
+| `qlie-pack` | `qlie-arc` | Qlie Pack Archive (.pack) | ✔️ | ✔️ | Currently only v3.1 are supported. `--backslash` are needed to correctly handle file paths when packing. |
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

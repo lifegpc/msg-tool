@@ -2469,7 +2469,7 @@ pub fn pack_archive(
             return Err(anyhow::anyhow!("No script type specified"));
         }
     };
-    let (files, isdir) = utils::files::collect_files(input, arg.recursive, true)
+    let (mut files, isdir) = utils::files::collect_files(input, arg.recursive, true)
         .map_err(|e| anyhow::anyhow!("Error collecting files: {}", e))?;
     if !isdir {
         return Err(anyhow::anyhow!("Input must be a directory for packing"));
@@ -2491,7 +2491,7 @@ pub fn pack_archive(
                 })
         })
         .collect();
-    let reff = re_files.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+    let mut reff = re_files.iter().map(|s| s.as_str()).collect::<Vec<_>>();
     let builder = scripts::BUILDER
         .iter()
         .find(|b| b.script_type() == typ)
@@ -2514,6 +2514,22 @@ pub fn pack_archive(
         get_archived_encoding(arg, builder, get_encoding(arg, builder)),
         &config,
     )?;
+    if let Some(pre) = archive.prelist()? {
+        let mut index = 0;
+        for name in pre {
+            let name = name?;
+            if let Some(pos) = reff.iter().position(|&n| n == name) {
+                let re = reff.remove(pos);
+                let ff = files.remove(pos);
+                reff.insert(index, re);
+                files.insert(index, ff);
+                index += 1;
+            } else {
+                eprintln!("Warning: Prelist file {} not found in input files", name);
+                COUNTER.inc_warning();
+            }
+        }
+    }
     for (file, name) in files.iter().zip(reff) {
         let mut f = match std::fs::File::open(file) {
             Ok(f) => f,
@@ -2615,7 +2631,7 @@ pub fn pack_archive_v2(
             }
         }
     }
-    let reff = re_files.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+    let mut reff = re_files.iter().map(|s| s.as_str()).collect::<Vec<_>>();
     let builder = scripts::BUILDER
         .iter()
         .find(|b| b.script_type() == typ)
@@ -2638,6 +2654,22 @@ pub fn pack_archive_v2(
         get_archived_encoding(arg, builder, get_encoding(arg, builder)),
         &config,
     )?;
+    if let Some(pre) = archive.prelist()? {
+        let mut index = 0;
+        for name in pre {
+            let name = name?;
+            if let Some(pos) = reff.iter().position(|&n| n == name) {
+                let re = reff.remove(pos);
+                let ff = files.remove(pos);
+                reff.insert(index, re);
+                files.insert(index, ff);
+                index += 1;
+            } else {
+                eprintln!("Warning: Prelist file {} not found in input files", name);
+                COUNTER.inc_warning();
+            }
+        }
+    }
     if let Some(dep_file) = dep_file {
         let df = std::fs::File::create(dep_file)
             .map_err(|e| anyhow::anyhow!("Failed to create dep file {}: {}", dep_file, e))?;
@@ -3323,6 +3355,8 @@ fn main() {
         entis_gls_csx_no_part_label: arg.entis_gls_csx_no_part_label,
         #[cfg(feature = "qlie-img")]
         qlie_abmp10_process_abmp10: !arg.qlie_abmp10_no_process_abmp10,
+        #[cfg(feature = "qlie-arc")]
+        qlie_pack_keyfile: arg.qlie_pack_keyfile.clone(),
     });
     match &arg.command {
         args::Command::Export { input, output } => {

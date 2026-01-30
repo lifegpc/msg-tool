@@ -8,6 +8,8 @@ use std::io::{Read, Seek, Write};
 pub const HASH_VER_1_2_SIGNATURE: &[u8; 16] = b"HashVer1.2\x00\x00\x00\x00\x00\x00";
 pub const HASH_VER_1_3_SIGNATURE: &[u8; 16] = b"HashVer1.3\x00\x00\x00\x00\x00\x00";
 pub const HASH_VER_1_4_SIGNATURE: &[u8; 16] = b"HashVer1.4\x00\x00\x00\x00\x00\x00";
+pub const QLIE_KEY_SIGNATURE: &[u8; 32] = b"8hr48uky,8ugi8ewra4g8d5vbf5hb5s6";
+pub const QLIE_KEY_FILE: &'static str = "pack_keyfile_kfueheish15538fa9or.key";
 
 /// HashVer 1.2
 #[derive(StructPack, StructUnpack, Debug, Clone)]
@@ -37,8 +39,7 @@ pub struct QlieHash13 {
 #[derive(StructPack, StructUnpack, Debug, Clone)]
 pub struct QlieHash14 {
     pub signature: [u8; 16],
-    /// Always 0x100
-    pub const_: u32,
+    pub table_size: u32,
     pub file_count: u32,
     pub index_size: u32,
     pub hash_data_size: u32,
@@ -81,7 +82,7 @@ pub struct QlieKey {
     pub key: [u8; 0x400],
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct QlieEntry {
     pub name: String,
     pub offset: u64,
