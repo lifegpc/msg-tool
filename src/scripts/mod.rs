@@ -172,6 +172,8 @@ lazy_static::lazy_static! {
         Box::new(qlie::archive::pack::QliePackArchiveBuilder::new()),
         #[cfg(feature = "qlie-img")]
         Box::new(qlie::image::dpng::DpngImageBuilder::new()),
+        #[cfg(feature = "qlie-img")]
+        Box::new(qlie::image::abmp10::Abmp10ImageBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

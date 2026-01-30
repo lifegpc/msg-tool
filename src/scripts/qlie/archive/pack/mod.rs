@@ -291,6 +291,12 @@ fn detect_script_type(_name: &str, buf: &[u8], buf_len: usize) -> Option<ScriptT
         if buf_len >= 4 && buf.starts_with(b"DPNG") {
             return Some(ScriptType::QlieDpng);
         }
+        if buf_len >= 6 && buf.starts_with(b"abmp1") {
+            let ver = buf[5];
+            if ver >= b'0' && ver <= b'2' {
+                return Some(ScriptType::QlieAbmp10);
+            }
+        }
     }
     None
 }

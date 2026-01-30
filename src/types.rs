@@ -784,6 +784,10 @@ pub enum ScriptType {
     #[cfg(feature = "qlie-img")]
     /// Qlie tiled PNG image (.png)
     QlieDpng,
+    #[cfg(feature = "qlie-img")]
+    #[value(alias = "qlie-abmp11", alias = "qlie-abmp12")]
+    /// Qlie Abmp10/11/12 image (.b)
+    QlieAbmp10,
     #[cfg(feature = "silky")]
     /// Silky Engine Mes script
     Silky,
