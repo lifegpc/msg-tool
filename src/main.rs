@@ -3357,6 +3357,8 @@ fn main() {
         qlie_abmp10_process_abmp10: !arg.qlie_abmp10_no_process_abmp10,
         #[cfg(feature = "qlie-arc")]
         qlie_pack_keyfile: arg.qlie_pack_keyfile.clone(),
+        #[cfg(feature = "qlie-arc")]
+        qlie_pack_compress_files: arg.qlie_pack_compress_files,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

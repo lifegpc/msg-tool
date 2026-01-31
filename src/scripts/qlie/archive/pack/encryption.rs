@@ -5,7 +5,7 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use crate::utils::mmx::*;
 use anyhow::Result;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 
 pub trait Hasher {
     fn update(&mut self, data: &[u8]) -> Result<()>;
@@ -666,4 +666,258 @@ impl<'a> Read for Decompressor<'a> {
         }
         Ok(used)
     }
+}
+
+pub struct Compressor<W: Write + Seek> {
+    stream: W,
+    buffer: Vec<u8>,
+    total_unpacked_size: u32,
+    is_finished: bool,
+}
+
+impl<W: Write + Seek> Compressor<W> {
+    pub fn new(mut stream: W) -> Result<Self> {
+        stream.write_u32(0xFF435031)?;
+        stream.write_u32(0)?;
+        stream.write_u32(0)?;
+        Ok(Self {
+            stream,
+            buffer: Vec::new(),
+            total_unpacked_size: 0,
+            is_finished: false,
+        })
+    }
+
+    pub fn finish(&mut self) -> Result<()> {
+        if self.is_finished {
+            return Ok(());
+        }
+        if !self.buffer.is_empty() {
+            self.flush_block()?;
+        }
+        let pos = self.stream.stream_position()?;
+        self.stream.seek(SeekFrom::Start(8))?;
+        self.stream.write_u32(self.total_unpacked_size)?;
+        self.stream.seek(SeekFrom::Start(pos))?;
+        self.is_finished = true;
+        Ok(())
+    }
+
+    fn flush_block(&mut self) -> Result<()> {
+        if self.buffer.is_empty() {
+            return Ok(());
+        }
+        let (table, data) = compress_algo(&self.buffer);
+
+        // Write table
+        write_table(&mut self.stream, &table)?;
+
+        // Write block size
+        self.stream.write_u32(data.len() as u32)?;
+        self.stream.write_all(&data)?;
+
+        self.total_unpacked_size += self.buffer.len() as u32;
+        self.buffer.clear();
+        Ok(())
+    }
+}
+
+impl<W: Write + Seek> Write for Compressor<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut pos = 0;
+        while pos < buf.len() {
+            let space = 0x10000 - self.buffer.len();
+            let copy = space.min(buf.len() - pos);
+            self.buffer.extend_from_slice(&buf[pos..pos + copy]);
+            pos += copy;
+            if self.buffer.len() >= 0x10000 {
+                self.flush_block()
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            }
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.stream.flush()
+    }
+}
+
+impl<W: Write + Seek> Drop for Compressor<W> {
+    fn drop(&mut self) {
+        let _ = self.finish();
+    }
+}
+
+fn write_table<W: Write>(writer: &mut W, table: &[[u8; 2]; 256]) -> Result<()> {
+    let mut i = 0;
+    while i < 256 {
+        // Count consecutive identities
+        let mut n_identities = 0;
+        let mut j = i;
+        while j < 256 && table[j][0] == j as u8 {
+            n_identities += 1;
+            j += 1;
+        }
+
+        if n_identities > 0 {
+            let k = n_identities.min(128);
+            if i + k == 256 {
+                writer.write_u8(127 + k as u8)?;
+                i += k;
+            } else {
+                writer.write_u8(127 + k as u8)?;
+                i += k;
+                // Write explicit
+                writer.write_u8(table[i][0])?;
+                if table[i][0] != i as u8 {
+                    writer.write_u8(table[i][1])?;
+                }
+                i += 1;
+            }
+        } else {
+            let mut count = 0;
+            let mut j = i;
+            while j < 256 && count < 128 {
+                if j + 1 < 256 && table[j][0] == j as u8 && table[j + 1][0] == (j + 1) as u8 {
+                    break;
+                }
+                count += 1;
+                j += 1;
+            }
+
+            writer.write_u8((count - 1) as u8)?;
+            for k in 0..count {
+                let curr = i + k;
+                writer.write_u8(table[curr][0])?;
+                if table[curr][0] != curr as u8 {
+                    writer.write_u8(table[curr][1])?;
+                }
+            }
+            i += count;
+        }
+    }
+    Ok(())
+}
+
+fn compress_algo(input: &[u8]) -> ([[u8; 2]; 256], Vec<u8>) {
+    let mut tokens = input.to_vec();
+    let mut table = [[0u8; 2]; 256];
+    for i in 0..256 {
+        table[i][0] = i as u8;
+    }
+
+    let max_iterations = 256;
+    for _ in 0..max_iterations {
+        let mut pair_counts = vec![0u32; 65536];
+        let mut max_pair_idx = 0;
+        let mut max_pair_count = 0;
+
+        if tokens.len() < 2 {
+            break;
+        }
+
+        for i in 0..tokens.len() - 1 {
+            let pair = ((tokens[i] as usize) << 8) | (tokens[i + 1] as usize);
+            pair_counts[pair] += 1;
+            if pair_counts[pair] > max_pair_count {
+                max_pair_count = pair_counts[pair];
+                max_pair_idx = pair;
+            }
+        }
+
+        // Must appear at least twice to save space (2 bytes * 2 -> 1 byte * 2 + overhead)
+        if max_pair_count < 2 {
+            break;
+        }
+
+        let is_used = get_used_tokens(&tokens, &table);
+        let mut unused = None;
+        for i in 0..256 {
+            if !is_used[i] {
+                unused = Some(i as u8);
+                break;
+            }
+        }
+
+        if let Some(token) = unused {
+            let left = (max_pair_idx >> 8) as u8;
+            let right = (max_pair_idx & 0xFF) as u8;
+
+            table[token as usize] = [left, right];
+
+            let mut new_tokens = Vec::with_capacity(tokens.len());
+            let mut i = 0;
+            while i < tokens.len() {
+                if i + 1 < tokens.len() && tokens[i] == left && tokens[i + 1] == right {
+                    new_tokens.push(token);
+                    i += 2;
+                } else {
+                    new_tokens.push(tokens[i]);
+                    i += 1;
+                }
+            }
+            tokens = new_tokens;
+        } else {
+            break;
+        }
+    }
+    (table, tokens)
+}
+
+fn get_used_tokens(tokens: &[u8], table: &[[u8; 2]; 256]) -> [bool; 256] {
+    let mut used = [false; 256];
+    let mut stack = Vec::with_capacity(256);
+
+    // Mark direct tokens
+    for &t in tokens {
+        if !used[t as usize] {
+            used[t as usize] = true;
+            stack.push(t);
+        }
+    }
+
+    // Propagate
+    while let Some(t) = stack.pop() {
+        // If t is composite, mark children
+        // Check if t is composite: table[t][0] != t
+        let t_idx = t as usize;
+        if table[t_idx][0] != t {
+            let l = table[t_idx][0];
+            let r = table[t_idx][1];
+
+            if !used[l as usize] {
+                used[l as usize] = true;
+                stack.push(l);
+            }
+            if !used[r as usize] {
+                used[r as usize] = true;
+                stack.push(r);
+            }
+        }
+    }
+    used
+}
+
+pub fn compress(data: &[u8]) -> Result<Vec<u8>> {
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    {
+        let mut compressor = Compressor::new(&mut cursor)?;
+        compressor.write_all(data)?;
+        compressor.finish()?;
+    }
+    Ok(cursor.into_inner())
+}
+
+#[test]
+fn test_compress_decompress() -> Result<()> {
+    let data = b"The quick brown fox jumps over the lazy dog.".repeat(100);
+    println!("Original size: {}", data.len());
+    let compressed = compress(&data)?;
+    println!("Compressed size: {}", compressed.len());
+    let mut decompressed = decompress(Box::new(MemReaderRef::new(&compressed)))?;
+    let mut output = Vec::new();
+    decompressed.read_to_end(&mut output)?;
+    assert_eq!(data.as_slice(), output.as_slice());
+    Ok(())
 }

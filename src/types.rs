@@ -599,6 +599,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "qlie-arc")]
     /// Path to qlie pack archive key file (pack_keyfile_kfueheish15538fa9or.key)
     pub qlie_pack_keyfile: Option<String>,
+    #[cfg(feature = "qlie-arc")]
+    /// Whether to compress files in Qlie pack archive.
+    pub qlie_pack_compress_files: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

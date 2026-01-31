@@ -122,6 +122,7 @@ pub struct QliePackArchiveWriterV31<T: Write + Seek> {
     entries: Vec<QlieEntry>,
     key: u32,
     common_key: Option<Vec<u8>>,
+    compress_files: bool,
 }
 
 struct FilenameEntry {
@@ -239,6 +240,7 @@ impl<T: Write + Seek> QliePackArchiveWriterV31<T> {
             entries,
             key,
             common_key: None,
+            compress_files: config.qlie_pack_compress_files,
         };
         if !has_key_file {
             let key_path = config.qlie_pack_keyfile.as_ref().unwrap();
@@ -317,6 +319,7 @@ struct Writer2<'a, T: Write + Seek> {
     entry_idx: usize,
     mem: MemWriter,
     is_v1: bool,
+    compress_file: bool,
 }
 
 impl<'a, T: Write + Seek> Writer2<'a, T> {
@@ -341,6 +344,29 @@ impl<'a, T: Write + Seek> Writer2<'a, T> {
             self.inner.common_key = Some(get_common_key(&self.mem.data)?);
         } else {
             compute.entry.is_encrypted = 2;
+            let data = if self.compress_file {
+                let compressed = compress(&self.mem.data)?;
+                if compressed.len() >= self.mem.data.len() {
+                    let mut nw = MemWriter::new();
+                    std::mem::swap(&mut self.mem, &mut nw);
+                    nw.into_inner()
+                } else {
+                    compute.entry.is_packed = 1;
+                    compute.entry.size = compressed.len() as u32;
+                    // {
+                    //     let mut decom = decompress(Box::new(MemReaderRef::new(&compressed)))?;
+                    //     let mut decompressed = Vec::new();
+                    //     decom.read_to_end(&mut decompressed)?;
+                    //     println!("File: {}, Original Size: {}, Compressed Size: {}", compute.entry.name, decompressed.len(), compressed.len());
+                    //     assert_eq!(self.mem.data.as_slice(), decompressed.as_slice());
+                    // }
+                    compressed
+                }
+            } else {
+                let mut nw = MemWriter::new();
+                std::mem::swap(&mut self.mem, &mut nw);
+                nw.into_inner()
+            };
             let name = compute.entry.name.clone();
             let common_key = self
                 .inner
@@ -349,12 +375,12 @@ impl<'a, T: Write + Seek> Writer2<'a, T> {
                 .ok_or_else(|| anyhow::anyhow!("Common key is not available"))?;
             let mut encryptor = Encryption31EncryptV2::new(
                 compute,
-                size,
+                data.len() as u32,
                 name,
                 self.inner.key,
                 common_key.to_vec(),
             )?;
-            encryptor.write_all(&self.mem.data)?;
+            encryptor.write_all(&data)?;
         }
         Ok(())
     }
@@ -465,19 +491,23 @@ impl<T: Write + Seek> Archive for QliePackArchiveWriterV31<T> {
                 entry_idx,
                 mem: MemWriter::new(),
                 is_v1: true,
+                // Disable compression for key file
+                compress_file: false,
             }));
         }
-        if size.is_none() {
+        if size.is_none() || self.compress_files {
             let entry_idx = self
                 .entries
                 .iter()
                 .position(|e| e.name == name)
                 .ok_or_else(|| anyhow::anyhow!("File {} not found in entries", name))?;
+            let compress_file = self.compress_files;
             return Ok(Box::new(Writer2 {
                 inner: self,
                 entry_idx,
                 mem: MemWriter::new(),
                 is_v1: false,
+                compress_file,
             }));
         }
         let entry_idx = self
