@@ -133,6 +133,32 @@ impl Script for AstScript {
                         let tex = &text[NumKey(text_index)];
                         text_index += 1;
                         if tex.is_array() {
+                            // For some old scripts, the text block is directly under text array
+                            if tex.arr_len() > 0 {
+                                let name = &tex["name"];
+                                let nam = if name.is_array() && &name[0] == "name" {
+                                    if let Some(name) = name["name"].as_string() {
+                                        Some(name)
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+                                for item in tex.members() {
+                                    if !item.is_array() {
+                                        continue;
+                                    }
+                                    let message = text::TextGenerator::new().generate(item)?;
+                                    messages.push(Message {
+                                        name: nam.clone(),
+                                        message: message
+                                            .replace("<rt2>", "\n")
+                                            .replace("<ret2>", "\n"),
+                                    });
+                                }
+                                continue;
+                            }
                             let lan = match lang {
                                 Some(l) => l,
                                 None => {
@@ -398,6 +424,57 @@ impl Script for AstScript {
                     }
                 }
                 if !root[i][Key("text")].is_null() {
+                    // For some old scripts, the text block is directly under text array
+                    if root["text"][NumKey(text_index)].arr_len() > 0 {
+                        let mut arr = Value::new_array();
+                        let origin_count = {
+                            let text = &root["text"][NumKey(text_index)];
+                            let arr_len = text.arr_len();
+                            if arr_len < text.len() {
+                                for item in text.members() {
+                                    if !item.is_array() {
+                                        // Copy non-array items (such as name block) back to the array
+                                        arr.push_member(item.clone());
+                                    }
+                                }
+                            }
+                            arr_len
+                        };
+                        if arr["name"].is_array() && &arr["name"][0] == "name" {
+                            let name = match mes {
+                                Some(m) => m.name.clone(),
+                                None => return Err(anyhow::anyhow!("Message name is missing.")),
+                            };
+                            let mut name = match name {
+                                Some(n) => n,
+                                None => return Err(anyhow::anyhow!("Message name is missing.")),
+                            };
+                            if let Some(repl) = replacement {
+                                for (k, v) in &repl.map {
+                                    name = name.replace(k, v);
+                                }
+                            }
+                            arr["name"]["name"].set_string(name);
+                        }
+                        for _ in 0..origin_count {
+                            let m = match mes {
+                                Some(m) => m,
+                                None => return Err(anyhow::anyhow!("Not enough messages.")),
+                            };
+                            let mut text = m.message.clone();
+                            if let Some(repl) = replacement {
+                                for (k, v) in &repl.map {
+                                    text = text.replace(k, v);
+                                }
+                            }
+                            let v = text::TextParser::new(&text.replace("\n", "<rt2>")).parse()?;
+                            arr.push_member(v);
+                            mes = mess.next();
+                        }
+                        root["text"][NumKey(text_index)] = arr;
+                        text_index += 1;
+                        continue;
+                    }
                     let lan = match &lang {
                         Some(l) => l.as_str(),
                         None => {
