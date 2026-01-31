@@ -58,6 +58,7 @@ impl ScriptBuilder for PgdGeBuilder {
     fn create_image_file<'a>(
         &'a self,
         data: ImageData,
+        _filename: &str,
         mut writer: Box<dyn WriteSeek + 'a>,
         options: &ExtraConfig,
     ) -> Result<()> {
@@ -125,6 +126,7 @@ impl Script for PgdGe {
     fn import_image<'a>(
         &'a self,
         data: ImageData,
+        _filename: &str,
         mut file: Box<dyn WriteSeek + 'a>,
     ) -> Result<()> {
         let mut header = self.header.clone();

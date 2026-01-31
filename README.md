@@ -224,7 +224,7 @@ msg-tool create -t <script-type> <input> <output>
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
-| `qlie-dpng` | `qlie-img` | Qlie tiled PNG image (.png) | ✔️ | ❌ | ❌ | ❌ | ❌ | |
+| `qlie-dpng` | `qlie-img` | Qlie tiled PNG image (.png) | ✔️ | ✔️ | ❌ | ❌ | ❌ | |
 ### Silky Engine
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|

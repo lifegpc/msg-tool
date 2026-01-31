@@ -1825,7 +1825,9 @@ pub fn import_script(
                                 continue;
                             }
                         };
-                    if let Err(err) = script_file.import_image(img_data, writer) {
+                    if let Err(err) =
+                        script_file.import_image(img_data, &out_path.to_string_lossy(), writer)
+                    {
                         eprintln!("Error importing image to script '{}': {}", filename, err);
                         COUNTER.inc_error();
                         if arg.backtrace {
@@ -2190,7 +2192,7 @@ pub fn import_script(
             dep_graph.0 = patched_f.clone();
         }
         utils::files::make_sure_dir_exists(&patched_f)?;
-        script.import_image_filename(data, &patched_f)?;
+        script.import_image_filename(data, &out_f, &patched_f)?;
         return Ok(types::ScriptResult::Ok);
     }
     let mut of = match &arg.output_type {
@@ -2871,7 +2873,7 @@ pub fn create_file(
                 pb.to_string_lossy().into_owned()
             }
         };
-        builder.create_image_file_filename(data, &output, &config)?;
+        builder.create_image_file_filename(data, &output, input, &config)?;
         return Ok(());
     }
 
@@ -3359,6 +3361,8 @@ fn main() {
         qlie_pack_keyfile: arg.qlie_pack_keyfile.clone(),
         #[cfg(feature = "qlie-arc")]
         qlie_pack_compress_files: arg.qlie_pack_compress_files,
+        #[cfg(feature = "qlie-img")]
+        qlie_dpng_use_raw_png: arg.qlie_dpng_use_raw_png,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

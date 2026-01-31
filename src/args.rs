@@ -647,6 +647,11 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Whether to compress files in Qlie pack archive.
     pub qlie_pack_compress_files: bool,
+    #[cfg(feature = "qlie-img")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Whether to use PNG file directly for Qlie DPNG images when importing.
+    /// Enable this will disable reencoding PNG files. Useful when the PNG files are already optimized by other tools.
+    pub qlie_dpng_use_raw_png: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

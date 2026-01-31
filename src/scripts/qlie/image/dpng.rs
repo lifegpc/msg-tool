@@ -86,15 +86,34 @@ impl ScriptBuilder for DpngImageBuilder {
             None
         }
     }
+
+    fn can_create_image_file(&self) -> bool {
+        true
+    }
+
+    fn create_image_file<'a>(
+        &'a self,
+        data: ImageData,
+        filename: &str,
+        writer: Box<dyn WriteSeek + 'a>,
+        options: &ExtraConfig,
+    ) -> Result<()> {
+        if options.qlie_dpng_use_raw_png {
+            create_raw_png_image(filename, writer, None)
+        } else {
+            create_image(data, writer, options)
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct DpngImage {
     img: DpngFile,
+    config: ExtraConfig,
 }
 
 impl DpngImage {
-    pub fn new<T: Read + Seek>(mut data: T, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new<T: Read + Seek>(mut data: T, config: &ExtraConfig) -> Result<Self> {
         let img = DpngFile::unpack(&mut data, false, Encoding::Utf8, &None)?;
         if img.header.magic != *b"DPNG" {
             anyhow::bail!("Not a valid DPNG image");
@@ -102,7 +121,10 @@ impl DpngImage {
         if img.tiles.is_empty() {
             anyhow::bail!("DPNG image has no tiles");
         }
-        Ok(DpngImage { img })
+        Ok(DpngImage {
+            img,
+            config: config.clone(),
+        })
     }
 }
 
@@ -146,4 +168,111 @@ impl Script for DpngImage {
         }
         Ok(base)
     }
+
+    fn import_image<'a>(
+        &'a self,
+        data: ImageData,
+        filename: &str,
+        file: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
+        if self.config.qlie_dpng_use_raw_png {
+            let img = load_png(std::fs::File::open(filename)?)?;
+            if img.width != self.img.header.image_width
+                || img.height != self.img.header.image_height
+            {
+                eprintln!(
+                    "Warning: Image dimensions do not match original DPNG image (expected {}x{}, got {}x{})",
+                    self.img.header.image_width,
+                    self.img.header.image_height,
+                    img.width,
+                    img.height
+                );
+                crate::COUNTER.inc_warning();
+            }
+            create_raw_png_image(filename, file, Some(img))?;
+        } else {
+            if data.width != self.img.header.image_width
+                || data.height != self.img.header.image_height
+            {
+                eprintln!(
+                    "Warning: Image dimensions do not match original DPNG image (expected {}x{}, got {}x{})",
+                    self.img.header.image_width,
+                    self.img.header.image_height,
+                    data.width,
+                    data.height
+                );
+                crate::COUNTER.inc_warning();
+            }
+            create_image(data, file, &self.config)?;
+        }
+        Ok(())
+    }
+}
+
+fn create_raw_png_image<'a>(
+    filename: &str,
+    mut file: Box<dyn WriteSeek + 'a>,
+    img: Option<ImageData>,
+) -> Result<()> {
+    let img = match img {
+        Some(img) => img,
+        None => load_png(std::fs::File::open(filename)?)?,
+    };
+    let header = DpngHeader {
+        magic: *b"DPNG",
+        _unk1: 1,
+        tile_count: 1,
+        image_width: img.width,
+        image_height: img.height,
+    };
+    let png_data = crate::utils::files::read_file(filename)?;
+    let tile = Tile {
+        x: 0,
+        y: 0,
+        width: img.width,
+        height: img.height,
+        size: png_data.len() as u32,
+        _unk: 0,
+        png_data,
+    };
+    let dpng = DpngFile {
+        header,
+        tiles: vec![tile],
+    };
+    dpng.pack(&mut file, false, Encoding::Utf8, &None)?;
+    Ok(())
+}
+
+fn create_image<'a>(
+    image: ImageData,
+    mut writer: Box<dyn WriteSeek + 'a>,
+    config: &ExtraConfig,
+) -> Result<()> {
+    let header = DpngHeader {
+        magic: *b"DPNG",
+        _unk1: 1,
+        tile_count: 1,
+        image_width: image.width,
+        image_height: image.height,
+    };
+    let mut png_data = MemWriter::new();
+    let width = image.width;
+    let height = image.height;
+    encode_img_writer(image, ImageOutputType::Png, &mut png_data, config)?;
+    let png_data = png_data.into_inner();
+    let tile = Tile {
+        x: 0,
+        y: 0,
+        width,
+        height,
+        size: png_data.len() as u32,
+        _unk: 0,
+        png_data,
+    };
+    let dpng = DpngFile {
+        header,
+        tiles: vec![tile],
+    };
+    dpng.pack(&mut writer, false, Encoding::Utf8, &None)?;
+    Ok(())
 }

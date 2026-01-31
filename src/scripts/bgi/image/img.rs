@@ -85,6 +85,7 @@ impl ScriptBuilder for BgiImageBuilder {
     fn create_image_file<'a>(
         &'a self,
         data: ImageData,
+        _filename: &str,
         writer: Box<dyn WriteSeek + 'a>,
         options: &ExtraConfig,
     ) -> Result<()> {
@@ -257,7 +258,12 @@ impl Script for BgiImage {
         })
     }
 
-    fn import_image<'a>(&'a self, data: ImageData, file: Box<dyn WriteSeek + 'a>) -> Result<()> {
+    fn import_image<'a>(
+        &'a self,
+        data: ImageData,
+        _filename: &str,
+        file: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
         create_image(
             data,
             file,

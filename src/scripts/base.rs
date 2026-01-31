@@ -202,12 +202,14 @@ pub trait ScriptBuilder: std::fmt::Debug {
     /// Creates an image file from the given data.
     ///
     /// * `data` - The image data to write.
+    /// * `filename` - The path to the image file.
     /// * `writer` - A writer with seek capabilities to write the image data.
     /// * `options` - Additional configuration options.
     #[cfg(feature = "image")]
     fn create_image_file<'a>(
         &'a self,
         _data: ImageData,
+        _filename: &str,
         _writer: Box<dyn WriteSeek + 'a>,
         _options: &ExtraConfig,
     ) -> Result<()> {
@@ -221,16 +223,18 @@ pub trait ScriptBuilder: std::fmt::Debug {
     /// * `data` - The image data to write.
     /// * `filename` - The path to the output file.
     /// * `options` - Additional configuration options.
+    /// * `image_filename` - The path to the image file.
     #[cfg(feature = "image")]
     fn create_image_file_filename(
         &self,
         data: ImageData,
         filename: &str,
+        image_filename: &str,
         options: &ExtraConfig,
     ) -> Result<()> {
         let f = std::fs::File::create(filename)?;
         let f = std::io::BufWriter::new(f);
-        self.create_image_file(data, Box::new(f), options)
+        self.create_image_file(data, image_filename, Box::new(f), options)
     }
 }
 
@@ -517,8 +521,14 @@ pub trait Script: std::fmt::Debug + std::any::Any {
     /// Imports an image into this script.
     ///
     /// * `data` - The image data to import.
+    /// * `filename` - The path of the image file.
     /// * `file` - A writer with seek capabilities to write the patched scripts.
-    fn import_image<'a>(&'a self, _data: ImageData, _file: Box<dyn WriteSeek + 'a>) -> Result<()> {
+    fn import_image<'a>(
+        &'a self,
+        _data: ImageData,
+        _filename: &str,
+        _file: Box<dyn WriteSeek + 'a>,
+    ) -> Result<()> {
         Err(anyhow::anyhow!(
             "This script type does not support to import image."
         ))
@@ -529,10 +539,16 @@ pub trait Script: std::fmt::Debug + std::any::Any {
     ///
     /// * `data` - The image data to import.
     /// * `filename` - The path of the file to write the patched scripts.
-    fn import_image_filename(&self, data: ImageData, filename: &str) -> Result<()> {
+    /// * `image_filename` - The path of the image file.
+    fn import_image_filename(
+        &self,
+        data: ImageData,
+        image_filename: &str,
+        filename: &str,
+    ) -> Result<()> {
         let f = std::fs::File::create(filename)?;
         let f = std::io::BufWriter::new(f);
-        self.import_image(data, Box::new(f))
+        self.import_image(data, image_filename, Box::new(f))
     }
 
     #[cfg(feature = "image")]

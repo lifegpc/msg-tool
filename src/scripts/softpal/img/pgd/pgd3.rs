@@ -153,6 +153,7 @@ impl Script for Pgd3 {
     fn import_image<'a>(
         &'a self,
         data: ImageData,
+        _filename: &str,
         mut file: Box<dyn WriteSeek + 'a>,
     ) -> Result<()> {
         let mut header = PgdGeHeader {

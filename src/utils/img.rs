@@ -5,6 +5,7 @@ use crate::ext::io::*;
 use crate::types::*;
 use anyhow::Result;
 use std::convert::TryFrom;
+use std::io::Write;
 
 /// Reverses the alpha values of an image.
 ///
@@ -240,14 +241,29 @@ pub fn convert_to_rgba(data: &mut ImageData) -> Result<()> {
 /// * `filename` - The path of the file to write the encoded image to.
 /// * `config` - Extra configuration.
 pub fn encode_img(
-    mut data: ImageData,
+    data: ImageData,
     typ: ImageOutputType,
     filename: &str,
     config: &ExtraConfig,
 ) -> Result<()> {
+    let mut file = crate::utils::files::write_file(filename)?;
+    encode_img_writer(data, typ, &mut file, config)
+}
+
+/// Encodes an image to the specified format and writes it to a writer.
+///
+/// * `data` - The image data to encode.
+/// * `typ` - The output image format.
+/// * `filename` - The path of the file to write the encoded image to.
+/// * `config` - Extra configuration.
+pub fn encode_img_writer<T: Write>(
+    mut data: ImageData,
+    typ: ImageOutputType,
+    mut file: &mut T,
+    config: &ExtraConfig,
+) -> Result<()> {
     match typ {
         ImageOutputType::Png => {
-            let mut file = crate::utils::files::write_file(filename)?;
             let color_type = match data.color_type {
                 ImageColorType::Grayscale => png::ColorType::Grayscale,
                 ImageColorType::Rgb => png::ColorType::Rgb,
@@ -280,7 +296,6 @@ pub fn encode_img(
         }
         #[cfg(feature = "image-jpg")]
         ImageOutputType::Jpg => {
-            let file = crate::utils::files::write_file(filename)?;
             let color_type = match data.color_type {
                 ImageColorType::Grayscale => mozjpeg::ColorSpace::JCS_GRAYSCALE,
                 ImageColorType::Rgb => mozjpeg::ColorSpace::JCS_RGB,
@@ -310,7 +325,6 @@ pub fn encode_img(
         }
         #[cfg(feature = "image-webp")]
         ImageOutputType::Webp => {
-            let mut file = crate::utils::files::write_file(filename)?;
             let color_type = match data.color_type {
                 ImageColorType::Rgb => webp::PixelLayout::Rgb,
                 ImageColorType::Rgba => webp::PixelLayout::Rgba,
@@ -344,7 +358,6 @@ pub fn encode_img(
         }
         #[cfg(feature = "image-jxl")]
         ImageOutputType::Jxl => {
-            let mut file = crate::utils::files::write_file(filename)?;
             let data = encode_jxl(data, config)?;
             file.write_all(&data)?;
             Ok(())

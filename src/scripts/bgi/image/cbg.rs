@@ -67,6 +67,7 @@ impl ScriptBuilder for BgiCBGBuilder {
     fn create_image_file<'a>(
         &'a self,
         data: ImageData,
+        _filename: &str,
         mut writer: Box<dyn WriteSeek + 'a>,
         _options: &ExtraConfig,
     ) -> Result<()> {
@@ -200,6 +201,7 @@ impl Script for BgiCBG {
     fn import_image<'a>(
         &'a self,
         data: ImageData,
+        _filename: &str,
         mut file: Box<dyn WriteSeek + 'a>,
     ) -> Result<()> {
         let encoder = CbgEncoder::new(data)?;

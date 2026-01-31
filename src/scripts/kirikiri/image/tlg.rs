@@ -63,6 +63,7 @@ impl ScriptBuilder for TlgImageBuilder {
     fn create_image_file<'a>(
         &'a self,
         mut data: ImageData,
+        _filename: &str,
         writer: Box<dyn WriteSeek + 'a>,
         _options: &ExtraConfig,
     ) -> Result<()> {
@@ -142,6 +143,7 @@ impl Script for TlgImage {
     fn import_image<'a>(
         &'a self,
         mut data: ImageData,
+        _filename: &str,
         file: Box<dyn WriteSeek + 'a>,
     ) -> Result<()> {
         if data.depth != 8 {

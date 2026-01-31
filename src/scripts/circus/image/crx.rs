@@ -144,6 +144,7 @@ impl ScriptBuilder for CrxImageBuilder {
     fn create_image_file<'a>(
         &'a self,
         data: ImageData,
+        _filename: &str,
         writer: Box<dyn WriteSeek + 'a>,
         options: &ExtraConfig,
     ) -> Result<()> {
@@ -1156,6 +1157,7 @@ impl Script for CrxImage {
     fn import_image<'a>(
         &'a self,
         mut data: ImageData,
+        _filename: &str,
         mut file: Box<dyn WriteSeek + 'a>,
     ) -> Result<()> {
         let mut color_type = match data.color_type {
