@@ -1,7 +1,7 @@
 //!Extensions for IO operations.
 use crate::scripts::base::ReadSeek;
 use crate::types::Encoding;
-use crate::utils::encoding::decode_to_string;
+use crate::utils::encoding::{decode_to_string, encode_string};
 use crate::utils::struct_pack::{StructPack, StructUnpack};
 use std::ffi::CString;
 use std::io::*;
@@ -1180,6 +1180,20 @@ pub trait WriteExt {
 
     /// Writes a C-style string (null-terminated) to the writer.
     fn write_cstring(&mut self, value: &CString) -> Result<()>;
+    /// Writes a C-style string (null-terminated) from the reader with maximum length.
+    /// * `data` is the string data to write.
+    /// * `len` is the maximum length of the string to write. If the string is longer, it will be truncated if `truncate` is true otherwise an error is returned.
+    /// * `encoding` specifies the encoding to use for the string.
+    /// * `padding` indicates how to pad the string if it's shorter than `len`.
+    /// * `truncate` indicates whether to truncate the string if it's longer than `len`.
+    fn write_fstring(
+        &mut self,
+        data: &str,
+        len: usize,
+        encoding: Encoding,
+        padding: u8,
+        truncate: bool,
+    ) -> Result<()>;
     /// Write a struct to the writer.
     fn write_struct<V: StructPack>(
         &mut self,
@@ -1262,6 +1276,42 @@ impl<T: Write> WriteExt for T {
 
     fn write_cstring(&mut self, value: &CString) -> Result<()> {
         self.write_all(value.as_bytes_with_nul())
+    }
+
+    fn write_fstring(
+        &mut self,
+        data: &str,
+        len: usize,
+        encoding: Encoding,
+        padding: u8,
+        truncate: bool,
+    ) -> Result<()> {
+        let encoded = encode_string(encoding, data, true).map_err(|e| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Encoding error: {}", e),
+            )
+        })?;
+        let final_data = if encoded.len() > len {
+            if truncate {
+                &encoded[..len]
+            } else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "String length exceeds the specified length and truncation is disabled",
+                ));
+            }
+        } else {
+            &encoded
+        };
+        self.write_all(final_data)?;
+        let padding_len = len.saturating_sub(final_data.len());
+        if padding_len > 0 {
+            for _ in 0..padding_len {
+                self.write_u8(padding)?;
+            }
+        }
+        Ok(())
     }
 
     fn write_struct<V: StructPack>(

@@ -56,6 +56,21 @@ impl ScriptBuilder for Abmp10ImageBuilder {
         }
         None
     }
+
+    fn can_create_file(&self) -> bool {
+        true
+    }
+
+    fn create_file<'a>(
+        &'a self,
+        filename: &'a str,
+        writer: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        file_encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<()> {
+        create_file(filename, writer, encoding, file_encoding, config)
+    }
 }
 
 trait AbmpRes {
@@ -66,6 +81,12 @@ trait AbmpRes {
     ) -> Result<Self>
     where
         Self: Sized;
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -103,6 +124,22 @@ impl AbmpRes for AbData {
             data: ResourceRef { index },
         })
     }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        data.write_fstring(&self.tag, 0x10, encoding, 0, false)?;
+        let res = img
+            .resources
+            .get(self.data.index)
+            .ok_or_else(|| anyhow::anyhow!("Resource index {} out of bounds", self.data.index))?;
+        data.write_u32(res.len() as u32)?;
+        data.write_all(res)?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -132,6 +169,20 @@ impl AbmpRes for AbImage10 {
         }
         Ok(AbImage10 { datas })
     }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        data.write_fstring("abimage10", 0x10, encoding, 0, false)?;
+        data.write_u8(self.datas.len() as u8)?;
+        for res in &self.datas {
+            res.write_to(data, encoding, img)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -160,6 +211,20 @@ impl AbmpRes for AbSound10 {
             datas.push(data);
         }
         Ok(AbSound10 { datas })
+    }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        data.write_fstring("absound10", 0x10, encoding, 0, false)?;
+        data.write_u8(self.datas.len() as u8)?;
+        for res in &self.datas {
+            res.write_to(data, encoding, img)?;
+        }
+        Ok(())
     }
 }
 
@@ -227,6 +292,39 @@ impl AbmpRes for AbImgData15 {
             data: ResourceRef { index },
         })
     }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        data.write_fstring("abimgdat15", 0x10, encoding, 0, false)?;
+        data.write_u32(self.version)?;
+        let name_length = self.name.encode_utf16().count() as u16;
+        let name = encode_string(Encoding::Utf16LE, &self.name, true)?;
+        if name.len() != (name_length as usize) * 2 {
+            anyhow::bail!("Name length mismatch when writing AbImgData15");
+        }
+        data.write_u16(name_length)?;
+        data.write_all(&name)?;
+        let internal_name = encode_string(encoding, &self.internal_name, true)?;
+        data.write_u16(internal_name.len() as u16)?;
+        data.write_all(&internal_name)?;
+        data.write_u8(self.typ)?;
+        let param_size = if self.version == 2 { 0x1d } else { 0x11 };
+        if self.param.len() != param_size {
+            anyhow::bail!("Param size mismatch when writing AbImgData15");
+        }
+        data.write_all(&self.param)?;
+        let res = img
+            .resources
+            .get(self.data.index)
+            .ok_or_else(|| anyhow::anyhow!("Resource index {} out of bounds", self.data.index))?;
+        data.write_u32(res.len() as u32)?;
+        data.write_all(res)?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -288,6 +386,33 @@ impl AbmpRes for AbImgData14 {
             param,
             data: ResourceRef { index },
         })
+    }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        data.write_fstring("abimgdat14", 0x10, encoding, 0, false)?;
+        let name = encode_string(encoding, &self.name, true)?;
+        data.write_u16(name.len() as u16)?;
+        data.write_all(&name)?;
+        let internal_name = encode_string(encoding, &self.internal_name, true)?;
+        data.write_u16(internal_name.len() as u16)?;
+        data.write_all(&internal_name)?;
+        data.write_u8(self.typ)?;
+        if self.param.len() != 0x4C {
+            anyhow::bail!("Param size mismatch when writing AbImgData14");
+        }
+        data.write_all(&self.param)?;
+        let res = img
+            .resources
+            .get(self.data.index)
+            .ok_or_else(|| anyhow::anyhow!("Resource index {} out of bounds", self.data.index))?;
+        data.write_u32(res.len() as u32)?;
+        data.write_all(res)?;
+        Ok(())
     }
 }
 
@@ -351,6 +476,33 @@ impl AbmpRes for AbImgData13 {
             data: ResourceRef { index },
         })
     }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        data.write_fstring("abimgdat13", 0x10, encoding, 0, false)?;
+        let name = encode_string(encoding, &self.name, true)?;
+        data.write_u16(name.len() as u16)?;
+        data.write_all(&name)?;
+        let internal_name = encode_string(encoding, &self.internal_name, true)?;
+        data.write_u16(internal_name.len() as u16)?;
+        data.write_all(&internal_name)?;
+        data.write_u8(self.typ)?;
+        if self.param.len() != 0xC {
+            anyhow::bail!("Param size mismatch when writing AbImgData13");
+        }
+        data.write_all(&self.param)?;
+        let res = img
+            .resources
+            .get(self.data.index)
+            .ok_or_else(|| anyhow::anyhow!("Resource index {} out of bounds", self.data.index))?;
+        data.write_u32(res.len() as u32)?;
+        data.write_all(res)?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -399,6 +551,33 @@ impl AbmpRes for AbSndData12 {
             data: ResourceRef { index },
         })
     }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        data.write_fstring("absnddat12", 0x10, encoding, 0, false)?;
+        data.write_u32(self.version)?;
+        let name_length = self.name.encode_utf16().count() as u16;
+        let name = encode_string(Encoding::Utf16LE, &self.name, true)?;
+        if name.len() != (name_length as usize) * 2 {
+            anyhow::bail!("Name length mismatch when writing AbSndData12");
+        }
+        data.write_u16(name_length)?;
+        data.write_all(&name)?;
+        let internal_name = encode_string(encoding, &self.internal_name, true)?;
+        data.write_u16(internal_name.len() as u16)?;
+        data.write_all(&internal_name)?;
+        let res = img
+            .resources
+            .get(self.data.index)
+            .ok_or_else(|| anyhow::anyhow!("Resource index {} out of bounds", self.data.index))?;
+        data.write_u32(res.len() as u32)?;
+        data.write_all(res)?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -443,6 +622,28 @@ impl AbmpRes for AbSndData11 {
             internal_name,
             data: ResourceRef { index },
         })
+    }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        data.write_fstring("absnddat11", 0x10, encoding, 0, false)?;
+        let name = encode_string(encoding, &self.name, true)?;
+        data.write_u16(name.len() as u16)?;
+        data.write_all(&name)?;
+        let internal_name = encode_string(encoding, &self.internal_name, true)?;
+        data.write_u16(internal_name.len() as u16)?;
+        data.write_all(&internal_name)?;
+        let res = img
+            .resources
+            .get(self.data.index)
+            .ok_or_else(|| anyhow::anyhow!("Resource index {} out of bounds", self.data.index))?;
+        data.write_u32(res.len() as u32)?;
+        data.write_all(res)?;
+        Ok(())
     }
 }
 
@@ -494,6 +695,24 @@ impl AbmpRes for AbmpResource {
             _ => {
                 anyhow::bail!("Unknown Abmp resource tag: {}", tag);
             }
+        }
+    }
+
+    fn write_to<T: Write + Seek>(
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
+        match self {
+            AbmpResource::Data(res) => res.write_to(data, encoding, img),
+            AbmpResource::Image10(res) => res.write_to(data, encoding, img),
+            AbmpResource::ImgData15(res) => res.write_to(data, encoding, img),
+            AbmpResource::ImgData14(res) => res.write_to(data, encoding, img),
+            AbmpResource::ImgData13(res) => res.write_to(data, encoding, img),
+            AbmpResource::Sound10(res) => res.write_to(data, encoding, img),
+            AbmpResource::SndData12(res) => res.write_to(data, encoding, img),
+            AbmpResource::SndData11(res) => res.write_to(data, encoding, img),
         }
     }
 }
@@ -559,12 +778,37 @@ impl AbmpImage {
         Ok(img)
     }
 
+    pub fn dump_to<T: Write + Seek>(&self, mut writer: T, encoding: Encoding) -> Result<()> {
+        writer.write_fstring(
+            &format!("abmp1{}", (self.version - 10 + b'0') as char),
+            16,
+            encoding,
+            0,
+            false,
+        )?;
+        for data in &self.datas {
+            data.write_to(&mut writer, encoding, self)?;
+        }
+        writer.write_all(&self.extra)?;
+        Ok(())
+    }
+
     fn to_image2(&self) -> AbmpImage2 {
         AbmpImage2 {
             version: self.version,
             datas: self.datas.clone(),
             resources: Vec::new(),
             extra: self.extra.clone(),
+        }
+    }
+
+    fn from_image2(img: &AbmpImage2) -> Self {
+        AbmpImage {
+            version: img.version,
+            datas: img.datas.clone(),
+            resources: Vec::new(),
+            resource_filenames: Vec::new(),
+            extra: img.extra.clone(),
         }
     }
 }
@@ -670,4 +914,58 @@ impl Script for Abmp10Image {
         file.write_all(&s)?;
         Ok(())
     }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        create_file(
+            custom_filename,
+            file,
+            encoding,
+            output_encoding,
+            &self.config,
+        )
+    }
+}
+
+fn create_file<'a>(
+    filename: &str,
+    mut writer: Box<dyn WriteSeek + 'a>,
+    encoding: Encoding,
+    file_encoding: Encoding,
+    config: &ExtraConfig,
+) -> Result<()> {
+    let data = crate::utils::files::read_file(filename)?;
+    let s = decode_to_string(file_encoding, &data, true)?;
+    let img2: AbmpImage2 = if config.custom_yaml {
+        serde_yaml_ng::from_str(&s)?
+    } else {
+        serde_json::from_str(&s)?
+    };
+    let mut img = AbmpImage::from_image2(&img2);
+    let mut base_path = std::path::PathBuf::from(filename);
+    base_path.set_extension("");
+    for res in &img2.resources {
+        let path = base_path.join(&res.path);
+        let buf = if res.ambp10 {
+            let mut mem = MemWriter::new();
+            create_file(
+                &path.to_string_lossy(),
+                Box::new(&mut mem),
+                encoding,
+                file_encoding,
+                config,
+            )?;
+            mem.into_inner()
+        } else {
+            crate::utils::files::read_file(&path)?
+        };
+        img.resources.push(buf);
+    }
+    img.dump_to(&mut writer, encoding)?;
+    Ok(())
 }
