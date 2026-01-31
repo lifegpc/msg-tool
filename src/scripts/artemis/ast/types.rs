@@ -206,6 +206,11 @@ impl Value {
         }
     }
 
+    /// Returns the number of array members in the array.
+    pub fn arr_len(&self) -> usize {
+        self.members().filter(|s| s.is_array()).count()
+    }
+
     /// Inserts a member at the specified index in the array.
     ///
     /// If the index is out of bounds, it appends the value to the end of the array.

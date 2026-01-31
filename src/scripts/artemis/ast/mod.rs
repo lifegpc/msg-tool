@@ -173,10 +173,21 @@ impl Script for AstScript {
                                 } else {
                                     None
                                 }
+                            } else if te["name"].is_array() && &te["name"][0] == "name" {
+                                // Some scripts put the name block inside the text block
+                                if let Some(n) = te["name"]["name"].as_string() {
+                                    Some(n)
+                                } else {
+                                    None
+                                }
                             } else {
                                 None
                             };
                             for item in te.members() {
+                                // Some scripts contain non-array items, skip them (such as name block)
+                                if !item.is_array() {
+                                    continue;
+                                }
                                 let message = text::TextGenerator::new().generate(item)?;
                                 messages.push(Message {
                                     name: nam.clone(),
@@ -403,6 +414,7 @@ impl Script for AstScript {
                             }
                         }
                     };
+                    let mut name_find = false;
                     if root["text"][NumKey(text_index)]["name"].is_array() {
                         let name = match mes {
                             Some(m) => m.name.clone(),
@@ -419,7 +431,9 @@ impl Script for AstScript {
                         }
                         let nlan = self.lang.as_ref().map(|s| s.as_str()).unwrap_or("name");
                         root["text"][NumKey(text_index)]["name"][nlan].set_string(name);
+                        name_find = true;
                     }
+                    let mut arr = Value::new_array();
                     let origin_count = {
                         let text = &root["text"][NumKey(text_index)];
                         let mut tex = &text[lan];
@@ -431,9 +445,33 @@ impl Script for AstScript {
                                 }
                             }
                         }
-                        tex.len()
+                        let arr_len = tex.arr_len();
+                        if arr_len < tex.len() {
+                            for item in tex.members() {
+                                if !item.is_array() {
+                                    // Copy non-array items (such as name block) back to the array
+                                    arr.push_member(item.clone());
+                                }
+                            }
+                        }
+                        arr_len
                     };
-                    let mut arr = Value::new_array();
+                    if !name_find && arr["name"].is_array() && &arr["name"][0] == "name" {
+                        let name = match mes {
+                            Some(m) => m.name.clone(),
+                            None => return Err(anyhow::anyhow!("Message name is missing.")),
+                        };
+                        let mut name = match name {
+                            Some(n) => n,
+                            None => return Err(anyhow::anyhow!("Message name is missing.")),
+                        };
+                        if let Some(repl) = replacement {
+                            for (k, v) in &repl.map {
+                                name = name.replace(k, v);
+                            }
+                        }
+                        arr["name"]["name"].set_string(name);
+                    }
                     for _ in 0..origin_count {
                         let m = match mes {
                             Some(m) => m,
