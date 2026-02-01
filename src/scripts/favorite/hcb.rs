@@ -1,6 +1,4 @@
 //! Favorite HCB script (.hcb)
-use std::io::Write;
-
 use super::disasm::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -8,6 +6,7 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use crate::utils::str::*;
 use anyhow::Result;
+use std::io::Write;
 
 #[derive(Debug)]
 /// Favorite HCB script builder
@@ -255,7 +254,6 @@ impl Script for HcbScript {
                         loop {
                             let toper = &self.data.main_script[func_index];
                             new_funcs.push(toper.clone());
-                            func_index += 1;
                             if matches!(toper.opcode, 0x02 | 0x06 | 0x07) {
                                 need_pacth_addresses.push(toper.pos + 1);
                             }
@@ -281,6 +279,7 @@ impl Script for HcbScript {
                                     }
                                 }
                             }
+                            func_index += 1;
                             // Copy until the next call opcode
                             if toper.opcode == 0x02 {
                                 break;
