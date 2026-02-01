@@ -8,9 +8,24 @@ const SPACE_STR_LIST: [&str; 2] = [" ", "　"];
 const QUOTE_LIST: [(&str, &str); 4] = [("「", "」"), ("『", "』"), ("（", "）"), ("【", "】")];
 const BREAK_SENTENCE_SYMBOLS: [&str; 6] = ["…", "，", "。", "？", "！", "—"];
 
-fn check_is_ascii_alphanumeric(s: &str) -> bool {
+fn is_non_gbk_char(c: char) -> bool {
+    if c.is_ascii_alphanumeric() {
+        return true;
+    }
+    // Check if c is russian
+    if c >= '\u{0400}' && c <= '\u{052F}' {
+        return true;
+    }
+    // Check if c is greek
+    if (c >= '\u{0370}' && c <= '\u{03FF}') || (c >= '\u{1F00}' && c <= '\u{1FFF}') {
+        return true;
+    }
+    false
+}
+
+fn check_is_non_gbk_word(s: &str) -> bool {
     for c in s.chars() {
-        if !c.is_ascii_alphanumeric() {
+        if !is_non_gbk_char(c) {
             return false;
         }
     }
@@ -375,7 +390,7 @@ impl FixedFormatter {
                 } else if !self.break_words
                     && !is_command
                     && !is_ruby_rt
-                    && check_is_ascii_alphanumeric(grapheme)
+                    && check_is_non_gbk_word(grapheme)
                 {
                     // Look back to find a good break point (space or non-ASCII)
                     let mut break_pos = None;
@@ -384,11 +399,11 @@ impl FixedFormatter {
 
                     // Find the last space or non-ASCII character position
                     for ch in result.chars().rev() {
-                        if ch == ' ' || ch == '　' || !ch.is_ascii() {
+                        if ch == ' ' || ch == '　' || (!ch.is_ascii() && !is_non_gbk_char(ch)) {
                             break_pos = Some(j);
                             break;
                         }
-                        if ch.is_ascii_alphabetic() {
+                        if is_non_gbk_char(ch) {
                             temp_length -= 1;
                             if temp_length == 0 {
                                 break;
@@ -811,6 +826,13 @@ fn test_format() {
         real_break_formatter
             .format("「在英山的话或许可以看看『moon river』『Lavir』或是『Patisserie Yuzuru』」"),
         "「在英山的话或许可以看看『moon river』\n『Lavir』或是『Patisserie Yuzuru\n』」"
+    );
+
+    assert_eq!(check_is_non_gbk_word("бога"), true);
+    let russian_break_formatter = FixedFormatter::builder(20).break_words(false);
+    assert_eq!(
+        russian_break_formatter.format("Разнообразный и богатый опыт"),
+        "Разнообразный и \nбогатый опыт"
     );
 
     #[cfg(feature = "circus")]
