@@ -118,6 +118,7 @@ pub struct Data {
     func_pos_map: HashMap<u64, usize>,
     #[serde(skip)]
     speaker_names: HashMap<usize, Vec<String>>,
+    pub sys_imports: Vec<String>,
 }
 
 impl Data {
@@ -129,6 +130,7 @@ impl Data {
             speak_func_indices: HashSet::new(),
             func_pos_map: HashMap::new(),
             speaker_names: HashMap::new(),
+            sys_imports: Vec::new(),
         };
         let script_len = reader.read_u32()? as u64;
         let main_script_data = reader.peek_u32_at(script_len)? as u64;
@@ -145,7 +147,17 @@ impl Data {
         }
         reader.seek(SeekFrom::Start(script_len + 4))?;
         reader.read_to_end(&mut data.extra_data)?;
-
+        let mut off = script_len + 10;
+        let offset = reader.peek_u8_at(off)?;
+        off += 1 + offset as u64;
+        let sysimport_num = reader.peek_u16_at(off)?;
+        off += 2;
+        for _ in 0..sysimport_num {
+            let s = reader.peek_cstring_at(off + 2)?;
+            let s = decode_to_string(encoding, s.as_bytes(), true)?;
+            data.sys_imports.push(s);
+            off += 2 + reader.peek_u8_at(off + 1)? as u64;
+        }
         data.index_functions();
         data.find_speak_functions();
         data.collect_speaker_names();
