@@ -236,8 +236,8 @@ impl Script for DpngImage {
             .find(|(_, t)| t.size != 0)
             .ok_or_else(|| anyhow::anyhow!("DPNG image has no valid tiles with PNG data"))?;
         let mut base = load_png(MemReaderRef::new(&tile.png_data))?;
-        psd.add_layer(&format!("layer_{}", idx), tile.x, tile.y, base.clone())?;
         convert_to_rgba(&mut base)?;
+        psd.add_layer(&format!("layer_{}", idx), tile.x, tile.y, base.clone())?;
         let mut base = draw_on_canvas(
             base,
             self.img.header.image_width,
@@ -252,9 +252,9 @@ impl Script for DpngImage {
                 continue;
             }
             let mut diff = load_png(MemReaderRef::new(&tile.png_data))?;
-            psd.add_layer(&format!("layer_{}", idx2), tile.x, tile.y, diff.clone())?;
             convert_to_rgba(&mut diff)?;
             draw_on_image(&mut base, &diff, tile.x, tile.y)?;
+            psd.add_layer(&format!("layer_{}", idx2), tile.x, tile.y, diff)?;
         }
         let file = std::fs::File::create(filename)?;
         let mut writer = std::io::BufWriter::new(file);
