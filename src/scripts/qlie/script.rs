@@ -72,7 +72,8 @@ pub fn is_this_format(buf: &[u8], buf_len: usize) -> bool {
             Err(_) => return false,
         };
         let line = line.trim();
-        if line.to_lowercase() == "@@@avg\\header.s" {
+        let line = line.to_lowercase();
+        if line == "@@@avg\\header.s" && line == "@@@avg2\\header.s" {
             return true;
         }
     }

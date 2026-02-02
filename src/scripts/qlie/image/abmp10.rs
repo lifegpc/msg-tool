@@ -274,7 +274,7 @@ impl AbmpRes for AbImgData15 {
         match typ {
             0 => nname.push_str(".bmp"),
             1 => nname.push_str(".jpg"),
-            3 => nname.push_str(".png"),
+            2 | 3 => nname.push_str(".png"),
             4 => nname.push_str(".m"),
             5 => nname.push_str(".argb"),
             6 => nname.push_str(".b"),
@@ -370,7 +370,7 @@ impl AbmpRes for AbImgData14 {
         match typ {
             0 => nname.push_str(".bmp"),
             1 => nname.push_str(".jpg"),
-            3 => nname.push_str(".png"),
+            2 | 3 => nname.push_str(".png"),
             4 => nname.push_str(".m"),
             5 => nname.push_str(".argb"),
             6 => nname.push_str(".b"),
@@ -459,7 +459,7 @@ impl AbmpRes for AbImgData13 {
         match typ {
             0 => nname.push_str(".bmp"),
             1 => nname.push_str(".jpg"),
-            3 => nname.push_str(".png"),
+            2 | 3 => nname.push_str(".png"),
             4 => nname.push_str(".m"),
             5 => nname.push_str(".argb"),
             6 => nname.push_str(".b"),
@@ -506,11 +506,93 @@ impl AbmpRes for AbImgData13 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// tag: abimgdat11
+struct AbImgData11 {
+    name: String,
+    internal_name: String,
+    typ: u8,
+    data: ResourceRef,
+}
+
+impl AbmpRes for AbImgData11 {
+    fn read_from<T: Read + Seek>(
+            data: &mut T,
+            encoding: Encoding,
+            img: &mut AbmpImage,
+        ) -> Result<Self>
+        where
+            Self: Sized {
+        let tag = data.read_fstring(0x10, encoding, true)?;
+        if tag != "abimgdat11" {
+            anyhow::bail!("Invalid AbImgData11 tag: {}", tag);
+        }
+        let name_length = data.read_u16()? as usize;
+        let name = data.read_fstring(name_length, encoding, false)?;
+        let internal_name_length = data.read_u16()? as usize;
+        let internal_name = data.read_fstring(internal_name_length, encoding, false)?;
+        let typ = data.read_u8()?;
+        let size = data.read_u32()?;
+        let resource = data.read_exact_vec(size as usize)?;
+        img.resources.push(resource);
+        let index = img.resources.len() - 1;
+        let mut nname = if !name.is_empty() {
+            name.clone()
+        } else if !internal_name.is_empty() {
+            internal_name.clone()
+        } else {
+            format!("abimage11_{index}")
+        };
+        match typ {
+            0 => nname.push_str(".bmp"),
+            1 => nname.push_str(".jpg"),
+            2 | 3 => nname.push_str(".png"),
+            4 => nname.push_str(".m"),
+            5 => nname.push_str(".argb"),
+            6 => nname.push_str(".b"),
+            7 => nname.push_str(".ogv"),
+            8 => nname.push_str(".mdl"),
+            _ => {}
+        }
+        img.resource_filenames.push(nname);
+        Ok(AbImgData11 {
+            name,
+            internal_name,
+            typ,
+            data: ResourceRef { index },
+        })
+    }
+
+    fn write_to<T: Write + Seek>(
+            &self,
+            data: &mut T,
+            encoding: Encoding,
+            img: &AbmpImage,
+        ) -> Result<()> {
+        data.write_fstring("abimgdat11", 0x10, encoding, 0, false)?;
+        let name = encode_string(encoding, &self.name, true)?;
+        data.write_u16(name.len() as u16)?;
+        data.write_all(&name)?;
+        let internal_name = encode_string(encoding, &self.internal_name, true)?;
+        data.write_u16(internal_name.len() as u16)?;
+        data.write_all(&internal_name)?;
+        data.write_u8(self.typ)?;
+        let res = img
+            .resources
+            .get(self.data.index)
+            .ok_or_else(|| anyhow::anyhow!("Resource index {} out of bounds", self.data.index))?;
+        data.write_u32(res.len() as u32)?;
+        data.write_all(res)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 /// tag: absnddat12
 struct AbSndData12 {
     version: u32,
     name: String,
     internal_name: String,
+    typ: u8,
     data: ResourceRef,
 }
 
@@ -532,22 +614,28 @@ impl AbmpRes for AbSndData12 {
         let name = data.read_fstring(name_length, Encoding::Utf16LE, false)?;
         let internal_name_length = data.read_u16()? as usize;
         let internal_name = data.read_fstring(internal_name_length, encoding, false)?;
+        let typ = data.read_u8()?;
         let size = data.read_u32()?;
         let resource = data.read_exact_vec(size as usize)?;
         img.resources.push(resource);
         let index = img.resources.len() - 1;
-        let nname = if !name.is_empty() {
+        let mut nname = if !name.is_empty() {
             name.clone()
         } else if !internal_name.is_empty() {
             internal_name.clone()
         } else {
             format!("absnddat12_{index}")
         };
+        match typ {
+            1 => nname.push_str(".ogg"),
+            _ => {}
+        }
         img.resource_filenames.push(nname);
         Ok(AbSndData12 {
             version,
             name,
             internal_name,
+            typ,
             data: ResourceRef { index },
         })
     }
@@ -570,6 +658,7 @@ impl AbmpRes for AbSndData12 {
         let internal_name = encode_string(encoding, &self.internal_name, true)?;
         data.write_u16(internal_name.len() as u16)?;
         data.write_all(&internal_name)?;
+        data.write_u8(self.typ)?;
         let res = img
             .resources
             .get(self.data.index)
@@ -585,6 +674,7 @@ impl AbmpRes for AbSndData12 {
 struct AbSndData11 {
     name: String,
     internal_name: String,
+    typ: u8,
     data: ResourceRef,
 }
 
@@ -605,21 +695,27 @@ impl AbmpRes for AbSndData11 {
         let name = data.read_fstring(name_length, encoding, false)?;
         let internal_name_length = data.read_u16()? as usize;
         let internal_name = data.read_fstring(internal_name_length, encoding, false)?;
+        let typ = data.read_u8()?;
         let size = data.read_u32()?;
         let resource = data.read_exact_vec(size as usize)?;
         img.resources.push(resource);
         let index = img.resources.len() - 1;
-        let nname = if !name.is_empty() {
+        let mut nname = if !name.is_empty() {
             name.clone()
         } else if !internal_name.is_empty() {
             internal_name.clone()
         } else {
             format!("absnddat11_{index}")
         };
+        match typ {
+            1 => nname.push_str(".ogg"),
+            _ => {}
+        }
         img.resource_filenames.push(nname);
         Ok(AbSndData11 {
             name,
             internal_name,
+            typ,
             data: ResourceRef { index },
         })
     }
@@ -637,6 +733,7 @@ impl AbmpRes for AbSndData11 {
         let internal_name = encode_string(encoding, &self.internal_name, true)?;
         data.write_u16(internal_name.len() as u16)?;
         data.write_all(&internal_name)?;
+        data.write_u8(self.typ)?;
         let res = img
             .resources
             .get(self.data.index)
@@ -655,6 +752,7 @@ enum AbmpResource {
     ImgData15(AbImgData15),
     ImgData14(AbImgData14),
     ImgData13(AbImgData13),
+    ImgData11(AbImgData11),
     Sound10(AbSound10),
     SndData12(AbSndData12),
     SndData11(AbSndData11),
@@ -681,6 +779,9 @@ impl AbmpRes for AbmpResource {
                 data, encoding, img,
             )?)),
             "abimgdat13" => Ok(AbmpResource::ImgData13(AbImgData13::read_from(
+                data, encoding, img,
+            )?)),
+            "abimgdat11" => Ok(AbmpResource::ImgData11(AbImgData11::read_from(
                 data, encoding, img,
             )?)),
             "absound10" => Ok(AbmpResource::Sound10(AbSound10::read_from(
@@ -710,6 +811,7 @@ impl AbmpRes for AbmpResource {
             AbmpResource::ImgData15(res) => res.write_to(data, encoding, img),
             AbmpResource::ImgData14(res) => res.write_to(data, encoding, img),
             AbmpResource::ImgData13(res) => res.write_to(data, encoding, img),
+            AbmpResource::ImgData11(res) => res.write_to(data, encoding, img),
             AbmpResource::Sound10(res) => res.write_to(data, encoding, img),
             AbmpResource::SndData12(res) => res.write_to(data, encoding, img),
             AbmpResource::SndData11(res) => res.write_to(data, encoding, img),
