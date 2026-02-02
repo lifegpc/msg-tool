@@ -656,6 +656,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Export Qlie DPNG images as PSD files.
     pub qlie_dpng_psd: bool,
+    #[cfg(feature = "utils-psd")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Whether to disable compression for image data in PSD files.
+    pub psd_no_compress: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

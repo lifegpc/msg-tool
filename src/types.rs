@@ -609,6 +609,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "qlie-img")]
     /// Export Qlie DPNG images as PSD files.
     pub qlie_dpng_psd: bool,
+    #[cfg(feature = "utils-psd")]
+    #[default(true)]
+    /// Whether to use compression for image data in PSD files.
+    pub psd_compress: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

@@ -12,6 +12,8 @@ use types::*;
 pub struct PsdWriter {
     psd: PsdFile,
     color_type: ImageColorType,
+    compress: bool,
+    zlib_compression_level: u32,
 }
 
 impl PsdWriter {
@@ -63,7 +65,24 @@ impl PsdWriter {
                 image_data: vec![],
             },
         };
-        Ok(Self { psd, color_type })
+        Ok(Self {
+            psd,
+            color_type,
+            compress: true,
+            zlib_compression_level: 6,
+        })
+    }
+
+    /// Sets whether to compress image data in the PSD file.
+    pub fn compress(mut self, compress: bool) -> Self {
+        self.compress = compress;
+        self
+    }
+
+    /// Sets the zlib compression level for the PSD file.
+    pub fn zlib_compression_level(mut self, level: u32) -> Self {
+        self.zlib_compression_level = level;
+        self
     }
 
     /// Add a visible layer to the PSD file.
@@ -75,39 +94,24 @@ impl PsdWriter {
             convert_bgra_to_rgba(&mut data)?;
         }
         let length = data.width as u32 * data.height as u32;
-        let mut channel_infos = Vec::new();
+        let mut channel_ids = Vec::new();
         if data.color_type == ImageColorType::Grayscale {
-            channel_infos.push(ChannelInfo {
-                channel_id: 0,
-                length: length + 2,
-            });
+            channel_ids.push(0);
         } else {
-            channel_infos.push(ChannelInfo {
-                channel_id: 0,
-                length: length + 2,
-            });
-            channel_infos.push(ChannelInfo {
-                channel_id: 1,
-                length: length + 2,
-            });
-            channel_infos.push(ChannelInfo {
-                channel_id: 2,
-                length: length + 2,
-            });
+            channel_ids.push(0); // R
+            channel_ids.push(1); // G
+            channel_ids.push(2); // B
             if data.color_type == ImageColorType::Rgba {
-                channel_infos.push(ChannelInfo {
-                    channel_id: -1,
-                    length: length + 2,
-                });
+                channel_ids.push(-1); // Alpha
             }
         }
-        let layer_base = LayerRecordBase {
+        let mut layer_base = LayerRecordBase {
             top: y as i32,
             left: x as i32,
             bottom: (y + data.height) as i32,
             right: (x + data.width) as i32,
             channels: data.color_type.bpp(1) as u16,
-            channel_infos: channel_infos,
+            channel_infos: Vec::new(),
             blend_mode_signature: *IMAGE_RESOURCE_SIGNATURE,
             blend_mode_key: *b"norm",
             opacity: 255,
@@ -137,8 +141,33 @@ impl PsdWriter {
                     d.push(data.data[index]);
                 }
             }
+            if self.compress {
+                for y in 0..data.height {
+                    let ind = y as usize * data.width as usize;
+                    let mut pre = d[ind];
+                    for x in 1..data.width as usize {
+                        let cur = d[ind + x];
+                        d[ind + x] = cur.wrapping_sub(pre);
+                        pre = cur;
+                    }
+                }
+                let mut data = Vec::new();
+                let mut enc = flate2::write::ZlibEncoder::new(
+                    &mut data,
+                    flate2::Compression::new(self.zlib_compression_level),
+                );
+                enc.write_all(&d)?;
+                enc.finish()?;
+                d = data;
+            }
+            let cinfo = ChannelInfo {
+                channel_id: channel_ids[i as usize],
+                length: d.len() as u32 + 2, // +2 for compression method
+            };
+            layer_base.channel_infos.push(cinfo);
+            let compression = if self.compress { 3 } else { 0 };
             image_data.push(ChannelImageData {
-                compression: 0,
+                compression,
                 image_data: d,
             });
         }
@@ -218,9 +247,8 @@ impl PsdWriter {
                 planar_data.push(val);
             }
         }
-
+        // TODO: RLE compression for planar data if needed
         self.psd.image_data.image_data = planar_data;
-        self.psd.image_data.compression = 0; // Raw
         self.psd.pack(&mut writer, true, encoding, &None)?;
         Ok(())
     }

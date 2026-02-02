@@ -227,7 +227,9 @@ impl Script for DpngImage {
             self.img.header.image_height,
             ImageColorType::Rgba,
             8,
-        )?;
+        )?
+        .compress(self.config.psd_compress)
+        .zlib_compression_level(self.config.zlib_compression_level);
         let (idx, tile) = self
             .img
             .tiles

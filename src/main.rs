@@ -3365,6 +3365,8 @@ fn main() {
         qlie_dpng_use_raw_png: arg.qlie_dpng_use_raw_png,
         #[cfg(feature = "qlie-img")]
         qlie_dpng_psd: arg.qlie_dpng_psd,
+        #[cfg(feature = "utils-psd")]
+        psd_compress: !arg.psd_no_compress,
     });
     match &arg.command {
         args::Command::Export { input, output } => {
