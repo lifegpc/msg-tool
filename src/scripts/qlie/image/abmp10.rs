@@ -516,12 +516,13 @@ struct AbImgData11 {
 
 impl AbmpRes for AbImgData11 {
     fn read_from<T: Read + Seek>(
-            data: &mut T,
-            encoding: Encoding,
-            img: &mut AbmpImage,
-        ) -> Result<Self>
-        where
-            Self: Sized {
+        data: &mut T,
+        encoding: Encoding,
+        img: &mut AbmpImage,
+    ) -> Result<Self>
+    where
+        Self: Sized,
+    {
         let tag = data.read_fstring(0x10, encoding, true)?;
         if tag != "abimgdat11" {
             anyhow::bail!("Invalid AbImgData11 tag: {}", tag);
@@ -563,11 +564,11 @@ impl AbmpRes for AbImgData11 {
     }
 
     fn write_to<T: Write + Seek>(
-            &self,
-            data: &mut T,
-            encoding: Encoding,
-            img: &AbmpImage,
-        ) -> Result<()> {
+        &self,
+        data: &mut T,
+        encoding: Encoding,
+        img: &AbmpImage,
+    ) -> Result<()> {
         data.write_fstring("abimgdat11", 0x10, encoding, 0, false)?;
         let name = encode_string(encoding, &self.name, true)?;
         data.write_u16(name.len() as u16)?;
