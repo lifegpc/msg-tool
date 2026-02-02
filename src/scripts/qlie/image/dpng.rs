@@ -3,6 +3,7 @@ use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::img::*;
+use crate::utils::psd::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
 use msg_tool_macro::*;
@@ -130,15 +131,27 @@ impl DpngImage {
 
 impl Script for DpngImage {
     fn default_output_script_type(&self) -> OutputScriptType {
-        OutputScriptType::Json
+        OutputScriptType::Custom
+    }
+
+    fn is_output_supported(&self, output: OutputScriptType) -> bool {
+        matches!(output, OutputScriptType::Custom)
     }
 
     fn default_format_type(&self) -> FormatOptions {
         FormatOptions::None
     }
 
+    fn custom_output_extension<'a>(&'a self) -> &'a str {
+        "psd"
+    }
+
     fn is_image(&self) -> bool {
-        true
+        if self.config.qlie_dpng_psd {
+            false
+        } else {
+            true
+        }
     }
 
     fn export_image(&self) -> Result<ImageData> {
@@ -205,6 +218,47 @@ impl Script for DpngImage {
             }
             create_image(data, file, &self.config)?;
         }
+        Ok(())
+    }
+
+    fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
+        let mut psd = PsdWriter::new(
+            self.img.header.image_width,
+            self.img.header.image_height,
+            ImageColorType::Rgba,
+            8,
+        )?;
+        let (idx, tile) = self
+            .img
+            .tiles
+            .iter()
+            .enumerate()
+            .find(|(_, t)| t.size != 0)
+            .ok_or_else(|| anyhow::anyhow!("DPNG image has no valid tiles with PNG data"))?;
+        let mut base = load_png(MemReaderRef::new(&tile.png_data))?;
+        psd.add_layer(&format!("layer_{}", idx), tile.x, tile.y, base.clone())?;
+        convert_to_rgba(&mut base)?;
+        let mut base = draw_on_canvas(
+            base,
+            self.img.header.image_width,
+            self.img.header.image_height,
+            tile.x,
+            tile.y,
+        )?;
+        let mut idx2 = idx;
+        for tile in &self.img.tiles[idx + 1..] {
+            idx2 += 1;
+            if tile.size == 0 {
+                continue;
+            }
+            let mut diff = load_png(MemReaderRef::new(&tile.png_data))?;
+            psd.add_layer(&format!("layer_{}", idx2), tile.x, tile.y, diff.clone())?;
+            convert_to_rgba(&mut diff)?;
+            draw_on_image(&mut base, &diff, tile.x, tile.y)?;
+        }
+        let file = std::fs::File::create(filename)?;
+        let mut writer = std::io::BufWriter::new(file);
+        psd.save(base, &mut writer, encoding)?;
         Ok(())
     }
 }

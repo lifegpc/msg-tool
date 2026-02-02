@@ -217,6 +217,7 @@ msg-tool create -t <script-type> <input> <output>
 |---|---|---|---|---|---|---|---|---|---|---|
 | `qlie` | `qlie` | Qlie Engine Scenario script (.s) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
 | `qlie-abmp10` / `qlie-abmp11` / `qlie-abmp12` | `qlie-img` | Qlie Abmp10/11/12 image (.b) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
+| `qlie-dpng` | `qlie-img` | Qlie tiled PNG image (.png) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | `--qlie-dpng-psd` is required. |
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|

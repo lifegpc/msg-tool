@@ -3363,6 +3363,8 @@ fn main() {
         qlie_pack_compress_files: arg.qlie_pack_compress_files,
         #[cfg(feature = "qlie-img")]
         qlie_dpng_use_raw_png: arg.qlie_dpng_use_raw_png,
+        #[cfg(feature = "qlie-img")]
+        qlie_dpng_psd: arg.qlie_dpng_psd,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

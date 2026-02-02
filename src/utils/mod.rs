@@ -27,6 +27,8 @@ pub mod name_replacement;
 pub mod num_range;
 #[cfg(feature = "utils-pcm")]
 pub mod pcm;
+#[cfg(feature = "utils-psd")]
+pub mod psd;
 #[cfg(feature = "utils-rc4")]
 pub mod rc4;
 #[cfg(feature = "utils-serde-base64bytes")]

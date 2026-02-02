@@ -2002,6 +2002,11 @@ impl<T: Seek> StreamRegion<T> {
         let end_pos = stream.stream_length()?;
         Self::new(stream, start_pos, end_pos)
     }
+
+    /// Returns the current position within the region.
+    pub fn cur_pos(&self) -> u64 {
+        self.cur_pos
+    }
 }
 
 impl<T: Read + Seek> Read for StreamRegion<T> {
