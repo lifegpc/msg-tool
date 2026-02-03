@@ -5,6 +5,7 @@ use crate::scripts::base::*;
 use crate::try_option;
 use crate::types::*;
 use crate::utils::img::*;
+use crate::utils::psd::*;
 use anyhow::Result;
 use emote_psb::PsbReader;
 use libtlg_rs::*;
@@ -101,6 +102,9 @@ impl ScriptBuilder for PImgBuilder {
 pub struct PImg {
     psb: VirtualPsbFixed,
     overlay: Option<bool>,
+    psd: bool,
+    psd_compress: bool,
+    zlib_compression_level: u32,
 }
 
 impl PImg {
@@ -114,6 +118,9 @@ impl PImg {
         Ok(Self {
             psb,
             overlay: config.emote_pimg_overlay,
+            psd: config.emote_pimg_psd,
+            psd_compress: config.psd_compress,
+            zlib_compression_level: config.zlib_compression_level,
         })
     }
 
@@ -137,7 +144,15 @@ impl PImg {
 
 impl Script for PImg {
     fn default_output_script_type(&self) -> OutputScriptType {
-        OutputScriptType::Json
+        OutputScriptType::Custom
+    }
+
+    fn is_output_supported(&self, output: OutputScriptType) -> bool {
+        matches!(output, OutputScriptType::Custom)
+    }
+
+    fn custom_output_extension<'a>(&'a self) -> &'a str {
+        "psd"
     }
 
     fn default_format_type(&self) -> FormatOptions {
@@ -145,11 +160,11 @@ impl Script for PImg {
     }
 
     fn is_image(&self) -> bool {
-        true
+        !self.psd
     }
 
     fn is_multi_image(&self) -> bool {
-        true
+        !self.psd
     }
 
     fn export_multi_image<'a>(
@@ -201,6 +216,96 @@ impl Script for PImg {
             layers: psb["layers"].members(),
             bases,
         }))
+    }
+
+    fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
+        let psb = self.psb.root();
+        let width = psb["width"]
+            .as_u32()
+            .ok_or(anyhow::anyhow!("missing width"))?;
+        let height = psb["height"]
+            .as_u32()
+            .ok_or(anyhow::anyhow!("missing height"))?;
+        let mut psd = PsdWriter::new(width, height, ImageColorType::Rgba, 8)?
+            .compress(self.psd_compress)
+            .zlib_compression_level(self.zlib_compression_level);
+        let mut base = ImageData {
+            width,
+            height,
+            color_type: ImageColorType::Rgba,
+            depth: 8,
+            data: vec![0u8; (width * height * 4) as usize],
+        };
+        let mut new_layers = PsbListFixed::new();
+        for layer in psb["layers"].members() {
+            if layer["diff_id"].is_none() {
+                new_layers.values.push(layer.clone());
+            }
+        }
+        for layer in psb["layers"].members() {
+            if !layer["diff_id"].is_none() {
+                new_layers.values.push(layer.clone());
+            }
+        }
+        for layer in new_layers.iter() {
+            let layer_id = layer["layer_id"]
+                .as_i64()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid layer_id"))?;
+            let layer_name = layer["name"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid name"))?;
+            let width = layer["width"]
+                .as_u32()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid width"))?;
+            let height = layer["height"]
+                .as_u32()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid height"))?;
+            let top = layer["top"]
+                .as_u32()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid top"))?;
+            let left = layer["left"]
+                .as_u32()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid left"))?;
+            let opacity = layer["opacity"]
+                .as_u8()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid opacity"))?;
+            let mut visible = layer["visible"].as_u8().unwrap_or(1) != 0;
+            if !layer["diff_id"].is_none() {
+                visible = false; // Always hide diff layers
+            }
+            let img = self.load_img(layer_id)?;
+            let mut layer = ImageData {
+                width: img.width,
+                height: img.height,
+                color_type: match img.color {
+                    TlgColorType::Bgr24 => ImageColorType::Bgr,
+                    TlgColorType::Bgra32 => ImageColorType::Bgra,
+                    TlgColorType::Grayscale8 => ImageColorType::Grayscale,
+                },
+                depth: 8,
+                data: img.data.clone(),
+            };
+            if img.width != width || img.height != height {
+                return Err(anyhow::anyhow!(
+                    "Layer ID {} size mismatch: expected {}x{}, got {}x{}",
+                    layer_id,
+                    width,
+                    height,
+                    img.width,
+                    img.height
+                ));
+            }
+            convert_to_rgba(&mut layer)?;
+            let option = PsdLayerOption { opacity, visible };
+            if visible {
+                draw_on_img_with_opacity(&mut base, &layer, left, top, opacity)?;
+            }
+            psd.add_layer(layer_name, left, top, layer, Some(option))?;
+        }
+        let file = std::fs::File::create(filename)?;
+        let mut writer = std::io::BufWriter::new(file);
+        psd.save(base, &mut writer, encoding)?;
+        Ok(())
     }
 }
 

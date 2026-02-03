@@ -651,6 +651,10 @@ pub struct PsbListFixed {
 }
 
 impl PsbListFixed {
+    pub fn new() -> Self {
+        PsbListFixed { values: vec![] }
+    }
+
     /// Converts this PSB list to a original PSB list.
     pub fn to_psb(self, warn_on_none: bool) -> PsbList {
         let v: Vec<_> = self

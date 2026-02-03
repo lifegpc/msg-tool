@@ -660,6 +660,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Whether to disable compression for image data in PSD files.
     pub psd_no_compress: bool,
+    #[cfg(feature = "emote-img")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Export Emote PIMG images as PSD files.
+    pub emote_pimg_psd: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

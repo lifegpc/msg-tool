@@ -3367,6 +3367,8 @@ fn main() {
         qlie_dpng_psd: arg.qlie_dpng_psd,
         #[cfg(feature = "utils-psd")]
         psd_compress: !arg.psd_no_compress,
+        #[cfg(feature = "emote-img")]
+        emote_pimg_psd: arg.emote_pimg_psd,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

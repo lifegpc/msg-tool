@@ -112,8 +112,11 @@ impl StructPack for PascalString4 {
         let mut encoded = encode_string(encoding, &self.0, true)?;
         let len = encoded.len() as u8;
         len.pack(writer, big, encoding, info)?;
-        while (len as usize + 1) % 4 != 0 {
-            encoded.push(0); // padding bytes
+        let padding = 4 - (len as usize + 1) % 4;
+        if padding != 4 {
+            for _ in 0..padding {
+                encoded.push(0); // padding bytes
+            }
         }
         writer.write_all(&encoded)?;
         Ok(())
@@ -129,8 +132,17 @@ impl StructUnpack for PascalString4 {
     ) -> Result<Self> {
         let len = u8::unpack(reader, big, encoding, info)?;
         let encoded = reader.read_exact_vec(len as usize)?;
-        while (len as usize + 1) % 4 != 0 {
-            reader.read_u8()?; // padding bytes
+        let padding = 4 - (len as usize + 1) % 4;
+        if padding != 4 {
+            for _ in 0..padding {
+                let pad_byte = reader.read_u8()?;
+                if pad_byte != 0 {
+                    return Err(anyhow::anyhow!(
+                        "Expected padding byte to be 0, got {}",
+                        pad_byte
+                    ));
+                }
+            }
         }
         let string = decode_to_string(encoding, &encoded, true)?;
         Ok(PascalString4(string))

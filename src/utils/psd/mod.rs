@@ -9,6 +9,26 @@ use anyhow::Result;
 use std::io::Write;
 use types::*;
 
+#[derive(Debug, Clone, msg_tool_macro::Default)]
+pub struct PsdLayerOption {
+    #[default(true)]
+    /// Whether the layer is visible.
+    pub visible: bool,
+    #[default(255)]
+    /// The opacity of the layer (0-255).
+    pub opacity: u8,
+}
+
+impl PsdLayerOption {
+    fn to_flags(&self) -> u8 {
+        let mut flags = 0u8;
+        if !self.visible {
+            flags |= 0b0000_0010;
+        }
+        flags
+    }
+}
+
 /// A simple PSD writer.
 pub struct PsdWriter {
     psd: PsdFile,
@@ -86,8 +106,21 @@ impl PsdWriter {
         self
     }
 
-    /// Add a visible layer to the PSD file.
-    pub fn add_layer(&mut self, name: &str, x: u32, y: u32, mut data: ImageData) -> Result<()> {
+    /// Add a layer to the PSD file.
+    ///
+    /// * `name` - The name of the layer.
+    /// * `x` - The x position of the layer.
+    /// * `y` - The y position of the layer.
+    /// * `data` - The image data of the layer.
+    /// * `option` - The options for the layer.
+    pub fn add_layer(
+        &mut self,
+        name: &str,
+        x: u32,
+        y: u32,
+        mut data: ImageData,
+        option: Option<PsdLayerOption>,
+    ) -> Result<()> {
         if data.color_type == ImageColorType::Bgr {
             convert_bgr_to_rgb(&mut data)?;
         }
@@ -106,6 +139,16 @@ impl PsdWriter {
                 channel_ids.push(-1); // Alpha
             }
         }
+        let flags = if let Some(opt) = &option {
+            opt.to_flags()
+        } else {
+            0
+        };
+        let opacity = if let Some(opt) = &option {
+            opt.opacity
+        } else {
+            255
+        };
         let mut layer_base = LayerRecordBase {
             top: y as i32,
             left: x as i32,
@@ -115,9 +158,9 @@ impl PsdWriter {
             channel_infos: Vec::new(),
             blend_mode_signature: *IMAGE_RESOURCE_SIGNATURE,
             blend_mode_key: *b"norm",
-            opacity: 255,
+            opacity,
             clipping: 0,
-            flags: 1,
+            flags,
             filler: 0,
         };
         let mut channel_ranges = Vec::new();

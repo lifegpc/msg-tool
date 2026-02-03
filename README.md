@@ -142,6 +142,7 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `emote-psb`/`psb` | `emote-img` | Emote PSB File | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
+| `emote-pimg` | `emote-img` | Emote Multiple Image File (.pimg) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | `--emote-pimg-psd` is required. |
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

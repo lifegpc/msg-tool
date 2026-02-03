@@ -613,6 +613,9 @@ pub struct ExtraConfig {
     #[default(true)]
     /// Whether to use compression for image data in PSD files.
     pub psd_compress: bool,
+    #[cfg(feature = "emote-img")]
+    /// Export Emote PIMG images as PSD files.
+    pub emote_pimg_psd: bool,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
