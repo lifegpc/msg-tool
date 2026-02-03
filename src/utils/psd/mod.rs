@@ -1,6 +1,7 @@
 //! A simple PSD writer
 mod types;
 
+use crate::ext::io::*;
 use crate::types::*;
 use crate::utils::img::*;
 use crate::utils::struct_pack::*;
@@ -247,8 +248,97 @@ impl PsdWriter {
                 planar_data.push(val);
             }
         }
-        // TODO: RLE compression for planar data if needed
+        if self.compress {
+            // RLE compression for planar data
+            let mut compressed = MemWriter::new();
+            // reserve 2 bytes per scanline for lengths
+            for _ in 0..(channels * height) {
+                compressed.write_u16_be(0)?; // placeholder for lengths
+            }
+            for c in 0..channels {
+                for y in 0..height {
+                    let start = (c * width * height) + (y * width);
+                    let line_end = start + width;
+                    let mut idx = start;
+                    let mut literal: Vec<u8> = Vec::new();
+                    let mut out_line: Vec<u8> = Vec::new();
+
+                    while idx < line_end {
+                        // detect run length at current position
+                        let mut run_len = 1;
+                        while idx + run_len < line_end
+                            && planar_data[idx + run_len] == planar_data[idx]
+                            && run_len < 128
+                        {
+                            run_len += 1;
+                        }
+
+                        if run_len >= 3 {
+                            // flush any pending literals
+                            if !literal.is_empty() {
+                                // header = literal_len - 1 (0..127)
+                                let header = (literal.len() - 1) as i8;
+                                out_line.push(header as u8);
+                                out_line.extend_from_slice(&literal);
+                                literal.clear();
+                            }
+                            // write run: header = -(run_len - 1), then single byte value
+                            let header = -(((run_len as u8) - 1) as i8);
+                            out_line.push(header as u8);
+                            out_line.push(planar_data[idx]);
+                            idx += run_len;
+                        } else {
+                            // collect literal bytes until a run of >=3 or 128 reached
+                            literal.push(planar_data[idx]);
+                            idx += 1;
+                            // if literal is full, flush it
+                            if literal.len() == 128 {
+                                let header = (literal.len() - 1) as i8;
+                                out_line.push(header as u8);
+                                out_line.extend_from_slice(&literal);
+                                literal.clear();
+                            } else {
+                                // peek ahead: if next starts a run >=3, flush literal now
+                                if idx < line_end {
+                                    let mut look_run = 1;
+                                    while idx + look_run < line_end
+                                        && planar_data[idx + look_run] == planar_data[idx]
+                                        && look_run < 128
+                                    {
+                                        look_run += 1;
+                                    }
+                                    if look_run >= 3 {
+                                        if !literal.is_empty() {
+                                            let header = (literal.len() - 1) as i8;
+                                            out_line.push(header as u8);
+                                            out_line.extend_from_slice(&literal);
+                                            literal.clear();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // flush remaining literal
+                    if !literal.is_empty() {
+                        let header = (literal.len() - 1) as i8;
+                        out_line.push(header as u8);
+                        out_line.extend_from_slice(&literal);
+                        literal.clear();
+                    }
+
+                    // write scanline length at reserved spot and append data
+                    compressed
+                        .write_u16_be_at(((c * height + y) * 2) as u64, out_line.len() as u16)?;
+                    compressed.write_all(&out_line)?;
+                }
+            }
+            planar_data = compressed.into_inner();
+        }
+        let compression = if self.compress { 1 } else { 0 };
         self.psd.image_data.image_data = planar_data;
+        self.psd.image_data.compression = compression;
         self.psd.pack(&mut writer, true, encoding, &None)?;
         Ok(())
     }
