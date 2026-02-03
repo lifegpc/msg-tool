@@ -793,9 +793,9 @@ pub fn draw_on_img_with_opacity(
                 let src_comp = diff_pixel[i] as u16;
                 let dst_comp = base_pixel_orig[i] as u16;
 
-                let numerator = src_comp * src_alpha_u16
-                    + (dst_comp * dst_alpha_u16 * (255 - src_alpha_u16)) / 255;
-                base.data[base_idx + i] = (numerator / out_alpha_u16) as u8;
+                let numerator = src_comp as u32 * src_alpha_u16 as u32
+                    + (dst_comp as u32 * dst_alpha_u16 as u32 * (255 - src_alpha_u16) as u32) / 255;
+                base.data[base_idx + i] = (numerator / out_alpha_u16 as u32) as u8;
             }
             base.data[base_idx + 3] = out_alpha_u16 as u8;
         }

@@ -227,6 +227,7 @@ impl Script for DpngImage {
             self.img.header.image_height,
             ImageColorType::Rgba,
             8,
+            encoding,
         )?
         .compress(self.config.psd_compress)
         .zlib_compression_level(self.config.zlib_compression_level);
@@ -266,7 +267,7 @@ impl Script for DpngImage {
         }
         let file = std::fs::File::create(filename)?;
         let mut writer = std::io::BufWriter::new(file);
-        psd.save(base, &mut writer, encoding)?;
+        psd.save(base, &mut writer)?;
         Ok(())
     }
 }

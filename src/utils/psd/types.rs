@@ -1,6 +1,5 @@
 use crate::ext::io::*;
 use crate::types::*;
-use crate::utils::encoding::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
 use msg_tool_macro::*;
@@ -10,57 +9,51 @@ use std::io::{Read, Seek, Write};
 pub const PSD_SIGNATURE: &[u8; 4] = b"8BPS";
 pub const IMAGE_RESOURCE_SIGNATURE: &[u8; 4] = b"8BIM";
 
-// #[derive(Debug, Clone)]
-// pub struct UnicodeString(pub String);
+#[derive(Debug, Clone)]
+pub struct UnicodeString(pub String);
 
-// impl StructPack for UnicodeString {
-//     fn pack<W: Write>(
-//         &self,
-//         writer: &mut W,
-//         big: bool,
-//         encoding: Encoding,
-//         info: &Option<Box<dyn Any>>,
-//     ) -> Result<()> {
-//         let mut encoded: Vec<_> = self.0.encode_utf16().collect();
-//         encoded.push(0); // null-terminator
-//         let len = encoded.len() as u32;
-//         len.pack(writer, big, encoding, info)?;
-//         for c in encoded {
-//             c.pack(writer, big, encoding, info)?;
-//         }
-//         Ok(())
-//     }
-// }
+impl StructPack for UnicodeString {
+    fn pack<W: Write>(
+        &self,
+        writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn Any>>,
+    ) -> Result<()> {
+        let encoded: Vec<_> = self.0.encode_utf16().collect();
+        let len = encoded.len() as u32;
+        len.pack(writer, big, encoding, info)?;
+        for c in encoded {
+            c.pack(writer, big, encoding, info)?;
+        }
+        Ok(())
+    }
+}
 
-// impl StructUnpack for UnicodeString {
-//     fn unpack<R: Read + Seek>(
-//         reader: &mut R,
-//         big: bool,
-//         encoding: Encoding,
-//         info: &Option<Box<dyn Any>>,
-//     ) -> Result<Self> {
-//         let len = u32::unpack(reader, big, encoding, info)?;
-//         if len == 0 {
-//             return Ok(UnicodeString(String::new()));
-//         }
-//         let mut encoded: Vec<u16> = Vec::with_capacity((len as usize) - 1);
-//         for _ in 0..len - 1 {
-//             let c = u16::unpack(reader, big, encoding, info)?;
-//             encoded.push(c);
-//         }
-//         // null-terminator
-//         let null = u16::unpack(reader, big, encoding, info)?;
-//         if null != 0 {
-//             return Err(anyhow::anyhow!("Expected null-terminator in UnicodeString"));
-//         }
-//         let string = String::from_utf16(&encoded)
-//             .map_err(|e| anyhow::anyhow!("Failed to decode UTF-16 string: {}", e))?;
-//         Ok(UnicodeString(string))
-//     }
-// }
+impl StructUnpack for UnicodeString {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn Any>>,
+    ) -> Result<Self> {
+        let len = u32::unpack(reader, big, encoding, info)?;
+        if len == 0 {
+            return Ok(UnicodeString(String::new()));
+        }
+        let mut encoded: Vec<u16> = Vec::with_capacity(len as usize);
+        for _ in 0..len {
+            let c = u16::unpack(reader, big, encoding, info)?;
+            encoded.push(c);
+        }
+        let string = String::from_utf16(&encoded)
+            .map_err(|e| anyhow::anyhow!("Failed to decode UTF-16 string: {}", e))?;
+        Ok(UnicodeString(string))
+    }
+}
 
 #[derive(Debug, Clone)]
-pub struct PascalString(pub String);
+pub struct PascalString(pub Vec<u8>);
 
 impl StructPack for PascalString {
     fn pack<W: Write>(
@@ -70,13 +63,12 @@ impl StructPack for PascalString {
         encoding: Encoding,
         info: &Option<Box<dyn Any>>,
     ) -> Result<()> {
-        let mut encoded = encode_string(encoding, &self.0, true)?;
-        let len = encoded.len() as u8;
+        let len = self.0.len() as u8;
         len.pack(writer, big, encoding, info)?;
+        writer.write_all(&self.0)?;
         if len % 2 == 0 {
-            encoded.push(0); // padding byte
+            writer.write_u8(0)?; // padding byte
         }
-        writer.write_all(&encoded)?;
         Ok(())
     }
 }
@@ -93,13 +85,12 @@ impl StructUnpack for PascalString {
         if len % 2 == 0 {
             reader.read_u8()?; // padding byte
         }
-        let string = decode_to_string(encoding, &encoded, true)?;
-        Ok(PascalString(string))
+        Ok(PascalString(encoded))
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct PascalString4(pub String);
+pub struct PascalString4(pub Vec<u8>);
 
 impl StructPack for PascalString4 {
     fn pack<W: Write>(
@@ -109,16 +100,15 @@ impl StructPack for PascalString4 {
         encoding: Encoding,
         info: &Option<Box<dyn Any>>,
     ) -> Result<()> {
-        let mut encoded = encode_string(encoding, &self.0, true)?;
-        let len = encoded.len() as u8;
+        let len = self.0.len() as u8;
         len.pack(writer, big, encoding, info)?;
         let padding = 4 - (len as usize + 1) % 4;
+        writer.write_all(&self.0)?;
         if padding != 4 {
             for _ in 0..padding {
-                encoded.push(0); // padding bytes
+                writer.write_u8(0)?; // padding byte
             }
         }
-        writer.write_all(&encoded)?;
         Ok(())
     }
 }
@@ -144,8 +134,7 @@ impl StructUnpack for PascalString4 {
                 }
             }
         }
-        let string = decode_to_string(encoding, &encoded, true)?;
-        Ok(PascalString4(string))
+        Ok(PascalString4(encoded))
     }
 }
 
@@ -321,12 +310,13 @@ impl StructPack for LayerInfo {
         for layer_record in &self.layer_records {
             layer_record.pack(&mut mem, big, encoding, info)?;
         }
+        let mut index = 0usize;
         for i in 0..self.layer_count {
             let layer = &self.layer_records[i as usize];
             let info = Some(Box::new(layer.clone()) as Box<dyn Any>);
-            for j in 0..layer.base.channels {
-                let index = (i as usize) * (layer.base.channels as usize) + (j as usize);
+            for _ in 0..layer.base.channels {
                 let data = &self.channel_image_data[index];
+                index += 1;
                 data.pack(&mut mem, big, encoding, &info)?;
             }
         }
@@ -930,4 +920,15 @@ impl StructPack for PsdFile {
         self.image_data.pack(writer, big, encoding, &psd_info)?;
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, StructPack, StructUnpack)]
+pub struct SectionDividerSetting {
+    pub typ: u32,
+    // TODO: implement the rest fields
+}
+
+#[derive(Debug, Clone, StructPack, StructUnpack)]
+pub struct UnicodeLayer {
+    pub name: UnicodeString,
 }

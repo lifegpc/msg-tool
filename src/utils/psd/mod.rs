@@ -3,6 +3,7 @@ mod types;
 
 use crate::ext::io::*;
 use crate::types::*;
+use crate::utils::encoding::*;
 use crate::utils::img::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
@@ -35,11 +36,31 @@ pub struct PsdWriter {
     color_type: ImageColorType,
     compress: bool,
     zlib_compression_level: u32,
+    encoding: Encoding,
+}
+
+fn encode_unicode_layer(name: &str) -> Result<AdditionalLayerInfo> {
+    let layer = UnicodeLayer {
+        name: UnicodeString(name.to_string()),
+    };
+    let mut data = MemWriter::new();
+    layer.pack(&mut data, true, Encoding::Utf16BE, &None)?;
+    Ok(AdditionalLayerInfo {
+        signature: *IMAGE_RESOURCE_SIGNATURE,
+        key: *b"luni",
+        data: data.into_inner(),
+    })
 }
 
 impl PsdWriter {
     /// Creates a new PSD writer with the specified dimensions, color type, and bit depth.
-    pub fn new(width: u32, height: u32, color_type: ImageColorType, depth: u8) -> Result<Self> {
+    pub fn new(
+        width: u32,
+        height: u32,
+        color_type: ImageColorType,
+        depth: u8,
+        encoding: Encoding,
+    ) -> Result<Self> {
         let color_type = match color_type {
             ImageColorType::Bgr => ImageColorType::Rgb,
             ImageColorType::Bgra => ImageColorType::Rgba,
@@ -91,6 +112,7 @@ impl PsdWriter {
             color_type,
             compress: true,
             zlib_compression_level: 6,
+            encoding,
         })
     }
 
@@ -215,12 +237,13 @@ impl PsdWriter {
                 image_data: d,
             });
         }
+        let encoded = encode_string(self.encoding, &name, false)?;
         let layer = LayerRecord {
             base: layer_base,
             layer_mask: None,
             layer_blending_ranges,
-            layer_name: PascalString4(name.to_string()),
-            infos: vec![],
+            layer_name: PascalString4(encoded),
+            infos: vec![encode_unicode_layer(name)?],
         };
         self.psd
             .layer_and_mask_info
@@ -240,15 +263,115 @@ impl PsdWriter {
         Ok(())
     }
 
+    /// Adds the start of a layer group to the PSD file.
+    pub fn add_layer_group(
+        &mut self,
+        name: &str,
+        is_closed: bool,
+        option: Option<PsdLayerOption>,
+    ) -> Result<()> {
+        let type_info = SectionDividerSetting {
+            typ: if is_closed { 2 } else { 1 },
+        };
+        let mut data = MemWriter::new();
+        type_info.pack(&mut data, true, self.encoding, &None)?;
+        let encoded = encode_string(self.encoding, &name, false)?;
+        let flags = if let Some(opt) = &option {
+            opt.to_flags()
+        } else {
+            0
+        };
+        let opacity = if let Some(opt) = &option {
+            opt.opacity
+        } else {
+            255
+        };
+        let layer = LayerRecord {
+            base: LayerRecordBase {
+                top: 0,
+                left: 0,
+                bottom: 0,
+                right: 0,
+                channels: 0,
+                channel_infos: vec![],
+                blend_mode_signature: *IMAGE_RESOURCE_SIGNATURE,
+                blend_mode_key: *b"pass",
+                opacity,
+                clipping: 0,
+                flags,
+                filler: 0,
+            },
+            layer_mask: None,
+            layer_blending_ranges: LayerBlendingRanges {
+                gray_blend_dest: 0xFFFF,
+                gray_blend_source: 0xFFFF,
+                channel_ranges: vec![],
+            },
+            layer_name: PascalString4(encoded),
+            infos: vec![
+                AdditionalLayerInfo {
+                    signature: *IMAGE_RESOURCE_SIGNATURE,
+                    key: *b"lsct",
+                    data: data.into_inner(),
+                },
+                encode_unicode_layer(name)?,
+            ],
+        };
+        self.psd
+            .layer_and_mask_info
+            .layer_info
+            .layer_records
+            .push(layer);
+        self.psd.layer_and_mask_info.layer_info.layer_count += 1;
+        Ok(())
+    }
+
+    /// Adds the end of a layer group to the PSD file.
+    pub fn add_layer_group_end(&mut self) -> Result<()> {
+        let type_info = SectionDividerSetting { typ: 3 };
+        let mut data = MemWriter::new();
+        type_info.pack(&mut data, true, self.encoding, &None)?;
+        let layer = LayerRecord {
+            base: LayerRecordBase {
+                top: 0,
+                left: 0,
+                bottom: 0,
+                right: 0,
+                channels: 0,
+                channel_infos: vec![],
+                blend_mode_signature: *IMAGE_RESOURCE_SIGNATURE,
+                blend_mode_key: *b"norm",
+                opacity: 255,
+                clipping: 0,
+                flags: 0,
+                filler: 0,
+            },
+            layer_mask: None,
+            layer_blending_ranges: LayerBlendingRanges {
+                gray_blend_dest: 0xFFFF,
+                gray_blend_source: 0xFFFF,
+                channel_ranges: vec![],
+            },
+            layer_name: PascalString4(b"</Layer group>".to_vec()),
+            infos: vec![AdditionalLayerInfo {
+                signature: *IMAGE_RESOURCE_SIGNATURE,
+                key: *b"lsct",
+                data: data.into_inner(),
+            }],
+        };
+        self.psd
+            .layer_and_mask_info
+            .layer_info
+            .layer_records
+            .push(layer);
+        self.psd.layer_and_mask_info.layer_info.layer_count += 1;
+        Ok(())
+    }
+
     /// Saves the PSD file to the specified writer with the given encoding.
     ///
     /// * `data` - The final composite image data to be saved in the PSD file.
-    pub fn save<T: Write>(
-        &mut self,
-        data: ImageData,
-        mut writer: T,
-        encoding: Encoding,
-    ) -> Result<()> {
+    pub fn save<T: Write>(&mut self, data: ImageData, mut writer: T) -> Result<()> {
         if data.color_type == ImageColorType::Bgr {
             convert_bgr_to_rgb(&mut data.clone())?;
         }
@@ -382,7 +505,7 @@ impl PsdWriter {
         let compression = if self.compress { 1 } else { 0 };
         self.psd.image_data.image_data = planar_data;
         self.psd.image_data.compression = compression;
-        self.psd.pack(&mut writer, true, encoding, &None)?;
+        self.psd.pack(&mut writer, true, self.encoding, &None)?;
         Ok(())
     }
 }

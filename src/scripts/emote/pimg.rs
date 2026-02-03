@@ -97,6 +97,215 @@ impl ScriptBuilder for PImgBuilder {
     }
 }
 
+struct PImgLayer<'a> {
+    data: &'a PsbValueFixed,
+    name: &'a str,
+    layer_id: i64,
+    /// seems is layer type in PSD files
+    layer_type: i64,
+    left: u32,
+    top: u32,
+    width: u32,
+    height: u32,
+    opacity: u8,
+    visible: bool,
+    type_: i64,
+    children: Vec<PImgLayer<'a>>,
+}
+
+impl std::fmt::Debug for PImgLayer<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PImgLayer")
+            .field("layer_id", &self.layer_id)
+            .field("layer_type", &self.layer_type)
+            .field("name", &self.name)
+            .field("left", &self.left)
+            .field("top", &self.top)
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("opacity", &self.opacity)
+            .field("visible", &self.visible)
+            .field("type", &self.type_)
+            .field("children", &self.children)
+            .finish()
+    }
+}
+
+impl<'a> PImgLayer<'a> {
+    pub fn new(data: &'a PsbValueFixed, layers: &'a PsbValueFixed) -> Result<Self> {
+        let layer_id = data["layer_id"]
+            .as_i64()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid layer_id"))?;
+        let layer_type = data["layer_type"]
+            .as_i64()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid layer_type"))?;
+        let name = data["name"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid name"))?;
+        let left = data["left"]
+            .as_u32()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid left"))?;
+        let top = data["top"]
+            .as_u32()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid top"))?;
+        let width = data["width"]
+            .as_u32()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid width"))?;
+        let height = data["height"]
+            .as_u32()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid height"))?;
+        let opacity = data["opacity"]
+            .as_u8()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid opacity"))?;
+        let visible = data["visible"].as_i64().unwrap_or(1) != 0;
+        let type_ = data["type"]
+            .as_i64()
+            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid type"))?;
+        let mut children = Vec::new();
+        for layer in layers.members() {
+            if layer_type == 2 || layer_type == 1 {
+                if let Some(parent_id) = layer["group_layer_id"].as_i64() {
+                    if parent_id == layer_id {
+                        children.push(PImgLayer::new(layer, layers)?);
+                    }
+                }
+            } else if layer_type == 0 {
+                if let Some(base_id) = layer["diff_id"].as_i64() {
+                    if base_id == layer_id {
+                        children.push(PImgLayer::new(layer, layers)?);
+                    }
+                }
+            }
+        }
+        Ok(Self {
+            data,
+            layer_id,
+            layer_type,
+            name,
+            left,
+            top,
+            width,
+            height,
+            opacity,
+            visible,
+            type_,
+            children,
+        })
+    }
+
+    fn len(&self) -> usize {
+        1 + self.children.iter().map(|c| c.len()).sum::<usize>()
+    }
+
+    fn load_img(&self, img: &PImg) -> Result<ImageData> {
+        if self.layer_type == 2 || self.layer_type == 1 {
+            anyhow::bail!("Group layers do not have image data");
+        }
+        if self.layer_id == -1 {
+            // Generate a empty image
+            Ok(ImageData {
+                width: self.width,
+                height: self.height,
+                color_type: ImageColorType::Rgba,
+                depth: 8,
+                data: vec![0u8; (self.width * self.height * 4) as usize],
+            })
+        } else {
+            let tlg = img.load_img(self.layer_id).map_err(|e| {
+                anyhow::anyhow!("Failed to load image for layer_id {}: {}", self.layer_id, e)
+            })?;
+            let mut img = ImageData {
+                width: tlg.width,
+                height: tlg.height,
+                color_type: match tlg.color {
+                    TlgColorType::Bgr24 => ImageColorType::Bgr,
+                    TlgColorType::Bgra32 => ImageColorType::Bgra,
+                    TlgColorType::Grayscale8 => ImageColorType::Grayscale,
+                },
+                depth: 8,
+                data: tlg.data.clone(),
+            };
+            convert_to_rgba(&mut img)?;
+            Ok(img)
+        }
+    }
+
+    fn save_to_psd(&self, img: &PImg, psd: &mut PsdWriter, base: &mut ImageData) -> Result<()> {
+        if self.children.is_empty() {
+            let img = self.load_img(img)?;
+            let mut visible = self.visible;
+            if !self.data["diff_id"].is_none() {
+                visible = false; // Diff layers are always hide by default
+            }
+            if visible {
+                draw_on_img_with_opacity(base, &img, self.left, self.top, self.opacity)?;
+            }
+            let option = PsdLayerOption {
+                visible,
+                opacity: self.opacity,
+            };
+            psd.add_layer(self.name, self.left, self.top, img, Some(option))?;
+        } else {
+            psd.add_layer_group_end()?;
+            if self.layer_type == 0 {
+                let img = self.load_img(img)?;
+                let visible = self.visible;
+                if visible {
+                    draw_on_img_with_opacity(base, &img, self.left, self.top, self.opacity)?;
+                }
+                let option = PsdLayerOption {
+                    visible,
+                    opacity: self.opacity,
+                };
+                psd.add_layer(self.name, self.left, self.top, img, Some(option))?;
+            }
+            for child in &self.children {
+                child.save_to_psd(img, psd, base)?;
+            }
+            let option = if self.layer_type == 0 {
+                None
+            } else {
+                Some(PsdLayerOption {
+                    visible: self.visible,
+                    opacity: self.opacity,
+                })
+            };
+            psd.add_layer_group(self.name, self.layer_type == 2, option)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct PImgLayerRoot<'a> {
+    layers: Vec<PImgLayer<'a>>,
+}
+
+impl<'a> PImgLayerRoot<'a> {
+    pub fn new(layers: &'a PsbValueFixed) -> Result<Self> {
+        let mut root_layers = Vec::new();
+        for layer in layers.members() {
+            if layer["group_layer_id"].is_none() && layer["diff_id"].is_none() {
+                root_layers.push(PImgLayer::new(layer, layers)?);
+            }
+        }
+        Ok(Self {
+            layers: root_layers,
+        })
+    }
+
+    fn len(&self) -> usize {
+        self.layers.iter().map(|l| l.len()).sum()
+    }
+
+    fn save_to_psd(&self, img: &PImg, psd: &mut PsdWriter, base: &mut ImageData) -> Result<()> {
+        for layer in &self.layers {
+            layer.save_to_psd(img, psd, base)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 /// Emote PImg Script
 pub struct PImg {
@@ -226,7 +435,7 @@ impl Script for PImg {
         let height = psb["height"]
             .as_u32()
             .ok_or(anyhow::anyhow!("missing height"))?;
-        let mut psd = PsdWriter::new(width, height, ImageColorType::Rgba, 8)?
+        let mut psd = PsdWriter::new(width, height, ImageColorType::Rgba, 8, encoding)?
             .compress(self.psd_compress)
             .zlib_compression_level(self.zlib_compression_level);
         let mut base = ImageData {
@@ -236,75 +445,14 @@ impl Script for PImg {
             depth: 8,
             data: vec![0u8; (width * height * 4) as usize],
         };
-        let mut new_layers = PsbListFixed::new();
-        for layer in psb["layers"].members() {
-            if layer["diff_id"].is_none() {
-                new_layers.values.push(layer.clone());
-            }
+        let layers = PImgLayerRoot::new(&psb["layers"])?;
+        if layers.len() != psb["layers"].len() {
+            return Err(anyhow::anyhow!("Layer hierarchy is invalid"));
         }
-        for layer in psb["layers"].members() {
-            if !layer["diff_id"].is_none() {
-                new_layers.values.push(layer.clone());
-            }
-        }
-        for layer in new_layers.iter() {
-            let layer_id = layer["layer_id"]
-                .as_i64()
-                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid layer_id"))?;
-            let layer_name = layer["name"]
-                .as_str()
-                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid name"))?;
-            let width = layer["width"]
-                .as_u32()
-                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid width"))?;
-            let height = layer["height"]
-                .as_u32()
-                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid height"))?;
-            let top = layer["top"]
-                .as_u32()
-                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid top"))?;
-            let left = layer["left"]
-                .as_u32()
-                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid left"))?;
-            let opacity = layer["opacity"]
-                .as_u8()
-                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid opacity"))?;
-            let mut visible = layer["visible"].as_u8().unwrap_or(1) != 0;
-            if !layer["diff_id"].is_none() {
-                visible = false; // Always hide diff layers
-            }
-            let img = self.load_img(layer_id)?;
-            let mut layer = ImageData {
-                width: img.width,
-                height: img.height,
-                color_type: match img.color {
-                    TlgColorType::Bgr24 => ImageColorType::Bgr,
-                    TlgColorType::Bgra32 => ImageColorType::Bgra,
-                    TlgColorType::Grayscale8 => ImageColorType::Grayscale,
-                },
-                depth: 8,
-                data: img.data.clone(),
-            };
-            if img.width != width || img.height != height {
-                return Err(anyhow::anyhow!(
-                    "Layer ID {} size mismatch: expected {}x{}, got {}x{}",
-                    layer_id,
-                    width,
-                    height,
-                    img.width,
-                    img.height
-                ));
-            }
-            convert_to_rgba(&mut layer)?;
-            let option = PsdLayerOption { opacity, visible };
-            if visible {
-                draw_on_img_with_opacity(&mut base, &layer, left, top, opacity)?;
-            }
-            psd.add_layer(layer_name, left, top, layer, Some(option))?;
-        }
+        layers.save_to_psd(self, &mut psd, &mut base)?;
         let file = std::fs::File::create(filename)?;
         let mut writer = std::io::BufWriter::new(file);
-        psd.save(base, &mut writer, encoding)?;
+        psd.save(base, &mut writer)?;
         Ok(())
     }
 }
