@@ -142,18 +142,25 @@ impl<'a> PImgLayer<'a> {
         let name = data["name"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid name"))?;
-        let left = data["left"]
-            .as_u32()
-            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid left"))?;
-        let top = data["top"]
-            .as_u32()
-            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid top"))?;
-        let width = data["width"]
-            .as_u32()
-            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid width"))?;
-        let height = data["height"]
-            .as_u32()
-            .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid height"))?;
+        let left = data["left"].as_u32();
+        let top = data["top"].as_u32();
+        let width = data["width"].as_u32();
+        let height = data["height"].as_u32();
+        let (left, top, width, height) = if layer_type != 0 {
+            (
+                left.unwrap_or(0),
+                top.unwrap_or(0),
+                width.unwrap_or(0),
+                height.unwrap_or(0),
+            )
+        } else {
+            (
+                left.ok_or_else(|| anyhow::anyhow!("Layer does not have a valid left"))?,
+                top.ok_or_else(|| anyhow::anyhow!("Layer does not have a valid top"))?,
+                width.ok_or_else(|| anyhow::anyhow!("Layer does not have a valid width"))?,
+                height.ok_or_else(|| anyhow::anyhow!("Layer does not have a valid height"))?,
+            )
+        };
         let opacity = data["opacity"]
             .as_u8()
             .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid opacity"))?;
