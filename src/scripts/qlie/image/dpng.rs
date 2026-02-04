@@ -270,6 +270,50 @@ impl Script for DpngImage {
         psd.save(base, &mut writer)?;
         Ok(())
     }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        mut file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        let rfile = std::fs::File::open(custom_filename)?;
+        let mut reader = std::io::BufReader::new(rfile);
+        let psd = PsdReader::new(&mut reader, output_encoding)?;
+        let width = psd.width();
+        let height = psd.height();
+        let layers = psd.read_normal_layers()?;
+        let header = DpngHeader {
+            magic: *b"DPNG",
+            _unk1: 1,
+            tile_count: layers.len() as u32,
+            image_width: width,
+            image_height: height,
+        };
+        let mut tiles = Vec::new();
+        for layer in layers {
+            let data = layer.image()?;
+            let width = data.width;
+            let height = data.height;
+            let mut png_data = MemWriter::new();
+            encode_img_writer(data, ImageOutputType::Png, &mut png_data, &self.config)?;
+            let png_data = png_data.into_inner();
+            let tile = Tile {
+                x: layer.left() as u32,
+                y: layer.top() as u32,
+                width,
+                height,
+                size: png_data.len() as u32,
+                _unk: 0,
+                png_data,
+            };
+            tiles.push(tile);
+        }
+        let dpng = DpngFile { header, tiles };
+        dpng.pack(&mut file, false, encoding, &None)?;
+        Ok(())
+    }
 }
 
 fn create_raw_png_image<'a>(

@@ -1,5 +1,6 @@
 use crate::ext::io::*;
 use crate::types::*;
+use crate::utils::encoding::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
 use msg_tool_macro::*;
@@ -10,6 +11,8 @@ pub const PSD_SIGNATURE: &[u8; 4] = b"8BPS";
 pub const IMAGE_RESOURCE_SIGNATURE: &[u8; 4] = b"8BIM";
 pub const LAYER_NAME_SOURCE_SETTING_KEY: &[u8; 4] = b"lnsr";
 pub const LAYER_ID_KEY: &[u8; 4] = b"lyid";
+pub const SECTION_DIVIDER_SETTING_KEY: &[u8; 4] = b"lsct";
+pub const UNICODE_LAYER_KEY: &[u8; 4] = b"luni";
 
 #[derive(Debug, Clone)]
 pub struct UnicodeString(pub String);
@@ -176,6 +179,11 @@ impl StructUnpack for ImageResourceSection {
         while stream_region.cur_pos() < length as u64 {
             let resource = ImageResourceBlock::unpack(&mut stream_region, big, encoding, info)?;
             resources.push(resource);
+            if let Ok(d) = stream_region.peek_u8() {
+                if d == 0 {
+                    stream_region.read_u8()?; // padding byte
+                }
+            }
         }
         Ok(ImageResourceSection { resources })
     }
@@ -192,6 +200,7 @@ impl StructPack for ImageResourceSection {
         let mut mem = MemWriter::new();
         for resource in &self.resources {
             resource.pack(&mut mem, big, encoding, info)?;
+            // #TODO: check if padding byte is needed
         }
         let data = mem.into_inner();
         let length = data.len() as u32;
@@ -213,7 +222,7 @@ pub struct ImageResourceBlock {
 #[derive(Debug, Clone)]
 pub struct LayerAndMaskInfo {
     pub layer_info: LayerInfo,
-    pub global_layer_mask_info: GlobalLayerMaskInfo,
+    pub global_layer_mask_info: Option<GlobalLayerMaskInfo>,
     pub tagged_blocks: Vec<u8>,
 }
 
@@ -227,8 +236,18 @@ impl StructUnpack for LayerAndMaskInfo {
         let length = u32::unpack(reader, big, encoding, info)?;
         let mut stream_region = StreamRegion::with_size(reader, length as u64)?;
         let layer_info = LayerInfo::unpack(&mut stream_region, big, encoding, info)?;
-        let global_layer_mask_info =
-            GlobalLayerMaskInfo::unpack(&mut stream_region, big, encoding, info)?;
+        let length = u32::unpack(&mut stream_region, big, encoding, info)?;
+        let global_layer_mask_info = if length > 0 {
+            stream_region.seek_relative(-4)?;
+            Some(GlobalLayerMaskInfo::unpack(
+                &mut stream_region,
+                big,
+                encoding,
+                info,
+            )?)
+        } else {
+            None
+        };
         let mut tagged_blocks = Vec::new();
         stream_region.read_to_end(&mut tagged_blocks)?;
         Ok(LayerAndMaskInfo {
@@ -249,8 +268,11 @@ impl StructPack for LayerAndMaskInfo {
     ) -> Result<()> {
         let mut mem = MemWriter::new();
         self.layer_info.pack(&mut mem, big, encoding, info)?;
-        self.global_layer_mask_info
-            .pack(&mut mem, big, encoding, info)?;
+        if let Some(global_layer_mask_info) = &self.global_layer_mask_info {
+            global_layer_mask_info.pack(&mut mem, big, encoding, info)?;
+        } else {
+            0u32.pack(&mut mem, big, encoding, info)?; // no global layer mask info
+        }
         mem.write_all(&self.tagged_blocks)?;
         let data = mem.into_inner();
         let length = data.len() as u32;
@@ -262,7 +284,7 @@ impl StructPack for LayerAndMaskInfo {
 
 #[derive(Debug, Clone)]
 pub struct LayerInfo {
-    pub layer_count: u16,
+    pub layer_count: i16,
     pub layer_records: Vec<LayerRecord>,
     pub channel_image_data: Vec<ChannelImageData>,
 }
@@ -276,21 +298,22 @@ impl StructUnpack for LayerInfo {
     ) -> Result<Self> {
         let length = u32::unpack(reader, big, encoding, info)?;
         let mut stream_region = StreamRegion::with_size(reader, length as u64)?;
-        let layer_count = u16::unpack(&mut stream_region, big, encoding, info)?;
+        let layer_count = i16::unpack(&mut stream_region, big, encoding, info)?;
         let mut layer_records = Vec::new();
-        for _ in 0..layer_count {
+        for _ in 0..layer_count.abs() {
             let layer_record = LayerRecord::unpack(&mut stream_region, big, encoding, info)?;
             layer_records.push(layer_record);
         }
         let mut channel_image_data = Vec::new();
-        for i in 0..layer_count {
+        for i in 0..layer_count.abs() {
             let layer = &layer_records[i as usize];
-            let info = Some(Box::new(layer.clone()) as Box<dyn Any>);
-            for _ in 0..layer.base.channels {
+            for j in 0..layer.base.channels {
+                let info = Some(Box::new((layer.clone(), j as usize)) as Box<dyn Any>);
                 let data = ChannelImageData::unpack(&mut stream_region, big, encoding, &info)?;
                 channel_image_data.push(data);
             }
         }
+        stream_region.seek_to_end()?;
         Ok(LayerInfo {
             layer_count,
             layer_records,
@@ -364,6 +387,27 @@ pub struct LayerRecord {
     pub layer_blending_ranges: LayerBlendingRanges,
     pub layer_name: PascalString4,
     pub infos: Vec<AdditionalLayerInfo>,
+}
+
+impl LayerRecord {
+    pub fn get_info<'a>(&'a self, key: &[u8; 4]) -> Option<&'a [u8]> {
+        for info in &self.infos {
+            if &info.key == key {
+                return Some(&info.data);
+            }
+        }
+        None
+    }
+
+    pub fn layer_name(&self, encoding: Encoding) -> Result<String> {
+        if let Some(uni) = self.get_info(UNICODE_LAYER_KEY) {
+            let data = UnicodeLayer::unpack(&mut MemReaderRef::new(uni), true, encoding, &None)?;
+            Ok(data.name.0)
+        } else {
+            let s = decode_to_string(encoding, &self.layer_name.0, true)?;
+            Ok(s)
+        }
+    }
 }
 
 impl StructPack for LayerRecord {
@@ -548,6 +592,7 @@ impl StructUnpack for LayerMask {
             let mask_left = i32::unpack(&mut stream_region, big, encoding, info)?;
             let mask_bottom = i32::unpack(&mut stream_region, big, encoding, info)?;
             let mask_right = i32::unpack(&mut stream_region, big, encoding, info)?;
+            stream_region.seek_to_end()?;
             Ok(LayerMask {
                 top,
                 left,
@@ -565,6 +610,7 @@ impl StructUnpack for LayerMask {
                 mask_right: Some(mask_right),
             })
         } else {
+            stream_region.seek_to_end()?;
             Ok(LayerMask {
                 top,
                 left,
@@ -717,6 +763,17 @@ fn get_layer_info(info: &Option<Box<dyn Any>>) -> Result<&LayerRecord> {
     ))
 }
 
+fn get_layer_info_with_channel_index(info: &Option<Box<dyn Any>>) -> Result<&(LayerRecord, usize)> {
+    if let Some(boxed) = info {
+        if let Some(layer_info) = boxed.downcast_ref::<(LayerRecord, usize)>() {
+            return Ok(layer_info);
+        }
+    }
+    Err(anyhow::anyhow!(
+        "LayerRecord and channel index info is required for ChannelImageData unpacking"
+    ))
+}
+
 impl StructUnpack for ChannelImageData {
     fn unpack<R: Read + Seek>(
         reader: &mut R,
@@ -724,16 +781,17 @@ impl StructUnpack for ChannelImageData {
         encoding: Encoding,
         info: &Option<Box<dyn Any>>,
     ) -> Result<Self> {
-        let compression = u16::unpack(reader, big, encoding, info)?;
-        if compression != 0 {
-            return Err(anyhow::anyhow!(
-                "Only raw (compression == 0) channel image data is supported"
-            ));
-        }
-        let info = get_layer_info(info)?;
-        let len = (info.base.bottom - info.base.top) as usize
-            * (info.base.right - info.base.left) as usize;
-        let image_data = reader.read_exact_vec(len)?;
+        let (layer, idx) = get_layer_info_with_channel_index(info)?;
+        let layer_len = layer
+            .base
+            .channel_infos
+            .get(*idx)
+            .ok_or_else(|| anyhow::anyhow!("Channel index {} out of bounds for layer", idx))?
+            .length;
+        let mut stream_region = StreamRegion::with_size(reader, layer_len as u64)?;
+        let compression = u16::unpack(&mut stream_region, big, encoding, info)?;
+        let mut image_data = Vec::new();
+        stream_region.read_to_end(&mut image_data)?;
         Ok(ChannelImageData {
             compression,
             image_data,
@@ -782,6 +840,11 @@ impl StructUnpack for GlobalLayerMaskInfo {
         info: &Option<Box<dyn Any>>,
     ) -> Result<Self> {
         let length = u32::unpack(reader, big, encoding, info)?;
+        println!(
+            "GlobalLayerMaskInfo length = {}, stream position = {}",
+            length,
+            reader.stream_position()?
+        );
         let mut stream_region = StreamRegion::with_size(reader, length as u64)?;
         let overlays_color_space = u16::unpack(&mut stream_region, big, encoding, info)?;
         let mut overlays_color_components = [0u16; 4];
@@ -793,6 +856,7 @@ impl StructUnpack for GlobalLayerMaskInfo {
         let filler_length = length as usize - 2 - (4 * 2) - 2 - 1;
         let mut filler = vec![0u8; filler_length];
         stream_region.read_exact(&mut filler)?;
+        stream_region.seek_to_end()?;
         Ok(GlobalLayerMaskInfo {
             overlays_color_space,
             overlays_color_components,
@@ -828,6 +892,7 @@ impl StructPack for GlobalLayerMaskInfo {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ImageDataSection {
     pub compression: u16,
     pub image_data: Vec<u8>,
@@ -850,18 +915,8 @@ impl StructUnpack for ImageDataSection {
         info: &Option<Box<dyn Any>>,
     ) -> Result<Self> {
         let compression = u16::unpack(reader, big, encoding, info)?;
-        if compression != 0 {
-            return Err(anyhow::anyhow!(
-                "Only raw (compression == 0) image data is supported"
-            ));
-        }
-        let psd_header = get_psd_header(info)?;
-        let len = psd_header.channels as usize
-            * psd_header.height as usize
-            * psd_header.width as usize
-            * psd_header.depth as usize
-            / 8;
-        let image_data = reader.read_exact_vec(len)?;
+        let mut image_data = Vec::new();
+        reader.read_to_end(&mut image_data)?;
         Ok(ImageDataSection {
             compression,
             image_data,
@@ -896,6 +951,7 @@ impl StructPack for ImageDataSection {
     }
 }
 
+#[derive(Debug)]
 pub struct PsdFile {
     pub header: PsdHeader,
     pub color_mode_data: ColorModeData,
@@ -924,6 +980,35 @@ impl StructPack for PsdFile {
     }
 }
 
+impl StructUnpack for PsdFile {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn Any>>,
+    ) -> Result<Self> {
+        let header = PsdHeader::unpack(reader, big, encoding, info)?;
+        let psd_info = Some(Box::new(header.clone()) as Box<dyn Any>);
+        let color_mode_data = ColorModeData::unpack(reader, big, encoding, &psd_info)?;
+        let image_resource = ImageResourceSection::unpack(reader, big, encoding, &psd_info)?;
+        let layer_and_mask_info = LayerAndMaskInfo::unpack(reader, big, encoding, &psd_info)?;
+        let image_data = ImageDataSection::unpack(reader, big, encoding, &psd_info)?;
+        Ok(PsdFile {
+            header,
+            color_mode_data,
+            image_resource,
+            layer_and_mask_info,
+            image_data,
+        })
+    }
+}
+
+impl PsdFile {
+    pub fn layer_count(&self) -> usize {
+        self.layer_and_mask_info.layer_info.layer_count.abs() as usize
+    }
+}
+
 #[derive(Debug, Clone, StructPack, StructUnpack)]
 pub struct SectionDividerSetting {
     pub typ: u32,
@@ -938,7 +1023,7 @@ pub struct UnicodeLayer {
 #[derive(Debug, Clone, StructPack, StructUnpack)]
 pub struct LayerID {
     /// ID for the layer
-    pub id: i32,
+    pub id: u32,
 }
 
 #[derive(Debug, Clone, StructPack, StructUnpack)]
