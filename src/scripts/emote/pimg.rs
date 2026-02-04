@@ -6,6 +6,7 @@ use crate::try_option;
 use crate::types::*;
 use crate::utils::img::*;
 use crate::utils::psd::*;
+use crate::utils::struct_pack::*;
 use anyhow::Result;
 use emote_psb::PsbReader;
 use libtlg_rs::*;
@@ -247,9 +248,20 @@ impl<'a> PImgLayer<'a> {
             if visible {
                 draw_on_img_with_opacity(base, &img, self.left, self.top, self.opacity)?;
             }
+            let layer_name_source_setting = LayerNameSourceSetting {
+                id: self.layer_id as i32,
+            };
+            let mut packed = Vec::new();
+            layer_name_source_setting.pack(&mut packed, true, Encoding::Utf8, &None)?;
+            let additional_info = vec![AdditionalLayerInfo {
+                signature: *IMAGE_RESOURCE_SIGNATURE,
+                key: *LAYER_NAME_SOURCE_SETTING_KEY,
+                data: packed,
+            }];
             let option = PsdLayerOption {
                 visible,
                 opacity: self.opacity,
+                additional_info,
             };
             psd.add_layer(self.name, self.left, self.top, img, Some(option))?;
         } else {
@@ -260,21 +272,46 @@ impl<'a> PImgLayer<'a> {
                 if visible {
                     draw_on_img_with_opacity(base, &img, self.left, self.top, self.opacity)?;
                 }
+                let layer_name_source_setting = LayerNameSourceSetting {
+                    id: self.layer_id as i32,
+                };
+                let mut packed = Vec::new();
+                layer_name_source_setting.pack(&mut packed, true, Encoding::Utf8, &None)?;
+                let additional_info = vec![AdditionalLayerInfo {
+                    signature: *IMAGE_RESOURCE_SIGNATURE,
+                    key: *LAYER_NAME_SOURCE_SETTING_KEY,
+                    data: packed,
+                }];
                 let option = PsdLayerOption {
                     visible,
                     opacity: self.opacity,
+                    additional_info,
                 };
                 psd.add_layer(self.name, self.left, self.top, img, Some(option))?;
             }
             for child in &self.children {
                 child.save_to_psd(img, psd, base)?;
             }
+            let layer_name_source_setting = LayerNameSourceSetting {
+                id: self.layer_id as i32,
+            };
+            let mut packed = Vec::new();
+            layer_name_source_setting.pack(&mut packed, true, Encoding::Utf8, &None)?;
+            let additional_info = vec![AdditionalLayerInfo {
+                signature: *IMAGE_RESOURCE_SIGNATURE,
+                key: *LAYER_NAME_SOURCE_SETTING_KEY,
+                data: packed,
+            }];
             let option = if self.layer_type == 0 {
-                None
+                Some(PsdLayerOption {
+                    additional_info,
+                    ..Default::default()
+                })
             } else {
                 Some(PsdLayerOption {
                     visible: self.visible,
                     opacity: self.opacity,
+                    additional_info,
                 })
             };
             psd.add_layer_group(self.name, self.layer_type == 2, option)?;

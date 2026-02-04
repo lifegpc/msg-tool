@@ -1456,6 +1456,8 @@ pub trait SeekExt {
     /// Aligns the current position to the given alignment.
     /// Returns the new position after alignment.
     fn align(&mut self, align: u64) -> Result<u64>;
+    /// Seeks to the end of the stream.
+    fn seek_to_end(&mut self) -> Result<u64>;
 }
 
 impl<T: Seek> SeekExt for T {
@@ -1473,6 +1475,10 @@ impl<T: Seek> SeekExt for T {
             self.seek(SeekFrom::Start(aligned_pos))?;
         }
         Ok(aligned_pos)
+    }
+
+    fn seek_to_end(&mut self) -> Result<u64> {
+        self.seek(SeekFrom::End(0))
     }
 }
 

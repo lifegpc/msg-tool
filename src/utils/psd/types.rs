@@ -8,6 +8,8 @@ use std::io::{Read, Seek, Write};
 
 pub const PSD_SIGNATURE: &[u8; 4] = b"8BPS";
 pub const IMAGE_RESOURCE_SIGNATURE: &[u8; 4] = b"8BIM";
+pub const LAYER_NAME_SOURCE_SETTING_KEY: &[u8; 4] = b"lnsr";
+pub const LAYER_ID_KEY: &[u8; 4] = b"lyid";
 
 #[derive(Debug, Clone)]
 pub struct UnicodeString(pub String);
@@ -931,4 +933,16 @@ pub struct SectionDividerSetting {
 #[derive(Debug, Clone, StructPack, StructUnpack)]
 pub struct UnicodeLayer {
     pub name: UnicodeString,
+}
+
+#[derive(Debug, Clone, StructPack, StructUnpack)]
+pub struct LayerID {
+    /// ID for the layer
+    pub id: i32,
+}
+
+#[derive(Debug, Clone, StructPack, StructUnpack)]
+pub struct LayerNameSourceSetting {
+    /// ID for the layer name
+    pub id: i32,
 }

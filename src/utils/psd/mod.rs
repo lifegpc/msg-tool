@@ -10,6 +10,11 @@ use anyhow::Result;
 use std::io::Write;
 use types::*;
 
+pub use types::{
+    AdditionalLayerInfo, IMAGE_RESOURCE_SIGNATURE, LAYER_ID_KEY, LAYER_NAME_SOURCE_SETTING_KEY,
+    LayerID, LayerNameSourceSetting,
+};
+
 #[derive(Debug, Clone, msg_tool_macro::Default)]
 pub struct PsdLayerOption {
     #[default(true)]
@@ -18,6 +23,8 @@ pub struct PsdLayerOption {
     #[default(255)]
     /// The opacity of the layer (0-255).
     pub opacity: u8,
+    /// Additional layer information.
+    pub additional_info: Vec<AdditionalLayerInfo>,
 }
 
 impl PsdLayerOption {
@@ -238,12 +245,16 @@ impl PsdWriter {
             });
         }
         let encoded = encode_string(self.encoding, &name, false)?;
+        let mut infos = vec![encode_unicode_layer(name)?];
+        if let Some(opt) = option {
+            infos.extend(opt.additional_info);
+        }
         let layer = LayerRecord {
             base: layer_base,
             layer_mask: None,
             layer_blending_ranges,
             layer_name: PascalString4(encoded),
-            infos: vec![encode_unicode_layer(name)?],
+            infos,
         };
         self.psd
             .layer_and_mask_info
@@ -286,6 +297,17 @@ impl PsdWriter {
         } else {
             255
         };
+        let mut infos = vec![
+            AdditionalLayerInfo {
+                signature: *IMAGE_RESOURCE_SIGNATURE,
+                key: *b"lsct",
+                data: data.into_inner(),
+            },
+            encode_unicode_layer(name)?,
+        ];
+        if let Some(opt) = option {
+            infos.extend(opt.additional_info);
+        }
         let layer = LayerRecord {
             base: LayerRecordBase {
                 top: 0,
@@ -308,14 +330,7 @@ impl PsdWriter {
                 channel_ranges: vec![],
             },
             layer_name: PascalString4(encoded),
-            infos: vec![
-                AdditionalLayerInfo {
-                    signature: *IMAGE_RESOURCE_SIGNATURE,
-                    key: *b"lsct",
-                    data: data.into_inner(),
-                },
-                encode_unicode_layer(name)?,
-            ],
+            infos,
         };
         self.psd
             .layer_and_mask_info
