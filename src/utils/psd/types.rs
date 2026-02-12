@@ -840,11 +840,6 @@ impl StructUnpack for GlobalLayerMaskInfo {
         info: &Option<Box<dyn Any>>,
     ) -> Result<Self> {
         let length = u32::unpack(reader, big, encoding, info)?;
-        println!(
-            "GlobalLayerMaskInfo length = {}, stream position = {}",
-            length,
-            reader.stream_position()?
-        );
         let mut stream_region = StreamRegion::with_size(reader, length as u64)?;
         let overlays_color_space = u16::unpack(&mut stream_region, big, encoding, info)?;
         let mut overlays_color_components = [0u16; 4];
