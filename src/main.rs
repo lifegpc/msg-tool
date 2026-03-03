@@ -1644,6 +1644,7 @@ pub fn import_script(
                                 let mut parser = output_scripts::m3t::M3tParser::new(
                                     &s,
                                     arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                                    arg.m3t_use_original_text,
                                 );
                                 match parser.parse() {
                                     Ok(mes) => mes,
@@ -1946,6 +1947,7 @@ pub fn import_script(
                         let mut parser = output_scripts::m3t::M3tParser::new(
                             &s,
                             arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                            arg.m3t_use_original_text,
                         );
                         match parser.parse() {
                             Ok(mes) => mes,
@@ -2271,6 +2273,7 @@ pub fn import_script(
                     let mut parser = output_scripts::m3t::M3tParser::new(
                         &s,
                         arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                        arg.m3t_use_original_text,
                     );
                     parser.parse()?
                 }
@@ -2375,6 +2378,7 @@ pub fn import_script(
             let mut parser = output_scripts::m3t::M3tParser::new(
                 &s,
                 arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                arg.m3t_use_original_text,
             );
             parser.parse()?
         }
@@ -2928,6 +2932,7 @@ pub fn parse_output_script_as_extend(
             let mut parser = output_scripts::m3t::M3tParser::new(
                 &s,
                 arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                arg.m3t_use_original_text,
             );
             let mes = parser.parse_as_extend()?;
             Ok(mes)
@@ -2965,6 +2970,7 @@ pub fn parse_output_script(
             let mut parser = output_scripts::m3t::M3tParser::new(
                 &s,
                 arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                arg.m3t_use_original_text,
             );
             let mes = parser.parse()?;
             Ok(mes)

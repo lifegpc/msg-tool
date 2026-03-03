@@ -16,15 +16,17 @@ pub struct M3tParser<'a> {
     str: &'a str,
     line: usize,
     llm_mark: Option<&'a str>,
+    use_original_text: bool,
 }
 
 impl<'a> M3tParser<'a> {
     /// Creates a new M3tParser with the given string.
-    pub fn new(str: &'a str, llm_mark: Option<&'a str>) -> Self {
+    pub fn new(str: &'a str, llm_mark: Option<&'a str>, use_original_text: bool) -> Self {
         M3tParser {
             str,
             line: 1,
             llm_mark,
+            use_original_text,
         }
     }
 
@@ -124,6 +126,7 @@ impl<'a> M3tParser<'a> {
         let mut messages = Vec::new();
         let mut name = None;
         let mut llm = None;
+        let mut ori = None;
         while let Some(line) = self.next_line() {
             if line.is_empty() {
                 continue;
@@ -134,6 +137,8 @@ impl<'a> M3tParser<'a> {
                 let line = line[3..].trim();
                 if line.starts_with("NAME:") {
                     name = Some(line[5..].trim().to_string());
+                } else {
+                    ori = Some(line.to_string());
                 }
             } else if line.starts_with("△") {
                 let line = line[3..].trim();
@@ -154,10 +159,17 @@ impl<'a> M3tParser<'a> {
                             s
                         })
                         .unwrap_or_else(|| {
-                            String::from(if message.starts_with("「") {
-                                "「」"
+                            let m = if self.use_original_text {
+                                ori.clone()
                             } else {
-                                ""
+                                None
+                            };
+                            m.unwrap_or_else(|| {
+                                String::from(if message.starts_with("「") {
+                                    "「」"
+                                } else {
+                                    ""
+                                })
                             })
                         })
                         .replace("\\n", "\n")
@@ -273,9 +285,9 @@ impl M3tDumper {
 #[test]
 fn test_zero_width_space() {
     let input = "○ NAME: Example\n\n○ Original message\n\u{200b}● 「」\n\n";
-    let mut parser = M3tParser::new(input, None);
+    let mut parser = M3tParser::new(input, None, false);
     let messages = parser.parse().unwrap();
     assert_eq!(messages.len(), 1);
-    let map = M3tParser::new(input, None).parse_as_vec().unwrap();
+    let map = M3tParser::new(input, None, false).parse_as_vec().unwrap();
     assert_eq!(map.len(), 1);
 }

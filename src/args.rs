@@ -587,6 +587,9 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Do not add quote to translated text when exporting to m3t files.
     pub m3t_no_quote: bool,
+    #[arg(long, global = true)]
+    /// Use original text as translated text if translated text and llm text are all empty.
+    pub m3t_use_original_text: bool,
     #[cfg(feature = "kirikiri-arc")]
     #[arg(long, global = true)]
     /// Disable adler32 checksum for Kirikiri XP3 archive when creating.
@@ -938,6 +941,7 @@ pub fn load_kirikiri_chat_json(
                     crate::output_scripts::m3t::M3tParser::new(
                         &data,
                         arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
+                        arg.m3t_use_original_text,
                     )
                     .parse_as_vec()?
                 } else {
