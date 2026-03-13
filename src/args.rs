@@ -667,6 +667,18 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Export Emote PIMG images as PSD files.
     pub emote_pimg_psd: bool,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true)]
+    /// Whether to only extract message between Talk and Hitret command in Kirikiri KS script. Auto detect if not specified.
+    pub kirikiri_ks_hitret: Option<bool>,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true)]
+    /// The line feed character used in Kirikiri KS script.
+    pub kirikiri_ks_lf: Option<String>,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true, value_delimiter = ',', default_value = "macCmd")]
+    /// Kirikiri message tags, used to extract more message from ks script.
+    pub kirikiri_message_tags: Vec<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

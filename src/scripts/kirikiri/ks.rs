@@ -6,6 +6,7 @@ use crate::utils::encoding::*;
 use crate::utils::escape::*;
 use anyhow::Result;
 use fancy_regex::Regex;
+use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::io::Write;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
@@ -166,6 +167,14 @@ impl TagNode {
         }
     }
 
+    /// Get an attribute for the tag
+    pub fn get_attr(&self, key: &str) -> Option<&TagAttr> {
+        self.attributes
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v)
+    }
+
     fn to_xml_tag(&self) -> String {
         let attr_str = self.ser_attributes_xml();
         if attr_str.is_empty() {
@@ -263,6 +272,16 @@ impl ParsedLineNode {
 
     fn is_np(&self) -> bool {
         matches!(self, ParsedLineNode::Tag(tag) if tag.name == "np")
+    }
+
+    fn is_tag(&self, name: &str) -> bool {
+        matches!(self, ParsedLineNode::Tag(tag) if tag.name == name)
+    }
+
+    fn set_attr(&mut self, key: &str, value: String) {
+        if let ParsedLineNode::Tag(tag) = self {
+            tag.set_attr(key, value);
+        }
     }
 }
 
@@ -568,14 +587,24 @@ impl Parser {
 struct XMLTextParser {
     str: String,
     pos: usize,
+    lf: String,
+    no_np: bool,
 }
 
 impl XMLTextParser {
-    pub fn new(text: &str) -> Self {
+    pub fn new(text: &str, lf: Option<String>) -> Self {
+        let lf = lf.unwrap_or_else(|| String::from("<r>"));
         Self {
-            str: text.replace("\n", "<r>"),
+            str: text.replace("\n", &lf),
             pos: 0,
+            lf,
+            no_np: false,
         }
+    }
+
+    fn no_np(mut self) -> Self {
+        self.no_np = true;
+        self
     }
 
     fn parse_tag(&mut self) -> Result<TagNode> {
@@ -673,16 +702,28 @@ impl XMLTextParser {
                         current_line = Vec::new();
                     }
                 }
-                _ => text.push(c),
+                _ => {
+                    text.push(c);
+                    if text.ends_with(&self.lf) {
+                        if !text.is_empty() {
+                            current_line.push(ParsedLineNode::Text(TextNode(unescape_xml(&text))));
+                            text.clear();
+                        }
+                        lines.push(ParsedLine(current_line));
+                        current_line = Vec::new();
+                    }
+                }
             }
         }
         if !text.is_empty() {
             current_line.push(ParsedLineNode::Text(TextNode(unescape_xml(&text))));
         }
-        current_line.push(ParsedLineNode::Tag(TagNode {
-            name: "np".to_string(),
-            attributes: Vec::new(),
-        }));
+        if !self.no_np {
+            current_line.push(ParsedLineNode::Tag(TagNode {
+                name: "np".to_string(),
+                attributes: Vec::new(),
+            }));
+        }
         lines.push(ParsedLine(current_line));
         Ok(lines)
     }
@@ -706,6 +747,9 @@ pub struct KsScript {
     name_commands: Arc<HashSet<String>>,
     message_commands: Arc<HashSet<String>>,
     remove_empty_lines: bool,
+    hitret: bool,
+    lf: Option<String>,
+    message_tags: Arc<HashSet<String>>,
 }
 
 impl KsScript {
@@ -718,12 +762,38 @@ impl KsScript {
         let (text, bom) = decode_with_bom_detect(encoding, &reader, true)?;
         let parser = Parser::new(&text);
         let tree = parser.parse(!config.kirikiri_remove_empty_lines)?;
+        let hitret = if let Some(hitret) = config.kirikiri_ks_hitret {
+            hitret
+        } else {
+            let mut talk_count = 0u64;
+            let mut hitret_count = 0u64;
+            for node in tree.iter() {
+                match node {
+                    ParsedScriptNode::Line(line) => {
+                        for node in line.iter() {
+                            if let ParsedLineNode::Tag(node) = node {
+                                if node.name == "Talk" {
+                                    talk_count += 1;
+                                } else if node.name == "Hitret" {
+                                    hitret_count += 1;
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            talk_count == hitret_count && talk_count > 3
+        };
         Ok(Self {
             bom,
             tree,
             name_commands: config.kirikiri_name_commands.clone(),
             message_commands: config.kirikiri_message_commands.clone(),
             remove_empty_lines: config.kirikiri_remove_empty_lines,
+            hitret,
+            lf: config.kirikiri_ks_lf.clone(),
+            message_tags: config.kirikiri_message_tags.clone(),
         })
     }
 }
@@ -741,10 +811,80 @@ impl Script for KsScript {
         let mut messages = Vec::new();
         let mut name = None;
         let mut message = String::new();
+        if self.hitret {
+            for obj in self.tree.iter() {
+                match obj {
+                    ParsedScriptNode::Line(line) => {
+                        for node in line.iter() {
+                            if node.is_tag("Talk") {
+                                if let ParsedLineNode::Tag(tag) = &node {
+                                    if let Some(attr) = tag.get_attr("name") {
+                                        if let TagAttr::Str(s) = attr {
+                                            name = Some(s.to_string());
+                                        }
+                                    }
+                                    if name.is_none() {
+                                        for attr in &tag.attributes {
+                                            if let TagAttr::Str(value) = &attr.1 {
+                                                if !value.is_empty() && !value.is_ascii() {
+                                                    name = Some(value.clone());
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if name.is_none() {
+                                        anyhow::bail!("name not found for Talk command");
+                                    }
+                                    continue;
+                                }
+                            } else if node.is_tag("Hitret") {
+                                if let Some(lf) = self.lf.as_ref() {
+                                    message = message.replace(lf, "\n");
+                                }
+                                messages.push(Message {
+                                    name: if name.as_ref().is_some_and(|name| name == "心の声") {
+                                        None
+                                    } else {
+                                        name.clone()
+                                    },
+                                    message: message.trim_end_matches("<np>").to_owned(),
+                                });
+                                message.clear();
+                                name = None;
+                                continue;
+                            } else if let ParsedLineNode::Tag(tag) = &node {
+                                if self.message_tags.contains(&tag.name) {
+                                    for attr in &tag.attributes {
+                                        if let TagAttr::Str(value) = &attr.1 {
+                                            if !value.is_empty() && !value.is_ascii() {
+                                                messages.push(Message {
+                                                    name: None,
+                                                    message: value.clone(),
+                                                });
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if name.is_some() {
+                                message.push_str(&node.to_xml());
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            return Ok(messages);
+        }
         for obj in self.tree.iter() {
             match obj {
                 ParsedScriptNode::Label(_) => {
                     if !message.is_empty() {
+                        if let Some(lf) = self.lf.as_ref() {
+                            message = message.replace(lf, "\n");
+                        }
                         messages.push(Message {
                             name: name.clone(),
                             message: message.trim_end_matches("<np>").to_owned(),
@@ -786,6 +926,9 @@ impl Script for KsScript {
             }
         }
         if !message.is_empty() {
+            if let Some(lf) = self.lf.as_ref() {
+                message = message.replace(lf, "\n");
+            }
             messages.push(Message {
                 name,
                 message: message.trim_end_matches("<np>").to_owned(),
@@ -805,143 +948,295 @@ impl Script for KsScript {
         let mut mes = messages.iter();
         let mut cur_mes = None;
         let mut tree = self.tree.clone();
-        let mut message_lines = Vec::new();
         let mut i = 0;
-        let mut is_end = false;
-        let mut name_command_block_line: Option<(usize, String)> = None;
-        while i < tree.len() {
-            match tree[i].clone() {
-                ParsedScriptNode::Label(_) => {
-                    if !message_lines.is_empty() {
-                        let m: &Message = cur_mes
-                            .take()
-                            .ok_or(anyhow::anyhow!("Not enough messages"))?;
-                        if let Some((line, key)) = name_command_block_line.take() {
-                            let name = m
-                                .name
-                                .as_ref()
-                                .ok_or(anyhow::anyhow!("Name not found in message"))?;
-                            let mut name = name.clone();
-                            if let Some(replacement) = replacement {
-                                for (key, value) in replacement.map.iter() {
-                                    name = name.replace(key, value);
-                                }
-                            }
-                            tree[line].set_attr(&key, name);
-                        }
-                        let mut text = m.message.to_owned();
-                        if let Some(replacement) = replacement {
-                            for (key, value) in replacement.map.iter() {
-                                text = text.replace(key, value);
-                            }
-                        }
-                        let mess = XMLTextParser::new(&text).parse()?;
-                        let diff = mess.len() as isize - message_lines.len() as isize;
-                        let common_lines = message_lines.len().min(mess.len());
-                        let mut last_index = message_lines.last().cloned().unwrap_or(0);
-                        for j in 0..common_lines {
-                            tree[message_lines[j]] = ParsedScriptNode::Line(mess[j].clone());
-                        }
-                        for j in common_lines..message_lines.len() {
-                            tree.remove(message_lines[j] - (j - common_lines));
-                        }
-                        for i in common_lines..mess.len() {
-                            let new_line = ParsedScriptNode::Line(mess[i].clone());
-                            if last_index < tree.len() {
-                                tree.insert(last_index + 1, new_line);
-                                last_index += 1;
-                            } else {
-                                tree.push(new_line);
-                            }
-                        }
-                        i = (i as isize + diff) as usize;
-                    }
-                    message_lines.clear();
-                    is_end = false;
-                    if cur_mes.is_none() {
-                        cur_mes = mes.next();
-                    }
-                }
-                ParsedScriptNode::Line(line) => {
-                    if !is_end {
-                        message_lines.push(i);
-                        is_end = line.last().map(|e| e.is_np()).unwrap_or(false);
-                    }
-                }
-                ParsedScriptNode::Command(cmd) => {
-                    if self.name_commands.contains(&cmd.name) {
-                        for attr in &cmd.attributes {
-                            if let TagAttr::Str(value) = &attr.1 {
-                                if !value.is_empty() && !value.is_ascii() {
-                                    name_command_block_line = Some((i, attr.0.clone()));
-                                    break; // Only update the first name found
-                                }
-                            }
-                        }
-                    } else if self.message_commands.contains(&cmd.name) {
-                        for attr in &cmd.attributes {
-                            if let TagAttr::Str(value) = &attr.1 {
-                                if !value.is_empty() && !value.is_ascii() {
-                                    let m = cur_mes
-                                        .take()
-                                        .ok_or(anyhow::anyhow!("Not enough messages"))?;
-                                    let mut text = m.message.clone();
-                                    if let Some(replacement) = replacement {
-                                        for (key, value) in replacement.map.iter() {
-                                            text = text.replace(key, value);
+        if self.hitret {
+            let mut name_tag_loc = None;
+            let mut message_blocks = Vec::new();
+            let mut in_block = false;
+            cur_mes = mes.next();
+            while i < tree.len() {
+                match tree[i].clone() {
+                    ParsedScriptNode::Line(line) => {
+                        let mut j = 0;
+                        while j < line.len() {
+                            let node = line[j].clone();
+                            if node.is_tag("Talk") {
+                                if let ParsedLineNode::Tag(tag) = &node {
+                                    if let Some(attr) = tag.get_attr("name") {
+                                        if let TagAttr::Str(_) = attr {
+                                            name_tag_loc = Some((i, j, "name".to_string()));
                                         }
                                     }
-                                    tree[i].set_attr(&attr.0, text);
-                                    cur_mes = mes.next();
-                                    break; // Only update the first message found
+                                    if name_tag_loc.is_none() {
+                                        for attr in &tag.attributes {
+                                            if let TagAttr::Str(value) = &attr.1 {
+                                                if !value.is_empty() && !value.is_ascii() {
+                                                    name_tag_loc = Some((i, j, attr.0.clone()));
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                in_block = true;
+                                j += 1;
+                                continue;
+                            } else if node.is_tag("Hitret") {
+                                in_block = false;
+                                let m = cur_mes
+                                    .take()
+                                    .ok_or(anyhow::anyhow!("Not enough messages"))?;
+                                let (x, y, key) = name_tag_loc.take().ok_or(anyhow::anyhow!(
+                                    "Name tag not found for Talk command"
+                                ))?;
+                                let mut name =
+                                    m.name.clone().unwrap_or_else(|| "心の声".to_string());
+                                if let Some(replacement) = replacement {
+                                    for (key, value) in replacement.map.iter() {
+                                        name = name.replace(key, value);
+                                    }
+                                }
+                                let mut li = &mut tree[x];
+                                if let ParsedScriptNode::Line(line) = &mut li {
+                                    line[y].set_attr(&key, name);
+                                }
+                                let mut text = m.message.clone();
+                                if let Some(replacement) = replacement {
+                                    for (key, value) in replacement.map.iter() {
+                                        text = text.replace(key, value);
+                                    }
+                                }
+                                cur_mes = mes.next();
+                                let mut mess =
+                                    XMLTextParser::new(&text, self.lf.clone()).no_np().parse()?;
+                                let first_line_len = mess[0].len();
+                                let line_indexs =
+                                    BTreeSet::from_iter(message_blocks.iter().map(|(i, _)| *i));
+                                let (start_x, start_y) =
+                                    message_blocks.first().cloned().unwrap_or((i, j));
+                                let (end_x, end_y) =
+                                    message_blocks.last().cloned().unwrap_or((x, y));
+                                {
+                                    let li = &mut mess[0];
+                                    let source_line = &tree[start_x];
+                                    let source_line = match source_line {
+                                        ParsedScriptNode::Line(line) => line,
+                                        _ => return Err(anyhow::anyhow!("Expected line node")),
+                                    };
+                                    for z in 0..start_y {
+                                        li.insert(z, source_line[z].clone());
+                                    }
+                                }
+                                {
+                                    let loc = mess.len() - 1;
+                                    let li = &mut mess[loc];
+                                    let source_line = &tree[end_x];
+                                    let source_line = match source_line {
+                                        ParsedScriptNode::Line(line) => line,
+                                        _ => return Err(anyhow::anyhow!("Expected line node")),
+                                    };
+                                    for z in end_y + 1..source_line.len() {
+                                        li.push(source_line[z].clone());
+                                    }
+                                }
+                                let diff = mess.len() as isize - line_indexs.len() as isize;
+                                let common_lines = line_indexs.len().min(mess.len());
+                                let mut last_index = end_x;
+                                let message_lines = Vec::from_iter(line_indexs.iter().cloned());
+                                for z in 0..common_lines {
+                                    tree[message_lines[z]] =
+                                        ParsedScriptNode::Line(mess[z].clone());
+                                }
+                                for z in common_lines..message_lines.len() {
+                                    tree.remove(message_lines[z] - (z - common_lines));
+                                }
+                                for z in common_lines..mess.len() {
+                                    let new_line = ParsedScriptNode::Line(mess[z].clone());
+                                    if last_index < tree.len() {
+                                        tree.insert(last_index + 1, new_line);
+                                        last_index += 1;
+                                    } else {
+                                        tree.push(new_line);
+                                    }
+                                }
+                                i = (i as isize + diff) as usize;
+                                j = start_y + first_line_len + 2;
+                                message_blocks.clear();
+                                continue;
+                            } else if let ParsedLineNode::Tag(tag) = &node {
+                                if self.message_tags.contains(&tag.name) {
+                                    for attr in &tag.attributes {
+                                        if let TagAttr::Str(value) = &attr.1 {
+                                            if !value.is_empty() && !value.is_ascii() {
+                                                let m = cur_mes.take().ok_or(anyhow::anyhow!(
+                                                    "No enough messages."
+                                                ))?;
+                                                cur_mes = mes.next();
+                                                let mut text = m.message.clone();
+                                                if let Some(replacement) = replacement {
+                                                    for (key, value) in replacement.map.iter() {
+                                                        text = text.replace(key, value);
+                                                    }
+                                                }
+                                                let li = &mut tree[i];
+                                                if let ParsedScriptNode::Line(line) = li {
+                                                    line[j].set_attr(&attr.0, text);
+                                                }
+                                                j += 1;
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if in_block {
+                                message_blocks.push((i, j));
+                            }
+                            j += 1;
+                        }
+                    }
+                    _ => {}
+                }
+                i += 1;
+            }
+        } else {
+            let mut is_end = false;
+            let mut name_command_block_line: Option<(usize, String)> = None;
+            let mut message_lines = Vec::new();
+            while i < tree.len() {
+                match tree[i].clone() {
+                    ParsedScriptNode::Label(_) => {
+                        if !message_lines.is_empty() {
+                            let m: &Message = cur_mes
+                                .take()
+                                .ok_or(anyhow::anyhow!("Not enough messages"))?;
+                            if let Some((line, key)) = name_command_block_line.take() {
+                                let name = m
+                                    .name
+                                    .as_ref()
+                                    .ok_or(anyhow::anyhow!("Name not found in message"))?;
+                                let mut name = name.clone();
+                                if let Some(replacement) = replacement {
+                                    for (key, value) in replacement.map.iter() {
+                                        name = name.replace(key, value);
+                                    }
+                                }
+                                tree[line].set_attr(&key, name);
+                            }
+                            let mut text = m.message.to_owned();
+                            if let Some(replacement) = replacement {
+                                for (key, value) in replacement.map.iter() {
+                                    text = text.replace(key, value);
+                                }
+                            }
+                            let mess = XMLTextParser::new(&text, self.lf.clone()).parse()?;
+                            let diff = mess.len() as isize - message_lines.len() as isize;
+                            let common_lines = message_lines.len().min(mess.len());
+                            let mut last_index = message_lines.last().cloned().unwrap_or(0);
+                            for j in 0..common_lines {
+                                tree[message_lines[j]] = ParsedScriptNode::Line(mess[j].clone());
+                            }
+                            for j in common_lines..message_lines.len() {
+                                tree.remove(message_lines[j] - (j - common_lines));
+                            }
+                            for i in common_lines..mess.len() {
+                                let new_line = ParsedScriptNode::Line(mess[i].clone());
+                                if last_index < tree.len() {
+                                    tree.insert(last_index + 1, new_line);
+                                    last_index += 1;
+                                } else {
+                                    tree.push(new_line);
+                                }
+                            }
+                            i = (i as isize + diff) as usize;
+                        }
+                        message_lines.clear();
+                        is_end = false;
+                        if cur_mes.is_none() {
+                            cur_mes = mes.next();
+                        }
+                    }
+                    ParsedScriptNode::Line(line) => {
+                        if !is_end {
+                            message_lines.push(i);
+                            is_end = line.last().map(|e| e.is_np()).unwrap_or(false);
+                        }
+                    }
+                    ParsedScriptNode::Command(cmd) => {
+                        if self.name_commands.contains(&cmd.name) {
+                            for attr in &cmd.attributes {
+                                if let TagAttr::Str(value) = &attr.1 {
+                                    if !value.is_empty() && !value.is_ascii() {
+                                        name_command_block_line = Some((i, attr.0.clone()));
+                                        break; // Only update the first name found
+                                    }
+                                }
+                            }
+                        } else if self.message_commands.contains(&cmd.name) {
+                            for attr in &cmd.attributes {
+                                if let TagAttr::Str(value) = &attr.1 {
+                                    if !value.is_empty() && !value.is_ascii() {
+                                        let m = cur_mes
+                                            .take()
+                                            .ok_or(anyhow::anyhow!("Not enough messages"))?;
+                                        let mut text = m.message.clone();
+                                        if let Some(replacement) = replacement {
+                                            for (key, value) in replacement.map.iter() {
+                                                text = text.replace(key, value);
+                                            }
+                                        }
+                                        tree[i].set_attr(&attr.0, text);
+                                        cur_mes = mes.next();
+                                        break; // Only update the first message found
+                                    }
                                 }
                             }
                         }
                     }
+                    _ => {}
                 }
-                _ => {}
+                i += 1;
             }
-            i += 1;
-        }
-        if !message_lines.is_empty() {
-            let m: &Message = cur_mes
-                .take()
-                .ok_or(anyhow::anyhow!("Not enough messages"))?;
-            if let Some((line, key)) = name_command_block_line.take() {
-                let name = m
-                    .name
-                    .as_ref()
-                    .ok_or(anyhow::anyhow!("Name not found in message"))?;
-                let mut name = name.clone();
+            if !message_lines.is_empty() {
+                let m: &Message = cur_mes
+                    .take()
+                    .ok_or(anyhow::anyhow!("Not enough messages"))?;
+                if let Some((line, key)) = name_command_block_line.take() {
+                    let name = m
+                        .name
+                        .as_ref()
+                        .ok_or(anyhow::anyhow!("Name not found in message"))?;
+                    let mut name = name.clone();
+                    if let Some(replacement) = replacement {
+                        for (key, value) in replacement.map.iter() {
+                            name = name.replace(key, value);
+                        }
+                    }
+                    tree[line].set_attr(&key, name);
+                }
+                let mut text = m.message.to_owned();
                 if let Some(replacement) = replacement {
                     for (key, value) in replacement.map.iter() {
-                        name = name.replace(key, value);
+                        text = text.replace(key, value);
                     }
                 }
-                tree[line].set_attr(&key, name);
-            }
-            let mut text = m.message.to_owned();
-            if let Some(replacement) = replacement {
-                for (key, value) in replacement.map.iter() {
-                    text = text.replace(key, value);
+                let mess = XMLTextParser::new(&text, self.lf.clone()).parse()?;
+                let common_lines = message_lines.len().min(mess.len());
+                let mut last_index = message_lines.last().cloned().unwrap_or(0);
+                for j in 0..common_lines {
+                    tree[message_lines[j]] = ParsedScriptNode::Line(mess[j].clone());
                 }
-            }
-            let mess = XMLTextParser::new(&text).parse()?;
-            let common_lines = message_lines.len().min(mess.len());
-            let mut last_index = message_lines.last().cloned().unwrap_or(0);
-            for j in 0..common_lines {
-                tree[message_lines[j]] = ParsedScriptNode::Line(mess[j].clone());
-            }
-            for j in common_lines..message_lines.len() {
-                tree.remove(message_lines[j] - (j - common_lines));
-            }
-            for i in common_lines..mess.len() {
-                let new_line = ParsedScriptNode::Line(mess[i].clone());
-                if last_index < tree.len() {
-                    tree.insert(last_index + 1, new_line);
-                    last_index += 1;
-                } else {
-                    tree.push(new_line);
+                for j in common_lines..message_lines.len() {
+                    tree.remove(message_lines[j] - (j - common_lines));
+                }
+                for i in common_lines..mess.len() {
+                    let new_line = ParsedScriptNode::Line(mess[i].clone());
+                    if last_index < tree.len() {
+                        tree.insert(last_index + 1, new_line);
+                        last_index += 1;
+                    } else {
+                        tree.push(new_line);
+                    }
                 }
             }
         }

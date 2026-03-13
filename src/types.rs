@@ -616,6 +616,15 @@ pub struct ExtraConfig {
     #[cfg(feature = "emote-img")]
     /// Export Emote PIMG images as PSD files.
     pub emote_pimg_psd: bool,
+    #[cfg(feature = "kirikiri")]
+    /// Whether to only extract message between Talk and Hitret command in Kirikiri KS script. Auto detect if not specified.
+    pub kirikiri_ks_hitret: Option<bool>,
+    #[cfg(feature = "kirikiri")]
+    /// The line feed character used in Kirikiri KS script.
+    pub kirikiri_ks_lf: Option<String>,
+    #[cfg(feature = "kirikiri")]
+    /// Kirikiri message tags, used to extract more message from ks script.
+    pub kirikiri_message_tags: std::sync::Arc<std::collections::HashSet<String>>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

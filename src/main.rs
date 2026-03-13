@@ -3375,6 +3375,14 @@ fn main() {
         psd_compress: !arg.psd_no_compress,
         #[cfg(feature = "emote-img")]
         emote_pimg_psd: arg.emote_pimg_psd,
+        #[cfg(feature = "kirikiri")]
+        kirikiri_ks_hitret: arg.kirikiri_ks_hitret,
+        #[cfg(feature = "kirikiri")]
+        kirikiri_ks_lf: arg.kirikiri_ks_lf.clone(),
+        #[cfg(feature = "kirikiri")]
+        kirikiri_message_tags: std::sync::Arc::new(std::collections::HashSet::from_iter(
+            arg.kirikiri_message_tags.iter().cloned(),
+        )),
     });
     match &arg.command {
         args::Command::Export { input, output } => {
