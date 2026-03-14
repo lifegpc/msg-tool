@@ -679,6 +679,10 @@ pub struct Arg {
     #[arg(long, global = true, value_delimiter = ',', default_value = "macCmd")]
     /// Kirikiri message tags, used to extract more message from ks script.
     pub kirikiri_message_tags: Vec<String>,
+    #[cfg(feature = "kirikiri")]
+    #[arg(long, global = true)]
+    /// Specifiy BOM type when creating new Kirikiri ks script. If not specified, detect from original script.
+    pub kirikiri_ks_bom: Option<BomType>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

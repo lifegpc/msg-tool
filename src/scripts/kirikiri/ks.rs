@@ -786,7 +786,7 @@ impl KsScript {
             talk_count == hitret_count && talk_count > 3
         };
         Ok(Self {
-            bom,
+            bom: config.kirikiri_ks_bom.unwrap_or(bom),
             tree,
             name_commands: config.kirikiri_name_commands.clone(),
             message_commands: config.kirikiri_message_commands.clone(),

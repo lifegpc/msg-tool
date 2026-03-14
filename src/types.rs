@@ -625,6 +625,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri")]
     /// Kirikiri message tags, used to extract more message from ks script.
     pub kirikiri_message_tags: std::sync::Arc<std::collections::HashSet<String>>,
+    #[cfg(feature = "kirikiri")]
+    /// Specifiy BOM type when creating new Kirikiri ks script. If not specified, detect from original script.
+    pub kirikiri_ks_bom: Option<BomType>,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

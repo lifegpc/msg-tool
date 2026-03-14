@@ -3383,6 +3383,8 @@ fn main() {
         kirikiri_message_tags: std::sync::Arc::new(std::collections::HashSet::from_iter(
             arg.kirikiri_message_tags.iter().cloned(),
         )),
+        #[cfg(feature = "kirikiri")]
+        kirikiri_ks_bom: arg.kirikiri_ks_bom,
     });
     match &arg.command {
         args::Command::Export { input, output } => {
