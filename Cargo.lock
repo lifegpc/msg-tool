@@ -166,6 +166,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block_compression"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08c3bb476aa920a10e349d32cc211783259ab86584b7b1af57785503a3eafdc1"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "borsh"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -201,6 +210,20 @@ name = "bytemuck"
 version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fbdf580320f38b612e485521afda1ee26d10cc9884efaaa750d383e13e3c5f4"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9abbd1bc6865053c427f7198e6af43bfdedc55ab791faed4fbd361d789575ff"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
 
 [[package]]
 name = "byteorder"
@@ -1333,6 +1356,7 @@ dependencies = [
  "adler",
  "anyhow",
  "base64",
+ "block_compression",
  "byteorder",
  "clap 4.5.54",
  "crc32fast",

@@ -11,6 +11,7 @@ exclude = [".github", "*.py", "AGENTS.md"]
 adler = { version = "1", optional = true }
 anyhow = "1"
 base64 = { version = "0.22", optional = true }
+block_compression = { version = "0.9", optional = true, default-features = false, features = ["bc7"] }
 byteorder = { version = "1.5", default-features = false, optional = true}
 clap = { version = "4.5", features = ["derive"] }
 crc32fast = { version = "1.5", optional = true }
@@ -78,7 +79,7 @@ circus = []
 circus-arc = ["circus"]
 circus-audio = ["circus", "flate2", "int-enum", "lossless-audio"]
 circus-img = ["circus", "image", "flate2", "zstd"]
-emote-img = ["base64", "emote-psb", "image", "json", "libtlg-rs", "url", "utils-psd"]
+emote-img = ["base64", "block_compression", "emote-psb", "image", "json", "libtlg-rs", "url", "utils-psd"]
 entis-gls = ["xml5ever", "markup5ever", "markup5ever_rcdom", "int-enum"]
 escude = ["int-enum"]
 escude-arc = ["escude", "rand", "utils-bit-stream"]

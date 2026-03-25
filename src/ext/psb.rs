@@ -1140,6 +1140,11 @@ impl VirtualPsbFixed {
         self.header
     }
 
+    /// Return a mutable reference to the header of the PSB.
+    pub fn header_mut(&mut self) -> &mut PsbHeader {
+        &mut self.header
+    }
+
     /// Returns a reference to the resources of the PSB.
     pub fn resources(&self) -> &Vec<Vec<u8>> {
         &self.resources

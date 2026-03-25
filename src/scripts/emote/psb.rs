@@ -9,6 +9,8 @@ use crate::utils::files::*;
 use crate::utils::img::*;
 use anyhow::Result;
 use base64::Engine;
+use block_compression::BC7Settings;
+use clap::ValueEnum;
 use emote_psb::*;
 use libtlg_rs::*;
 use serde::{Deserialize, Serialize};
@@ -103,6 +105,26 @@ impl ScriptBuilder for PsbBuilder {
     }
 }
 
+#[derive(Debug, ValueEnum, Clone, Copy)]
+pub enum BC7Config {
+    /// Ultra fast settings.
+    UltraFast,
+    /// Very fast settings.
+    VeryFast,
+    /// Fast settings.
+    Fast,
+    /// Basic settings.
+    Basic,
+    /// Slow settings.
+    Slow,
+}
+
+impl Default for BC7Config {
+    fn default() -> Self {
+        Self::Basic
+    }
+}
+
 #[derive(Debug)]
 pub struct Psb {
     psb: VirtualPsbFixed,
@@ -132,8 +154,7 @@ impl Psb {
     ) -> Result<Resource> {
         let mut res = Resource {
             path,
-            tlg: None,
-            rle: None,
+            ..Default::default()
         };
         if self.config.psb_process_tlg && is_valid_tlg(&data) {
             let tlg = load_tlg(MemReaderRef::new(&data))?;
@@ -176,8 +197,8 @@ impl Psb {
     ) -> Result<Resource> {
         let mut res = Resource {
             path,
-            tlg: None,
             rle: Some(RLPixelInfo { width, height }),
+            ..Default::default()
         };
         let decompressed = rl_decompress(MemReaderRef::new(data), 4, None)?;
         let outtype = self.config.image_type.unwrap_or(ImageOutputType::Png);
@@ -194,6 +215,58 @@ impl Psb {
             color_type: ImageColorType::Bgra,
             depth: 8,
             data: decompressed,
+        };
+        encode_img(img, outtype, &path.to_string_lossy(), &self.config)?;
+        Ok(res)
+    }
+
+    fn output_bc7_resource(
+        &self,
+        folder_path: &std::path::PathBuf,
+        path: String,
+        data: &[u8],
+        width: i64,
+        height: i64,
+    ) -> Result<Resource> {
+        let mut res = Resource {
+            path,
+            bc7: Some(BC7PixelInfo { width, height }),
+            ..Default::default()
+        };
+        let dst_size = (width * height * 4) as usize;
+        let mut decompressed_block = vec![0u8; dst_size];
+        let variant = block_compression::CompressionVariant::BC7(BC7Settings::alpha_basic());
+        let blocks_bytes = variant.blocks_byte_size(width as u32, height as u32);
+        if data.len() != blocks_bytes {
+            return Err(anyhow::anyhow!(
+                "BC7 compressed data size {} does not match expected size {} for image size {}x{}",
+                data.len(),
+                blocks_bytes,
+                width,
+                height
+            ));
+        }
+        block_compression::decode::decompress_blocks_as_rgba8(
+            variant,
+            width as u32,
+            height as u32,
+            data,
+            &mut decompressed_block,
+        );
+        let outtype = self.config.image_type.unwrap_or(ImageOutputType::Png);
+        res.path = {
+            let mut pb = std::path::PathBuf::from(&res.path);
+            pb.set_extension(outtype.as_ref());
+            pb.to_string_lossy().to_string()
+        };
+        let path = folder_path.join(&res.path);
+        make_sure_dir_exists(&path)?;
+        let img = ImageData {
+            width: width as u32,
+            height: height as u32,
+            color_type: ImageColorType::Rgba,
+            depth: 8,
+            data: decompressed_block,
         };
         encode_img(img, outtype, &path.to_string_lossy(), &self.config)?;
         Ok(res)
@@ -256,12 +329,20 @@ struct RLPixelInfo {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+struct BC7PixelInfo {
+    width: i64,
+    height: i64,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
 struct Resource {
     path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     tlg: Option<TlgInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     rle: Option<RLPixelInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bc7: Option<BC7PixelInfo>,
 }
 
 impl Script for Psb {
@@ -303,10 +384,18 @@ impl Script for Psb {
                     let width = pb_data["width"].as_i64();
                     let height = pb_data["height"].as_i64();
                     let compress = pb_data["compress"].as_str();
+                    let type_ = pb_data["type"].as_str();
                     if compress.is_some_and(|s| s == "RL") && (width.is_none() || height.is_none())
                     {
                         eprintln!(
                             "Warning: Resource {:?} is marked as RL compressed but width/height is missing (width={:?}, height={:?})",
+                            path, pb_data["width"], pb_data["height"]
+                        );
+                        crate::COUNTER.inc_warning();
+                    }
+                    if type_.is_some_and(|s| s == "BC7") && (width.is_none() || height.is_none()) {
+                        eprintln!(
+                            "Warning: Resource {:?} is marked as BC7 compressed but width/height is missing (width={:?}, height={:?})",
                             path, pb_data["width"], pb_data["height"]
                         );
                         crate::COUNTER.inc_warning();
@@ -322,6 +411,21 @@ impl Script for Psb {
                             let res_name = sanitize_path(&res_name);
                             let res =
                                 self.output_rle_resource(&folder_path, res_name, data, w, h)?;
+                            resources.push(res);
+                            continue;
+                        }
+                    }
+                    if let (Some(w), Some(h), Some(t)) = (width, height, type_) {
+                        if t == "BC7" {
+                            let res_name: Vec<_> = path
+                                .iter()
+                                .take(path.len() - 1)
+                                .map(|s| s.to_string())
+                                .collect();
+                            let res_name = res_name.join("/");
+                            let res_name = sanitize_path(&res_name);
+                            let res =
+                                self.output_bc7_resource(&folder_path, res_name, data, w, h)?;
                             resources.push(res);
                             continue;
                         }
@@ -432,14 +536,59 @@ fn read_resource(
                 "Warning: Image width {} does not match RLE width {}",
                 img.width, rle.width
             );
+            crate::COUNTER.inc_warning();
         }
         if img.height as i64 != rle.height {
             eprintln!(
                 "Warning: Image height {} does not match RLE height {}",
                 img.height, rle.height
             );
+            crate::COUNTER.inc_warning();
         }
         let compressed = rl_compress(MemReaderRef::new(&img.data), 4)?;
+        Ok(compressed)
+    } else if let Some(bc7) = &res.bc7 {
+        let path = folder_path.join(&res.path);
+        let imgfmt = ImageOutputType::try_from(path.as_path())?;
+        let mut img = decode_img(imgfmt, &path.to_string_lossy())?;
+        if img.depth != 8 {
+            return Err(anyhow::anyhow!(
+                "Only 8-bit images are supported for BC7 conversion"
+            ));
+        }
+        if img.width % 4 != 0 || img.height % 4 != 0 {
+            return Err(anyhow::anyhow!(
+                "Image dimensions must be multiples of 4 for BC7 conversion (width={}, height={})",
+                img.width,
+                img.height
+            ));
+        }
+        if bc7.height != img.height as i64 {
+            eprintln!(
+                "Warning: Image height {} does not match BC7 height {}",
+                img.height, bc7.height
+            );
+            crate::COUNTER.inc_warning();
+        }
+        if bc7.width != img.width as i64 {
+            eprintln!(
+                "Warning: Image width {} does not match BC7 width {}",
+                img.width, bc7.width
+            );
+            crate::COUNTER.inc_warning();
+        }
+        convert_to_rgba(&mut img)?;
+        let variant = block_compression::CompressionVariant::BC7(BC7Settings::alpha_basic());
+        let dst_size = variant.blocks_byte_size(img.width, img.height);
+        let mut compressed = vec![0u8; dst_size as usize];
+        block_compression::encode::compress_rgba8(
+            variant,
+            &img.data,
+            &mut compressed,
+            img.width,
+            img.height,
+            img.width * 4,
+        );
         Ok(compressed)
     } else {
         let path = folder_path.join(&res.path);
@@ -459,6 +608,15 @@ fn create_file<'a>(
     let resources: Vec<Resource> = serde_json::from_str(&data["resources"].dump())?;
     let extra_resources: Vec<Resource> = serde_json::from_str(&data["extra_resources"].dump())?;
     let mut psb = VirtualPsbFixed::with_json(&data)?;
+    if psb.header().version > 3 {
+        eprintln!(
+            "Warning: PSB version {} is higher than 3, downgrading to 3. Some features may not be supported.",
+            psb.header().version
+        );
+        crate::COUNTER.inc_warning();
+        psb.header_mut().version = 3;
+    }
+    psb.header_mut().encryption = 0; // We don't support encryption.
     let folder_path = {
         let mut pb = std::path::PathBuf::from(custom_filename);
         pb.set_extension("");
