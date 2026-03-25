@@ -1,9 +1,13 @@
 //!Extensions for emote_psb crate.
 use crate::ext::io::*;
 use anyhow::Result;
+use emote_psb::PsbFile;
 use emote_psb::PsbReader;
+use emote_psb::PsbRefs;
 use emote_psb::VirtualPsb;
 use emote_psb::header::PsbHeader;
+use emote_psb::offsets::{PsbOffsets, PsbResourcesOffset, PsbStringOffset};
+use emote_psb::reader::MdfReader;
 use emote_psb::types::collection::*;
 use emote_psb::types::number::*;
 use emote_psb::types::reference::*;
@@ -17,7 +21,7 @@ use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::collections::{BTreeMap, HashMap};
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, SeekFrom};
 use std::ops::{Index, IndexMut};
 
 #[cfg(feature = "json")]
@@ -1255,6 +1259,320 @@ pub trait PsbReaderExt {
 }
 
 const LZ4_SIGNATURE: u32 = 0x184D2204;
+const PSB_SIGNATURE: u32 = emote_psb::PSB_SIGNATURE;
+const MDF_SIGNATURE: u32 = emote_psb::PSB_MDF_SIGNATURE;
+const PSB_TYPE_INTEGER_ARRAY_N: u8 = 0x0C;
+const PSB_TYPE_STRING_N: u8 = 0x14;
+const PSB_TYPE_RESOURCE_N: u8 = 0x18;
+const PSB_TYPE_LIST: u8 = 0x20;
+const PSB_TYPE_OBJECT: u8 = 0x21;
+const PSB_TYPE_EXTRA_N: u8 = 0x21;
+
+fn is_psb_array_type(value: u8) -> bool {
+    (PSB_TYPE_INTEGER_ARRAY_N + 1..=PSB_TYPE_INTEGER_ARRAY_N + 8).contains(&value)
+}
+
+fn read_int_array<R: Read + Seek>(stream: &mut R) -> Result<Vec<u64>> {
+    let (_, value) = PsbValue::from_bytes(stream)
+        .map_err(|e| anyhow::anyhow!("Failed to read PSB array: {:?}", e))?;
+    match value {
+        PsbValue::IntArray(arr) => Ok(arr.unwrap()),
+        _ => Err(anyhow::anyhow!("Expected PSB int array")),
+    }
+}
+
+fn skip_psb_value<R: Read + Seek>(stream: &mut R) -> Result<u64> {
+    let start = stream.seek(SeekFrom::Current(0))?;
+    let value_type = stream.read_u8()?;
+    match value_type {
+        PSB_TYPE_LIST => {
+            let ref_offsets = read_int_array(stream)?;
+            if ref_offsets.is_empty() {
+                return Ok(stream.seek(SeekFrom::Current(0))? - start);
+            }
+            let mut max_end = 0_u64;
+            let data_start = stream.seek(SeekFrom::Current(0))?;
+            for offset in ref_offsets {
+                stream.seek(SeekFrom::Start(data_start + offset))?;
+                let read = skip_psb_value(stream)?;
+                max_end = max_end.max(offset + read);
+            }
+            stream.seek(SeekFrom::Start(data_start + max_end))?;
+            Ok(stream.seek(SeekFrom::Current(0))? - start)
+        }
+        PSB_TYPE_OBJECT => {
+            let _ = read_int_array(stream)?;
+            let ref_offsets = read_int_array(stream)?;
+            if ref_offsets.is_empty() {
+                return Ok(stream.seek(SeekFrom::Current(0))? - start);
+            }
+            let mut max_end = 0_u64;
+            let data_start = stream.seek(SeekFrom::Current(0))?;
+            for offset in ref_offsets {
+                stream.seek(SeekFrom::Start(data_start + offset))?;
+                let read = skip_psb_value(stream)?;
+                max_end = max_end.max(offset + read);
+            }
+            stream.seek(SeekFrom::Start(data_start + max_end))?;
+            Ok(stream.seek(SeekFrom::Current(0))? - start)
+        }
+        // String/resource/extra references are encoded as fixed-width indexes.
+        _ if (PSB_TYPE_STRING_N + 1..=PSB_TYPE_STRING_N + 4).contains(&value_type)
+            || (PSB_TYPE_RESOURCE_N + 1..=PSB_TYPE_RESOURCE_N + 4).contains(&value_type)
+            || (PSB_TYPE_EXTRA_N + 1..=PSB_TYPE_EXTRA_N + 4).contains(&value_type) =>
+        {
+            let n = if value_type <= PSB_TYPE_STRING_N + 4 {
+                value_type - PSB_TYPE_STRING_N
+            } else if value_type <= PSB_TYPE_RESOURCE_N + 4 {
+                value_type - PSB_TYPE_RESOURCE_N
+            } else {
+                value_type - PSB_TYPE_EXTRA_N
+            };
+            stream.seek(SeekFrom::Current(n as i64))?;
+            Ok(stream.seek(SeekFrom::Current(0))? - start)
+        }
+        _ => {
+            stream.seek(SeekFrom::Start(start))?;
+            let (read, _) = PsbValue::from_bytes(stream)
+                .map_err(|e| anyhow::anyhow!("Failed to skip PSB value: {:?}", e))?;
+            Ok(read)
+        }
+    }
+}
+
+fn detect_name_pos(data: &[u8]) -> Option<usize> {
+    if data.len() < 8 {
+        return None;
+    }
+    let mut name_pos = None;
+    for i in 0..(data.len() - 7) {
+        if data[i] == 0x0D || data[i] == 0x0E {
+            let offset1 = (data[i] - 0x0B) as usize;
+            if i + offset1 < data.len() {
+                if data[i + offset1] == 0x0E
+                    && i + 7 < data.len()
+                    && data[i + 4..i + 8] == [1, 0, 0, 0]
+                {
+                    name_pos = Some(i);
+                    break;
+                }
+                if data[i + offset1] == 0x0D
+                    && i + offset1 + 2 < data.len()
+                    && data[i + offset1 + 1..i + offset1 + 3] == [1, 0]
+                {
+                    name_pos = Some(i);
+                    break;
+                }
+            }
+        }
+    }
+    name_pos
+}
+
+fn load_psb_dullahan<R: Read + Seek>(mut stream: R) -> Result<VirtualPsb> {
+    let mut probe = vec![0_u8; 1024];
+    stream.seek(SeekFrom::Start(0))?;
+    let probe_len = stream.read(&mut probe)?;
+    probe.truncate(probe_len);
+
+    let name_pos = detect_name_pos(&probe)
+        .ok_or_else(|| anyhow::anyhow!("Dullahan fallback: cannot find names segment"))?
+        as u64;
+
+    let version = stream.peek_u16_at(4)?;
+    let encryption = stream.peek_u16_at(6)?;
+    let mut header = PsbHeader {
+        version,
+        encryption,
+    };
+
+    stream.seek(SeekFrom::Start(name_pos))?;
+    let (_, names) = PsbReader::read_names(&mut stream)
+        .map_err(|e| anyhow::anyhow!("Dullahan fallback: failed to read names: {:?}", e))?;
+
+    let file_len = stream.stream_length()?;
+    let mut entry_point = None;
+    while stream.seek(SeekFrom::Current(0))? < file_len {
+        let b = stream.read_u8()?;
+        if b == PSB_TYPE_LIST || b == PSB_TYPE_OBJECT {
+            entry_point = Some(stream.seek(SeekFrom::Current(-1))? as u32);
+            break;
+        }
+    }
+    let entry_point = entry_point
+        .ok_or_else(|| anyhow::anyhow!("Dullahan fallback: cannot find root object/list"))?;
+
+    stream.seek(SeekFrom::Start(entry_point as u64))?;
+    let _ = skip_psb_value(&mut stream)?;
+
+    let mut strings_offset_pos = None;
+    while stream.seek(SeekFrom::Current(0))? < file_len {
+        let b = stream.read_u8()?;
+        if is_psb_array_type(b) {
+            strings_offset_pos = Some(stream.seek(SeekFrom::Current(-1))? as u32);
+            break;
+        }
+    }
+    let strings_offset_pos = strings_offset_pos
+        .ok_or_else(|| anyhow::anyhow!("Dullahan fallback: cannot find strings offset table"))?;
+
+    stream.seek(SeekFrom::Start(strings_offset_pos as u64))?;
+    let string_offsets = read_int_array(&mut stream)?;
+    let strings_data_pos = stream.seek(SeekFrom::Current(0))? as u32;
+
+    stream.seek(SeekFrom::Start(strings_offset_pos as u64))?;
+    let (_, strings) = PsbReader::read_strings(strings_data_pos, &mut stream)
+        .map_err(|e| anyhow::anyhow!("Dullahan fallback: failed to read strings: {:?}", e))?;
+
+    let mut strings_data_end = strings_data_pos as u64;
+    for (idx, offset) in string_offsets.iter().enumerate() {
+        if let Some(s) = strings.get(idx) {
+            strings_data_end = strings_data_end
+                .max(strings_data_pos as u64 + *offset + s.as_bytes().len() as u64 + 1);
+        }
+    }
+
+    stream.seek(SeekFrom::Start(strings_data_end.min(file_len)))?;
+    let mut resource_array_start = None;
+    while stream.seek(SeekFrom::Current(0))? < file_len {
+        let b = stream.read_u8()?;
+        if is_psb_array_type(b) {
+            resource_array_start = Some(stream.seek(SeekFrom::Current(-1))? as u32);
+            break;
+        }
+    }
+
+    let mut resources = PsbResourcesOffset::default();
+    let mut extra: Option<PsbResourcesOffset> = None;
+
+    if let Some(pos1) = resource_array_start {
+        stream.seek(SeekFrom::Start(pos1 as u64))?;
+        let array1 = read_int_array(&mut stream)?;
+        let pos2 = stream.seek(SeekFrom::Current(0))? as u32;
+        let array2 = read_int_array(&mut stream)?;
+
+        let after_array2 = stream.seek(SeekFrom::Current(0))?;
+        let mut probe_next = 0_u8;
+        let mut has_next = false;
+        if after_array2 < file_len {
+            probe_next = stream.read_u8()?;
+            stream.seek(SeekFrom::Current(-1))?;
+            has_next = true;
+        }
+
+        if has_next && (version >= 4 || is_psb_array_type(probe_next)) {
+            header.version = 4;
+            let mut extra_table = PsbResourcesOffset {
+                offset_pos: pos1,
+                lengths_pos: pos2,
+                data_pos: after_array2 as u32,
+            };
+
+            if !array1.is_empty() && !array2.is_empty() {
+                let max_idx = array1
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|(_, offset)| *offset)
+                    .map(|(idx, _)| idx)
+                    .unwrap_or(0);
+                let should_be_len = array1[max_idx] + array2[max_idx];
+                let detect_start = after_array2.saturating_add(should_be_len);
+                let detect_end = (detect_start + 1024).min(file_len);
+
+                let mut found = false;
+                let mut cursor = detect_start;
+                while cursor < detect_end {
+                    stream.seek(SeekFrom::Start(cursor))?;
+                    let b = stream.read_u8()?;
+                    if !is_psb_array_type(b) {
+                        cursor += 1;
+                        continue;
+                    }
+
+                    stream.seek(SeekFrom::Start(cursor))?;
+                    if read_int_array(&mut stream).is_ok() {
+                        let off_pos = cursor as u32;
+                        let len_pos = stream.seek(SeekFrom::Current(0))? as u32;
+                        if read_int_array(&mut stream).is_ok() {
+                            extra_table.data_pos = off_pos.saturating_sub(should_be_len as u32);
+                            resources.offset_pos = off_pos;
+                            resources.lengths_pos = len_pos;
+                            resources.data_pos = stream.seek(SeekFrom::Current(0))? as u32;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    cursor += 1;
+                }
+
+                if !found {
+                    return Err(anyhow::anyhow!(
+                        "Dullahan fallback: cannot find resource offset/length tables"
+                    ));
+                }
+            } else {
+                stream.seek(SeekFrom::Start(after_array2))?;
+                while stream.seek(SeekFrom::Current(0))? < file_len {
+                    let b = stream.read_u8()?;
+                    if is_psb_array_type(b) {
+                        stream.seek(SeekFrom::Current(-1))?;
+                        resources.offset_pos = stream.seek(SeekFrom::Current(0))? as u32;
+                        let _ = read_int_array(&mut stream)?;
+                        resources.lengths_pos = stream.seek(SeekFrom::Current(0))? as u32;
+                        let _ = read_int_array(&mut stream)?;
+                        resources.data_pos = stream.seek(SeekFrom::Current(0))? as u32;
+                        break;
+                    }
+                }
+            }
+
+            extra = Some(extra_table);
+        } else {
+            resources.offset_pos = pos1;
+            resources.lengths_pos = pos2;
+            resources.data_pos = after_array2 as u32;
+        }
+
+        stream.seek(SeekFrom::Start(resources.offset_pos as u64))?;
+        let chunk_offsets = read_int_array(&mut stream).unwrap_or_default();
+        stream.seek(SeekFrom::Start(resources.lengths_pos as u64))?;
+        let chunk_lengths = read_int_array(&mut stream).unwrap_or_default();
+        if !chunk_offsets.is_empty() && !chunk_lengths.is_empty() {
+            let current_pos = resources.data_pos as u64;
+            if current_pos <= file_len {
+                let remain_length = file_len - current_pos;
+                let max_idx = chunk_offsets
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|(_, offset)| *offset)
+                    .map(|(idx, _)| idx)
+                    .unwrap_or(0);
+                let should_be_len = chunk_offsets[max_idx] + chunk_lengths[max_idx];
+                let padding = remain_length.saturating_sub(should_be_len);
+                resources.data_pos = current_pos.saturating_add(padding) as u32;
+            }
+        }
+    }
+
+    let refs = PsbRefs::new(names, strings);
+    let offsets = PsbOffsets {
+        name_offset: name_pos as u32,
+        strings: PsbStringOffset {
+            offset_pos: strings_offset_pos,
+            data_pos: strings_data_pos,
+        },
+        resources,
+        entry_point,
+        checksum: Some(0),
+        extra,
+    };
+
+    stream.seek(SeekFrom::Start(0))?;
+    let mut file = PsbFile::new(header, refs, offsets, stream);
+    file.load()
+        .map_err(|e| anyhow::anyhow!("Dullahan fallback: failed to load PSB: {:?}", e))
+}
 
 impl PsbReaderExt for PsbReader {
     fn open_psb_v2<T: Read + Seek>(mut stream: T) -> Result<VirtualPsb> {
@@ -1265,11 +1583,45 @@ impl PsbReaderExt for PsbReader {
             std::io::copy(&mut decoder, &mut mem_stream)?;
             return Self::open_psb_v2(MemReader::new(mem_stream.into_inner()));
         }
-        let mut file = PsbReader::open_psb(stream)
-            .map_err(|e| anyhow::anyhow!("Failed to open PSB: {:?}", e))?;
-        Ok(file
-            .load()
-            .map_err(|e| anyhow::anyhow!("Failed to load PSB: {:?}", e))?)
+        if signature == MDF_SIGNATURE {
+            let mut file = MdfReader::open_mdf(stream)
+                .map_err(|e| anyhow::anyhow!("Failed to open MDF/PSB: {:?}", e))?;
+            return file
+                .load()
+                .map_err(|e| anyhow::anyhow!("Failed to load MDF/PSB: {:?}", e));
+        }
+        if signature != PSB_SIGNATURE {
+            return Err(anyhow::anyhow!("Failed to open PSB: invalid signature"));
+        }
+
+        stream.seek(SeekFrom::Start(0))?;
+        let mut raw = Vec::new();
+        stream.read_to_end(&mut raw)?;
+
+        let normal_file = PsbReader::open_psb(MemReader::new(raw.clone()));
+        match normal_file {
+            Ok(mut file) => file
+                .load()
+                .map_err(|e| anyhow::anyhow!("Failed to load PSB: {:?}", e)),
+            Err(err) => {
+                let encryption = if raw.len() >= 8 {
+                    u16::from_le_bytes([raw[6], raw[7]])
+                } else {
+                    0
+                };
+                if encryption != 0 {
+                    load_psb_dullahan(MemReader::new(raw)).map_err(|fallback_err| {
+                        anyhow::anyhow!(
+                            "Failed to open PSB: {:?}; fallback failed: {}",
+                            err,
+                            fallback_err
+                        )
+                    })
+                } else {
+                    Err(anyhow::anyhow!("Failed to open PSB: {:?}", err))
+                }
+            }
+        }
     }
 }
 
