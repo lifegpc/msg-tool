@@ -683,6 +683,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Specifiy BOM type when creating new Kirikiri ks script. If not specified, detect from original script.
     pub kirikiri_ks_bom: Option<BomType>,
+    #[cfg(feature = "emote-img")]
+    #[arg(long, global = true, value_enum, default_value_t = crate::scripts::emote::psb::BC7Config::default())]
+    /// BC7 compress configuration
+    pub bc7: crate::scripts::emote::psb::BC7Config,
     #[command(subcommand)]
     /// Command
     pub command: Command,

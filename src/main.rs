@@ -3385,6 +3385,8 @@ fn main() {
         )),
         #[cfg(feature = "kirikiri")]
         kirikiri_ks_bom: arg.kirikiri_ks_bom,
+        #[cfg(feature = "emote-img")]
+        bc7: arg.bc7,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

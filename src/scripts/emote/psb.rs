@@ -99,9 +99,9 @@ impl ScriptBuilder for PsbBuilder {
         writer: Box<dyn WriteSeek + 'a>,
         encoding: Encoding,
         file_encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
     ) -> Result<()> {
-        create_file(filename, writer, encoding, file_encoding)
+        create_file(filename, writer, encoding, file_encoding, config)
     }
 }
 
@@ -122,6 +122,18 @@ pub enum BC7Config {
 impl Default for BC7Config {
     fn default() -> Self {
         Self::Basic
+    }
+}
+
+impl Into<BC7Settings> for BC7Config {
+    fn into(self) -> BC7Settings {
+        match self {
+            Self::UltraFast => BC7Settings::alpha_ultrafast(),
+            Self::VeryFast => BC7Settings::alpha_very_fast(),
+            Self::Fast => BC7Settings::alpha_fast(),
+            Self::Basic => BC7Settings::alpha_basic(),
+            Self::Slow => BC7Settings::alpha_slow(),
+        }
     }
 }
 
@@ -467,7 +479,13 @@ impl Script for Psb {
         encoding: Encoding,
         output_encoding: Encoding,
     ) -> Result<()> {
-        create_file(custom_filename, file, encoding, output_encoding)
+        create_file(
+            custom_filename,
+            file,
+            encoding,
+            output_encoding,
+            &self.config,
+        )
     }
 }
 
@@ -475,6 +493,7 @@ fn read_resource(
     folder_path: &std::path::PathBuf,
     res: &Resource,
     encoding: Encoding,
+    cfg: &ExtraConfig,
 ) -> Result<Vec<u8>> {
     if let Some(tlg) = &res.tlg {
         let path = folder_path.join(&res.path);
@@ -578,7 +597,7 @@ fn read_resource(
             crate::COUNTER.inc_warning();
         }
         convert_to_rgba(&mut img)?;
-        let variant = block_compression::CompressionVariant::BC7(BC7Settings::alpha_basic());
+        let variant = block_compression::CompressionVariant::BC7(cfg.bc7.into());
         let dst_size = variant.blocks_byte_size(img.width, img.height);
         let mut compressed = vec![0u8; dst_size as usize];
         block_compression::encode::compress_rgba8(
@@ -601,6 +620,7 @@ fn create_file<'a>(
     mut writer: Box<dyn WriteSeek + 'a>,
     encoding: Encoding,
     output_encoding: Encoding,
+    cfg: &ExtraConfig,
 ) -> Result<()> {
     let input = read_file(custom_filename)?;
     let s = decode_to_string(output_encoding, &input, true)?;
@@ -623,11 +643,11 @@ fn create_file<'a>(
         pb
     };
     for res in resources {
-        let res = read_resource(&folder_path, &res, encoding)?;
+        let res = read_resource(&folder_path, &res, encoding, cfg)?;
         psb.resources_mut().push(res);
     }
     for res in extra_resources {
-        let res = read_resource(&folder_path, &res, encoding)?;
+        let res = read_resource(&folder_path, &res, encoding, cfg)?;
         psb.extra_mut().push(res);
     }
     let psb = psb.to_psb(false);

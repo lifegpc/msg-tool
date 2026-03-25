@@ -628,6 +628,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri")]
     /// Specifiy BOM type when creating new Kirikiri ks script. If not specified, detect from original script.
     pub kirikiri_ks_bom: Option<BomType>,
+    #[cfg(feature = "emote-img")]
+    /// BC7 compress configuration
+    pub bc7: crate::scripts::emote::psb::BC7Config,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
