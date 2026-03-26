@@ -628,14 +628,6 @@ fn create_file<'a>(
     let resources: Vec<Resource> = serde_json::from_str(&data["resources"].dump())?;
     let extra_resources: Vec<Resource> = serde_json::from_str(&data["extra_resources"].dump())?;
     let mut psb = VirtualPsbFixed::with_json(&data)?;
-    if psb.header().version > 3 {
-        eprintln!(
-            "Warning: PSB version {} is higher than 3, downgrading to 3. Some features may not be supported.",
-            psb.header().version
-        );
-        crate::COUNTER.inc_warning();
-        psb.header_mut().version = 3;
-    }
     psb.header_mut().encryption = 0; // We don't support encryption.
     let folder_path = {
         let mut pb = std::path::PathBuf::from(custom_filename);
@@ -651,9 +643,7 @@ fn create_file<'a>(
         psb.extra_mut().push(res);
     }
     let psb = psb.to_psb(false);
-    let psb_writer = PsbWriter::new(psb, &mut writer);
-    psb_writer
-        .finish()
-        .map_err(|e| anyhow::anyhow!("Failed to write psb: {:?}", e))?;
+    psb.finish_v4(&mut writer)
+        .map_err(|e| anyhow::anyhow!("Failed to write PSB file: {:?}", e))?;
     Ok(())
 }

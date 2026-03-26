@@ -7,7 +7,7 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
-use emote_psb::{PsbReader, PsbWriter};
+use emote_psb::PsbReader;
 use fancy_regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek};
@@ -838,8 +838,7 @@ impl Script for ScnScript {
             return Err(anyhow::anyhow!("Some messages were not processed."));
         }
         let psb = psb.to_psb(true);
-        let writer = PsbWriter::new(psb, file);
-        writer.finish().map_err(|e| {
+        psb.finish_v4(file).map_err(|e| {
             anyhow::anyhow!("Failed to write PSB to file {}: {:?}", self.filename, e)
         })?;
         Ok(())
@@ -879,8 +878,7 @@ impl Script for ScnScript {
             psb.from_json(&json)?;
             psb.to_psb(true)
         };
-        let writer = PsbWriter::new(psb, file);
-        writer.finish().map_err(|e| {
+        psb.finish_v4(file).map_err(|e| {
             anyhow::anyhow!("Failed to write PSB to file {}: {:?}", self.filename, e)
         })?;
         Ok(())

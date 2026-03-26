@@ -1,9 +1,12 @@
 //!Extensions for emote_psb crate.
 use crate::ext::io::*;
+use adler::Adler32;
 use anyhow::Result;
+use emote_psb::PsbError;
 use emote_psb::PsbFile;
 use emote_psb::PsbReader;
 use emote_psb::PsbRefs;
+use emote_psb::PsbWriter;
 use emote_psb::VirtualPsb;
 use emote_psb::header::PsbHeader;
 use emote_psb::offsets::{PsbOffsets, PsbResourcesOffset, PsbStringOffset};
@@ -21,7 +24,7 @@ use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::collections::{BTreeMap, HashMap};
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::ops::{Index, IndexMut};
 
 #[cfg(feature = "json")]
@@ -1254,6 +1257,90 @@ impl VirtualPsbExt for VirtualPsb {
     fn to_psb_fixed(self) -> VirtualPsbFixed {
         let (header, resources, extra, root) = self.unwrap();
         VirtualPsbFixed::new(header, resources, extra, root.to_psb_fixed())
+    }
+}
+
+/// Trait to extend PSB writer behavior.
+pub trait PsbWriterExt {
+    /// Writes PSB with a v4-compatible resource layout.
+    fn finish_v4<T: Write + Seek>(self, stream: T) -> std::result::Result<u64, PsbError>;
+}
+
+impl PsbWriterExt for VirtualPsb {
+    fn finish_v4<T: Write + Seek>(self, mut stream: T) -> std::result::Result<u64, PsbError> {
+        let file_start = stream.seek(SeekFrom::Current(0))?;
+
+        let (header, resources, extra, root) = self.unwrap();
+
+        stream.write_u32(PSB_SIGNATURE)?;
+        header.write_bytes(&mut stream)?;
+
+        let offsets_end_pos = stream.seek(SeekFrom::Current(0))? - file_start;
+        stream.write_u32(0)?;
+
+        let offset_start_pos = stream.seek(SeekFrom::Current(0))? - file_start;
+        let mut offsets = PsbOffsets::default();
+
+        offsets.write_bytes(header.version, &mut stream)?;
+        let offsets_end = stream.seek(SeekFrom::Current(0))? - file_start;
+
+        let refs = {
+            let mut names = Vec::new();
+            let mut strings = Vec::new();
+
+            root.collect_names(&mut names);
+            root.collect_strings(&mut strings);
+
+            names.sort();
+            strings.sort();
+
+            PsbRefs::new(names, strings)
+        };
+
+        offsets.name_offset = (stream.seek(SeekFrom::Current(0))? - file_start) as u32;
+        PsbWriter::write_names(refs.names(), &mut stream)?;
+
+        offsets.entry_point = (stream.seek(SeekFrom::Current(0))? - file_start) as u32;
+        PsbValue::Object(root).write_bytes_refs(&mut stream, &refs)?;
+
+        let (_, string_offsets) = PsbWriter::write_strings(refs.strings(), &mut stream)?;
+        offsets.strings = string_offsets;
+
+        // For v4, write extra resources before normal resources to keep compatibility
+        // with tools expecting the FreeMote layout.
+        if header.version > 3 {
+            let (_, extra_offsets) = PsbWriter::write_resources(&extra, &mut stream)?;
+            offsets.extra = Some(extra_offsets);
+        }
+
+        let (_, res_offsets) = PsbWriter::write_resources(&resources, &mut stream)?;
+        offsets.resources = res_offsets;
+
+        let file_end = stream.seek(SeekFrom::Current(0))?;
+
+        stream.seek(SeekFrom::Start(offsets_end_pos))?;
+        stream.write_u32(offsets_end as u32)?;
+
+        if header.version > 2 {
+            let mut adler = Adler32::new();
+
+            adler.write_slice(&(offset_start_pos as u32).to_le_bytes());
+            adler.write_slice(&offsets.name_offset.to_le_bytes());
+            adler.write_slice(&offsets.strings.offset_pos.to_le_bytes());
+            adler.write_slice(&offsets.strings.data_pos.to_le_bytes());
+            adler.write_slice(&offsets.resources.offset_pos.to_le_bytes());
+            adler.write_slice(&offsets.resources.lengths_pos.to_le_bytes());
+            adler.write_slice(&offsets.resources.data_pos.to_le_bytes());
+            adler.write_slice(&offsets.entry_point.to_le_bytes());
+
+            offsets.checksum = Some(adler.checksum());
+        }
+
+        stream.seek(SeekFrom::Start(offset_start_pos))?;
+        offsets.write_bytes(header.version, &mut stream)?;
+        stream.seek(SeekFrom::Start(file_end))?;
+
+        Ok(file_end - file_start)
     }
 }
 
