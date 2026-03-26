@@ -1598,24 +1598,16 @@ impl PsbReaderExt for PsbReader {
         if signature != PSB_SIGNATURE {
             return Err(anyhow::anyhow!("Failed to open PSB: invalid signature"));
         }
-
-        stream.seek(SeekFrom::Start(0))?;
-        let mut raw = Vec::new();
-        stream.read_to_end(&mut raw)?;
-
-        let normal_file = PsbReader::open_psb(MemReader::new(raw.clone()));
+        let normal_file = PsbReader::open_psb(&mut stream);
         match normal_file {
             Ok(mut file) => file
                 .load()
                 .map_err(|e| anyhow::anyhow!("Failed to load PSB: {:?}", e)),
             Err(err) => {
-                let encryption = if raw.len() >= 8 {
-                    u16::from_le_bytes([raw[6], raw[7]])
-                } else {
-                    0
-                };
+                stream.seek(SeekFrom::Start(0))?;
+                let encryption = stream.peek_u16_at(6).unwrap_or(0);
                 if encryption != 0 {
-                    load_psb_dullahan(MemReader::new(raw)).map_err(|fallback_err| {
+                    load_psb_dullahan(&mut stream).map_err(|fallback_err| {
                         anyhow::anyhow!(
                             "Failed to open PSB: {:?}; fallback failed: {}",
                             err,
