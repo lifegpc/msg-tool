@@ -84,6 +84,8 @@ pub struct QlieKey {
 
 #[derive(Debug, Clone, Default)]
 pub struct QlieEntry {
+    /// Used in some versions of file decryption.
+    pub raw_name: Vec<u8>,
     pub name: String,
     pub offset: u64,
     pub size: u32,

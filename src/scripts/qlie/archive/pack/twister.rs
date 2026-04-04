@@ -84,3 +84,9 @@ impl MersenneTwister {
         (high << 32) | low
     }
 }
+
+impl Default for MersenneTwister {
+    fn default() -> Self {
+        Self::new(DEFAULT_SEED)
+    }
+}

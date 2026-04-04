@@ -1,4 +1,5 @@
 //! Qlie Pack Archive (.pack)
+mod delphi;
 mod encryption;
 mod twister;
 mod types;
@@ -35,7 +36,7 @@ impl ScriptBuilder for QliePackArchiveBuilder {
     fn build_script(
         &self,
         data: Vec<u8>,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
@@ -45,6 +46,7 @@ impl ScriptBuilder for QliePackArchiveBuilder {
             MemReader::new(data),
             archive_encoding,
             config,
+            filename,
         )?))
     }
 
@@ -62,6 +64,7 @@ impl ScriptBuilder for QliePackArchiveBuilder {
                 MemReader::new(data),
                 archive_encoding,
                 config,
+                filename,
             )?))
         } else {
             let f = std::fs::File::open(filename)?;
@@ -70,6 +73,7 @@ impl ScriptBuilder for QliePackArchiveBuilder {
                 reader,
                 archive_encoding,
                 config,
+                filename,
             )?))
         }
     }
@@ -77,7 +81,7 @@ impl ScriptBuilder for QliePackArchiveBuilder {
     fn build_script_from_reader(
         &self,
         reader: Box<dyn ReadSeek>,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
@@ -87,6 +91,7 @@ impl ScriptBuilder for QliePackArchiveBuilder {
             reader,
             archive_encoding,
             config,
+            filename,
         )?))
     }
 
@@ -150,7 +155,12 @@ pub struct QliePackArchive<T: Read + Seek + std::fmt::Debug> {
 }
 
 impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
-    pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
+    pub fn new(
+        mut reader: T,
+        archive_encoding: Encoding,
+        _config: &ExtraConfig,
+        filename: &str,
+    ) -> Result<Self> {
         reader.seek(SeekFrom::End(-0x1C))?;
         let header = QlieHeader::unpack(&mut reader, false, archive_encoding, &None)?;
         if !header.is_valid() {
@@ -164,7 +174,11 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
         }
         let major = header.major_version();
         let minor = header.minor_version();
-        let encryption = encryption::create_encryption(major, minor)?;
+        let mut game_key = None;
+        if major == 3 && minor == 0 {
+            game_key = encryption::find_key_data(filename)?;
+        }
+        let encryption = encryption::create_encryption(major, minor, game_key)?;
         // Read key
         let mut key = 0;
         let mut qkey = None;
@@ -205,6 +219,7 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
             let is_encrypted = reader.read_u32()?;
             let hash = reader.read_u32()?;
             let entry = QlieEntry {
+                raw_name,
                 name,
                 offset,
                 size,
@@ -218,9 +233,11 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
             entries.push(entry);
         }
         let mut common_key = None;
-        if major >= 3 && minor >= 1 {
-            if let Some(common_key_entry) = entries.iter().find(|e| e.name == QLIE_KEY_FILE) {
+        if major >= 3 {
+            common_key = encryption::find_game_key(filename)?;
+            if let Some(common_key_entry) = entries.iter_mut().find(|e| e.name == QLIE_KEY_FILE) {
                 reader.seek(SeekFrom::Start(common_key_entry.offset))?;
+                common_key_entry.common_key = common_key.clone();
                 let stream = StreamRegion::with_size(&mut reader, common_key_entry.size as u64)?;
                 let mut decrypted = encryption.decrypt_entry(Box::new(stream), common_key_entry)?;
                 if common_key_entry.is_packed != 0 {
@@ -228,7 +245,11 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
                 }
                 let mut key_data = Vec::new();
                 decrypted.read_to_end(&mut key_data)?;
-                common_key = Some(encryption::get_common_key(&key_data)?);
+                if minor == 1 {
+                    common_key = Some(encryption::get_common_key(&key_data)?);
+                } else {
+                    common_key = Some(key_data);
+                }
             }
         }
         Ok(Self {
@@ -267,7 +288,7 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for QliePackArchive<T> {
             .get(index)
             .ok_or_else(|| anyhow::anyhow!("Invalid file index {} for Qlie Pack Archive", index))?
             .clone();
-        if self.common_key.is_some() {
+        if self.common_key.is_some() && entry.common_key.is_none() {
             entry.common_key = self.common_key.clone();
         }
         let stream = StreamRegion::with_size(

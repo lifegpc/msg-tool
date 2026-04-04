@@ -1,3 +1,5 @@
+use super::delphi::*;
+use super::twister::*;
 use super::types::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -5,7 +7,10 @@ use crate::types::*;
 use crate::utils::encoding::*;
 use crate::utils::mmx::*;
 use anyhow::Result;
+use pelite::FileMap;
+use pelite::pe32::{Pe, PeFile};
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
 
 pub trait Hasher {
     fn update(&mut self, data: &[u8]) -> Result<()>;
@@ -30,9 +35,14 @@ pub trait Encryption: std::fmt::Debug {
     ) -> Result<Box<dyn ReadDebug + 'a>>;
 }
 
-pub fn create_encryption(major: u8, minor: u8) -> Result<Box<dyn Encryption>> {
+pub fn create_encryption(
+    major: u8,
+    minor: u8,
+    game_key: Option<Vec<u8>>,
+) -> Result<Box<dyn Encryption>> {
     match (major, minor) {
         (3, 1) => Ok(Box::new(Encryption31::new())),
+        (3, 0) => Ok(Box::new(Encryption30::new(game_key))),
         _ => Err(anyhow::anyhow!(
             "Unsupported encryption version: {}.{}",
             major,
@@ -907,6 +917,343 @@ pub fn compress(data: &[u8]) -> Result<Vec<u8>> {
         compressor.finish()?;
     }
     Ok(cursor.into_inner())
+}
+
+const KEY_DIR: [&'static str; 4] = [".", "..", "../DLL", "DLL"];
+
+pub fn find_game_key(filename: &str) -> Result<Option<Vec<u8>>> {
+    let path = PathBuf::from(filename);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    if let Some(pdir) = path.parent() {
+        for dir in KEY_DIR {
+            let key_path = pdir.join(dir).join("key.fkey");
+            if key_path.is_file() {
+                eprintln!("Found res key file: {}", key_path.display());
+                return Ok(Some(std::fs::read(key_path)?));
+            }
+        }
+        let exe_dir = pdir.join("..");
+        if exe_dir.is_dir() {
+            for entry in std::fs::read_dir(exe_dir)? {
+                let entry = entry?;
+                if entry.file_type()?.is_file() {
+                    if let Some(ext) = entry.path().extension() {
+                        if ext.eq_ignore_ascii_case("exe") {
+                            if let Ok(key) = get_game_key_from_exe(&entry.path()) {
+                                eprintln!(
+                                    "Found res key in executable: {}",
+                                    entry.path().display()
+                                );
+                                return Ok(Some(key));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(None)
+}
+
+pub fn get_game_key_from_exe<S: AsRef<Path> + ?Sized>(exe_path: &S) -> Result<Vec<u8>> {
+    let path = exe_path.as_ref();
+    let file_map = FileMap::open(path)?;
+    let file = PeFile::from_bytes(&file_map)?;
+    let resources = file.resources()?;
+    Ok(resources
+        .find_resource(&["#10".into(), "RESKEY".into()])?
+        .to_vec())
+}
+
+pub fn find_key_data(filename: &str) -> Result<Option<Vec<u8>>> {
+    let path = PathBuf::from(filename);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    if let Some(pdir) = path.parent() {
+        let exe_dir = pdir.join("..");
+        if exe_dir.is_dir() {
+            for entry in std::fs::read_dir(exe_dir)? {
+                let entry = entry?;
+                if entry.file_type()?.is_file() {
+                    if let Some(ext) = entry.path().extension() {
+                        if ext.eq_ignore_ascii_case("exe") {
+                            match get_key_data_from_exe(&entry.path()) {
+                                Ok(key) => {
+                                    eprintln!(
+                                        "Found key data in executable: {}",
+                                        entry.path().display()
+                                    );
+                                    return Ok(Some(key));
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "Failed to get key data from executable {}: {}\n{}",
+                                        entry.path().display(),
+                                        e,
+                                        e.backtrace(),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(None)
+}
+
+pub fn get_key_data_from_exe<S: AsRef<Path> + ?Sized>(exe_path: &S) -> Result<Vec<u8>> {
+    let path = exe_path.as_ref();
+    let file_map = FileMap::open(path)?;
+    let file = PeFile::from_bytes(&file_map)?;
+    let resources = file.resources()?;
+    let key_data = resources.find_resource(&["#10".into(), "TFORM1".into()])?;
+    let mut reader = MemReaderRef::new(&key_data);
+    let form = deser_delphi(&mut reader)?;
+    let image = form
+        .contents
+        .iter()
+        .find(|s| s.name == "IconKeyImage")
+        .ok_or(anyhow::anyhow!("IconKeyImage not found in form"))?;
+    let picture_data = image
+        .properties
+        .get("Picture.Data")
+        .ok_or(anyhow::anyhow!("Picture.Data not found in IconKeyImage"))?
+        .as_bytes()
+        .ok_or(anyhow::anyhow!("Picture.Data is not bytes"))?;
+    let mut reader = MemReaderRef::new(picture_data);
+    let mut sig = [0u8; 6];
+    reader.read_exact(&mut sig)?;
+    if &sig != b"\x05TIcon" {
+        return Err(anyhow::anyhow!("Invalid TIcon signature"));
+    }
+    Ok(reader.read_exact_vec(0x100)?)
+}
+
+#[derive(Debug)]
+pub struct Encryption30 {
+    key: Option<Vec<u8>>,
+}
+
+impl Encryption30 {
+    pub fn new(game_key: Option<Vec<u8>>) -> Self {
+        Self { key: game_key }
+    }
+}
+
+impl Encryption for Encryption30 {
+    fn decrypt_name(&self, name: &mut [u8], hash: i32, encoding: Encoding) -> Result<String> {
+        let key = (hash ^ 0x3E) + name.len() as i32;
+        for i in 1..=name.len() {
+            name[i - 1] ^= ((key ^ i as i32).wrapping_add(i as i32)) as u8;
+        }
+        Ok(decode_to_string(encoding, name, true)?)
+    }
+
+    fn create_hash(&self) -> Result<Box<dyn Hasher>> {
+        Ok(Box::new(Encryption30Hasher::new()))
+    }
+
+    fn compute_hash(&self, data: &[u8]) -> Result<u32> {
+        let mut hasher = Encryption30Hasher::new();
+        hasher.update(data)?;
+        hasher.finalize()
+    }
+
+    fn decrypt_entry<'a>(
+        &self,
+        stream: Box<dyn ReadSeek + 'a>,
+        entry: &QlieEntry,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        if self.key.is_none() || entry.common_key.is_none() {
+            return Ok(Box::new(Decrypter::new(stream, entry.key, entry.size)));
+        }
+        return Ok(Box::new(Encryption30Decrypt::new(
+            stream,
+            &entry.raw_name,
+            entry.common_key.as_ref().unwrap(),
+            entry.size,
+            entry.key,
+            self.key.as_ref().unwrap(),
+        )));
+    }
+}
+
+#[derive(Debug)]
+pub struct Encryption30Hasher {
+    hash: u64,
+    key: u64,
+    buffer: [u8; 8],
+    buffer_len: usize,
+}
+
+impl Encryption30Hasher {
+    pub fn new() -> Self {
+        Self {
+            hash: 0,
+            key: 0,
+            buffer: [0; 8],
+            buffer_len: 0,
+        }
+    }
+
+    fn update_internal(&mut self, data: u64) {
+        const C: u64 = mmx_punpckldq2(0x03070307);
+        self.hash = mmx_p_add_w(self.hash, C);
+        self.key = mmx_p_add_w(self.key, self.hash ^ data);
+    }
+}
+
+impl Hasher for Encryption30Hasher {
+    fn update(&mut self, data: &[u8]) -> Result<()> {
+        let mut used = 0;
+        if self.buffer_len > 0 {
+            let to_copy = (8 - self.buffer_len).min(data.len());
+            self.buffer[self.buffer_len..self.buffer_len + to_copy]
+                .copy_from_slice(&data[..to_copy]);
+            self.buffer_len += to_copy;
+            used += to_copy;
+        }
+        if self.buffer_len == 8 {
+            let v = u64::from_le_bytes(self.buffer);
+            self.update_internal(v);
+            self.buffer_len = 0;
+        }
+        let round = (data.len() - used) / 8;
+        let mut reader = MemReaderRef::new(&data[used..]);
+        for _ in 0..round {
+            let v = reader.read_u64()?;
+            self.update_internal(v);
+            used += 8;
+        }
+        let remaining = data.len() - used;
+        if remaining > 0 {
+            self.buffer[..remaining].copy_from_slice(&data[used..]);
+            self.buffer_len = remaining;
+        }
+        Ok(())
+    }
+
+    fn finalize(&mut self) -> Result<u32> {
+        let key = self.key ^ (self.key >> 32);
+        Ok(key as u32)
+    }
+}
+
+#[derive(Debug)]
+pub struct Decrypter<'a> {
+    stream: Box<dyn ReadSeek + 'a>,
+    v5: u64,
+    v9: u64,
+}
+
+impl<'a> Decrypter<'a> {
+    pub fn new(stream: Box<dyn ReadSeek + 'a>, key: u32, length: u32) -> AlignedReader<8, Self> {
+        const C1: u64 = 0xA73C5F9D;
+        const C3: u64 = 0xFEC9753E;
+        const V5_INIT: u64 = mmx_punpckldq2(C1);
+        let v9 = mmx_punpckldq2((length.wrapping_add(key) as u64) ^ C3);
+        AlignedReader::new(Self {
+            stream,
+            v5: V5_INIT,
+            v9,
+        })
+    }
+}
+
+impl<'a> Read for Decrypter<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.stream.read_most(buf)?;
+        let round = readed / 8;
+        let mut writer = MemWriterRef::new(buf);
+        const C2: u64 = 0xCE24F523;
+        const V7: u64 = mmx_punpckldq2(C2);
+        for _ in 0..round {
+            let d = writer.peek_u64()?;
+            self.v5 = mmx_p_add_d(self.v5, V7) ^ self.v9;
+            self.v9 = d ^ self.v5;
+            writer.write_u64(self.v9)?;
+        }
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+struct Encryption30Decrypt<'a> {
+    stream: Box<dyn ReadSeek + 'a>,
+    table: [u64; 0x10],
+    hash64: u64,
+    t: usize,
+}
+
+impl<'a> Encryption30Decrypt<'a> {
+    pub fn new<'b>(
+        stream: Box<dyn ReadSeek + 'a>,
+        raw_name: &'b [u8],
+        common_key: &'b [u8],
+        size: u32,
+        key: u32,
+        game_key: &'b [u8],
+    ) -> AlignedReader<8, Self> {
+        let mut hash = 0x85F532u32;
+        let mut seed = 0x33F641u32;
+        for (i, n) in raw_name.iter().enumerate() {
+            hash = hash.wrapping_add(((i & 0xFF) as u32) * (*n as u32));
+            seed ^= hash;
+        }
+        seed = seed.wrapping_add(
+            key ^ ((7 * (size & 0xFFFFFF))
+                .wrapping_add(size)
+                .wrapping_add(hash)
+                .wrapping_add(hash ^ size ^ 0x8F32DC)),
+        );
+        seed = 9 * (seed & 0xFFFFFF);
+        seed ^= 0x453A;
+        let mut mt = MersenneTwister::new(seed);
+        if !common_key.is_empty() {
+            mt.xor_state(common_key);
+        }
+        if !game_key.is_empty() {
+            mt.xor_state(game_key);
+        }
+        let mut table = [0u64; 0x10];
+        for i in 0..0x10 {
+            table[i] = mt.rand64();
+        }
+        for _ in 0..9 {
+            mt.rand();
+        }
+        let hash64 = mt.rand64();
+        let t = mt.rand() as usize & 0xF;
+        AlignedReader::new(Self {
+            stream,
+            table,
+            hash64,
+            t,
+        })
+    }
+}
+
+impl<'a> Read for Encryption30Decrypt<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.stream.read_most(buf)?;
+        let round = readed / 8;
+        let mut writer = MemWriterRef::new(buf);
+        for _ in 0..round {
+            let data64 = writer.peek_u64()?;
+            self.hash64 = mmx_p_add_d(self.hash64 ^ self.table[self.t], self.table[self.t]);
+            let d = data64 ^ self.hash64;
+            writer.write_u64(d)?;
+            self.hash64 = mmx_p_add_b(self.hash64, d) ^ d;
+            self.hash64 = mmx_p_add_w(mmx_p_sll_d(self.hash64, 1), d);
+            self.t = (self.t + 1) & 0xF;
+        }
+        Ok(readed)
+    }
 }
 
 #[test]
