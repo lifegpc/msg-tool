@@ -1059,11 +1059,11 @@ impl Encryption for Encryption30 {
         stream: Box<dyn ReadSeek + 'a>,
         entry: &QlieEntry,
     ) -> Result<Box<dyn ReadDebug + 'a>> {
-        if self.key.is_none() || entry.common_key.is_none() {
-            return Ok(Box::new(Decrypter::new(stream, entry.key, entry.size)));
-        }
         if entry.is_encrypted == 0 {
             return Ok(Box::new(stream));
+        }
+        if self.key.is_none() || entry.common_key.is_none() {
+            return Ok(Box::new(Decrypter::new(stream, entry.key, entry.size)));
         }
         return Ok(Box::new(Encryption30Decrypt::new(
             stream,
