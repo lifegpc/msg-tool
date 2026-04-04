@@ -980,22 +980,12 @@ pub fn find_key_data(filename: &str) -> Result<Option<Vec<u8>>> {
                 if entry.file_type()?.is_file() {
                     if let Some(ext) = entry.path().extension() {
                         if ext.eq_ignore_ascii_case("exe") {
-                            match get_key_data_from_exe(&entry.path()) {
-                                Ok(key) => {
-                                    eprintln!(
-                                        "Found key data in executable: {}",
-                                        entry.path().display()
-                                    );
-                                    return Ok(Some(key));
-                                }
-                                Err(e) => {
-                                    eprintln!(
-                                        "Failed to get key data from executable {}: {}\n{}",
-                                        entry.path().display(),
-                                        e,
-                                        e.backtrace(),
-                                    );
-                                }
+                            if let Ok(key) = get_key_data_from_exe(&entry.path()) {
+                                eprintln!(
+                                    "Found key data in executable: {}",
+                                    entry.path().display()
+                                );
+                                return Ok(Some(key));
                             }
                         }
                     }
@@ -1071,6 +1061,9 @@ impl Encryption for Encryption30 {
     ) -> Result<Box<dyn ReadDebug + 'a>> {
         if self.key.is_none() || entry.common_key.is_none() {
             return Ok(Box::new(Decrypter::new(stream, entry.key, entry.size)));
+        }
+        if entry.is_encrypted == 0 {
+            return Ok(Box::new(stream));
         }
         return Ok(Box::new(Encryption30Decrypt::new(
             stream,
