@@ -6,7 +6,7 @@ use crate::types::*;
 use crate::utils::bit_stream::*;
 use crate::utils::num_range::*;
 use anyhow::Result;
-use rand::Rng;
+use rand::RngExt;
 use std::collections::BinaryHeap;
 use std::io::{Seek, Write};
 

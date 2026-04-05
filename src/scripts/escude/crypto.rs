@@ -1,6 +1,6 @@
 use crate::ext::io::*;
 use anyhow::Result;
-use rand::Rng;
+use rand::RngExt;
 use std::io::{Read, Seek, Write};
 
 pub struct CryptoReader<T: Read + Seek> {

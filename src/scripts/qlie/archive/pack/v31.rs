@@ -5,7 +5,7 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
-use rand::Rng;
+use rand::RngExt;
 use std::io::{Seek, Write};
 
 struct MListEntry<T> {
