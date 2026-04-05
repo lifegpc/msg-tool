@@ -35,9 +35,9 @@ jobs:
           export AR="${arch}-ar"
           export HOST_AR="ar"
           export RUSTFLAGS="-C linker=${CC}"
-          cargo build --release --target ${{ matrix.arch }}
+          cargo build --release --target ${{ matrix.arch }} --no-default-features -F zig
           version=${{ github.event.release.tag_name }}
-          cd target/${{ matrix.arch }}/release --no-default-features -F zig
+          cd target/${{ matrix.arch }}/release
           7z a -mx9 "../../../msg_tool-${version}-${{ matrix.arch }}.zip" "msg_tool"
       - name: Upload to release
         run: |
