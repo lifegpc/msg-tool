@@ -65,7 +65,7 @@ jobs:
             -e "CXX_${target_env}=zig c++" \
             -e "AR_${target_env}=zig ar" \
             ghcr.io/rust-cross/cargo-zigbuild:latest \
-            sh -lc "rustup target add ${target} && cargo zigbuild --release --target ${target}"
+            sh -lc "cargo zigbuild --release --target ${target}"
 
           version=${{ github.event.release.tag_name }}
           cd target/${{ matrix.arch }}/release
