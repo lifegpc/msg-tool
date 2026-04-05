@@ -1407,7 +1407,7 @@ dependencies = [
 
 [[package]]
 name = "msg_tool"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "adler",
  "anyhow",
