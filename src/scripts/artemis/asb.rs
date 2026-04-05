@@ -6,9 +6,10 @@ use crate::utils::encoding::*;
 use crate::utils::escape::*;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::io::{Read, Write};
 use std::ops::Index;
+use std::sync::Arc;
 use stylua_lib::{Config as LuaFormatterConfig, OutputVerification, format_code};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -148,12 +149,13 @@ impl Item {
         matches!(self, Item::Command(_))
     }
 
-    pub fn is_command_name(&self, name: &str) -> bool {
+    pub fn command_name_in(&self, names: &HashSet<String>) -> Option<String> {
         if let Item::Command(cmd) = self {
-            cmd.name == name
-        } else {
-            false
+            if names.contains(&cmd.name) {
+                return Some(cmd.name.clone());
+            }
         }
+        None
     }
 }
 
@@ -240,10 +242,11 @@ struct TextParser<'a> {
     pos: usize,
     len: usize,
     hcls_index: usize,
+    end_tag: &'a str,
 }
 
 impl<'a> TextParser<'a> {
-    pub fn new(str: &'a str, hcls_index: usize) -> Self {
+    pub fn new(str: &'a str, hcls_index: usize, end_tag: &'a str) -> Self {
         let text: Vec<&'a str> = UnicodeSegmentation::graphemes(str, true).collect();
         let len = text.len();
         TextParser {
@@ -252,6 +255,7 @@ impl<'a> TextParser<'a> {
             pos: 0,
             len,
             hcls_index,
+            end_tag,
         }
     }
 
@@ -282,9 +286,11 @@ impl<'a> TextParser<'a> {
                 }
             }
         }
-        let mut hcls = Command::new("hcls".to_string(), 0);
-        hcls.attributes
-            .insert("0".to_string(), self.hcls_index.to_string());
+        let mut hcls = Command::new(self.end_tag.to_string(), 0);
+        if self.end_tag == "hcls" {
+            hcls.attributes
+                .insert("0".to_string(), self.hcls_index.to_string());
+        }
         self.items.push(Item::Command(hcls));
         Ok(self.items)
     }
@@ -312,6 +318,10 @@ impl<'a> TextParser<'a> {
                     cmd.attributes.insert(key, value);
                 }
             }
+        }
+        if self.items.is_empty() {
+            self.items
+                .push(Item::Command(Command::new("msgon".to_string(), 0)));
         }
         self.items.push(Item::Command(cmd));
         Ok(())
@@ -424,6 +434,7 @@ pub struct Asb {
     custom_yaml: bool,
     is_iet: bool,
     format_lua: bool,
+    end_tags: Arc<HashSet<String>>,
 }
 
 impl Asb {
@@ -456,6 +467,7 @@ impl Asb {
                 .extension()
                 .map_or(false, |ext| ext.eq_ignore_ascii_case("iet")),
             format_lua: config.artemis_asb_format_lua,
+            end_tags: config.artemis_asb_end_tags.clone(),
         })
     }
 
@@ -511,14 +523,6 @@ impl Script for Asb {
             if in_print {
                 if let Item::Command(cmd) = item {
                     match cmd.name.as_str() {
-                        "hcls" => {
-                            in_print = false;
-                            messages.push(Message {
-                                name: name.take(),
-                                message: cur_mes,
-                            });
-                            cur_mes = String::new();
-                        }
                         "print" => {
                             cur_mes.push_str(&escape_text(&cmd["data"]));
                         }
@@ -526,6 +530,15 @@ impl Script for Asb {
                             cur_mes.push('\n');
                         }
                         _ => {
+                            if self.end_tags.contains(&cmd.name) {
+                                in_print = false;
+                                messages.push(Message {
+                                    name: name.take(),
+                                    message: cur_mes,
+                                });
+                                cur_mes = String::new();
+                                continue;
+                            }
                             cur_mes.push_str(&cmd.to_xml());
                         }
                     }
@@ -541,6 +554,9 @@ impl Script for Asb {
                     "name" => {
                         let v = (cmd.attributes.len() - 1).to_string();
                         name = Some(cmd[v].to_owned());
+                    }
+                    "msgon" => {
+                        in_print = true;
                     }
                     "sel_text" => {
                         let t = &cmd["text"];
@@ -590,7 +606,7 @@ impl Script for Asb {
         let mut hcls_index = 1;
         while item_index < items.len() {
             if let Some(print_ind) = print_index.clone() {
-                if items[item_index].is_command_name("hcls") {
+                if let Some(end_tag) = items[item_index].command_name_in(&self.end_tags) {
                     let message = messages
                         .get(mes_index)
                         .ok_or(anyhow::anyhow!("Not enough messages."))?;
@@ -625,7 +641,8 @@ impl Script for Asb {
                             m = m.replace(k, v);
                         }
                     }
-                    let new_cmds = TextParser::new(&m.replace("\n", "<rt>"), hcls_index).parse()?;
+                    let new_cmds =
+                        TextParser::new(&m.replace("\n", "<rt>"), hcls_index, &end_tag).parse()?;
                     hcls_index += 1;
                     let new_cmds_len = new_cmds.len();
                     items.splice(print_ind..=item_index, new_cmds);
@@ -641,6 +658,9 @@ impl Script for Asb {
             if let Item::Command(cmd) = &mut items[item_index] {
                 match cmd.name.as_str() {
                     "print" => {
+                        print_index = Some(item_index);
+                    }
+                    "msgon" => {
                         print_index = Some(item_index);
                     }
                     "name" => {
@@ -779,7 +799,7 @@ pub fn create_file<'a>(
 #[test]
 fn test_parse() {
     let text = "Hello &lt; &amp; World!<tag><tags x=\"123\"><name 0=\"Ok\">Test";
-    let parser = TextParser::new(text, 1);
+    let parser = TextParser::new(text, 1, "hcls");
     let items = parser.parse().unwrap();
     assert_eq!(
         items,
@@ -813,6 +833,68 @@ fn test_parse() {
                 name: "hcls".to_string(),
                 line_number: 0,
                 attributes: BTreeMap::from([("0".to_string(), "1".to_string())]),
+            }),
+        ]
+    )
+}
+
+#[test]
+fn test_parse2() {
+    let text = "<ruby text=\"test\">OK</ruby>Hello &lt; &amp; World!<tag><tags x=\"123\"><name 0=\"Ok\">Test";
+    let parser = TextParser::new(text, 1, "click");
+    let items = parser.parse().unwrap();
+    assert_eq!(
+        items,
+        vec![
+            Item::Command(Command {
+                name: "msgon".to_string(),
+                line_number: 0,
+                attributes: BTreeMap::new(),
+            }),
+            Item::Command(Command {
+                name: "ruby".to_string(),
+                line_number: 0,
+                attributes: [("text".to_string(), "test".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "print".to_string(),
+                line_number: 0,
+                attributes: [("data".to_string(), "OK".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "/ruby".to_string(),
+                line_number: 0,
+                attributes: BTreeMap::new(),
+            }),
+            Item::Command(Command {
+                name: "print".to_string(),
+                line_number: 0,
+                attributes: [("data".to_string(), "Hello < & World!".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "tag".to_string(),
+                line_number: 0,
+                attributes: BTreeMap::new(),
+            }),
+            Item::Command(Command {
+                name: "tags".to_string(),
+                line_number: 0,
+                attributes: [("x".to_string(), "123".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "name".to_string(),
+                line_number: 0,
+                attributes: [("0".to_string(), "Ok".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "print".to_string(),
+                line_number: 0,
+                attributes: [("data".to_string(), "Test".to_string())].into(),
+            }),
+            Item::Command(Command {
+                name: "click".to_string(),
+                line_number: 0,
+                attributes: BTreeMap::new(),
             }),
         ]
     )

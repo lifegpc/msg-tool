@@ -631,6 +631,20 @@ pub struct ExtraConfig {
     #[cfg(feature = "emote-img")]
     /// BC7 compress configuration
     pub bc7: crate::scripts::emote::psb::BC7Config,
+    #[cfg(feature = "artemis")]
+    #[default(default_artemis_asb_end_tags())]
+    /// A list of Artemis ASB script end tags, used to determine a dialogue block in script.
+    pub artemis_asb_end_tags: std::sync::Arc<std::collections::HashSet<String>>,
+}
+
+#[cfg(feature = "artemis")]
+fn default_artemis_asb_end_tags() -> std::sync::Arc<std::collections::HashSet<String>> {
+    std::sync::Arc::new(
+        ["click", "hcls", "rpx"]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+    )
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]

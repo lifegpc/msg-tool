@@ -3387,6 +3387,10 @@ fn main() {
         kirikiri_ks_bom: arg.kirikiri_ks_bom,
         #[cfg(feature = "emote-img")]
         bc7: arg.bc7,
+        #[cfg(feature = "artemis")]
+        artemis_asb_end_tags: std::sync::Arc::new(std::collections::HashSet::from_iter(
+            arg.artemis_asb_end_tags.iter().cloned(),
+        )),
     });
     match &arg.command {
         args::Command::Export { input, output } => {

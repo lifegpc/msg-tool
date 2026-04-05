@@ -687,6 +687,15 @@ pub struct Arg {
     #[arg(long, global = true, value_enum, default_value_t = crate::scripts::emote::psb::BC7Config::default())]
     /// BC7 compress configuration
     pub bc7: crate::scripts::emote::psb::BC7Config,
+    #[cfg(feature = "artemis")]
+    #[arg(
+        long,
+        global = true,
+        value_delimiter = ',',
+        default_value = "click,hcls,rpx"
+    )]
+    /// A list of Artemis ASB script end tags, used to determine a dialogue block in script.
+    pub artemis_asb_end_tags: Vec<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,
