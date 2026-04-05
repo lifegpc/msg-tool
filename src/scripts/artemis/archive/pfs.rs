@@ -5,6 +5,7 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
+use digest_io::IoWrapper;
 use msg_tool_macro::*;
 use sha1::Digest;
 use std::collections::HashMap;
@@ -174,12 +175,12 @@ impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
         }
         let xor_key = if version == b'8' {
             reader.seek(SeekFrom::Start(7))?;
-            let mut sha = sha1::Sha1::default();
+            let mut sha = IoWrapper(sha1::Sha1::default());
             let ra = &mut reader;
             let mut r = ra.take(index_size as u64);
             std::io::copy(&mut r, &mut sha)?;
             sha.flush()?;
-            let result = sha.finalize();
+            let result = sha.0.finalize();
             let mut xor_key = [0u8; 20];
             xor_key.copy_from_slice(&result);
             Some(xor_key)
@@ -422,12 +423,12 @@ impl<T: Write + Seek + Read> Archive for ArtemisArcWriter<T> {
         }
         if !self.disable_xor {
             self.writer.seek(SeekFrom::Start(7))?;
-            let mut sha = sha1::Sha1::default();
+            let mut sha = IoWrapper(sha1::Sha1::default());
             let w = &mut self.writer;
             let mut header = w.take(self.index_size as u64);
             std::io::copy(&mut header, &mut sha)?;
             sha.flush()?;
-            let result = sha.finalize();
+            let result = sha.0.finalize();
             let mut xor_key = [0u8; 20];
             xor_key.copy_from_slice(&result);
             let mut buf = [0u8; 1024];
