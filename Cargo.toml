@@ -61,6 +61,8 @@ zstd = { version = "0.13", optional = true }
 
 [features]
 default = ["all-fmt", "image-jpg", "image-jxl", "image-webp", "audio-flac", "jieba"]
+# Zig can not build libjxl
+zig = ["all-fmt", "image-jpg", "image-webp", "audio-flac", "jieba"]
 all-fmt = ["all-script", "all-img", "all-arc", "all-audio"]
 all-script = ["artemis", "artemis-panmimisoft", "bgi", "cat-system", "circus", "entis-gls", "escude", "ex-hibit", "favorite", "hexen-haus", "kirikiri", "musica", "qlie", "silky", "softpal", "will-plus", "yaneurao", "yaneurao-itufuru"]
 all-img = ["bgi-img", "cat-system-img", "circus-img", "emote-img", "hexen-haus-img", "kirikiri-img", "qlie-img", "softpal-img", "will-plus-img"]

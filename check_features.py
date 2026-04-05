@@ -3,6 +3,8 @@ import subprocess
 import sys
 
 def filter_name(name):
+    if name == 'zig':
+        return False
     if name.startswith("utils-"):
         return False
     if name.startswith("all-"):
