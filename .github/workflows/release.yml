@@ -54,36 +54,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-      - name: Set up Rust
-        run: |
-          rustup update
-          rustup target add ${{ matrix.arch }}
-      - name: Set up Zig
-        uses: goto-bus-stop/setup-zig@v2
-      - name: Install cargo-zigbuild
-        run: cargo install cargo-zigbuild --locked
       - name: Build project
         run: |
           target=${{ matrix.arch }}
-          case "${target}" in
-            aarch64-apple-darwin)
-              zig_target="aarch64-macos"
-              ;;
-            x86_64-apple-darwin)
-              zig_target="x86_64-macos"
-              ;;
-            *)
-              echo "Unsupported target: ${target}"
-              exit 1
-              ;;
-          esac
-
           target_env=${target//-/_}
-          export "CC_${target_env}=zig cc -target ${zig_target}"
-          export "CXX_${target_env}=zig c++ -target ${zig_target}"
-          export "AR_${target_env}=zig ar"
-
-          cargo zigbuild --release --target "${target}"
+          docker run --rm \
+            -v "$PWD":/io \
+            -w /io \
+            -e "CC_${target_env}=zig cc" \
+            -e "CXX_${target_env}=zig c++" \
+            -e "AR_${target_env}=zig ar" \
+            ghcr.io/rust-cross/cargo-zigbuild:latest \
+            sh -lc "rustup target add ${target} && cargo zigbuild --release --target ${target}"
 
           version=${{ github.event.release.tag_name }}
           cd target/${{ matrix.arch }}/release
