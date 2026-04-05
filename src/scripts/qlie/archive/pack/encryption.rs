@@ -33,6 +33,9 @@ pub trait Encryption: std::fmt::Debug {
         stream: Box<dyn ReadSeek + 'a>,
         entry: &QlieEntry,
     ) -> Result<Box<dyn ReadDebug + 'a>>;
+    fn index_has_hash(&self) -> bool {
+        true
+    }
 }
 
 pub fn create_encryption(
@@ -43,6 +46,8 @@ pub fn create_encryption(
     match (major, minor) {
         (3, 1) => Ok(Box::new(Encryption31::new())),
         (3, 0) => Ok(Box::new(Encryption30::new(game_key))),
+        (2, 0) => Ok(Box::new(Encryption20::new())),
+        (1, 0) => Ok(Box::new(Encryption10::new())),
         _ => Err(anyhow::anyhow!(
             "Unsupported encryption version: {}.{}",
             major,
@@ -1244,6 +1249,124 @@ impl<'a> Read for Encryption30Decrypt<'a> {
             self.hash64 = mmx_p_add_b(self.hash64, d) ^ d;
             self.hash64 = mmx_p_add_w(mmx_p_sll_d(self.hash64, 1), d);
             self.t = (self.t + 1) & 0xF;
+        }
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct Encryption10 {}
+
+impl Encryption10 {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Encryption for Encryption10 {
+    fn decrypt_name(&self, name: &mut [u8], _hash: i32, encoding: Encoding) -> Result<String> {
+        const KEY: u32 = 0xC4 ^ 0x3E;
+        for (i, b) in name.iter_mut().enumerate() {
+            let i = (i + 1) as u32;
+            *b ^= ((KEY ^ i).wrapping_add(i)) as u8;
+        }
+        decode_to_string(encoding, name, true)
+    }
+
+    fn decrypt_entry<'a>(
+        &self,
+        stream: Box<dyn ReadSeek + 'a>,
+        entry: &QlieEntry,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        if entry.is_encrypted == 0 {
+            return Ok(Box::new(stream));
+        }
+        Ok(Box::new(Encryption10Decrypt::new(stream, 0)))
+    }
+
+    fn index_has_hash(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug)]
+pub struct Encryption20 {
+    index_has_hash: bool,
+}
+
+impl Encryption20 {
+    pub fn new() -> Self {
+        Self {
+            index_has_hash: true,
+        }
+    }
+
+    pub fn new_no_hash() -> Self {
+        Self {
+            index_has_hash: false,
+        }
+    }
+}
+
+impl Encryption for Encryption20 {
+    fn decrypt_name(&self, name: &mut [u8], _hash: i32, encoding: Encoding) -> Result<String> {
+        let key = (0xC4u32 ^ 0x3E).wrapping_add(name.len() as u32);
+        for (i, b) in name.iter_mut().enumerate() {
+            let i = (i + 1) as u32;
+            *b ^= ((key ^ i).wrapping_add(i)) as u8;
+        }
+        decode_to_string(encoding, name, true)
+    }
+
+    fn decrypt_entry<'a>(
+        &self,
+        stream: Box<dyn ReadSeek + 'a>,
+        entry: &QlieEntry,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        if entry.is_encrypted == 0 {
+            return Ok(Box::new(stream));
+        }
+        Ok(Box::new(Decrypter::new(stream, 0, entry.size)))
+    }
+
+    fn index_has_hash(&self) -> bool {
+        self.index_has_hash
+    }
+}
+
+#[derive(Debug)]
+struct Encryption10Decrypt<'a> {
+    stream: Box<dyn ReadSeek + 'a>,
+    v5: u64,
+    v9: u64,
+}
+
+impl<'a> Encryption10Decrypt<'a> {
+    pub fn new(stream: Box<dyn ReadSeek + 'a>, key: u32) -> AlignedReader<8, Self> {
+        const C1: u64 = 0xA73C5F9D;
+        const C3: u64 = 0xFEC9753E;
+        const V5_INIT: u64 = mmx_punpckldq2(C1);
+        let v9 = mmx_punpckldq2((key as u64) ^ C3);
+        AlignedReader::new(Self {
+            stream,
+            v5: V5_INIT,
+            v9,
+        })
+    }
+}
+
+impl<'a> Read for Encryption10Decrypt<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.stream.read_most(buf)?;
+        let round = readed / 8;
+        let mut writer = MemWriterRef::new(buf);
+        const C2: u64 = 0xCE24F523;
+        const V7: u64 = mmx_punpckldq2(C2);
+        for _ in 0..round {
+            let d = writer.peek_u64()?;
+            self.v5 = mmx_p_add_d(self.v5, V7) ^ self.v9;
+            self.v9 = d ^ self.v5;
+            writer.write_u64(self.v9)?;
         }
         Ok(readed)
     }

@@ -178,7 +178,7 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
         if major == 3 && minor == 0 {
             game_key = encryption::find_key_data(filename)?;
         }
-        let encryption = encryption::create_encryption(major, minor, game_key)?;
+        let mut encryption = encryption::create_encryption(major, minor, game_key)?;
         // Read key
         let mut key = 0;
         let mut qkey = None;
@@ -201,37 +201,31 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
             qkey = Some(qk);
         }
         // Read entries
-        let mut entries = Vec::new();
-        reader.seek(SeekFrom::Start(header.index_offset))?;
-        for _ in 0..header.file_count {
-            let name_length = reader.read_u16()?;
-            let raw_name_length = if encryption.is_unicode() {
-                name_length as usize * 2
-            } else {
-                name_length as usize
-            };
-            let mut raw_name = reader.read_exact_vec(raw_name_length)?;
-            let name = encryption.decrypt_name(&mut raw_name, key as i32, archive_encoding)?;
-            let offset = reader.read_u64()?;
-            let size = reader.read_u32()?;
-            let unpacked_size = reader.read_u32()?;
-            let is_packed = reader.read_u32()?;
-            let is_encrypted = reader.read_u32()?;
-            let hash = reader.read_u32()?;
-            let entry = QlieEntry {
-                raw_name,
-                name,
-                offset,
-                size,
-                unpacked_size,
-                is_packed,
-                is_encrypted,
-                hash,
-                key,
-                common_key: None,
-            };
-            entries.push(entry);
-        }
+        let mut entries = if major >= 2 {
+            Self::read_entries(&mut reader, key, &header, archive_encoding, &encryption)?
+        } else {
+            let possible_encs: [Box<dyn Encryption>; 3] = [
+                Box::new(encryption::Encryption10::new()),
+                Box::new(encryption::Encryption20::new_no_hash()),
+                Box::new(encryption::Encryption20::new()),
+            ];
+            let mut t = None;
+            for enc in possible_encs {
+                match Self::read_entries(&mut reader, key, &header, archive_encoding, &enc) {
+                    Ok(entries) => {
+                        encryption = enc;
+                        t = Some(entries);
+                        break;
+                    }
+                    Err(_) => continue,
+                }
+            }
+            t.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Failed to read Qlie Pack Archive entries with any encryption method"
+                )
+            })?
+        };
         let mut common_key = None;
         if major >= 3 {
             common_key = encryption::find_game_key(filename)?;
@@ -260,6 +254,48 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
             entries,
             common_key,
         })
+    }
+
+    fn read_entries(
+        reader: &mut T,
+        key: u32,
+        header: &QlieHeader,
+        archive_encoding: Encoding,
+        encryption: &Box<dyn Encryption>,
+    ) -> Result<Vec<QlieEntry>> {
+        let mut entries = Vec::new();
+        reader.seek(SeekFrom::Start(header.index_offset))?;
+        let has_hash = encryption.index_has_hash();
+        for _ in 0..header.file_count {
+            let name_length = reader.read_u16()?;
+            let raw_name_length = if encryption.is_unicode() {
+                name_length as usize * 2
+            } else {
+                name_length as usize
+            };
+            let mut raw_name = reader.read_exact_vec(raw_name_length)?;
+            let name = encryption.decrypt_name(&mut raw_name, key as i32, archive_encoding)?;
+            let offset = reader.read_u64()?;
+            let size = reader.read_u32()?;
+            let unpacked_size = reader.read_u32()?;
+            let is_packed = reader.read_u32()?;
+            let is_encrypted = reader.read_u32()?;
+            let hash = if has_hash { reader.read_u32()? } else { 0 };
+            let entry = QlieEntry {
+                raw_name,
+                name,
+                offset,
+                size,
+                unpacked_size,
+                is_packed,
+                is_encrypted,
+                hash,
+                key,
+                common_key: None,
+            };
+            entries.push(entry);
+        }
+        Ok(entries)
     }
 }
 
