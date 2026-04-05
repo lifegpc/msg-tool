@@ -947,6 +947,9 @@ pub trait ReadExt {
     /// Reads as much data as possible into the provided buffer.
     /// Returns the number of bytes read.
     fn read_most(&mut self, buf: &mut [u8]) -> Result<usize>;
+    /// Skips a specified number of bytes in the reader.
+    /// Will return an error if readed bytes are less than the specified length.
+    fn skip(&mut self, len: u64) -> Result<()>;
 }
 
 impl<T: Read> ReadExt for T {
@@ -1128,6 +1131,17 @@ impl<T: Read> ReadExt for T {
             }
         }
         Ok(total_read)
+    }
+
+    fn skip(&mut self, len: u64) -> Result<()> {
+        let skiped = std::io::copy(&mut self.by_ref().take(len), &mut std::io::sink())?;
+        if skiped != len {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "Failed to skip the specified number of bytes",
+            ));
+        }
+        Ok(())
     }
 }
 

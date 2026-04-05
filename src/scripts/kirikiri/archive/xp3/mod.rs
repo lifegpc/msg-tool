@@ -1,16 +1,24 @@
-use super::xp3pack::*;
+mod archive;
+#[allow(dead_code)]
+mod consts;
+mod crypt;
+mod read;
+mod reader;
+mod segmenter;
+mod writer;
+
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use anyhow::Result;
+use consts::ZSTD_SIGNATURE;
 use flate2::read::ZlibDecoder;
 use overf::wrapping;
-use std::io::{Read, Seek, SeekFrom, Take};
+pub use segmenter::SegmenterConfig;
+use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
-use xp3::XP3Reader;
-use xp3::index::file::{IndexSegmentFlag, XP3FileIndex};
-
-pub use super::xp3pack::SegmenterConfig;
+use writer::Xp3ArchiveWriter;
+use zstd::stream::read::Decoder as ZstdDecoder;
 
 pub fn parse_segmenter_config(str: &str) -> Result<SegmenterConfig> {
     let parts: Vec<&str> = str.split(':').collect();
@@ -143,41 +151,32 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
 
 #[derive(Debug)]
 /// Kirikiri XP3 Archive
-pub struct Xp3Archive<T: Read + Seek + std::fmt::Debug> {
-    reader: Arc<Mutex<T>>,
-    entries: Vec<(String, XP3FileIndex)>,
+pub struct Xp3Archive {
+    archive: archive::Xp3Archive,
     decrypt_simple_crypt: bool,
     decompress_mdf: bool,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Xp3Archive<T> {
-    /// Create a new Kirikiri XP3 Archive
-    pub fn new(reader: T, config: &ExtraConfig) -> Result<Self> {
-        let xp3_reader = XP3Reader::open_archive(reader)
-            .map_err(|e| anyhow::anyhow!("Failed to open XP3 archive: {:?}", e))?;
-        let entries = xp3_reader
-            .entries()
-            .filter_map(|(i, d)| {
-                // Skip garbage files
-                if i.find("$$$ This is a protected archive. $$$").is_some()
-                    || (i.to_lowercase().ends_with(".nene") && d.info().file_size() == 0)
-                {
-                    None
-                } else {
-                    Some((i.clone(), d.clone()))
-                }
-            })
-            .collect();
+impl Xp3Archive {
+    pub fn new<T: Read + Seek + std::fmt::Debug + 'static>(
+        stream: T,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
+        let mut archive = archive::Xp3Archive::new(stream, config)?;
+        archive.entries.retain(|entry| {
+            let i = &entry.name;
+            !(i.find("$$$ This is a protected archive. $$$").is_some()
+                || (i.to_lowercase().ends_with(".nene") && entry.original_size == 0))
+        });
         Ok(Self {
-            reader: Arc::new(Mutex::new(xp3_reader.close().1)),
-            entries,
+            archive,
             decrypt_simple_crypt: config.xp3_simple_crypt,
             decompress_mdf: config.xp3_mdf_decompress,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for Xp3Archive<T> {
+impl Script for Xp3Archive {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -194,23 +193,26 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for Xp3Archive<T> {
         &'a self,
     ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         Ok(Box::new(
-            self.entries.iter().map(|entry| Ok(entry.0.clone())),
+            self.archive
+                .entries
+                .iter()
+                .map(|entry| Ok(entry.name.clone())),
         ))
     }
 
     fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
         let index = self
+            .archive
             .entries
             .iter()
             .nth(index)
             .ok_or(anyhow::anyhow!("Index out of bounds: {}", index))?
-            .1
             .clone();
-        let mut entry = Entry::new(self.reader.clone(), index);
+        let mut entry = Entry::new(self.archive.inner.clone(), index);
         let mut header = [0u8; 16];
         let header_len = entry.read(&mut header)?;
         entry.rewind()?;
-        entry.script_type = detect_script_type(entry.index.info().name(), &header, header_len);
+        entry.script_type = detect_script_type(&entry.index.name, &header, header_len);
         if self.decrypt_simple_crypt
             && header_len >= 5
             && header[0] == 0xFE
@@ -231,7 +233,7 @@ impl<T: Read + Seek + std::fmt::Debug + 'static> Script for Xp3Archive<T> {
         if self.decompress_mdf
             && header_len >= 4
             && &header[0..4] == b"mdf\0"
-            && entry.index.info().file_size() > 8
+            && entry.index.original_size > 8
         {
             let index = entry.index.clone();
             return Ok(Box::new(MdfEntry::new(entry, index)?));
@@ -267,25 +269,36 @@ fn detect_script_type(filename: &str, buf: &[u8], buf_len: usize) -> Option<Scri
     }
 }
 
-#[derive(Debug)]
-struct Entry<T: Read + Seek + std::fmt::Debug> {
-    reader: Arc<Mutex<T>>,
-    index: XP3FileIndex,
-    cache: Option<ZlibDecoder<Take<MutexWrapper<T>>>>,
+struct Entry {
+    reader: Arc<Mutex<Box<dyn ReadSeek>>>,
+    index: archive::Xp3Entry,
+    cache: Option<Box<dyn Read>>,
     pos: u64,
     entries_pos: Vec<u64>,
     script_type: Option<ScriptType>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Entry<T> {
-    fn new(reader: Arc<Mutex<T>>, index: XP3FileIndex) -> Self {
+impl std::fmt::Debug for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Entry")
+            .field("name", &self.index.name)
+            .field("flags", &self.index.flags)
+            .field("file_hash", &self.index.file_hash)
+            .field("original_size", &self.index.original_size)
+            .field("archived_size", &self.index.archived_size)
+            .finish()
+    }
+}
+
+impl Entry {
+    fn new(reader: Arc<Mutex<Box<dyn ReadSeek>>>, index: archive::Xp3Entry) -> Self {
         let mut pos = 0;
         let entries_pos = index
-            .segments()
+            .segments
             .iter()
             .map(|seg| {
                 let p = pos;
-                pos += seg.original_size();
+                pos += seg.original_size;
                 p
             })
             .collect();
@@ -300,9 +313,9 @@ impl<T: Read + Seek + std::fmt::Debug> Entry<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for Entry<T> {
+impl ArchiveContent for Entry {
     fn name(&self) -> &str {
-        &self.index.info().name()
+        &self.index.name
     }
 
     fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
@@ -314,9 +327,9 @@ impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for Entry<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Read for Entry<T> {
+impl Read for Entry {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if self.pos >= self.index.info().file_size() {
+        if self.pos >= self.index.original_size {
             self.cache.take();
             return Ok(0);
         }
@@ -338,50 +351,50 @@ impl<T: Read + Seek + std::fmt::Debug> Read for Entry<T> {
                 }
             }
         };
-        let seg = &self.index.segments()[seg_index];
-        let start_pos = seg.data_offset();
+        let seg = &self.index.segments[seg_index];
+        let start_pos = seg.start;
         let seg_pos = self.entries_pos[seg_index];
         let skip_pos = self.pos - seg_pos;
-        let read_size = seg.saved_size();
-        match seg.flag() {
-            IndexSegmentFlag::UnCompressed => {
-                let mut lock = MutexWrapper::new(self.reader.clone(), start_pos + skip_pos);
-                let readed = (&mut lock).take(read_size - skip_pos).read(buf)?;
-                self.pos += readed as u64;
-                Ok(readed)
+        let read_size = seg.archived_size;
+        if seg.is_compressed {
+            let mut inner = MutexWrapper::new(self.reader.clone(), start_pos).take(read_size);
+            let mut cache = if inner.peek_and_equal(ZSTD_SIGNATURE).is_ok() {
+                Box::new(ZstdDecoder::new(inner)?) as Box<dyn Read>
+            } else {
+                Box::new(ZlibDecoder::new(inner)) as Box<dyn Read>
+            };
+            if skip_pos != 0 {
+                let mut e = EmptyWriter::new();
+                std::io::copy(&mut (&mut cache).take(skip_pos), &mut e)?; // skip
             }
-            IndexSegmentFlag::Compressed => {
-                let mut cache = ZlibDecoder::new(
-                    MutexWrapper::new(self.reader.clone(), start_pos).take(read_size),
-                );
-                if skip_pos != 0 {
-                    let mut e = EmptyWriter::new();
-                    std::io::copy(&mut (&mut cache).take(skip_pos), &mut e)?; // skip
-                }
-                let readed = cache.read(buf)?;
-                self.pos += readed as u64;
-                self.cache = Some(cache);
-                Ok(readed)
-            }
+            let readed = cache.read(buf)?;
+            self.pos += readed as u64;
+            self.cache = Some(cache);
+            Ok(readed)
+        } else {
+            let mut lock = MutexWrapper::new(self.reader.clone(), start_pos + skip_pos);
+            let readed = (&mut lock).take(read_size - skip_pos).read(buf)?;
+            self.pos += readed as u64;
+            Ok(readed)
         }
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Seek for Entry<T> {
+impl Seek for Entry {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(p) => p,
             SeekFrom::End(offset) => {
                 if offset < 0 {
-                    if (-offset) as u64 > self.index.info().file_size() {
+                    if (-offset) as u64 > self.index.original_size {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::InvalidInput,
                             "Seek from end exceeds file length",
                         ));
                     }
-                    self.index.info().file_size() - (-offset) as u64
+                    self.index.original_size - (-offset) as u64
                 } else {
-                    self.index.info().file_size() + offset as u64
+                    self.index.original_size + offset as u64
                 }
             }
             SeekFrom::Current(offset) => {
@@ -446,42 +459,42 @@ impl<T: Read + Seek + std::fmt::Debug> Seek for Entry<T> {
     }
 }
 
-struct SimpleCryptZlib<T: Read + Seek + std::fmt::Debug> {
-    inner: PrefixStream<ZlibDecoder<StreamRegion<Entry<T>>>>,
-    index: XP3FileIndex,
+struct SimpleCryptZlib {
+    inner: PrefixStream<ZlibDecoder<StreamRegion<Entry>>>,
+    index: archive::Xp3Entry,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> SimpleCryptZlib<T> {
-    fn new(mut entry: Entry<T>, index: XP3FileIndex) -> Result<Self> {
+impl SimpleCryptZlib {
+    fn new(mut entry: Entry, index: archive::Xp3Entry) -> Result<Self> {
         entry.seek(SeekFrom::Start(0x15))?;
-        let entry = StreamRegion::new(entry, 0x15, index.info().file_size())?;
+        let entry = StreamRegion::new(entry, 0x15, index.original_size)?;
         let inner = PrefixStream::new(vec![0xFF, 0xFE], ZlibDecoder::new(entry));
         Ok(Self { inner, index })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for SimpleCryptZlib<T> {
+impl ArchiveContent for SimpleCryptZlib {
     fn name(&self) -> &str {
-        &self.index.info().name()
+        &self.index.name
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Read for SimpleCryptZlib<T> {
+impl Read for SimpleCryptZlib {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
 #[derive(Debug)]
-struct SimpleCryptInner<T: Read + Seek + std::fmt::Debug> {
-    inner: StreamRegion<Entry<T>>,
+struct SimpleCryptInner {
+    inner: StreamRegion<Entry>,
     crypt: u8,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> SimpleCryptInner<T> {
-    fn new(mut entry: Entry<T>, crypt: u8) -> Result<Self> {
+impl SimpleCryptInner {
+    fn new(mut entry: Entry, crypt: u8) -> Result<Self> {
         entry.seek(SeekFrom::Start(5))?;
-        let size = entry.index.info().file_size();
+        let size = entry.index.original_size;
         let entry = StreamRegion::new(entry, 5, size)?;
         Ok(Self {
             inner: entry,
@@ -490,7 +503,7 @@ impl<T: Read + Seek + std::fmt::Debug> SimpleCryptInner<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Read for SimpleCryptInner<T> {
+impl Read for SimpleCryptInner {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let readed = self.inner.read(buf)?;
         match self.crypt {
@@ -515,7 +528,7 @@ impl<T: Read + Seek + std::fmt::Debug> Read for SimpleCryptInner<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Seek for SimpleCryptInner<T> {
+impl Seek for SimpleCryptInner {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         self.inner.seek(pos)
     }
@@ -530,21 +543,21 @@ impl<T: Read + Seek + std::fmt::Debug> Seek for SimpleCryptInner<T> {
 }
 
 #[derive(Debug)]
-struct SimpleCrypt<T: Read + Seek + std::fmt::Debug> {
-    inner: PrefixStream<SimpleCryptInner<T>>,
-    index: XP3FileIndex,
+struct SimpleCrypt {
+    inner: PrefixStream<SimpleCryptInner>,
+    index: archive::Xp3Entry,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> SimpleCrypt<T> {
-    fn new(entry: Entry<T>, index: XP3FileIndex, crypt: u8) -> Result<Self> {
+impl SimpleCrypt {
+    fn new(entry: Entry, index: archive::Xp3Entry, crypt: u8) -> Result<Self> {
         let inner = PrefixStream::new(vec![0xFF, 0xFE], SimpleCryptInner::new(entry, crypt)?);
         Ok(Self { inner, index })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for SimpleCrypt<T> {
+impl ArchiveContent for SimpleCrypt {
     fn name(&self) -> &str {
-        &self.index.info().name()
+        &self.index.name
     }
 
     fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
@@ -552,13 +565,13 @@ impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for SimpleCrypt<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Read for SimpleCrypt<T> {
+impl Read for SimpleCrypt {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Seek for SimpleCrypt<T> {
+impl Seek for SimpleCrypt {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         self.inner.seek(pos)
     }
@@ -573,27 +586,27 @@ impl<T: Read + Seek + std::fmt::Debug> Seek for SimpleCrypt<T> {
 }
 
 #[derive(Debug)]
-struct MdfEntry<T: Read + Seek + std::fmt::Debug> {
-    inner: ZlibDecoder<StreamRegion<Entry<T>>>,
-    index: XP3FileIndex,
+struct MdfEntry {
+    inner: ZlibDecoder<StreamRegion<Entry>>,
+    index: archive::Xp3Entry,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> MdfEntry<T> {
-    fn new(mut entry: Entry<T>, index: XP3FileIndex) -> Result<Self> {
+impl MdfEntry {
+    fn new(mut entry: Entry, index: archive::Xp3Entry) -> Result<Self> {
         entry.seek(SeekFrom::Start(8))?;
-        let entry = StreamRegion::new(entry, 8, index.info().file_size())?;
+        let entry = StreamRegion::new(entry, 8, index.original_size)?;
         let inner = ZlibDecoder::new(entry);
         Ok(Self { inner, index })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for MdfEntry<T> {
+impl ArchiveContent for MdfEntry {
     fn name(&self) -> &str {
-        &self.index.info().name()
+        &self.index.name
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> Read for MdfEntry<T> {
+impl Read for MdfEntry {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
     }

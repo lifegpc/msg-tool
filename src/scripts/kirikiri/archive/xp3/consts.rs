@@ -20,3 +20,7 @@ pub const TVP_XP3_FILE_PROTECTED: u32 = 1 << 31;
 pub const TVP_XP3_SEGM_ENCODE_METHOD_MASK: u32 = 0x07;
 pub const TVP_XP3_SEGM_ENCODE_RAW: u32 = 0;
 pub const TVP_XP3_SEGM_ENCODE_ZLIB: u32 = 1;
+
+pub const TVP_XP3_CURRENT_HEADER_VERSION: u64 = 0x17;
+
+pub const ZSTD_SIGNATURE: &[u8; 4] = b"\x28\xb5\x2f\xfd";

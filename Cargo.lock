@@ -1457,7 +1457,6 @@ dependencies = [
  "webp",
  "windows-sys 0.61.2",
  "xml5ever",
- "xp3",
  "zopfli",
  "zstd",
 ]
@@ -2662,18 +2661,6 @@ checksum = "d3dc9559429edf0cd3f327cc0afd9d6b36fa8cec6d93107b7fbe64f806b5f2d9"
 dependencies = [
  "log",
  "markup5ever",
-]
-
-[[package]]
-name = "xp3"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c728da4ef7d98958a2d42fd957e82dd96723ec9c6255ccb3e743142d556ab6"
-dependencies = [
- "adler32",
- "byteorder",
- "encoding",
- "flate2",
 ]
 
 [[package]]
