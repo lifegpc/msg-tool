@@ -60,7 +60,7 @@ pub trait RcNodeExt {
 /// Extensions for [NodeData]
 pub trait NodeDataExt {
     /// clones the node data.
-    fn clone(&self) -> Result<NodeData>;
+    fn clone2(&self) -> Result<NodeData>;
     /// Sets the content of a processing instruction.
     ///
     /// Returns `Ok(())` if the node is not a processing instruction.
@@ -151,7 +151,7 @@ impl RcNodeExt for Rc<Node> {
     }
 
     fn deep_clone(&self, parent: Option<Weak<Node>>) -> Result<Rc<Node>> {
-        let data = self.data.clone()?;
+        let data = self.data.clone2()?;
         let node = Node {
             data,
             children: RefCell::new(Vec::new()),
@@ -170,7 +170,7 @@ impl RcNodeExt for Rc<Node> {
         parent: Option<Weak<Node>>,
         modify: F,
     ) -> Result<Rc<Node>> {
-        let mut data = self.data.clone()?;
+        let mut data = self.data.clone2()?;
         modify(&mut data)?;
         let node = Node {
             data,
@@ -203,7 +203,7 @@ impl RcNodeExt for Rc<Node> {
 }
 
 impl NodeDataExt for NodeData {
-    fn clone(&self) -> Result<Self> {
+    fn clone2(&self) -> Result<Self> {
         Ok(match self {
             NodeData::Document => NodeData::Document,
             NodeData::Comment { contents } => NodeData::Comment {
