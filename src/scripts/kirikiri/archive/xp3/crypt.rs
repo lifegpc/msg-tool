@@ -63,6 +63,7 @@ enum CryptType {
     NoCrypt,
     FateCrypt,
     MizukakeCrypt,
+    HashCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -79,6 +80,7 @@ impl Schema {
             CryptType::NoCrypt => Box::new(NoCrypt::new()),
             CryptType::FateCrypt => Box::new(FateCrypt::new()),
             CryptType::MizukakeCrypt => Box::new(MizukakeCrypt::new()),
+            CryptType::HashCrypt => Box::new(HashCrypt::new()),
         }
     }
 }
@@ -186,8 +188,36 @@ macro_rules! seek_reader_impl {
     };
 }
 
-macro_rules! seek_crypt_impl {
-    ($crypt:ident, $reader:ident<$t:ident>) => {
+macro_rules! seek_reader_key_impl {
+    ($reader:ident<$t:ident>, $key:ty) => {
+        #[derive(msg_tool_macro::MyDebug)]
+        #[allow(dead_code)]
+        struct $reader<$t: Read> {
+            #[skip_fmt]
+            inner: $t,
+            /// Start offset of the current xp3 entry.
+            seg_start: u64,
+            seg_size: u64,
+            pos: u64,
+            key: $key,
+        }
+        impl<$t: Read> $reader<$t> {
+            pub fn new(inner: $t, seg: &Segment, key: $key) -> Self {
+                Self {
+                    inner,
+                    seg_start: seg.offset_in_file,
+                    seg_size: seg.original_size,
+                    pos: 0,
+                    key,
+                }
+            }
+        }
+        seek_impl!($reader<$t>);
+    };
+}
+
+macro_rules! seek_crypt_base_impl {
+    ($crypt:ident, $reader:ident) => {
         #[derive(Debug)]
         pub struct $crypt {}
         impl $crypt {
@@ -219,6 +249,12 @@ macro_rules! seek_crypt_impl {
                 Ok(Box::new($reader::new(stream, cur_seg)))
             }
         }
+    };
+}
+
+macro_rules! seek_crypt_impl {
+    ($crypt:ident, $reader:ident<$t:ident>) => {
+        seek_crypt_base_impl!($crypt, $reader);
         seek_reader_impl!($reader<$t>);
     };
 }
@@ -261,6 +297,61 @@ impl<R: Read> Read for MizukakeCryptReader<R> {
             if tpos == 0x83 {
                 *t ^= 3;
             }
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct HashCrypt {}
+
+impl HashCrypt {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Crypt for HashCrypt {
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        Ok(Box::new(HashCryptReader::new(
+            stream,
+            cur_seg,
+            entry.file_hash as u8,
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(HashCryptReader::new(
+            stream,
+            cur_seg,
+            entry.file_hash as u8,
+        )))
+    }
+}
+
+seek_reader_key_impl!(HashCryptReader<T>, u8);
+
+impl<R: Read> Read for HashCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= self.key;
         }
         self.pos += readed as u64;
         Ok(readed)
