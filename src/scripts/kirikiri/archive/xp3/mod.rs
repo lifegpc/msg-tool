@@ -96,13 +96,17 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
     fn build_script(
         &self,
         buf: Vec<u8>,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(Xp3Archive::new(MemReader::new(buf), config)?))
+        Ok(Box::new(Xp3Archive::new(
+            MemReader::new(buf),
+            config,
+            filename,
+        )?))
     }
 
     fn build_script_from_file(
@@ -114,19 +118,19 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
         let file = std::fs::File::open(filename)?;
-        Ok(Box::new(Xp3Archive::new(file, config)?))
+        Ok(Box::new(Xp3Archive::new(file, config, filename)?))
     }
 
     fn build_script_from_reader(
         &self,
         reader: Box<dyn ReadSeek>,
-        _filename: &str,
+        filename: &str,
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        Ok(Box::new(Xp3Archive::new(reader, config)?))
+        Ok(Box::new(Xp3Archive::new(reader, config, filename)?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -164,8 +168,9 @@ impl Xp3Archive {
     pub fn new<T: Read + Seek + std::fmt::Debug + 'static>(
         stream: T,
         config: &ExtraConfig,
+        filename: &str,
     ) -> Result<Self> {
-        let mut archive = archive::Xp3Archive::new(stream, config)?;
+        let mut archive = archive::Xp3Archive::new(stream, config, filename)?;
         archive.entries.retain(|entry| {
             let i = &entry.name;
             !(i.find("$$$ This is a protected archive. $$$").is_some()

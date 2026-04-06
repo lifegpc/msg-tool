@@ -1,12 +1,16 @@
+mod cx;
+
 use super::archive::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
+use crate::utils::serde_base64bytes::*;
 use anyhow::Result;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek, SeekFrom};
+use std::sync::Arc;
 
 pub trait Crypt: std::fmt::Debug {
     /// Initializes the cryptographic context for the archive.
@@ -58,6 +62,18 @@ pub trait Crypt: std::fmt::Debug {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct CxSchema {
+    mask: u32,
+    offset: u32,
+    prolog_order: Base64Bytes,
+    odd_branch_order: Base64Bytes,
+    even_branch_order: Base64Bytes,
+    control_block_name: Option<String>,
+    tpm_file_name: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "PascalCase", tag = "$type")]
 enum CryptType {
     NoCrypt,
@@ -69,6 +85,7 @@ enum CryptType {
         key: u8,
     },
     FlyingShineCrypt,
+    CxEncryption(CxSchema),
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -80,15 +97,16 @@ pub struct Schema {
 }
 
 impl Schema {
-    pub fn create_crypt(&self) -> Box<dyn Crypt> {
-        match self.crypt {
+    pub fn create_crypt(&self, filename: &str) -> Result<Box<dyn Crypt>> {
+        Ok(match &self.crypt {
             CryptType::NoCrypt => Box::new(NoCrypt::new()),
             CryptType::FateCrypt => Box::new(FateCrypt::new()),
             CryptType::MizukakeCrypt => Box::new(MizukakeCrypt::new()),
             CryptType::HashCrypt => Box::new(HashCrypt::new()),
-            CryptType::XorCrypt { key } => Box::new(XorCrypt::new(key)),
+            CryptType::XorCrypt { key } => Box::new(XorCrypt::new(*key)),
             CryptType::FlyingShineCrypt => Box::new(FlyingShineCrypt::new()),
-        }
+            CryptType::CxEncryption(schema) => Box::new(cx::CxEncryption::new(&schema, filename)?),
+        })
     }
 }
 
@@ -482,6 +500,9 @@ impl<R: Read> Read for FlyingShineCryptReader<R> {
         Ok(readed)
     }
 }
+
+// extended in cx.rs
+seek_reader_key_impl!(CxEncryptionReader<T>, (u32, Arc<cx::CxEncryption>));
 
 #[test]
 fn test_deserialize_crypt() {

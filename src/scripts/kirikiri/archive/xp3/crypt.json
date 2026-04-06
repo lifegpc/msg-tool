@@ -23,6 +23,16 @@
         "$type": "HashCrypt",
         "Title": "姉撮 ～堕ちていくお姉ちゃんを助けられない僕～"
     },
+    "Aqua": {
+        "$type": "CxEncryption",
+        "Mask": 424,
+        "Offset": 1910,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AgAFAwEE",
+        "EvenBranchOrder": "AAEDBwQFBgI=",
+        "TpmFileName": "plugin/AQUA.tpm",
+        "Title": "AQUA"
+    },
     "Baaba to Mama to no Choujuku Oyakodon": {
         "$type": "HashCrypt",
         "Title": "ばぁばとママとの超熟母娘丼 ～３世代での家庭内エッチ～ | 爱你深至夏海蔚蓝"

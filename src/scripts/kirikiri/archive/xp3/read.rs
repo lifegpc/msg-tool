@@ -11,13 +11,14 @@ impl Xp3Archive {
     pub fn new<T: Read + Seek + std::fmt::Debug + 'static>(
         stream: T,
         _config: &ExtraConfig,
+        filename: &str,
     ) -> Result<Self> {
         let crypt: Box<dyn Crypt> = if let Some(game_title) = &_config.xp3_game_title {
             query_crypt_schema(game_title)
                 .ok_or_else(|| {
                     anyhow::anyhow!("Unsupported game title for XP3 archive: {}", game_title)
                 })?
-                .create_crypt()
+                .create_crypt(filename)?
         } else {
             Box::new(NoCrypt::new())
         };
