@@ -64,6 +64,10 @@ enum CryptType {
     FateCrypt,
     MizukakeCrypt,
     HashCrypt,
+    #[serde(rename_all = "PascalCase")]
+    XorCrypt {
+        key: u8,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -81,6 +85,7 @@ impl Schema {
             CryptType::FateCrypt => Box::new(FateCrypt::new()),
             CryptType::MizukakeCrypt => Box::new(MizukakeCrypt::new()),
             CryptType::HashCrypt => Box::new(HashCrypt::new()),
+            CryptType::XorCrypt { key } => Box::new(XorCrypt::new(key)),
         }
     }
 }
@@ -348,6 +353,55 @@ impl Crypt for HashCrypt {
 seek_reader_key_impl!(HashCryptReader<T>, u8);
 
 impl<R: Read> Read for HashCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= self.key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct XorCrypt {
+    key: u8,
+}
+
+impl XorCrypt {
+    pub fn new(key: u8) -> Self {
+        Self { key }
+    }
+}
+
+impl Crypt for XorCrypt {
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        _entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        Ok(Box::new(XorCryptReader::new(stream, cur_seg, self.key)))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        _entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(XorCryptReader::new(stream, cur_seg, self.key)))
+    }
+}
+
+seek_reader_key_impl!(XorCryptReader<T>, u8);
+
+impl<R: Read> Read for XorCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let readed = self.inner.read(buf)?;
         for t in (&mut buf[..readed]).iter_mut() {

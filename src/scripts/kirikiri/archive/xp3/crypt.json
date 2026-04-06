@@ -35,6 +35,16 @@
         "$type": "HashCrypt",
         "Title": "母奪～禁断の触手相姦～"
     },
+    "Boku no Mirai wa, Koi to Kakin to": {
+        "$type": "XorCrypt",
+        "Key": 227,
+        "Title": "僕の未来は、恋と課金と。～Charge To The Future～ | 我的未来是恋爱与氪金"
+    },
+    "Boku no Mirai wa, Koi to Kakin to [Trial]": {
+        "$type": "XorCrypt",
+        "Key": 49,
+        "Title": "僕の未来は、恋と課金と。～Charge To The Future～ [体験版] | 我的未来是恋爱与氪金 [试用版]"
+    },
     "Custom Reido 4/4+/V": {
         "$type": "HashCrypt",
         "Title": "カスタム隷奴 4/4+/V"
@@ -42,6 +52,11 @@
     "Dare mo ga Kanojo o Neratteru": {
         "$type": "HashCrypt",
         "Title": "誰もが彼女を狙ってる。 | 众人觊觎的女友"
+    },
+    "Deatte 5-fun wa Ore no Mono!": {
+        "$type": "XorCrypt",
+        "Key": 53,
+        "Title": "出会って5分は俺のもの！ 時間停止と不可避な運命 | 5分钟的邂逅！时间停止与不可避免的命运 | 相见5分属于我！时间停止不可避的命运"
     },
     "Do-M Imouto O-nedari Kojin Lesson": {
         "$type": "HashCrypt",
@@ -169,6 +184,11 @@
     "Kahogo na Ryoubo no Shasei Kanri": {
         "$type": "HashCrypt",
         "Title": "カホゴな寮母の射精管理 ～ちゃんと我慢してくださいね？～"
+    },
+    "Kamidanomi Shisugite Ore no Mirai ga Yabai.": {
+        "$type": "XorCrypt",
+        "Key": 205,
+        "Title": "神頼みしすぎて俺の未来がヤバい。 | 求神太多我的未来糟糕了 | 太依赖咒术的我未来堪忧。"
     },
     "Kanpeki Seitokaichou no Himitsu no Seiheki": {
         "$type": "HashCrypt",
@@ -412,6 +432,16 @@
     "Yome Sagashi ga Hakadori Sugite Yabai.": {
         "$type": "HashCrypt",
         "Title": "嫁探しが捗りすぎてヤバい。 | 新娘太好找了我很方！"
+    },
+    "Yurameku Kokoro ni Michita Sekai de": {
+        "$type": "XorCrypt",
+        "Key": 205,
+        "Title": "ゆらめく心に満ちた世界で、君の夢と欲望は叶うか | 三千心世界，梦终将实现"
+    },
+    "Yuusha to Maou to, Majo no Cafe": {
+        "$type": "XorCrypt",
+        "Key": 205,
+        "Title": "勇者と魔王と、魔女のカフェ"
     },
     "Zettai Sakusei! Succubus-chan": {
         "$type": "HashCrypt",
