@@ -68,6 +68,7 @@ enum CryptType {
     XorCrypt {
         key: u8,
     },
+    FlyingShineCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -86,6 +87,7 @@ impl Schema {
             CryptType::MizukakeCrypt => Box::new(MizukakeCrypt::new()),
             CryptType::HashCrypt => Box::new(HashCrypt::new()),
             CryptType::XorCrypt { key } => Box::new(XorCrypt::new(key)),
+            CryptType::FlyingShineCrypt => Box::new(FlyingShineCrypt::new()),
         }
     }
 }
@@ -406,6 +408,75 @@ impl<R: Read> Read for XorCryptReader<R> {
         let readed = self.inner.read(buf)?;
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= self.key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct FlyingShineCrypt {}
+
+impl FlyingShineCrypt {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    fn adjust(&self, hash: u32) -> (u8, u32) {
+        let mut shift = hash & 0xFF;
+        if shift == 0 {
+            shift = 0xF;
+        }
+        let mut key = ((hash >> 8) & 0xFF) as u8;
+        if key == 0 {
+            key = 0xF0;
+        }
+        (key, shift)
+    }
+}
+
+impl Crypt for FlyingShineCrypt {
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        Ok(Box::new(FlyingShineCryptReader::new(
+            stream,
+            cur_seg,
+            self.adjust(entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(FlyingShineCryptReader::new(
+            stream,
+            cur_seg,
+            self.adjust(entry.file_hash),
+        )))
+    }
+}
+
+seek_reader_key_impl!(FlyingShineCryptReader<T>, (u8, u32));
+
+impl<R: Read> Read for FlyingShineCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let (xor, shift) = self.key;
+        let readed = self.inner.read(buf)?;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= xor;
+            *t = t.rotate_right(shift);
         }
         self.pos += readed as u64;
         Ok(readed)
