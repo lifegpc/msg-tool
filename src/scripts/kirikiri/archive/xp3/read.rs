@@ -12,8 +12,15 @@ impl Xp3Archive {
         stream: T,
         _config: &ExtraConfig,
     ) -> Result<Self> {
-        let crypt: Box<dyn Crypt> = Box::new(NoCrypt::new());
-        let crypt = Arc::new(crypt);
+        let crypt: Box<dyn Crypt> = if let Some(game_title) = &_config.xp3_game_title {
+            query_crypt_schema(game_title)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Unsupported game title for XP3 archive: {}", game_title)
+                })?
+                .create_crypt()
+        } else {
+            Box::new(NoCrypt::new())
+        };
         let mut stream = Box::new(stream);
         let base_offset = 0;
         if base_offset != 0 {
@@ -141,6 +148,7 @@ impl Xp3Archive {
                 }
             }
         }
+        let crypt = Arc::new(crypt);
         let mut archive = Self {
             inner: Arc::new(Mutex::new(stream)),
             crypt: crypt.clone(),

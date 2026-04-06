@@ -635,6 +635,9 @@ pub struct ExtraConfig {
     #[default(default_artemis_asb_end_tags())]
     /// A list of Artemis ASB script end tags, used to determine a dialogue block in script.
     pub artemis_asb_end_tags: std::sync::Arc<std::collections::HashSet<String>>,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Game title for Kirikiri XP3 archive. This is used to decrypt file in archives.
+    pub xp3_game_title: Option<String>,
 }
 
 #[cfg(feature = "artemis")]

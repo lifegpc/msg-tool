@@ -12,6 +12,9 @@ use crate::scripts::base::*;
 use crate::types::*;
 use anyhow::Result;
 use consts::ZSTD_SIGNATURE;
+use crypt::Crypt;
+pub use crypt::get_supported_games;
+pub use crypt::get_supported_games_with_title;
 use flate2::read::ZlibDecoder;
 use overf::wrapping;
 pub use segmenter::SegmenterConfig;
@@ -166,6 +169,8 @@ impl Xp3Archive {
         archive.entries.retain(|entry| {
             let i = &entry.name;
             !(i.find("$$$ This is a protected archive. $$$").is_some()
+                // Fate/stay night has spelling mistake. We also filter it.
+                || i.find("$$$ This is a protectet archive. $$$").is_some()
                 || (i.to_lowercase().ends_with(".nene") && entry.original_size == 0))
         });
         Ok(Self {
@@ -208,7 +213,18 @@ impl Script for Xp3Archive {
             .nth(index)
             .ok_or(anyhow::anyhow!("Index out of bounds: {}", index))?
             .clone();
-        let mut entry = Entry::new(self.archive.inner.clone(), index);
+        let crypt = self.archive.crypt.clone();
+        if index.is_encrypted() && !crypt.decrypt_supported() {
+            return Err(anyhow::anyhow!(
+                "The archive is encrypted with a method that is not supported by the current crypt implementation. You may need to specify a game title by using --xp3-game-title <title>."
+            ));
+        }
+        let mut entry = Entry::new(
+            self.archive.inner.clone(),
+            index,
+            self.archive.base_offset,
+            crypt,
+        );
         let mut header = [0u8; 16];
         let header_len = entry.read(&mut header)?;
         entry.rewind()?;
@@ -272,26 +288,41 @@ fn detect_script_type(filename: &str, buf: &[u8], buf_len: usize) -> Option<Scri
 struct Entry {
     reader: Arc<Mutex<Box<dyn ReadSeek>>>,
     index: archive::Xp3Entry,
+    crypt: Arc<Box<dyn Crypt>>,
+    /// used to cache segment reader that can't seek. Such as decompressor reader or some decrypter reader.
     cache: Option<Box<dyn Read>>,
+    /// used to store decrypted stream of current segment when the cryptor support seek when decrypting.
+    crypt_stream: Option<Box<dyn ReadSeek>>,
     pos: u64,
+    base_offset: u64,
     entries_pos: Vec<u64>,
     script_type: Option<ScriptType>,
 }
 
+#[automatically_derived]
 impl std::fmt::Debug for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Entry")
-            .field("name", &self.index.name)
-            .field("flags", &self.index.flags)
-            .field("file_hash", &self.index.file_hash)
-            .field("original_size", &self.index.original_size)
-            .field("archived_size", &self.index.archived_size)
+            .field("reader", &self.reader)
+            .field("index", &self.index)
+            .field("crypt", &self.crypt)
+            .field("cache", &self.cache.is_some())
+            .field("crypt_stream", &self.crypt_stream)
+            .field("pos", &self.pos)
+            .field("base_offset", &self.base_offset)
+            .field("entries_pos", &self.entries_pos)
+            .field("script_type", &self.script_type)
             .finish()
     }
 }
 
 impl Entry {
-    fn new(reader: Arc<Mutex<Box<dyn ReadSeek>>>, index: archive::Xp3Entry) -> Self {
+    fn new(
+        reader: Arc<Mutex<Box<dyn ReadSeek>>>,
+        index: archive::Xp3Entry,
+        base_offset: u64,
+        crypt: Arc<Box<dyn Crypt>>,
+    ) -> Self {
         let mut pos = 0;
         let entries_pos = index
             .segments
@@ -309,6 +340,9 @@ impl Entry {
             pos: 0,
             entries_pos,
             script_type: None,
+            base_offset,
+            crypt,
+            crypt_stream: None,
         }
     }
 }
@@ -331,6 +365,7 @@ impl Read for Entry {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.pos >= self.index.original_size {
             self.cache.take();
+            self.crypt_stream.take();
             return Ok(0);
         }
         if let Some(cache) = self.cache.as_mut() {
@@ -340,6 +375,14 @@ impl Read for Entry {
                 return Ok(readed);
             }
             self.cache.take();
+        }
+        if let Some(crypt_stream) = self.crypt_stream.as_mut() {
+            let readed = crypt_stream.read(buf)?;
+            if readed > 0 {
+                self.pos += readed as u64;
+                return Ok(readed);
+            }
+            self.crypt_stream.take();
         }
         let seg_index = match self.entries_pos.binary_search(&self.pos) {
             Ok(i) => i,
@@ -352,10 +395,72 @@ impl Read for Entry {
             }
         };
         let seg = &self.index.segments[seg_index];
-        let start_pos = seg.start;
+        let start_pos = seg.start + self.base_offset;
         let seg_pos = self.entries_pos[seg_index];
         let skip_pos = self.pos - seg_pos;
         let read_size = seg.archived_size;
+        if self.index.is_encrypted() {
+            if seg.is_compressed || !self.crypt.decrypt_seek_supported() {
+                let mut cache: Box<dyn Read> = if seg.is_compressed {
+                    let mut inner =
+                        MutexWrapper::new(self.reader.clone(), start_pos).take(read_size);
+                    let decompressed = if inner.peek_and_equal(ZSTD_SIGNATURE).is_ok() {
+                        Box::new(ZstdDecoder::new(inner)?) as Box<dyn Read>
+                    } else {
+                        Box::new(ZlibDecoder::new(inner)) as Box<dyn Read>
+                    };
+                    let decrypted =
+                        self.crypt
+                            .decrypt(&self.index, seg, decompressed)
+                            .map_err(|e| {
+                                std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("Decryption failed: {}", e),
+                                )
+                            })?;
+                    Box::new(decrypted) as Box<dyn Read>
+                } else {
+                    let inner = MutexWrapper::new(self.reader.clone(), start_pos).take(read_size);
+                    let decrypted = self
+                        .crypt
+                        .decrypt(&self.index, seg, Box::new(inner))
+                        .map_err(|e| {
+                            std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Decryption failed: {}", e),
+                            )
+                        })?;
+                    Box::new(decrypted) as Box<dyn Read>
+                };
+                if skip_pos != 0 {
+                    let mut e = EmptyWriter::new();
+                    std::io::copy(&mut (&mut cache).take(skip_pos), &mut e)?; // skip
+                }
+                let readed = cache.read(buf)?;
+                self.pos += readed as u64;
+                self.cache = Some(cache);
+                return Ok(readed);
+            } else {
+                let inner = MutexWrapper::new(self.reader.clone(), start_pos).take(read_size);
+                let mut decrypted = self
+                    .crypt
+                    .decrypt_with_seek(&self.index, seg, Box::new(inner))
+                    .map_err(|e| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("Decryption failed: {}", e),
+                        )
+                    })?;
+                if skip_pos != 0 {
+                    let mut e = EmptyWriter::new();
+                    std::io::copy(&mut (&mut decrypted).take(skip_pos), &mut e)?; // skip
+                }
+                let readed = decrypted.read(buf)?;
+                self.pos += readed as u64;
+                self.crypt_stream = Some(decrypted);
+                return Ok(readed);
+            }
+        }
         if seg.is_compressed {
             let mut inner = MutexWrapper::new(self.reader.clone(), start_pos).take(read_size);
             let mut cache = if inner.peek_and_equal(ZSTD_SIGNATURE).is_ok() {
@@ -444,6 +549,34 @@ impl Seek for Entry {
                 }
             }
         }
+        if let Some(crypt_stream) = self.crypt_stream.as_mut() {
+            let old_seg_index = match self.entries_pos.binary_search(&self.pos) {
+                Ok(i) => i,
+                Err(i) => {
+                    if i == 0 {
+                        0
+                    } else {
+                        i - 1
+                    }
+                }
+            };
+            let new_seg_index = match self.entries_pos.binary_search(&new_pos) {
+                Ok(i) => i,
+                Err(i) => {
+                    if i == 0 {
+                        0
+                    } else {
+                        i - 1
+                    }
+                }
+            };
+            if old_seg_index != new_seg_index {
+                self.crypt_stream.take();
+            } else {
+                let offset = new_pos as i64 - self.pos as i64;
+                crypt_stream.seek(SeekFrom::Current(offset))?;
+            }
+        }
         self.pos = new_pos;
         Ok(self.pos)
     }
@@ -451,6 +584,7 @@ impl Seek for Entry {
     fn rewind(&mut self) -> std::io::Result<()> {
         self.pos = 0;
         self.cache.take();
+        self.crypt_stream.take();
         Ok(())
     }
 

@@ -38,6 +38,12 @@ pub struct Xp3Entry {
     pub extras: Vec<ExtraProp>,
 }
 
+impl Xp3Entry {
+    pub fn is_encrypted(&self) -> bool {
+        self.flags != 0
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExtraProp {
     pub tag: [u8; 4],

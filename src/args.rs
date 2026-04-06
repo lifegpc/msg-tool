@@ -94,6 +94,29 @@ pub fn get_musica_game_title_value_parser() -> Vec<clap::builder::PossibleValue>
         .collect()
 }
 
+#[cfg(feature = "kirikiri-arc")]
+pub fn get_xp3_game_title_value_parser() -> Vec<clap::builder::PossibleValue> {
+    crate::scripts::kirikiri::archive::xp3::get_supported_games_with_title()
+        .iter()
+        .map(|(name, title)| {
+            let mut pv = clap::builder::PossibleValue::new(*name);
+            if let Some(t) = title {
+                pv = pv.help(t);
+                let mut alias_count = 0usize;
+                for i in t.split("|") {
+                    pv = pv.alias(i.trim());
+                    alias_count += 1;
+                }
+                // alias for full title
+                if alias_count > 1 {
+                    pv = pv.alias(t);
+                }
+            }
+            pv
+        })
+        .collect()
+}
+
 /// Tools for export and import scripts
 #[derive(Parser, Debug, Clone)]
 #[clap(
@@ -696,6 +719,10 @@ pub struct Arg {
     )]
     /// A list of Artemis ASB script end tags, used to determine a dialogue block in script.
     pub artemis_asb_end_tags: Vec<String>,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true, value_parser = get_xp3_game_title_value_parser())]
+    /// Game title for Kirikiri XP3 archive. This is used to decrypt file in archives.
+    pub xp3_game_title: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,

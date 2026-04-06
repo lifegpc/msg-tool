@@ -3391,6 +3391,8 @@ fn main() {
         artemis_asb_end_tags: std::sync::Arc::new(std::collections::HashSet::from_iter(
             arg.artemis_asb_end_tags.iter().cloned(),
         )),
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_game_title: arg.xp3_game_title.clone(),
     });
     match &arg.command {
         args::Command::Export { input, output } => {
