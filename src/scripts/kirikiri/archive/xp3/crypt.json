@@ -1,5 +1,13 @@
 {
     "Fate/stay night": {
         "$type": "FateCrypt"
+    },
+    "Mizu no Kakera ~Once Summer of Islet~": {
+        "$type": "MizukakeCrypt",
+        "Title": "みずのかけら -once summer of islet-"
+    },
+    "Sorairo no Shizuku": {
+        "$type": "MizukakeCrypt",
+        "Title": "そらいろの雫"
     }
 }

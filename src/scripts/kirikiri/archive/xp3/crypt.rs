@@ -62,6 +62,7 @@ pub trait Crypt: std::fmt::Debug {
 enum CryptType {
     NoCrypt,
     FateCrypt,
+    MizukakeCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -77,6 +78,7 @@ impl Schema {
         match self.crypt {
             CryptType::NoCrypt => Box::new(NoCrypt::new()),
             CryptType::FateCrypt => Box::new(FateCrypt::new()),
+            CryptType::MizukakeCrypt => Box::new(MizukakeCrypt::new()),
         }
     }
 }
@@ -139,72 +141,89 @@ impl NoCrypt {
 
 impl Crypt for NoCrypt {}
 
-#[derive(Debug)]
-pub struct FateCrypt {}
-
-impl FateCrypt {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Crypt for FateCrypt {
-    fn decrypt_supported(&self) -> bool {
-        true
-    }
-
-    fn decrypt_seek_supported(&self) -> bool {
-        true
-    }
-
-    fn decrypt<'a>(
-        &self,
-        _entry: &Xp3Entry,
-        cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
-        Ok(Box::new(FateCryptReader::new(stream, cur_seg)))
-    }
-
-    fn decrypt_with_seek<'a>(
-        &self,
-        _entry: &Xp3Entry,
-        cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
-        Ok(Box::new(FateCryptReader::new(stream, cur_seg)))
-    }
-}
-
-struct FateCryptReader<R: Read> {
-    inner: R,
-    /// Start offset of the current xp3 entry.
-    seg_start: u64,
-    seg_size: u64,
-    pos: u64,
-}
-
-impl<T: Read> FateCryptReader<T> {
-    pub fn new(inner: T, seg: &Segment) -> Self {
-        Self {
-            inner,
-            seg_start: seg.offset_in_file,
-            seg_size: seg.original_size,
-            pos: 0,
+macro_rules! seek_impl {
+    ($reader:ident<$t:ident>) => {
+        impl<$t: Read + Seek> Seek for $reader<$t> {
+            fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+                let new_pos: i64 = match pos {
+                    SeekFrom::Start(offset) => offset as i64,
+                    SeekFrom::End(offset) => self.seg_size as i64 + offset,
+                    SeekFrom::Current(offset) => self.pos as i64 + offset,
+                };
+                let offset = new_pos - self.pos as i64;
+                if offset != 0 {
+                    self.inner.seek(SeekFrom::Current(offset))?;
+                    self.pos = new_pos as u64;
+                }
+                Ok(self.pos)
+            }
         }
-    }
+    };
 }
 
-#[automatically_derived]
-impl<T: Read> std::fmt::Debug for FateCryptReader<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FateCryptReader")
-            .field("seg_start", &self.seg_start)
-            .field("seg_size", &self.seg_size)
-            .field("pos", &self.pos)
-            .finish()
-    }
+macro_rules! seek_reader_impl {
+    ($reader:ident<$t:ident>) => {
+        #[derive(msg_tool_macro::MyDebug)]
+        struct $reader<$t: Read> {
+            #[skip_fmt]
+            inner: $t,
+            /// Start offset of the current xp3 entry.
+            seg_start: u64,
+            seg_size: u64,
+            pos: u64,
+        }
+        impl<$t: Read> $reader<$t> {
+            pub fn new(inner: $t, seg: &Segment) -> Self {
+                Self {
+                    inner,
+                    seg_start: seg.offset_in_file,
+                    seg_size: seg.original_size,
+                    pos: 0,
+                }
+            }
+        }
+        seek_impl!($reader<$t>);
+    };
 }
+
+macro_rules! seek_crypt_impl {
+    ($crypt:ident, $reader:ident<$t:ident>) => {
+        #[derive(Debug)]
+        pub struct $crypt {}
+        impl $crypt {
+            pub fn new() -> Self {
+                Self {}
+            }
+        }
+        impl Crypt for $crypt {
+            fn decrypt_supported(&self) -> bool {
+                true
+            }
+            fn decrypt_seek_supported(&self) -> bool {
+                true
+            }
+            fn decrypt<'a>(
+                &self,
+                _entry: &Xp3Entry,
+                cur_seg: &Segment,
+                stream: Box<dyn Read + 'a>,
+            ) -> Result<Box<dyn ReadDebug + 'a>> {
+                Ok(Box::new($reader::new(stream, cur_seg)))
+            }
+            fn decrypt_with_seek<'a>(
+                &self,
+                _entry: &Xp3Entry,
+                cur_seg: &Segment,
+                stream: Box<dyn ReadSeek + 'a>,
+            ) -> Result<Box<dyn ReadSeek + 'a>> {
+                Ok(Box::new($reader::new(stream, cur_seg)))
+            }
+        }
+        seek_reader_impl!($reader<$t>);
+    };
+}
+
+seek_crypt_impl!(FateCrypt, FateCryptReader<T>);
 
 impl<R: Read> Read for FateCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -225,19 +244,26 @@ impl<R: Read> Read for FateCryptReader<R> {
     }
 }
 
-impl<T: Read + Seek> Seek for FateCryptReader<T> {
-    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-        let new_pos: i64 = match pos {
-            SeekFrom::Start(offset) => offset as i64,
-            SeekFrom::End(offset) => self.seg_size as i64 + offset,
-            SeekFrom::Current(offset) => self.pos as i64 + offset,
-        };
-        let offset = new_pos - self.pos as i64;
-        if offset != 0 {
-            self.inner.seek(SeekFrom::Current(offset))?;
-            self.pos = new_pos as u64;
+seek_crypt_impl!(MizukakeCrypt, MizukakeCryptReader<T>);
+
+impl<R: Read> Read for MizukakeCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+            let tpos = self.seg_start + self.pos + i as u64;
+            if tpos == 0x103 {
+                *t = (*t).wrapping_sub(1);
+            }
+            *t ^= 0xb6;
+            if tpos == 0x3F82 {
+                *t ^= 1;
+            }
+            if tpos == 0x83 {
+                *t ^= 3;
+            }
         }
-        Ok(self.pos)
+        self.pos += readed as u64;
+        Ok(readed)
     }
 }
 

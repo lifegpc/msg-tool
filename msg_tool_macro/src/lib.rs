@@ -61,6 +61,96 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
     output.into()
 }
 
+fn has_skip_fmt_attr(field: &syn::Field) -> bool {
+    field.attrs.iter().any(|attr| attr.path().is_ident("skip_fmt"))
+}
+
+#[proc_macro_derive(MyDebug, attributes(skip_fmt))]
+pub fn debug_macro_derive(input: TokenStream) -> TokenStream {
+    let ast = syn::parse_macro_input!(input as syn::DeriveInput);
+    let syn::DeriveInput {
+        ident,
+        generics,
+        data,
+        ..
+    } = ast;
+
+    let data_struct = match data {
+        syn::Data::Struct(data_struct) => data_struct,
+        _ => {
+            return syn::Error::new(ident.span(), "`Debug` derive only supports structs")
+                .to_compile_error()
+                .into();
+        }
+    };
+
+    let mut generics = generics;
+    {
+        let where_clause = generics.make_where_clause();
+        for field in data_struct.fields.iter().filter(|field| !has_skip_fmt_attr(field)) {
+            let ty = &field.ty;
+            where_clause
+                .predicates
+                .push(syn::parse_quote!(#ty: std::fmt::Debug));
+        }
+    }
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    let fmt_body = match &data_struct.fields {
+        syn::Fields::Named(fields) => {
+            let fields_fmt = fields
+                .named
+                .iter()
+                .filter(|field| !has_skip_fmt_attr(field))
+                .filter_map(|field| {
+                    let ident = field.ident.as_ref()?;
+                    let field_name = ident.to_string();
+                    Some(quote::quote! {
+                        debug_struct.field(#field_name, &self.#ident);
+                    })
+                });
+            quote::quote! {
+                let mut debug_struct = f.debug_struct(stringify!(#ident));
+                #(#fields_fmt)*
+                debug_struct.finish()
+            }
+        }
+        syn::Fields::Unnamed(fields) => {
+            let fields_fmt = fields
+                .unnamed
+                .iter()
+                .enumerate()
+                .filter(|(_, field)| !has_skip_fmt_attr(field))
+                .map(|(idx, _)| {
+                    let idx = syn::Index::from(idx);
+                    quote::quote! {
+                        debug_tuple.field(&self.#idx);
+                    }
+                });
+            quote::quote! {
+                let mut debug_tuple = f.debug_tuple(stringify!(#ident));
+                #(#fields_fmt)*
+                debug_tuple.finish()
+            }
+        }
+        syn::Fields::Unit => {
+            quote::quote! {
+                f.write_str(stringify!(#ident))
+            }
+        }
+    };
+
+    quote::quote! {
+        #[automatically_derived]
+        impl #impl_generics std::fmt::Debug for #ident #ty_generics #where_clause {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                #fmt_body
+            }
+        }
+    }
+    .into()
+}
+
 /// Macro to derive `StructPack` trait for structs.
 ///
 /// make sure to import the necessary imports:
