@@ -37,6 +37,19 @@ pub fn default_init_crypt(archive: &mut Xp3Archive) -> Result<()> {
 }
 
 pub trait Crypt: std::fmt::Debug {
+    #[allow(dead_code)]
+    /// whether Adler32 checksum should be calculated after contents have been encrypted.
+    fn hash_after_crypt(&self) -> bool;
+
+    /// whether the startup.tjs script is not encrypted even when the archive is encrypted.
+    fn startup_tjs_not_encrypted(&self) -> bool;
+
+    /// whether XP3 index is obfuscated:
+    ///  - duplicate entries
+    ///  - entries have additional dummy segments
+    #[allow(dead_code)]
+    fn obfuscated_index(&self) -> bool;
+
     /// Initializes the cryptographic context for the archive.
     fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
         default_init_crypt(archive)
@@ -114,22 +127,34 @@ enum CryptType {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+pub struct BaseSchema {
+    hash_after_crypt: bool,
+    startup_tjs_not_encrypted: bool,
+    obfuscated_index: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Schema {
     #[serde(flatten)]
     crypt: CryptType,
     title: Option<String>,
+    #[serde(flatten)]
+    base: BaseSchema,
 }
 
 impl Schema {
     pub fn create_crypt(&self, filename: &str) -> Result<Box<dyn Crypt>> {
         Ok(match &self.crypt {
             CryptType::NoCrypt => Box::new(NoCrypt::new()),
-            CryptType::FateCrypt => Box::new(FateCrypt::new()),
-            CryptType::MizukakeCrypt => Box::new(MizukakeCrypt::new()),
-            CryptType::HashCrypt => Box::new(HashCrypt::new()),
-            CryptType::XorCrypt { key } => Box::new(XorCrypt::new(*key)),
-            CryptType::FlyingShineCrypt => Box::new(FlyingShineCrypt::new()),
-            CryptType::CxEncryption(schema) => Box::new(cx::CxEncryption::new(&schema, filename)?),
+            CryptType::FateCrypt => Box::new(FateCrypt::new(self.base.clone())),
+            CryptType::MizukakeCrypt => Box::new(MizukakeCrypt::new(self.base.clone())),
+            CryptType::HashCrypt => Box::new(HashCrypt::new(self.base.clone())),
+            CryptType::XorCrypt { key } => Box::new(XorCrypt::new(self.base.clone(), *key)),
+            CryptType::FlyingShineCrypt => Box::new(FlyingShineCrypt::new(self.base.clone())),
+            CryptType::CxEncryption(schema) => {
+                Box::new(cx::CxEncryption::new(self.base.clone(), &schema, filename)?)
+            }
         })
     }
 }
@@ -205,7 +230,17 @@ impl NoCrypt {
     }
 }
 
-impl Crypt for NoCrypt {}
+impl Crypt for NoCrypt {
+    fn hash_after_crypt(&self) -> bool {
+        false
+    }
+    fn startup_tjs_not_encrypted(&self) -> bool {
+        false
+    }
+    fn obfuscated_index(&self) -> bool {
+        false
+    }
+}
 
 macro_rules! seek_impl {
     ($reader:ident<$t:ident>) => {
@@ -280,16 +315,33 @@ macro_rules! seek_reader_key_impl {
     };
 }
 
+macro_rules! base_schema_impl {
+    () => {
+        fn hash_after_crypt(&self) -> bool {
+            self.base.hash_after_crypt
+        }
+        fn startup_tjs_not_encrypted(&self) -> bool {
+            self.base.startup_tjs_not_encrypted
+        }
+        fn obfuscated_index(&self) -> bool {
+            self.base.obfuscated_index
+        }
+    };
+}
+
 macro_rules! seek_crypt_base_impl {
     ($crypt:ident, $reader:ident) => {
         #[derive(Debug)]
-        pub struct $crypt {}
+        pub struct $crypt {
+            base: BaseSchema,
+        }
         impl $crypt {
-            pub fn new() -> Self {
-                Self {}
+            pub fn new(base: BaseSchema) -> Self {
+                Self { base }
             }
         }
         impl Crypt for $crypt {
+            base_schema_impl!();
             fn decrypt_supported(&self) -> bool {
                 true
             }
@@ -368,15 +420,18 @@ impl<R: Read> Read for MizukakeCryptReader<R> {
 }
 
 #[derive(Debug)]
-pub struct HashCrypt {}
+pub struct HashCrypt {
+    base: BaseSchema,
+}
 
 impl HashCrypt {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(base: BaseSchema) -> Self {
+        Self { base }
     }
 }
 
 impl Crypt for HashCrypt {
+    base_schema_impl!();
     fn decrypt_supported(&self) -> bool {
         true
     }
@@ -424,16 +479,18 @@ impl<R: Read> Read for HashCryptReader<R> {
 
 #[derive(Debug)]
 pub struct XorCrypt {
+    base: BaseSchema,
     key: u8,
 }
 
 impl XorCrypt {
-    pub fn new(key: u8) -> Self {
-        Self { key }
+    pub fn new(base: BaseSchema, key: u8) -> Self {
+        Self { base, key }
     }
 }
 
 impl Crypt for XorCrypt {
+    base_schema_impl!();
     fn decrypt_supported(&self) -> bool {
         true
     }
@@ -472,11 +529,13 @@ impl<R: Read> Read for XorCryptReader<R> {
 }
 
 #[derive(Debug)]
-pub struct FlyingShineCrypt {}
+pub struct FlyingShineCrypt {
+    base: BaseSchema,
+}
 
 impl FlyingShineCrypt {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(base: BaseSchema) -> Self {
+        Self { base }
     }
 
     fn adjust(&self, hash: u32) -> (u8, u32) {
@@ -493,6 +552,7 @@ impl FlyingShineCrypt {
 }
 
 impl Crypt for FlyingShineCrypt {
+    base_schema_impl!();
     fn decrypt_supported(&self) -> bool {
         true
     }

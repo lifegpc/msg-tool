@@ -134,7 +134,7 @@ impl Xp3Archive {
                             index_stream.skip(chunk_size)?;
                         }
                     }
-                    entries.push(Xp3Entry {
+                    let mut entry = Xp3Entry {
                         name: name
                             .ok_or_else(|| anyhow::anyhow!("Missing name chunk in file entry"))?,
                         flags: flags
@@ -149,7 +149,14 @@ impl Xp3Archive {
                         timestamp,
                         segments,
                         extras: entry_extras,
-                    });
+                    };
+                    if entry.name == "startup.tjs"
+                        && entry.flags != 0
+                        && crypt.startup_tjs_not_encrypted()
+                    {
+                        entry.flags = 0;
+                    }
+                    entries.push(entry);
                 } else {
                     let data = index_stream.read_exact_vec(size as usize)?;
                     extras.push(ExtraProp {

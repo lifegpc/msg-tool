@@ -5,6 +5,20 @@ use std::sync::Weak;
 
 const S_CTL_BLOCK_SIGNATURE: &[u8] = b" Encryption control block";
 
+macro_rules! base_schema_impl {
+    () => {
+        fn hash_after_crypt(&self) -> bool {
+            self.base.hash_after_crypt
+        }
+        fn startup_tjs_not_encrypted(&self) -> bool {
+            self.base.startup_tjs_not_encrypted
+        }
+        fn obfuscated_index(&self) -> bool {
+            self.base.obfuscated_index
+        }
+    };
+}
+
 #[derive(Debug)]
 pub struct CxEncryption {
     mask: u32,
@@ -14,10 +28,11 @@ pub struct CxEncryption {
     even_branch_order: Vec<u8>,
     control_block: Arc<Vec<u32>>,
     programs: Vec<CxProgram>,
+    base: BaseSchema,
 }
 
 impl CxEncryption {
-    pub fn new(schema: &CxSchema, filename: &str) -> Result<Arc<Self>> {
+    pub fn new(base: BaseSchema, schema: &CxSchema, filename: &str) -> Result<Arc<Self>> {
         if schema.prolog_order.len() != 3 {
             return Err(anyhow::anyhow!("Prolog order must have 3 elements"));
         }
@@ -47,6 +62,7 @@ impl CxEncryption {
         let control_block = Arc::new(control_block);
         let programs = Vec::with_capacity(0x80);
         let mut obj = Self {
+            base,
             mask: schema.mask,
             offset: schema.offset,
             prolog_order: schema.prolog_order.bytes.clone(),
@@ -316,6 +332,7 @@ impl CxEncryption {
 }
 
 impl Crypt for Arc<CxEncryption> {
+    base_schema_impl!();
     fn decrypt_supported(&self) -> bool {
         true
     }

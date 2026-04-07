@@ -310,7 +310,8 @@
         "ControlBlockName": "fate_hollow.bin"
     },
     "Fate/stay night": {
-        "$type": "FateCrypt"
+        "$type": "FateCrypt",
+        "HashAfterCrypt": true
     },
     "Fukashi na Aijou": {
         "$type": "HashCrypt",
@@ -738,7 +739,8 @@
         "OddBranchOrder": "BAABBQID",
         "EvenBranchOrder": "BwUCAwYBBAA=",
         "TpmFileName": "plugin/lavender.tpm",
-        "Title": "光輪の町、ラベンダーの少女"
+        "Title": "光輪の町、ラベンダーの少女",
+        "StartupTjsNotEncrypted": true
     },
     "Kurenai no Tsuki": {
         "$type": "CxEncryption",
@@ -833,7 +835,8 @@
     },
     "Mizu no Kakera ~Once Summer of Islet~": {
         "$type": "MizukakeCrypt",
-        "Title": "みずのかけら -once summer of islet-"
+        "Title": "みずのかけら -once summer of islet-",
+        "HashAfterCrypt": true
     },
     "Mizu no Miyako no Patisserie": {
         "$type": "CxEncryption",
@@ -1035,7 +1038,8 @@
         "OddBranchOrder": "AAIEAQUD",
         "EvenBranchOrder": "BQMGAgEHBAA=",
         "ControlBlockName": "riajuu.bin",
-        "Title": "リア充催眠～リアルが充実する催眠生活はじめました。～"
+        "Title": "リア充催眠～リアルが充実する催眠生活はじめました。～",
+        "ObfuscatedIndex": true
     },
     "Rui wa Tomo o Yobu": {
         "$type": "CxEncryption",
@@ -1195,7 +1199,8 @@
     },
     "Sorairo no Shizuku": {
         "$type": "MizukakeCrypt",
-        "Title": "そらいろの雫"
+        "Title": "そらいろの雫",
+        "HashAfterCrypt": true
     },
     "Soukan Chiryou Byoutou": {
         "$type": "FlyingShineCrypt",
@@ -1429,7 +1434,8 @@
         "OddBranchOrder": "AAQDAQIF",
         "EvenBranchOrder": "AwQABQcCAQY=",
         "ControlBlockName": "zecchou.bin",
-        "Title": "ぜっちょースパイラル!! ～下宿人はわがままエッチな女の子ばかり～"
+        "Title": "ぜっちょースパイラル!! ～下宿人はわがままエッチな女の子ばかり～",
+        "ObfuscatedIndex": true
     },
     "Zettai Karen! Ojou-sama": {
         "$type": "CxEncryption",
