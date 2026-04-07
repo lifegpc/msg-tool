@@ -1017,6 +1017,46 @@
     "Re:": {
         "$type": "FlyingShineCrypt"
     },
+    "relations. sister x sister.": {
+        "$type": "CxEncryption",
+        "Mask": 451,
+        "Offset": 231,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AwQAAgEF",
+        "EvenBranchOrder": "AgQBAAUDBgc=",
+        "TpmFileName": "plugin/relations.tpm",
+        "Title": "リレーションズ シスター×シスター | リレーションズ　シスター・シスター"
+    },
+    "Riajuu Saimin": {
+        "$type": "CxEncryption",
+        "Mask": 518,
+        "Offset": 1506,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AAIEAQUD",
+        "EvenBranchOrder": "BQMGAgEHBAA=",
+        "ControlBlockName": "riajuu.bin",
+        "Title": "リア充催眠～リアルが充実する催眠生活はじめました。～"
+    },
+    "Rui wa Tomo o Yobu": {
+        "$type": "CxEncryption",
+        "Mask": 740,
+        "Offset": 199,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQUEAgAD",
+        "EvenBranchOrder": "AAMFAgEHBAY=",
+        "TpmFileName": "plugin/ruitomo.tpm",
+        "Title": "るいは智を呼ぶ | 智以泪聚"
+    },
+    "Sabbat of the Witch": {
+        "$type": "CxEncryption",
+        "Mask": 703,
+        "Offset": 526,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AgMEBQAB",
+        "EvenBranchOrder": "BwYEAQMAAgU=",
+        "ControlBlockName": "sabbat.bin",
+        "Title": "サノバウィッチ | 魔女的夜宴"
+    },
     "Saikyou Chikan Densha": {
         "$type": "FlyingShineCrypt",
         "Title": "埼狂痴漢電車～7人の獲物達～"
@@ -1029,9 +1069,29 @@
         "$type": "HashCrypt",
         "Title": "さくらさくら"
     },
+    "Sakura, Sakimashita.": {
+        "$type": "CxEncryption",
+        "Mask": 305,
+        "Offset": 1847,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgMFBAAB",
+        "EvenBranchOrder": "BQYABwIDBAE=",
+        "ControlBlockName": "sakura.bin",
+        "Title": "さくら、咲きました。 | 樱花开了。"
+    },
     "Segare no Niizuma": {
         "$type": "HashCrypt",
         "Title": "せがれの新妻"
+    },
+    "Seiin no Meikyuu": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "seiin.bin",
+        "Title": "聖淫の迷宮"
     },
     "Seiso na Ano Ko wa, Kakure Bitch": {
         "$type": "HashCrypt",
@@ -1053,6 +1113,16 @@
         "$type": "FlyingShineCrypt",
         "Title": "親友の巨乳ママと中出し性活～こんなに射精してちゃ孕んじゃったね"
     },
+    "Shiniyuku Kimi, Yakata ni Mebuku Zouo": {
+        "$type": "CxEncryption",
+        "Mask": 379,
+        "Offset": 858,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQIEBQMA",
+        "EvenBranchOrder": "AAcFAgEGAwQ=",
+        "ControlBlockName": "shiniyuku.bin",
+        "Title": "死に逝く君、館に芽吹く憎悪 | 濒死轮回的卿于馆中萌生的憎恶"
+    },
     "Shirouto Yanmama, Kosatsu AV Debut": {
         "$type": "HashCrypt",
         "Title": "素人ヤンママ、個撮AVデビュー ～見てな、女はド胸だぜ！～"
@@ -1061,6 +1131,26 @@
         "$type": "HashCrypt",
         "Title": "してなさそうで、している彼女のしていない事～キミの初めてになってやる～"
     },
+    "Shogun-sama wa Otoshigoro": {
+        "$type": "CxEncryption",
+        "Mask": 499,
+        "Offset": 430,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQAEAgUD",
+        "EvenBranchOrder": "BQMEBgIAAQc=",
+        "ControlBlockName": "shogunsama.bin",
+        "Title": "将軍様はお年頃 | 将军大人芳华正茂"
+    },
+    "Shogun-sama wa Otoshigoro Fandisc": {
+        "$type": "CxEncryption",
+        "Mask": 499,
+        "Offset": 430,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQAEAgUD",
+        "EvenBranchOrder": "BQMEBgIAAQc=",
+        "ControlBlockName": "shogunsama_fd.bin",
+        "Title": "将軍様はお年頃 ふぁんでぃすく -御三家だヨ！ 全員集合- | 将军大人正值妙龄 FD"
+    },
     "Shokusai no Miyako": {
         "$type": "FlyingShineCrypt",
         "Title": "触祭の都"
@@ -1068,6 +1158,36 @@
     "Shokushu Ouji no Nikuyome Sagashi": {
         "$type": "HashCrypt",
         "Title": "触手王子の肉嫁探し～母と姉弟の終わらない絶頂地獄～"
+    },
+    "Shugaten! -sugarfull tempering-": {
+        "$type": "CxEncryption",
+        "Mask": 676,
+        "Offset": 1115,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "BAECBQAD",
+        "EvenBranchOrder": "AgAGBwMBBAU=",
+        "ControlBlockName": "shugaten.bin",
+        "Title": "しゅがてん！-sugarfull tempering- | 糖调! -sugarfull tempering- | 糖调! | 甜糖热恋"
+    },
+    "Sis Koi ~Shisukoi~": {
+        "$type": "CxEncryption",
+        "Mask": 286,
+        "Offset": 1777,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BQQBAwIA",
+        "EvenBranchOrder": "AwAFAgQBBwY=",
+        "TpmFileName": "plugin/妹恋！.tpm",
+        "Title": "妹恋～しすこい～"
+    },
+    "Smile Cubic!": {
+        "$type": "CxEncryption",
+        "Mask": 610,
+        "Offset": 1802,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQIDBQQA",
+        "EvenBranchOrder": "BwMGAgABBAU=",
+        "TpmFileName": "plugin/mogla.tpm",
+        "Title": "すまいる Cubic! -水平線まで何マイル？アフター＆アナザーストーリーズ-"
     },
     "Sobo to Boku": {
         "$type": "HashCrypt",
@@ -1084,6 +1204,46 @@
     "Sousei no Himegimi": {
         "$type": "HashCrypt",
         "Title": "双性の姫君 ～ふたなり姉妹と魔王の求愛～"
+    },
+    "Suiheisen made Nan Mile?": {
+        "$type": "CxEncryption",
+        "Mask": 610,
+        "Offset": 1802,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQIDBQQA",
+        "EvenBranchOrder": "BwMGAgABBAU=",
+        "TpmFileName": "plugin/mogla.tpm",
+        "Title": "水平線まで何マイル？ - Deep Blue Sky ＆ Pure White Wings - | 离水平线还有多远？-深蓝的天空和洁白的翅膀- | 水平线尽头有多远"
+    },
+    "Suisei Ginka": {
+        "$type": "CxEncryption",
+        "Mask": 353,
+        "Offset": 1746,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AAQCAQMF",
+        "EvenBranchOrder": "BgAEBQEHAgM=",
+        "ControlBlockName": "suisei.bin",
+        "Title": "スイセイギンカ"
+    },
+    "Suki de Suki de Tamaranai": {
+        "$type": "CxEncryption",
+        "Mask": 701,
+        "Offset": 806,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "BAMFAQAC",
+        "EvenBranchOrder": "AgUEAQAHAwY=",
+        "TpmFileName": "plugin/sukitama.tpm",
+        "Title": "好きで好きでたまらない"
+    },
+    "Sukui no Serenade": {
+        "$type": "CxEncryption",
+        "Mask": 401,
+        "Offset": 1054,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AwUAAgQB",
+        "EvenBranchOrder": "AAYFAgEEAwc=",
+        "TpmFileName": "plugin/serenade.tpm",
+        "Title": "スクイの小夜曲 | 救赎的小夜曲"
     },
     "Swan Song": {
         "$type": "FlyingShineCrypt",
@@ -1104,6 +1264,16 @@
     "Temptation Naked": {
         "$type": "HashCrypt"
     },
+    "Tenshin Ranman - Lucky or Unlucky!?": {
+        "$type": "CxEncryption",
+        "Mask": 359,
+        "Offset": 1176,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQAFBAMC",
+        "EvenBranchOrder": "BAIDBQYBBwA=",
+        "ControlBlockName": "tenshin.bin",
+        "Title": "天神乱漫 LUCKY or UNLUCKY!? | 天神乱漫 Happy Go Lucky!!"
+    },
     "Tettei Anal Chiiku": {
         "$type": "HashCrypt",
         "Title": "徹底アナル恥育 ～こっちが、気持ち良すぎて…～"
@@ -1115,6 +1285,16 @@
     "Tonarizuma 2 ~Otto ja Dekinai Koto Ippai Shite~": {
         "$type": "HashCrypt",
         "Title": "隣妻2 ～夫じゃできないこといっぱいシて～"
+    },
+    "Towazugatari ~Shoujo Ryoujoku Hishou~": {
+        "$type": "CxEncryption",
+        "Mask": 949,
+        "Offset": 1131,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AgABAwQF",
+        "EvenBranchOrder": "AAQBAgcFAwY=",
+        "ControlBlockName": "towazugatari.bin",
+        "Title": "永遠ズ語リ～少女凌辱秘抄～"
     },
     "Tsuma Kai -Tsuma Gai-": {
         "$type": "FlyingShineCrypt",
@@ -1136,9 +1316,58 @@
         "$type": "HashCrypt",
         "Title": "ウチに天使がヤリに来た -爆乳天使のご奉仕性活-"
     },
+    "Ushinawareta Mirai o Motomete": {
+        "$type": "CxEncryption",
+        "Mask": 572,
+        "Offset": 1551,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "BAUCAQAD",
+        "EvenBranchOrder": "AQUAAwIHBgQ=",
+        "ControlBlockName": "ushinawareta.bin",
+        "Title": "失われた未来を求めて | 寻找失去的未来"
+    },
     "Virgin Mama": {
         "$type": "HashCrypt",
         "Title": "ヴァージン・ママ ～息子のおねだりを拒みきれないコスプレ相姦～"
+    },
+    "Wagamama High Spec": {
+        "$type": "CxEncryption",
+        "Mask": 748,
+        "Offset": 575,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "BAABBQMC",
+        "EvenBranchOrder": "AQIDBgQHAAU=",
+        "ControlBlockName": "wagamama.bin",
+        "Title": "ワガママハイスペック | 娇蛮任性HIGHSPEC | 任性highspec"
+    },
+    "Wagamama High Spec [English]": {
+        "$type": "CxEncryption",
+        "Mask": 608,
+        "Offset": 645,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AwUEAAIB",
+        "EvenBranchOrder": "BwABBAUCAwY=",
+        "ControlBlockName": "wagamama_en.bin"
+    },
+    "Wagamama High Spec OC": {
+        "$type": "CxEncryption",
+        "Mask": 608,
+        "Offset": 645,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AwUEAAIB",
+        "EvenBranchOrder": "BwABBAUCAwY=",
+        "ControlBlockName": "wagamama_oc.bin",
+        "Title": "ワガママハイスペック OC | 娇蛮任性HIGH SPEC OC | 任性HighSpec OC"
+    },
+    "Walpurgis": {
+        "$type": "CxEncryption",
+        "Mask": 708,
+        "Offset": 1879,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "BAMABQEC",
+        "EvenBranchOrder": "AwIGAAEFBwQ=",
+        "ControlBlockName": "walpurgis.bin",
+        "Title": "ヴァルプルギス"
     },
     "Yome no Ane ga Kyonyuu Sugite": {
         "$type": "HashCrypt",
@@ -1152,18 +1381,78 @@
         "$type": "HashCrypt",
         "Title": "嫁探しが捗りすぎてヤバい。 | 新娘太好找了我很方！"
     },
+    "Yomibito Shirazu ~Amai Meshibe no Seichoushi~": {
+        "$type": "CxEncryption",
+        "Mask": 949,
+        "Offset": 1131,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AgABAwQF",
+        "EvenBranchOrder": "AAQBAgcFAwY=",
+        "ControlBlockName": "yomibito.bin",
+        "Title": "黄泉ビト知ラズ～甘い雌蕊の性徴詩～"
+    },
     "Yurameku Kokoro ni Michita Sekai de": {
         "$type": "XorCrypt",
         "Key": 205,
         "Title": "ゆらめく心に満ちた世界で、君の夢と欲望は叶うか | 三千心世界，梦终将实现"
+    },
+    "Yuugu ~Nyomitsu Gangu Adesugata~": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "yuugu.bin",
+        "Title": "遊具～女密玩具・艶姿～"
+    },
+    "Yuugu 2 ~Dai Ni Kinsho no Nozomu Mono~": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "yuugu2.bin",
+        "Title": "遊具2～第二禁書ノ望ムモノ～"
     },
     "Yuusha to Maou to, Majo no Cafe": {
         "$type": "XorCrypt",
         "Key": 205,
         "Title": "勇者と魔王と、魔女のカフェ"
     },
+    "Zecchou Spiral!!": {
+        "$type": "CxEncryption",
+        "Mask": 492,
+        "Offset": 1927,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AAQDAQIF",
+        "EvenBranchOrder": "AwQABQcCAQY=",
+        "ControlBlockName": "zecchou.bin",
+        "Title": "ぜっちょースパイラル!! ～下宿人はわがままエッチな女の子ばかり～"
+    },
+    "Zettai Karen! Ojou-sama": {
+        "$type": "CxEncryption",
+        "Mask": 706,
+        "Offset": 1959,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AQQFAAID",
+        "EvenBranchOrder": "BwMAAgEGBQQ=",
+        "ControlBlockName": "zettai.bin",
+        "Title": "絶対可憐！お嬢様っ"
+    },
     "Zettai Sakusei! Succubus-chan": {
         "$type": "HashCrypt",
         "Title": "絶対搾精！ サキュバスちゃん"
+    },
+    "Zutto Sukishite Takusan Sukishite": {
+        "$type": "CxEncryption",
+        "Mask": 555,
+        "Offset": 1736,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AQIFAwAE",
+        "EvenBranchOrder": "BgMAAgUBBwQ=",
+        "ControlBlockName": "zutto.bin",
+        "Title": "ずっとすきしてたくさんすきして | 挚爱随行_倾慕相伴"
     }
 }
