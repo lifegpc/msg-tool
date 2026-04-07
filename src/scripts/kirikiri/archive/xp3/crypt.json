@@ -1,4 +1,23 @@
 {
+    "'&' -Sora no Mukou de Sakimasu you ni-": {
+        "$type": "CxEncryption",
+        "Mask": 715,
+        "Offset": 1745,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AQIEAwUA",
+        "EvenBranchOrder": "BwQCBgUAAwE=",
+        "TpmFileName": "plugin/and_sora.tpm",
+        "Title": "‘＆’ - 空の向こうで咲きますように - | ‘＆’-愿绽放在天空彼岸-"
+    },
+    "11eyes": {
+        "$type": "CxEncryption",
+        "Mask": 491,
+        "Offset": 495,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AAECBQME",
+        "EvenBranchOrder": "AQYDBAcFAgA=",
+        "TpmFileName": "plugin/11eyes.tpm"
+    },
     "25c -Sono Hako wa Shoujo no Himei o Morasanai-": {
         "$type": "HashCrypt",
         "Title": "25c -その箱は少女の悲鳴を漏らさない-"
@@ -22,6 +41,16 @@
         "EvenBranchOrder": "BQcBBgMCAAQ=",
         "ControlBlockName": "9nine_ep1_sekai.bin"
     },
+    "Ah, Ojou-sama": {
+        "$type": "CxEncryption",
+        "Mask": 353,
+        "Offset": 1481,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AQMCAAQF",
+        "EvenBranchOrder": "AQYEAAMHBQI=",
+        "TpmFileName": "plugin/cxdec.tpm",
+        "Title": "ああっお嬢様っ"
+    },
     "Aibo Nyuujoku": {
         "$type": "FlyingShineCrypt",
         "Title": "愛母乳辱～妄執の巨乳責めザンマイ～"
@@ -30,9 +59,39 @@
         "$type": "HashCrypt",
         "Title": "愛妻淫辱接待～借金のかたに妻の調教を命じられた夫～"
     },
+    "Akazukin to Mayoi no Mori": {
+        "$type": "CxEncryption",
+        "Mask": 369,
+        "Offset": 1723,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AgAFAQME",
+        "EvenBranchOrder": "AQQCAwAHBgU=",
+        "TpmFileName": "plugin/akazukin.tpm",
+        "Title": "赤ずきんと迷いの森"
+    },
+    "Akuratsu ~Chijoku no Yuri Shimai~": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "akuratsu.bin",
+        "Title": "あくらつ～恥辱の百合姉妹～"
+    },
     "Ama Koi Syrups": {
         "$type": "HashCrypt",
         "Title": "あま恋シロップス ～恥じらう恋心でシたくなる甘神様の恋祭り～ | 甘神大人的糖浆恋祭"
+    },
+    "Amairo＊Islenauts": {
+        "$type": "CxEncryption",
+        "Mask": 548,
+        "Offset": 1442,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "BQMEAAEC",
+        "EvenBranchOrder": "BAIDBQcGAQA=",
+        "TpmFileName": "plugin/AmairoIsleNauts.tpm",
+        "Title": "天色＊アイルノーツ | 天色幻想岛"
     },
     "Anata no Milk Kudasai na": {
         "$type": "HashCrypt",
@@ -56,6 +115,16 @@
         "$type": "HashCrypt",
         "Title": "ばぁばとママとの超熟母娘丼 ～３世代での家庭内エッチ～ | 爱你深至夏海蔚蓝"
     },
+    "Bakuretsu Otome Sexy Mary": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "bakuretsu.bin",
+        "Title": "爆裂乙女SEXYマリィ"
+    },
     "Bakusou Josou Keikaku": {
         "$type": "HashCrypt",
         "Title": "爆走女装計画～もしも俺が女装させられてレディースに入隊させられたら～"
@@ -78,6 +147,66 @@
         "Key": 49,
         "Title": "僕の未来は、恋と課金と。～Charge To The Future～ [体験版] | 我的未来是恋爱与氪金 [试用版]"
     },
+    "Chikan Yuugi": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "chikan.bin",
+        "Title": "痴漢遊戯"
+    },
+    "Clover Day's": {
+        "$type": "CxEncryption",
+        "Mask": 443,
+        "Offset": 1197,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AwUCAQQA",
+        "EvenBranchOrder": "BwEABgMCBAU=",
+        "TpmFileName": "plugin/cloverdays.tpm",
+        "Title": "幸运草的约定"
+    },
+    "Colorful☆Cure": {
+        "$type": "CxEncryption",
+        "Mask": 739,
+        "Offset": 1816,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgAFAwEE",
+        "EvenBranchOrder": "AQAHBAIDBQY=",
+        "TpmFileName": "カラフル☆きゅあー.tpm",
+        "Title": "カラフル☆きゅあ～ | 缤纷少女 Colorful Cure"
+    },
+    "Concerto Note": {
+        "$type": "CxEncryption",
+        "Mask": 423,
+        "Offset": 1226,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AAIEAwEF",
+        "EvenBranchOrder": "AAYCBAUBAwc=",
+        "ControlBlockName": "concerto.bin",
+        "Title": "コンチェルトノート"
+    },
+    "Corona Blossom vol.1": {
+        "$type": "CxEncryption",
+        "Mask": 586,
+        "Offset": 1374,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AAMBBAIF",
+        "EvenBranchOrder": "BgcCBQMAAQQ=",
+        "ControlBlockName": "corona1.bin",
+        "Title": "コロナ・ブロッサム Vol.1: Gift From the Galaxy | Corona Blossom-日冕之华- vol.1 来自银河的礼物 | 日冕花开 Vol 1"
+    },
+    "Coμ": {
+        "$type": "CxEncryption",
+        "Mask": 419,
+        "Offset": 182,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "BAMCAQUA",
+        "EvenBranchOrder": "AAcFBgMBBAI=",
+        "ControlBlockName": "comyu.bin",
+        "Title": "コミュ - 黒い竜と優しい王国 - | Co:μ-黑龙与温柔的王国"
+    },
     "Crime Rhyme series": {
         "$type": "FlyingShineCrypt",
         "Title": "クライミライ"
@@ -99,9 +228,28 @@
         "Key": 53,
         "Title": "出会って5分は俺のもの！ 時間停止と不可避な運命 | 5分钟的邂逅！时间停止与不可避免的命运 | 相见5分属于我！时间停止不可避的命运"
     },
+    "Deep One": {
+        "$type": "CxEncryption",
+        "Mask": 625,
+        "Offset": 1691,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AAIEAQUD",
+        "EvenBranchOrder": "BQYBBwMEAgA=",
+        "ControlBlockName": "deepone.bin",
+        "Title": "Deep One -ディープワン- | 深渊的来访者"
+    },
     "Do-M Imouto O-nedari Kojin Lesson": {
         "$type": "HashCrypt",
         "Title": "ドM妹おねだり個人レッスン～私のSEX家庭教師お兄ちゃん～ | 义妹私教辅导~哥哥我是家庭教师"
+    },
+    "Dracu-Riot!": {
+        "$type": "CxEncryption",
+        "Mask": 752,
+        "Offset": 1048,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AAMFBAIB",
+        "EvenBranchOrder": "BQMAAgEEBgc=",
+        "TpmFileName": "plugin/dracuriot.tpm"
     },
     "Fate/stay night": {
         "$type": "FateCrypt"

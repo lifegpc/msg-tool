@@ -93,6 +93,9 @@ impl PartialEq<&[u8; 4]> for PropTag {
 impl ExtraProp {
     pub fn is_filename_hash(&self) -> bool {
         self.tag == CHUNK_HNFN
+            || self.tag == CHUNK_SMIL
+            || self.tag == CHUNK_ELIF
+            || self.tag == CHUNK_YUZU
     }
 }
 

@@ -8,6 +8,9 @@ pub const CHUNK_SEGM: &[u8; 4] = b"segm";
 pub const CHUNK_ADLR: &[u8; 4] = b"adlr";
 pub const CHUNK_HNFN: &[u8; 4] = b"hnfn";
 pub const CHUNK_TIME: &[u8; 4] = b"time";
+pub const CHUNK_SMIL: &[u8; 4] = b"smil";
+pub const CHUNK_ELIF: &[u8; 4] = b"eliF";
+pub const CHUNK_YUZU: &[u8; 4] = b"Yuzu";
 
 // Index entry flags
 pub const TVP_XP3_INDEX_ENCODE_METHOD_MASK: u8 = 0x07;
