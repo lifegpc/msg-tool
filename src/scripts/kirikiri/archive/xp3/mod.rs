@@ -162,6 +162,7 @@ pub struct Xp3Archive {
     archive: archive::Xp3Archive,
     decrypt_simple_crypt: bool,
     decompress_mdf: bool,
+    force_extract: bool,
 }
 
 impl Xp3Archive {
@@ -185,6 +186,7 @@ impl Xp3Archive {
             archive,
             decrypt_simple_crypt: config.xp3_simple_crypt,
             decompress_mdf: config.xp3_mdf_decompress,
+            force_extract: config.xp3_force_extract,
         })
     }
 }
@@ -222,16 +224,20 @@ impl Script for Xp3Archive {
             .ok_or(anyhow::anyhow!("Index out of bounds: {}", index))?
             .clone();
         let crypt = self.archive.crypt.clone();
-        if index.is_encrypted() && !crypt.decrypt_supported() {
-            return Err(anyhow::anyhow!(
-                "The archive is encrypted with a method that is not supported by the current crypt implementation. You may need to specify a game title by using --xp3-game-title <title>."
-            ));
+        let skip_decrypt = index.is_encrypted() && !crypt.decrypt_supported();
+        if skip_decrypt {
+            if !self.force_extract {
+                return Err(anyhow::anyhow!(
+                    "The archive is encrypted with a method that is not supported by the current crypt implementation. You may need to specify a game title by using --xp3-game-title <title>."
+                ));
+            }
         }
         let mut entry = Entry::new(
             self.archive.inner.clone(),
             index,
             self.archive.base_offset,
             crypt,
+            skip_decrypt,
         );
         let mut header = [0u8; 16];
         let header_len = entry.read(&mut header)?;
@@ -305,6 +311,7 @@ struct Entry {
     base_offset: u64,
     entries_pos: Vec<u64>,
     script_type: Option<ScriptType>,
+    skip_decrypt: bool,
 }
 
 #[automatically_derived]
@@ -320,6 +327,7 @@ impl std::fmt::Debug for Entry {
             .field("base_offset", &self.base_offset)
             .field("entries_pos", &self.entries_pos)
             .field("script_type", &self.script_type)
+            .field("skip_decrypt", &self.skip_decrypt)
             .finish()
     }
 }
@@ -330,6 +338,7 @@ impl Entry {
         index: archive::Xp3Entry,
         base_offset: u64,
         crypt: Arc<Box<dyn Crypt>>,
+        skip_decrypt: bool,
     ) -> Self {
         let mut pos = 0;
         let entries_pos = index
@@ -351,6 +360,7 @@ impl Entry {
             base_offset,
             crypt,
             crypt_stream: None,
+            skip_decrypt,
         }
     }
 }
@@ -407,7 +417,7 @@ impl Read for Entry {
         let seg_pos = self.entries_pos[seg_index];
         let skip_pos = self.pos - seg_pos;
         let read_size = seg.archived_size;
-        if self.index.is_encrypted() {
+        if !self.skip_decrypt && self.index.is_encrypted() {
             if seg.is_compressed || !self.crypt.decrypt_seek_supported() {
                 let mut cache: Box<dyn Read> = if seg.is_compressed {
                     let mut inner =

@@ -642,6 +642,9 @@ pub struct ExtraConfig {
     /// Print debug information for Kirikiri XP3 archive when extracting archive to stdout.
     /// This is used to find correct configuration for unknown XP3 archives.
     pub xp3_debug_archive: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Force extract encrypted files in Kirikiri XP3 archive without decryption.
+    pub xp3_force_extract: bool,
 }
 
 #[cfg(feature = "artemis")]

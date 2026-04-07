@@ -3395,6 +3395,8 @@ fn main() {
         xp3_game_title: arg.xp3_game_title.clone(),
         #[cfg(feature = "kirikiri-arc")]
         xp3_debug_archive: arg.xp3_debug_archive,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_force_extract: arg.xp3_force_extract,
     });
     match &arg.command {
         args::Command::Export { input, output } => {
