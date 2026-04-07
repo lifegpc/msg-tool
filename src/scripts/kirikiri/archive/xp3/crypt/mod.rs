@@ -26,6 +26,7 @@ pub fn default_init_crypt(archive: &mut Xp3Archive) -> Result<()> {
                 filename_map.insert(hash, name);
             }
         }
+        archive.extras.retain(|extra| !extra.is_filename_hash());
         for entry in &mut archive.entries {
             if let Some(name) = filename_map.get(&entry.file_hash) {
                 entry.name = name.clone();

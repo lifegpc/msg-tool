@@ -171,6 +171,9 @@ impl Xp3Archive {
         filename: &str,
     ) -> Result<Self> {
         let mut archive = archive::Xp3Archive::new(stream, config, filename)?;
+        if config.xp3_debug_archive {
+            println!("Debug info for {}:\n{:#?}", filename, archive);
+        }
         archive.entries.retain(|entry| {
             let i = &entry.name;
             !(i.find("$$$ This is a protected archive. $$$").is_some()

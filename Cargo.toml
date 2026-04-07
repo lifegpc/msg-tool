@@ -13,6 +13,7 @@ anyhow = "1"
 base64 = { version = "0.22", optional = true }
 block_compression = { version = "0.9", optional = true, default-features = false, features = ["bc7"] }
 byteorder = { version = "1.5", default-features = false, optional = true}
+bytes = { version = "1.11", optional = true }
 clap = { version = "4.5", features = ["derive"] }
 crc32fast = { version = "1.5", optional = true }
 csv = "1.3"
@@ -92,7 +93,7 @@ hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "adler", "fastcdc", "flate2", "include-flate", "int-enum", "msg_tool_build/kirikiri-arc", "parse-size", "sha2", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
+kirikiri-arc = ["kirikiri", "adler", "bytes", "fastcdc", "flate2", "include-flate", "int-enum", "msg_tool_build/kirikiri-arc", "parse-size", "sha2", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 musica = []
 musica-arc = ["musica", "crc32fast", "flate2", "include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]

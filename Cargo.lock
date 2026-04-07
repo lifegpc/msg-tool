@@ -1414,6 +1414,7 @@ dependencies = [
  "base64",
  "block_compression",
  "byteorder",
+ "bytes",
  "clap 4.6.0",
  "crc32fast",
  "csv",

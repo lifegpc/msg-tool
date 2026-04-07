@@ -723,6 +723,11 @@ pub struct Arg {
     #[arg(long, global = true, value_parser = get_xp3_game_title_value_parser())]
     /// Game title for Kirikiri XP3 archive. This is used to decrypt file in archives.
     pub xp3_game_title: Option<String>,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true)]
+    /// Print/write debug information for Kirikiri XP3 archive when extracting archive to specifiy location.
+    /// This is used to find correct configuration for unknown XP3 archives.
+    pub xp3_debug_archive: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

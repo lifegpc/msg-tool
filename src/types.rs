@@ -638,6 +638,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri-arc")]
     /// Game title for Kirikiri XP3 archive. This is used to decrypt file in archives.
     pub xp3_game_title: Option<String>,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Print debug information for Kirikiri XP3 archive when extracting archive to stdout.
+    /// This is used to find correct configuration for unknown XP3 archives.
+    pub xp3_debug_archive: bool,
 }
 
 #[cfg(feature = "artemis")]

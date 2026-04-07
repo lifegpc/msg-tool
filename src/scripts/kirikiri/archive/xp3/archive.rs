@@ -1,6 +1,7 @@
 use super::consts::*;
 use super::crypt::Crypt;
 use crate::scripts::base::ReadSeek;
+use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 
 /// Represents a single data segment for a file.
@@ -35,6 +36,7 @@ pub struct Xp3Entry {
     pub file_hash: u32,
     pub original_size: u64,
     pub archived_size: u64,
+    pub timestamp: Option<u64>,
     pub segments: Vec<Segment>,
     pub extras: Vec<ExtraProp>,
 }
@@ -47,13 +49,50 @@ impl Xp3Entry {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExtraProp {
-    pub tag: [u8; 4],
+    pub tag: PropTag,
     pub data: Vec<u8>,
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PropTag {
+    tag: [u8; 4],
+}
+
+impl std::fmt::Debug for PropTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", bytes::Bytes::copy_from_slice(&self.tag))
+    }
+}
+
+impl Deref for PropTag {
+    type Target = [u8; 4];
+
+    fn deref(&self) -> &Self::Target {
+        &self.tag
+    }
+}
+
+impl DerefMut for PropTag {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.tag
+    }
+}
+
+impl From<[u8; 4]> for PropTag {
+    fn from(value: [u8; 4]) -> Self {
+        PropTag { tag: value }
+    }
+}
+
+impl PartialEq<&[u8; 4]> for PropTag {
+    fn eq(&self, other: &&[u8; 4]) -> bool {
+        &self.tag == *other
+    }
 }
 
 impl ExtraProp {
     pub fn is_filename_hash(&self) -> bool {
-        &self.tag == CHUNK_HNFN
+        self.tag == CHUNK_HNFN
     }
 }
 

@@ -66,6 +66,7 @@ impl Xp3Archive {
                     let mut file_hash = None;
                     let mut original_size = None;
                     let mut archived_size = None;
+                    let mut timestamp = None;
                     let mut segments = Vec::new();
                     let mut seg_offset = 0;
                     let mut entry_extras = Vec::new();
@@ -116,11 +117,16 @@ impl Xp3Archive {
                                 });
                                 seg_offset += original_size;
                             }
+                        } else if &chunk_sig == CHUNK_TIME {
+                            if chunk_size == 8 {
+                                timestamp = Some(index_stream.read_u64()?);
+                                chunk_size -= 8;
+                            }
                         } else {
                             let data = index_stream.read_exact_vec(chunk_size as usize)?;
                             chunk_size = 0;
                             entry_extras.push(ExtraProp {
-                                tag: chunk_sig,
+                                tag: chunk_sig.into(),
                                 data,
                             });
                         }
@@ -140,12 +146,16 @@ impl Xp3Archive {
                         archived_size: archived_size.ok_or_else(|| {
                             anyhow::anyhow!("Missing archived size chunk in file entry")
                         })?,
+                        timestamp,
                         segments,
                         extras: entry_extras,
                     });
                 } else {
                     let data = index_stream.read_exact_vec(size as usize)?;
-                    extras.push(ExtraProp { tag: sig, data });
+                    extras.push(ExtraProp {
+                        tag: sig.into(),
+                        data,
+                    });
                 }
             }
         }
