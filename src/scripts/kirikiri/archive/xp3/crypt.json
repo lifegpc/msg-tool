@@ -682,6 +682,46 @@
         "$type": "HashCrypt",
         "Title": "家族調教"
     },
+    "Kemono Musume no Sodatekata": {
+        "$type": "CxEncryption",
+        "Mask": 518,
+        "Offset": 77,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQIDBAAF",
+        "EvenBranchOrder": "BQMEBgAHAgE=",
+        "ControlBlockName": "kemono.bin",
+        "Title": "ケモノ娘の育て方 | 兽娘的养成方法 | 兽娘育成方案"
+    },
+    "Kicking Horse Rhapsody": {
+        "$type": "CxEncryption",
+        "Mask": 504,
+        "Offset": 1660,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AwABAgUE",
+        "EvenBranchOrder": "BgADBwQFAQI=",
+        "TpmFileName": "plugin/kickinghorse.tpm",
+        "Title": "キッキングホース★ラプソディ"
+    },
+    "Kinomino ~Cosplay Ken e Youkoso~": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "kinomino.bin",
+        "Title": "きのみの～コスプレ研へようこそ～"
+    },
+    "Koi ga Saku Koro Sakura Doki": {
+        "$type": "CxEncryption",
+        "Mask": 393,
+        "Offset": 1075,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "BQAEAgMB",
+        "EvenBranchOrder": "AgUAAQMEBwY=",
+        "ControlBlockName": "koiga.bin",
+        "Title": "恋がさくころ桜どき | 恋花绽放樱飞时"
+    },
     "Kore tte, Riajuu?": {
         "$type": "HashCrypt",
         "Title": "これって、リア充？ ～黒ギャルが、ドーテーを教育するそうですよ～"
@@ -689,6 +729,26 @@
     "Kouen no Shugo Kishi Kishar": {
         "$type": "HashCrypt",
         "Title": "紅炎の守護騎士キシャル～Guardian of Prominence Kishar～"
+    },
+    "Kourin no Machi, Lavender no Shoujo": {
+        "$type": "CxEncryption",
+        "Mask": 385,
+        "Offset": 1589,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "BAABBQID",
+        "EvenBranchOrder": "BwUCAwYBBAA=",
+        "TpmFileName": "plugin/lavender.tpm",
+        "Title": "光輪の町、ラベンダーの少女"
+    },
+    "Kurenai no Tsuki": {
+        "$type": "CxEncryption",
+        "Mask": 362,
+        "Offset": 1170,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AgUDAQQA",
+        "EvenBranchOrder": "BAUCAAEHAwY=",
+        "TpmFileName": "plugin/kurenai.tpm",
+        "Title": "クレナイノツキ"
     },
     "Kuro Gyaru Musume": {
         "$type": "HashCrypt",
@@ -698,9 +758,48 @@
         "$type": "HashCrypt",
         "Title": "りとるほーる ～俺の娘がこんなに……なハズがない | Littlehole～我的女儿不可能这么……"
     },
+    "Loca Love - Dousei x Kouhai": {
+        "$type": "CxEncryption",
+        "Mask": 627,
+        "Offset": 1995,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BQQDAgEA",
+        "EvenBranchOrder": "BwQAAwIBBgU=",
+        "ControlBlockName": "loca_love.bin",
+        "Title": "ろけらぶ - 同棲×後輩 | 恋爱定位Location Love同居×后辈"
+    },
     "Love Love Boin series": {
         "$type": "FlyingShineCrypt",
         "Title": "らぶらぶボイン"
+    },
+    "Love+Laby": {
+        "$type": "CxEncryption",
+        "Mask": 653,
+        "Offset": 1567,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AQIDAAUE",
+        "EvenBranchOrder": "BQYDAQIEBwA=",
+        "ControlBlockName": "love_laby.bin",
+        "Title": "らぶ+らび"
+    },
+    "Mahoutsukai no Yoru": {
+        "$type": "CxEncryption",
+        "Mask": 554,
+        "Offset": 674,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AwIBBAUA",
+        "EvenBranchOrder": "BwYFAQADBAI=",
+        "ControlBlockName": "mahoutsukai.bin",
+        "Title": "魔法使いの夜 | 魔法使之夜"
+    },
+    "Maitetsu [English]": {
+        "$type": "CxEncryption",
+        "Mask": 695,
+        "Offset": 1609,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQMEAgAF",
+        "EvenBranchOrder": "BwAEBgECAwU=",
+        "ControlBlockName": "maitetsu_en.bin"
     },
     "Mama no Okugai Shuuchi Lesson": {
         "$type": "HashCrypt",
@@ -722,13 +821,42 @@
         "$type": "HashCrypt",
         "Title": "見習い退魔師 本気でイキますっ！"
     },
+    "Mirai Sekai no Planeta": {
+        "$type": "CxEncryption",
+        "Mask": 392,
+        "Offset": 351,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "BQIAAQME",
+        "EvenBranchOrder": "BwACBQMBBgQ=",
+        "TpmFileName": "plugin/ミライセカイのプラネッタ.tpm",
+        "Title": "ミライセカイのプラネッタ"
+    },
     "Mizu no Kakera ~Once Summer of Islet~": {
         "$type": "MizukakeCrypt",
         "Title": "みずのかけら -once summer of islet-"
     },
+    "Mizu no Miyako no Patisserie": {
+        "$type": "CxEncryption",
+        "Mask": 311,
+        "Offset": 1767,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "BAEAAgUD",
+        "EvenBranchOrder": "AAMEAgUGAQc=",
+        "TpmFileName": "plugin/水の都の洋菓子店（パティスリー）.tpm",
+        "Title": "水の都の洋菓子店"
+    },
     "Mizukoi": {
         "$type": "FlyingShineCrypt",
         "Title": "水恋～みずこい～"
+    },
+    "Momoiro Closet [English]": {
+        "$type": "CxEncryption",
+        "Mask": 389,
+        "Offset": 332,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AgAEAwEF",
+        "EvenBranchOrder": "AQUHAAIEAwY=",
+        "ControlBlockName": "momoiro_en.bin"
     },
     "Momojiri Instructor Netori Lesson": {
         "$type": "HashCrypt",
@@ -742,9 +870,39 @@
         "$type": "HashCrypt",
         "Title": "軟体レッスン ～いいなり彼女とひみつの放課後～"
     },
+    "Natsuzora Kanata": {
+        "$type": "CxEncryption",
+        "Mask": 757,
+        "Offset": 1776,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AgMEAAEF",
+        "EvenBranchOrder": "BwIDBgEABQQ=",
+        "ControlBlockName": "natsuzora.bin",
+        "Title": "夏空カナタ | 夏空彼方"
+    },
     "Nee♥Summer!": {
         "$type": "HashCrypt",
         "Title": "姉♥Summer! ～ねえ♥さまー！～"
+    },
+    "Nekogami-sama to, Nanatsuboshi": {
+        "$type": "CxEncryption",
+        "Mask": 518,
+        "Offset": 77,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQIDBAAF",
+        "EvenBranchOrder": "BQMEBgAHAgE=",
+        "ControlBlockName": "nekogami.bin",
+        "Title": "ネコ神さまと、ななつぼし -妹の姉- | 猫神大人与七颗星星"
+    },
+    "Nidaime wa ☆ Mahou Shoujo": {
+        "$type": "CxEncryption",
+        "Mask": 507,
+        "Offset": 1872,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BAUAAwIB",
+        "EvenBranchOrder": "BAYCAwUBBwA=",
+        "ControlBlockName": "nidaime.bin",
+        "Title": "二代目は☆魔法少女"
     },
     "Nyotai-ka Panic!": {
         "$type": "HashCrypt",
@@ -778,9 +936,29 @@
         "$type": "HashCrypt",
         "Title": "俺の妹は今日からドＳ ～お、お兄ちゃんなんか、あたしのペットにしてやるんだからっ～"
     },
+    "Ore to 5-nin no Yome-san ga Raburabu nano wa": {
+        "$type": "CxEncryption",
+        "Mask": 701,
+        "Offset": 279,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "BQIAAQME",
+        "EvenBranchOrder": "AAcBBQIGBAM=",
+        "ControlBlockName": "oreto5nin.bin",
+        "Title": "俺と５人の嫁さんがラブラブなのは、未来からきた赤ちゃんのおかげに違いない！？ | 托了未来孩子的福，我娶了五个老婆？！"
+    },
     "Ore wa, Shokushu Breeder": {
         "$type": "HashCrypt",
         "Title": "オレは、触手ブリーダー ～寄生触手で苗床化する女たち～"
+    },
+    "Osakoi": {
+        "$type": "CxEncryption",
+        "Mask": 320,
+        "Offset": 1375,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQAEAwUC",
+        "EvenBranchOrder": "BQACAwcEAQY=",
+        "TpmFileName": "plugin/nyan03_osakoi.tpm",
+        "Title": "おさこい ～俺と二人の甘々ご奉仕H生活～"
     },
     "Osananajimi ga Chichioya": {
         "$type": "HashCrypt",
@@ -789,6 +967,16 @@
     "Osananajimi wa, Kakure Do M": {
         "$type": "HashCrypt",
         "Title": "幼馴染は、隠れドＭ ～変態調教に誘ったらドハマりしちゃった～"
+    },
+    "Otome＊Domain": {
+        "$type": "CxEncryption",
+        "Mask": 380,
+        "Offset": 191,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AgADBAEF",
+        "EvenBranchOrder": "BQQGAgAHAQM=",
+        "ControlBlockName": "otome.bin",
+        "Title": "オトメ＊ドメイン | 少女＊领域 | 少女领域"
     },
     "Otto ni Ienai Gifu to no Kan'in": {
         "$type": "HashCrypt",
