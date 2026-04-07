@@ -33,6 +33,8 @@ pub mod psd;
 pub mod rc4;
 #[cfg(feature = "utils-serde-base64bytes")]
 pub mod serde_base64bytes;
+#[cfg(feature = "utils-simple-pack")]
+pub mod simple_pack;
 #[cfg(feature = "utils-str")]
 pub mod str;
 pub mod struct_pack;

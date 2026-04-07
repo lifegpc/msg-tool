@@ -6,16 +6,39 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
 use crate::utils::serde_base64bytes::*;
+use crate::utils::simple_pack::*;
 use anyhow::Result;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 
+pub fn default_init_crypt(archive: &mut Xp3Archive) -> Result<()> {
+    if archive.extras.iter().any(|extra| extra.is_filename_hash()) {
+        let mut filename_map = HashMap::new();
+        for extra in &archive.extras {
+            if extra.is_filename_hash() {
+                let mut reader = MemReaderRef::new(&extra.data);
+                let hash = reader.read_u32()?;
+                let name_length = reader.read_u16()?;
+                let name = reader.read_exact_vec(name_length as usize * 2)?;
+                let name = decode_to_string(Encoding::Utf16LE, &name, true)?;
+                filename_map.insert(hash, name);
+            }
+        }
+        for entry in &mut archive.entries {
+            if let Some(name) = filename_map.get(&entry.file_hash) {
+                entry.name = name.clone();
+            }
+        }
+    }
+    Ok(())
+}
+
 pub trait Crypt: std::fmt::Debug {
     /// Initializes the cryptographic context for the archive.
-    fn init(&self, _archive: &mut Xp3Archive) -> Result<()> {
-        Ok(())
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        default_init_crypt(archive)
     }
 
     /// Read a entry name from archive index
@@ -111,6 +134,7 @@ impl Schema {
 }
 
 include_flate::flate!(static CRYPT_DATA: str from "src/scripts/kirikiri/archive/xp3/crypt.json" with zstd);
+const CX_CB_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cx_cb.pck"));
 
 lazy_static::lazy_static! {
     static ref CRYPT_SCHEMA: BTreeMap<String, Schema> = {
@@ -131,6 +155,20 @@ lazy_static::lazy_static! {
                     table.insert(title.to_string(), game.to_string());
                 }
             }
+        }
+        table
+    };
+    static ref CX_CB_TABLE: HashMap<String, Vec<u32>> = {
+        let reader = MemReaderRef::new(CX_CB_DATA);
+        let mut pack = read_simple_pack(reader).expect("Failed to read cx_cb.pck");
+        let mut table = HashMap::new();
+        while let Some(mut entry) = pack.next().expect("Failed to read entry in cx_cb.pck") {
+            let mut list = Vec::with_capacity(0x400);
+            let errmsg = format!("Failed to read u32 in cx_cb.pck entry {}", entry.name);
+            for _ in 0..0x400 {
+                list.push(entry.read_u32().expect(&errmsg));
+            }
+            table.insert(entry.name.clone(), list);
         }
         table
     };
@@ -508,5 +546,12 @@ seek_reader_key_impl!(CxEncryptionReader<T>, (u32, Arc<cx::CxEncryption>));
 fn test_deserialize_crypt() {
     for (key, schema) in CRYPT_SCHEMA.iter() {
         println!("Title: {}, Schema: {:?}", key, schema);
+    }
+}
+
+#[test]
+fn test_cx_cb_table() {
+    for (key, list) in CX_CB_TABLE.iter() {
+        println!("Key: {}, List length: {}", key, list.len());
     }
 }

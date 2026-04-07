@@ -92,7 +92,7 @@ hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "adler", "fastcdc", "flate2", "include-flate", "int-enum", "parse-size", "sha2", "utils-serde-base64bytes", "zopfli", "zstd"]
+kirikiri-arc = ["kirikiri", "adler", "fastcdc", "flate2", "include-flate", "int-enum", "msg_tool_build/kirikiri-arc", "parse-size", "sha2", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 musica = []
 musica-arc = ["musica", "crc32fast", "flate2", "include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]
@@ -127,6 +127,7 @@ utils-pcm = []
 utils-psd = ["image", "flate2", "utils-bit-stream"]
 utils-rc4 = []
 utils-serde-base64bytes = ["base64"]
+utils-simple-pack = ["zstd"]
 utils-str = []
 utils-xored-stream = []
 
@@ -134,4 +135,5 @@ utils-xored-stream = []
 windows-sys = { version = "0.61", features = ["Win32_Globalization", "Win32_System_Diagnostics_Debug"] }
 
 [build-dependencies]
+msg_tool_build = { path = "./msg_tool_build", optional = true }
 parse-size = "1.1"

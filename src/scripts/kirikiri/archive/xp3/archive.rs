@@ -1,3 +1,4 @@
+use super::consts::*;
 use super::crypt::Crypt;
 use crate::scripts::base::ReadSeek;
 use std::sync::{Arc, Mutex};
@@ -48,6 +49,12 @@ impl Xp3Entry {
 pub struct ExtraProp {
     pub tag: [u8; 4],
     pub data: Vec<u8>,
+}
+
+impl ExtraProp {
+    pub fn is_filename_hash(&self) -> bool {
+        &self.tag == CHUNK_HNFN
+    }
 }
 
 /// Represents the entire XP3 archive

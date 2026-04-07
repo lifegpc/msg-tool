@@ -1437,6 +1437,7 @@ dependencies = [
  "memchr",
  "mozjpeg",
  "msg-tool-jpegxl-sys",
+ "msg_tool_build",
  "msg_tool_macro",
  "num_cpus",
  "overf",
@@ -1458,6 +1459,14 @@ dependencies = [
  "windows-sys 0.61.2",
  "xml5ever",
  "zopfli",
+ "zstd",
+]
+
+[[package]]
+name = "msg_tool_build"
+version = "0.3.1"
+dependencies = [
+ "json",
  "zstd",
 ]
 

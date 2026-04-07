@@ -29,8 +29,20 @@ impl CxEncryption {
         }
         let control_block = if let Some(tpm_path) = &schema.tpm_file_name {
             Self::read_tpm(tpm_path, filename)?
+        } else if let Some(control_block_name) = &schema.control_block_name {
+            CX_CB_TABLE
+                .get(control_block_name)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Control block not found in cx_cb.pck: {}",
+                        control_block_name
+                    )
+                })?
+                .clone()
         } else {
-            return Err(anyhow::anyhow!("TPM file name is required in schema"));
+            return Err(anyhow::anyhow!(
+                "TPM file name or control block is required in schema"
+            ));
         };
         let control_block = Arc::new(control_block);
         let programs = Vec::with_capacity(0x80);

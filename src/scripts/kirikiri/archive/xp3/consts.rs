@@ -6,6 +6,7 @@ pub const CHUNK_FILE: &[u8; 4] = b"File";
 pub const CHUNK_INFO: &[u8; 4] = b"info";
 pub const CHUNK_SEGM: &[u8; 4] = b"segm";
 pub const CHUNK_ADLR: &[u8; 4] = b"adlr";
+pub const CHUNK_HNFN: &[u8; 4] = b"hnfn";
 
 // Index entry flags
 pub const TVP_XP3_INDEX_ENCODE_METHOD_MASK: u8 = 0x07;

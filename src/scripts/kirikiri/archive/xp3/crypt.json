@@ -3,6 +3,25 @@
         "$type": "HashCrypt",
         "Title": "25c -その箱は少女の悲鳴を漏らさない-"
     },
+    "9 -Nine- Kokonotsu Kokonoka Kokonoiro": {
+        "$type": "CxEncryption",
+        "Mask": 518,
+        "Offset": 77,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQIDBAAF",
+        "EvenBranchOrder": "BQMEBgAHAgE=",
+        "ControlBlockName": "9nine_ep1.bin",
+        "Title": "9-nine-ここのつここのかここのいろ | 9-nine-九次九日九重色 | 9-nine-九次九日九色"
+    },
+    "9 -Nine-:Episode 1": {
+        "$type": "CxEncryption",
+        "Mask": 299,
+        "Offset": 1963,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "BAUAAgED",
+        "EvenBranchOrder": "BQcBBgMCAAQ=",
+        "ControlBlockName": "9nine_ep1_sekai.bin"
+    },
     "Aibo Nyuujoku": {
         "$type": "FlyingShineCrypt",
         "Title": "愛母乳辱～妄執の巨乳責めザンマイ～"

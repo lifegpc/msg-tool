@@ -1,0 +1,18 @@
+[package]
+name = "msg_tool_build"
+version = "0.3.1"
+edition = "2024"
+repository = "https://github.com/lifegpc/msg-tool"
+description = "Build time library for the msg-tool project."
+license = "GPL-3.0-or-later"
+
+[dependencies]
+json = { version = "0.12", optional = true }
+zstd = { version = "0.13", optional = true }
+
+[features]
+kirikiri-arc = ["json", "simple-pack"]
+simple-pack = ["zstd"]
+
+[package.metadata.docs.rs]
+all-features = true
