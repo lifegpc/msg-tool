@@ -128,8 +128,11 @@ enum CryptType {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct BaseSchema {
+    #[serde(default)]
     hash_after_crypt: bool,
+    #[serde(default)]
     startup_tjs_not_encrypted: bool,
+    #[serde(default)]
     obfuscated_index: bool,
 }
 
