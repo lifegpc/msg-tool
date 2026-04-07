@@ -251,6 +251,64 @@
         "EvenBranchOrder": "BQMAAgEEBgc=",
         "TpmFileName": "plugin/dracuriot.tpm"
     },
+    "Ero Mangaka-san to Binbou Shimai": {
+        "$type": "CxEncryption",
+        "Mask": 524,
+        "Offset": 1446,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "BAACAwUB",
+        "EvenBranchOrder": "BQQBAwAHBgI=",
+        "TpmFileName": "plugin/nyan01_erobin.tpm",
+        "Title": "エロ漫画家さんと貧乏姉妹"
+    },
+    "Erohon o Sutete kara Ani no Yousu ga Okashii": {
+        "$type": "CxEncryption",
+        "Mask": 526,
+        "Offset": 1609,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AAEDBQQC",
+        "EvenBranchOrder": "BAMHAAIFBgE=",
+        "ControlBlockName": "erohon.bin",
+        "Title": "エロ本を捨ててから兄の様子がおかしい | 扔掉黄书以后兄长情况有异 | 妹扔书"
+    },
+    "ExE": {
+        "$type": "CxEncryption",
+        "Mask": 353,
+        "Offset": 1481,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AgQBAAUD",
+        "EvenBranchOrder": "AQMFBAACBgc=",
+        "TpmFileName": "plugin/cxdec.tpm"
+    },
+    "Fair Child": {
+        "$type": "CxEncryption",
+        "Mask": 561,
+        "Offset": 1326,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AgAEBQMB",
+        "EvenBranchOrder": "BgQAAQMCBwU=",
+        "TpmFileName": "plugin/FairChild.tpm",
+        "Title": "FairChild | フェアチャイルド"
+    },
+    "Fantasical": {
+        "$type": "CxEncryption",
+        "Mask": 630,
+        "Offset": 117,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AgUABAMB",
+        "EvenBranchOrder": "AAEGBwMCBQQ=",
+        "TpmFileName": "plugin/ファンタジカル.tpm",
+        "Title": "ファンタジカル"
+    },
+    "Fate/hollow ataraxia": {
+        "$type": "CxEncryption",
+        "Mask": 323,
+        "Offset": 1927,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AAECAwQF",
+        "EvenBranchOrder": "AAECAwQFBgc=",
+        "ControlBlockName": "fate_hollow.bin"
+    },
     "Fate/stay night": {
         "$type": "FateCrypt"
     },
@@ -261,6 +319,36 @@
     "Gisobo, Choukyou Chuu": {
         "$type": "HashCrypt",
         "Title": "義祖母、調教中。 ～仲良しの秘訣はSMです。～"
+    },
+    "Grisaia: Phantom Trigger [Steam]": {
+        "$type": "CxEncryption",
+        "Mask": 389,
+        "Offset": 332,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AgAEAwEF",
+        "EvenBranchOrder": "AQUHAAIEAwY=",
+        "ControlBlockName": "grisaia_steam.bin",
+        "Title": "グリザイア ファントムトリガー [Steam] | 灰色幻影扳机 [Steam]"
+    },
+    "Grisaia: Phantom Trigger Vol.2": {
+        "$type": "CxEncryption",
+        "Mask": 389,
+        "Offset": 332,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AgAEAwEF",
+        "EvenBranchOrder": "AQUHAAIEAwY=",
+        "ControlBlockName": "grisaia_vol2.bin",
+        "Title": "グリザイア ファントムトリガー Vol. 2 | 灰色幻影扳机第2卷 | 灰色：幻影扳机 Vol. 2"
+    },
+    "Grisaia: Phantom Trigger Vol.5": {
+        "$type": "CxEncryption",
+        "Mask": 389,
+        "Offset": 332,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AgAEAwEF",
+        "EvenBranchOrder": "AQUHAAIEAwY=",
+        "ControlBlockName": "grisaia_vol5.bin",
+        "Title": "グリザイア ファントムトリガー Vol. 5 | 灰色幻影扳机第5卷 | 灰色：幻影扳机 Vol. 5"
     },
     "Hahadori ~Ochiteiku Haha no Eizou Kiroku~": {
         "$type": "HashCrypt",
@@ -282,9 +370,79 @@
         "$type": "HashCrypt",
         "Title": "ハードコア・ティーチャー ～絶対服従へのロジック～"
     },
+    "Haruiro☆Communication♪": {
+        "$type": "CxEncryption",
+        "Mask": 257,
+        "Offset": 797,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "BQIDAAEE",
+        "EvenBranchOrder": "BQACAQcDBgQ=",
+        "ControlBlockName": "haruiro.bin",
+        "Title": "春色☆こみゅにけ～しょん♪"
+    },
+    "Hataraku Otaku no Ren'ai Jijou": {
+        "$type": "CxEncryption",
+        "Mask": 503,
+        "Offset": 832,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AwACBQEE",
+        "EvenBranchOrder": "AwEFBAYABwI=",
+        "ControlBlockName": "hataraku.bin",
+        "Title": "働くオタクの恋愛事情"
+    },
+    "Hatsujou Switch": {
+        "$type": "CxEncryption",
+        "Mask": 281,
+        "Offset": 926,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AwACBQEE",
+        "EvenBranchOrder": "AgcBBQYEAAM=",
+        "TpmFileName": "plugin/hatsujosw.tpm",
+        "Title": "発情スイッチ ～美姉妹が催眠術に堕ちた先～"
+    },
+    "Haze Man -The Local Hero-": {
+        "$type": "CxEncryption",
+        "Mask": 419,
+        "Offset": 1035,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AgQFAAED",
+        "EvenBranchOrder": "AgMGAAEHBAU=",
+        "ControlBlockName": "haze_man.bin",
+        "Title": "ヘイズマン -THE LOCAL HERO- | 大地侠"
+    },
     "Heliotrope -Sore wa Shi ni Itaru Kami no Ai-": {
         "$type": "HashCrypt",
         "Title": "ヘリオトロープ－それは死に至る神の愛－"
+    },
+    "Hello Lady!": {
+        "$type": "CxEncryption",
+        "Mask": 443,
+        "Offset": 1208,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AAUDAgQB",
+        "EvenBranchOrder": "AwYCAAQHAQU=",
+        "TpmFileName": "plugin/ハロー・レディ！.tpm",
+        "Title": "ハロー・レディ！ | 淑女同萌！"
+    },
+    "Hello Lady! -New Division-": {
+        "$type": "CxEncryption",
+        "Mask": 443,
+        "Offset": 1208,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AAUDAgQB",
+        "EvenBranchOrder": "AwYCAAQHAQU=",
+        "ControlBlockName": "hello_lady_new.bin",
+        "Title": "ハロー・レディ！ -New Division- | 淑女同萌！-New Division-"
+    },
+    "Hello Lady! -Superior Entelecheia-": {
+        "$type": "CxEncryption",
+        "Mask": 559,
+        "Offset": 1040,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQACBAMF",
+        "EvenBranchOrder": "BgMABQECBwQ=",
+        "ControlBlockName": "hello_lady_super.bin",
+        "Title": "ハロー・レディ！ -Superior Entelecheia- | 淑女同萌！-Superior Entelecheia-"
     },
     "Hentai Kyonyuu Nurse": {
         "$type": "HashCrypt",
@@ -294,9 +452,29 @@
         "$type": "HashCrypt",
         "Title": "ヒメと魔神と恋するたましぃ"
     },
+    "Hinekuremono no Gakuen Seishun Monogatari": {
+        "$type": "CxEncryption",
+        "Mask": 559,
+        "Offset": 1985,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AQQABQMC",
+        "EvenBranchOrder": "AQUDBwQGAgA=",
+        "ControlBlockName": "hinekuremono.bin",
+        "Title": "捻くれモノの学園青春物語 ～俺と彼女の裏表～ | 当孤僻之人遇上青春生活"
+    },
     "Hito Yado Ippatsu Yarihamezon": {
         "$type": "HashCrypt",
         "Title": "一宿一発ヤリハメゾン -おじさんザーメンぜ～んぶちょうだい- | Isshuku Ippatsu Yarihamezon"
+    },
+    "Hitozuma Chijoku Hyakkaten": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "hitozuma.bin",
+        "Title": "人妻恥辱百貨店"
     },
     "Hitozuma Tenchou no Chitai Kinmu": {
         "$type": "HashCrypt",
@@ -333,6 +511,16 @@
     "Imouto Shokushu Rape": {
         "$type": "HashCrypt",
         "Title": "妹触手レイプ ～復讐の処女貫通～"
+    },
+    "Imouto Style": {
+        "$type": "CxEncryption",
+        "Mask": 632,
+        "Offset": 215,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQIEAAUD",
+        "EvenBranchOrder": "BwUBAwYEAgA=",
+        "ControlBlockName": "imouto.bin",
+        "Title": "妹スタイル"
     },
     "In'en no Yu ~Sandai no Okami-tachi to no Mikkou~": {
         "$type": "HashCrypt",
@@ -374,9 +562,28 @@
         "$type": "HashCrypt",
         "Title": "淫姉隷属 ～影に潜んだ愛欲と支配～"
     },
+    "Japanese School Life": {
+        "$type": "CxEncryption",
+        "Mask": 697,
+        "Offset": 711,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AQQDAgUA",
+        "EvenBranchOrder": "BgUHBAADAQI=",
+        "ControlBlockName": "jasch.bin"
+    },
     "Jimi me na Jijo-san no Oshigoto Sex": {
         "$type": "HashCrypt",
         "Title": "地味めな侍女さんのお仕事セックス～お嬢様に代わってお相手します～"
+    },
+    "JK Trouble Main\"s": {
+        "$type": "CxEncryption",
+        "Mask": 266,
+        "Offset": 1725,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQIDBAAF",
+        "EvenBranchOrder": "AwAGAgcBBAU=",
+        "TpmFileName": "plugin/jktrouble.tpm",
+        "Title": "JKトラブめいん\"s"
     },
     "Jokyoushi Rinkan no Kyoushitsu": {
         "$type": "FlyingShineCrypt",
@@ -418,6 +625,46 @@
     "Kanpeki Seitokaichou no Himitsu no Seiheki": {
         "$type": "HashCrypt",
         "Title": "完璧生徒会長の秘密の性癖 ～高嶺の花の彼女をＭ女に開花させてやる～"
+    },
+    "KARAKARA": {
+        "$type": "CxEncryption",
+        "Mask": 400,
+        "Offset": 1191,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AgEABQQD",
+        "EvenBranchOrder": "AgAHAwUBBAY=",
+        "ControlBlockName": "karakara.bin",
+        "Title": "カラカラ"
+    },
+    "KARAKARA 2": {
+        "$type": "CxEncryption",
+        "Mask": 697,
+        "Offset": 711,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AQQDAgUA",
+        "EvenBranchOrder": "BgUHBAADAQI=",
+        "ControlBlockName": "karakara2.bin",
+        "Title": "カラカラ2"
+    },
+    "Karenai Sekai to Owaru Hana": {
+        "$type": "CxEncryption",
+        "Mask": 578,
+        "Offset": 984,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BAIBAAUD",
+        "EvenBranchOrder": "AgUEBwEGAAM=",
+        "ControlBlockName": "karenai.bin",
+        "Title": "枯れない世界と終わる花 | 永不枯萎的世界与终焉之花 | 不败世界与终焉之花 | 永不枯萎的世界与终结之花"
+    },
+    "Karenai Sekai to Owaru Hana DL": {
+        "$type": "CxEncryption",
+        "Mask": 557,
+        "Offset": 1989,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AgMABQEE",
+        "EvenBranchOrder": "BwAFAwECBgQ=",
+        "ControlBlockName": "karenai_dl.bin",
+        "Title": "枯れない世界と終わる花  ダウンロード版 | 永不枯萎的世界与终焉之花 下载版 | 不败世界与终焉之花 下载版 | 永不枯萎的世界与终结之花 下载版"
     },
     "Kareshi ni Naisho de Kairaku Ochi": {
         "$type": "HashCrypt",
