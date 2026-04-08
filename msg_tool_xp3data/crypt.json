@@ -223,6 +223,11 @@
         "$type": "HashCrypt",
         "Title": "誰もが彼女を狙ってる。 | 众人觊觎的女友"
     },
+    "Daunya-san to Kainushi-kun": {
+        "$type": "XorCrypt",
+        "Key": 118,
+        "Title": "ダウニャーさんと飼い主くん"
+    },
     "Deatte 5-fun wa Ore no Mono!": {
         "$type": "XorCrypt",
         "Key": 53,
@@ -610,6 +615,11 @@
         "$type": "FlyingShineCrypt",
         "Title": "かいわれっ！"
     },
+    "Kami-sama no You na Kimi e": {
+        "$type": "XorCrypt",
+        "Key": 199,
+        "Title": "神様のような君へ | 献给神明般的你"
+    },
     "Kamidanomi Shisugite Ore no Mirai ga Yabai.": {
         "$type": "XorCrypt",
         "Key": 205,
@@ -713,6 +723,11 @@
         "ControlBlockName": "kinomino.bin",
         "Title": "きのみの～コスプレ研へようこそ～"
     },
+    "Koakuma-chan no Yuuwaku!": {
+        "$type": "XorCrypt",
+        "Key": 10,
+        "Title": "こあくまちゃんの誘惑っ！ | 小恶魔的诱惑！"
+    },
     "Koi ga Saku Koro Sakura Doki": {
         "$type": "CxEncryption",
         "Mask": 393,
@@ -722,6 +737,16 @@
         "EvenBranchOrder": "AgUAAQMEBwY=",
         "ControlBlockName": "koiga.bin",
         "Title": "恋がさくころ桜どき | 恋花绽放樱飞时"
+    },
+    "Koishi Irodoru Seigiranman": {
+        "$type": "XorCrypt",
+        "Key": 105,
+        "Title": "恋し彩る正義爛漫"
+    },
+    "Kokoro no Katachi to Iro to Oto": {
+        "$type": "XorCrypt",
+        "Key": 247,
+        "Title": "ココロのカタチとイロとオト | 心之形心之色心之声"
     },
     "Kore tte, Riajuu?": {
         "$type": "HashCrypt",
@@ -865,6 +890,11 @@
         "$type": "HashCrypt",
         "Title": "桃尻インストラクター寝取りレッスン ～競泳水着でえろざんまい～"
     },
+    "Mugen no Tír na nÓg": {
+        "$type": "XorCrypt",
+        "Key": 85,
+        "Title": "夢幻のティル・ナ・ノーグ | 梦幻的提尔纳诺"
+    },
     "Namaiki JK ni Fukushuu no Seikatsu Shidou": {
         "$type": "HashCrypt",
         "Title": "ナマイキJKに復讐の性活指導 ～先生、お願いだからもう許して…～"
@@ -872,6 +902,11 @@
     "Nantai Lesson": {
         "$type": "HashCrypt",
         "Title": "軟体レッスン ～いいなり彼女とひみつの放課後～"
+    },
+    "Natsu no Owari": {
+        "$type": "XorCrypt",
+        "Key": 87,
+        "Title": "夏ノ終熄 | 夏之终熄 | 夏日终焉"
     },
     "Natsuzora Kanata": {
         "$type": "CxEncryption",
@@ -886,6 +921,11 @@
     "Nee♥Summer!": {
         "$type": "HashCrypt",
         "Title": "姉♥Summer! ～ねえ♥さまー！～"
+    },
+    "Neko to Wakai Seyo!": {
+        "$type": "XorCrypt",
+        "Key": 44,
+        "Title": "ネコと女子寮せよ！ | 女仆咖啡厅与魔法女子寮"
     },
     "Nekogami-sama to, Nanatsuboshi": {
         "$type": "CxEncryption",
@@ -927,9 +967,29 @@
         "$type": "FlyingShineCrypt",
         "Title": "おまな2 おまえんち萌えてるぞ"
     },
+    "Onaji Class no Idol-san. Around me is full by a celebrity.": {
+        "$type": "XorCrypt",
+        "Key": 232,
+        "Title": "同じクラスのアイドルさん。Around me is full by a celebrity."
+    },
     "Oppai Cafe ~Oyako de Cos Chichi~": {
         "$type": "HashCrypt",
         "Title": "おっぱいカフェ ～母娘でコスちち～"
+    },
+    "Ore no Cupid ga Ponkotsu Sugite Kowa~i.": {
+        "$type": "XorCrypt",
+        "Key": 14,
+        "Title": "俺の恋天使がポンコツすぎてコワ～い。 | 我的恋天使太废柴了好可怕。 | 我的恋天使太一无是处了好~担心"
+    },
+    "Ore no Cupid ga Ponkotsu Sugite Kowa~i. - Trial": {
+        "$type": "XorCrypt",
+        "Key": 120,
+        "Title": "俺の恋天使がポンコツすぎてコワ～い。体験版"
+    },
+    "Ore no Hitomi de Maruhadaka! Fukachi na Mirai to Misukasu Vision": {
+        "$type": "XorCrypt",
+        "Key": 60,
+        "Title": "俺の瞳で丸裸！不可知な未来と視透かす運命 | 我的眼睛看光光！不可知的未来与透视的命运"
     },
     "Ore no Imouto wa Seijun Bitch": {
         "$type": "HashCrypt",
@@ -938,6 +998,11 @@
     "Ore no Imouto wa Kyou kara Do S": {
         "$type": "HashCrypt",
         "Title": "俺の妹は今日からドＳ ～お、お兄ちゃんなんか、あたしのペットにしてやるんだからっ～"
+    },
+    "Ore no Sugata ga, Toumei ni!? Invisible to Suuki na Unmei": {
+        "$type": "XorCrypt",
+        "Key": 149,
+        "Title": "俺の姿が、透明に!? 不可視の薬と数奇な運命 | 不可视之药与坎坷的命运"
     },
     "Ore to 5-nin no Yome-san ga Raburabu nano wa": {
         "$type": "CxEncryption",
@@ -1068,6 +1133,16 @@
     "Sailor Fuku Shinryou Tsumaka": {
         "$type": "FlyingShineCrypt",
         "Title": "セーラー服心療妻科～内緒のえっちなカウンセリング～"
+    },
+    "Same to Ikiru Nanokakan": {
+        "$type": "XorCrypt",
+        "Key": 114,
+        "Title": "サメと生きる七日間 | 与鲨鱼共度的七日间"
+    },
+    "Same to Ikiru Nanokakan [Trial]": {
+        "$type": "XorCrypt",
+        "Key": 209,
+        "Title": "サメと生きる七日間 体験版"
     },
     "Sakura Sakura": {
         "$type": "HashCrypt",
@@ -1250,6 +1325,11 @@
         "TpmFileName": "plugin/serenade.tpm",
         "Title": "スクイの小夜曲 | 救赎的小夜曲"
     },
+    "Surechigau Kyoudai no Kowareru Rinrikan": {
+        "$type": "XorCrypt",
+        "Key": 248,
+        "Title": "すれ違う兄妹の壊れる倫理観"
+    },
     "Swan Song": {
         "$type": "FlyingShineCrypt",
         "Title": "スワンソング"
@@ -1320,6 +1400,16 @@
     "Uchi ni Tenshi ga Yari ni kita": {
         "$type": "HashCrypt",
         "Title": "ウチに天使がヤリに来た -爆乳天使のご奉仕性活-"
+    },
+    "Uchi wa Mou, Enki Dekinai.": {
+        "$type": "XorCrypt",
+        "Key": 2,
+        "Title": "ウチはもう、延期できない。 | 我们是不能延期了"
+    },
+    "Umi to Yuki no Cyan Blue": {
+        "$type": "XorCrypt",
+        "Key": 160,
+        "Title": "海と雪のシアンブルー | 海与雪的青蓝色"
     },
     "Ushinawareta Mirai o Motomete": {
         "$type": "CxEncryption",
