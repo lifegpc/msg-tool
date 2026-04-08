@@ -18,9 +18,29 @@
         "EvenBranchOrder": "AQYDBAcFAgA=",
         "TpmFileName": "plugin/11eyes.tpm"
     },
+    "11eyes -Resona Forma-": {
+        "$type": "CxEncryption",
+        "Mask": 404,
+        "Offset": 872,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AwIABQQB",
+        "EvenBranchOrder": "BQQHAAYCAwE=",
+        "ControlBlockName": "11eyes.bin",
+        "Title": "11eyes-交错的视线"
+    },
     "25c -Sono Hako wa Shoujo no Himei o Morasanai-": {
         "$type": "HashCrypt",
         "Title": "25c -その箱は少女の悲鳴を漏らさない-"
+    },
+    "9-nine- Deluxe Edition": {
+        "$type": "CxEncryption",
+        "Mask": 532,
+        "Offset": 934,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AwIEAQAF",
+        "EvenBranchOrder": "AQMHBAIGAAU=",
+        "ControlBlockName": "9nine_deluxe.bin",
+        "Title": "9-nine- 豪華版 | 9-nine- 豪华版"
     },
     "9 -Nine- Kokonotsu Kokonoka Kokonoiro": {
         "$type": "CxEncryption",
@@ -40,6 +60,16 @@
         "OddBranchOrder": "BAUAAgED",
         "EvenBranchOrder": "BQcBBgMCAAQ=",
         "ControlBlockName": "9nine_ep1_sekai.bin"
+    },
+    "Aete Mushi Suru Kimi to no Mirai ~Relay Broadcast~": {
+        "$type": "CxEncryption",
+        "Mask": 443,
+        "Offset": 1197,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AwUCAQQA",
+        "EvenBranchOrder": "BwEABgMCBAU=",
+        "ControlBlockName": "aete_mushi.bin",
+        "Title": "あえて無視するキミとの未来 ～Relay broadcast～ | 硬要无视与你的未来 ~Relay broadcast~"
     },
     "Ah, Ojou-sama": {
         "$type": "CxEncryption",
@@ -111,6 +141,16 @@
         "TpmFileName": "plugin/AQUA.tpm",
         "Title": "AQUA"
     },
+    "ATRI -My Dear Moments-": {
+        "$type": "CxEncryption",
+        "Mask": 423,
+        "Offset": 873,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AAQDAQIF",
+        "EvenBranchOrder": "AgcEAAMFAQY=",
+        "ControlBlockName": "atri.bin",
+        "Title": "亚托莉 -我挚爱的时光-"
+    },
     "Baaba to Mama to no Choujuku Oyakodon": {
         "$type": "HashCrypt",
         "Title": "ばぁばとママとの超熟母娘丼 ～３世代での家庭内エッチ～ | 爱你深至夏海蔚蓝"
@@ -128,6 +168,16 @@
     "Bakusou Josou Keikaku": {
         "$type": "HashCrypt",
         "Title": "爆走女装計画～もしも俺が女装させられてレディースに入隊させられたら～"
+    },
+    "Bishuu ~Chigyaku no Mesu Dorei~": {
+        "$type": "CxEncryption",
+        "Mask": 531,
+        "Offset": 1139,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQQAAwIF",
+        "EvenBranchOrder": "BQQBAAcGAgM=",
+        "ControlBlockName": "bishuu.bin",
+        "Title": "美醜 ～恥虐の牝奴隷～"
     },
     "Bitch Gal no Gachi Iki Acme": {
         "$type": "HashCrypt",
@@ -210,6 +260,16 @@
     "Crime Rhyme series": {
         "$type": "FlyingShineCrypt",
         "Title": "クライミライ"
+    },
+    "Cross Concerto": {
+        "$type": "CxEncryption",
+        "Mask": 692,
+        "Offset": 318,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "BAMBAgAF",
+        "EvenBranchOrder": "AgUGBAEDBwA=",
+        "ControlBlockName": "cross_concerto.bin",
+        "Title": "クロスコンチェルト | 交汇协奏曲 | 交匯協奏曲"
     },
     "Custom Reido 4/4+/V": {
         "$type": "HashCrypt",
@@ -322,6 +382,16 @@
         "$type": "HashCrypt",
         "Title": "不可視な愛情～透明なボクに感じるママ～"
     },
+    "Gakuen Tokkyuu Hotokenser": {
+        "$type": "CxEncryption",
+        "Mask": 330,
+        "Offset": 558,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AgEDBAAF",
+        "EvenBranchOrder": "BgAEBwMBAgU=",
+        "ControlBlockName": "gakuen.bin",
+        "Title": "学園特救ホトケンサー"
+    },
     "Gisobo, Choukyou Chuu": {
         "$type": "HashCrypt",
         "Title": "義祖母、調教中。 ～仲良しの秘訣はSMです。～"
@@ -429,6 +499,16 @@
         "EvenBranchOrder": "AwYCAAQHAQU=",
         "TpmFileName": "plugin/ハロー・レディ！.tpm",
         "Title": "ハロー・レディ！ | 淑女同萌！"
+    },
+    "Hello Lady! [Steam]": {
+        "$type": "CxEncryption",
+        "Mask": 722,
+        "Offset": 435,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AAEFAwQC",
+        "EvenBranchOrder": "AwIGBQEHAAQ=",
+        "ControlBlockName": "hello_lady_steam.bin",
+        "Title": "ハロー・レディ！ [Steam] | 淑女同萌！ [Steam]"
     },
     "Hello Lady! -New Division-": {
         "$type": "CxEncryption",
@@ -568,6 +648,16 @@
         "$type": "HashCrypt",
         "Title": "淫姉隷属 ～影に潜んだ愛欲と支配～"
     },
+    "Island Diary": {
+        "$type": "CxEncryption",
+        "Mask": 488,
+        "Offset": 120,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AwQFAgEA",
+        "EvenBranchOrder": "BQECBwADBgQ=",
+        "ControlBlockName": "island.bin",
+        "Title": "アイランドダイアリー"
+    },
     "Japanese School Life": {
         "$type": "CxEncryption",
         "Mask": 697,
@@ -614,6 +704,16 @@
     "Kaiware!": {
         "$type": "FlyingShineCrypt",
         "Title": "かいわれっ！"
+    },
+    "Kakenuke★Seishun Sparking!": {
+        "$type": "CxEncryption",
+        "Mask": 570,
+        "Offset": 1717,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "BAMBAgUA",
+        "EvenBranchOrder": "AAYHAQUEAgM=",
+        "ControlBlockName": "kakenuke.bin",
+        "Title": "かけぬけ★青春スパーキング！ | 闪耀青春追逐记 | 绽放★青春全力向前冲！"
     },
     "Kami-sama no You na Kimi e": {
         "$type": "XorCrypt",
@@ -738,6 +838,16 @@
         "ControlBlockName": "koiga.bin",
         "Title": "恋がさくころ桜どき | 恋花绽放樱飞时"
     },
+    "Koikishi Purely ☆ Kiss": {
+        "$type": "CxEncryption",
+        "Mask": 561,
+        "Offset": 1559,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BAEDBQIA",
+        "EvenBranchOrder": "BQIABgQBBwM=",
+        "ControlBlockName": "koikishi.bin",
+        "Title": "恋騎士 Purely☆Kiss | 恋骑士 Purely☆Kiss"
+    },
     "Koishi Irodoru Seigiranman": {
         "$type": "XorCrypt",
         "Key": 105,
@@ -828,6 +938,16 @@
         "EvenBranchOrder": "BwAEBgECAwU=",
         "ControlBlockName": "maitetsu_en.bin"
     },
+    "Maitetsu - Last Run!!": {
+        "$type": "CxEncryption",
+        "Mask": 574,
+        "Offset": 153,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BQIEAwAB",
+        "EvenBranchOrder": "BAAHBgIBBQM=",
+        "ControlBlockName": "maitetsu_last_run.bin",
+        "Title": "まいてつ Last Run!! | 爱上火车-Last Run!!- | 愛上火車-Last Run!!-"
+    },
     "Mama no Okugai Shuuchi Lesson": {
         "$type": "HashCrypt",
         "Title": "ママの屋外羞恥レッスン ～視線が快楽に変る時…～"
@@ -835,6 +955,16 @@
     "Mama to no Ikisugi Ama Ama Seikatsu": {
         "$type": "HashCrypt",
         "Title": "ママとのイキすぎ甘々性活～いっぱい気持ちいいコト教えてあ・げ・る～"
+    },
+    "Manakashi no Yuri wa Akaku Somaru [DL]": {
+        "$type": "CxEncryption",
+        "Mask": 516,
+        "Offset": 761,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AwABBAUC",
+        "EvenBranchOrder": "BAcBAAMFBgI=",
+        "ControlBlockName": "manakashi_dl.bin",
+        "Title": "真愛の百合は赤く染まる | 真爱的百合被染成红色 | 令人怜爱的百合染上红色"
     },
     "Manamusume wa, Mazo Seirei": {
         "$type": "HashCrypt",
@@ -972,6 +1102,16 @@
         "Key": 232,
         "Title": "同じクラスのアイドルさん。Around me is full by a celebrity."
     },
+    "Onigokko!": {
+        "$type": "CxEncryption",
+        "Mask": 334,
+        "Offset": 1715,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AgEFBAMA",
+        "EvenBranchOrder": "AAQFBwMBBgI=",
+        "ControlBlockName": "onigokko.bin",
+        "Title": "鬼ごっこ！ | 捉迷藏 | 鬼的捉迷藏！"
+    },
     "Oppai Cafe ~Oyako de Cos Chichi~": {
         "$type": "HashCrypt",
         "Title": "おっぱいカフェ ～母娘でコスちち～"
@@ -1078,12 +1218,41 @@
         "$type": "HashCrypt",
         "Title": "パパ大好き！と言ってくれ…～反抗期の娘を催眠アプリで狂愛しつけ～"
     },
+    "Parquet": {
+        "$type": "CxEncryption",
+        "Mask": 699,
+        "Offset": 196,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgEAAwQF",
+        "EvenBranchOrder": "BgEABwUDBAI=",
+        "ControlBlockName": "parquet.bin",
+        "Title": "PARQUET"
+    },
+    "PENDULUM": {
+        "$type": "CxEncryption",
+        "Mask": 380,
+        "Offset": 1666,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AgEEBQAD",
+        "EvenBranchOrder": "BAYBBQIHAAM=",
+        "ControlBlockName": "pendulum.bin"
+    },
     "Princess Saga": {
         "$type": "FlyingShineCrypt",
         "Title": "プリンセスサーガ"
     },
     "Re:": {
         "$type": "FlyingShineCrypt"
+    },
+    "Real Imouto ga Iru Ooizumi-kun no Baai": {
+        "$type": "CxEncryption",
+        "Mask": 690,
+        "Offset": 742,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "BQABBAMC",
+        "EvenBranchOrder": "AgQDAAEFBgc=",
+        "ControlBlockName": "real_imouto.bin",
+        "Title": "リアル妹がいる大泉くんのばあい | 实妹相伴的大泉君"
     },
     "relations. sister x sister.": {
         "$type": "CxEncryption",
@@ -1106,6 +1275,15 @@
         "Title": "リア充催眠～リアルが充実する催眠生活はじめました。～",
         "ObfuscatedIndex": true
     },
+    "Riddle Joker [Steam]": {
+        "$type": "CxEncryption",
+        "Mask": 350,
+        "Offset": 234,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BQADBAIB",
+        "EvenBranchOrder": "BgQFAAIHAQM=",
+        "ControlBlockName": "riddle_steam.bin"
+    },
     "Rui wa Tomo o Yobu": {
         "$type": "CxEncryption",
         "Mask": 740,
@@ -1115,6 +1293,26 @@
         "EvenBranchOrder": "AAMFAgEHBAY=",
         "TpmFileName": "plugin/ruitomo.tpm",
         "Title": "るいは智を呼ぶ | 智以泪聚"
+    },
+    "Rui wa Tomo o Yobu -Full Voice Edition-": {
+        "$type": "CxEncryption",
+        "Mask": 586,
+        "Offset": 964,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AwQAAQIF",
+        "EvenBranchOrder": "BAEAAwYCBwU=",
+        "ControlBlockName": "ruiwatomo_fv.bin",
+        "Title": "るいは智を呼ぶ -フルボイスエディション- | 智以泪聚 -全语音版-"
+    },
+    "Rui wa Tomo o Yobu Fan Disc -Asu no Mukou ni Mieru Kaze-": {
+        "$type": "CxEncryption",
+        "Mask": 292,
+        "Offset": 1597,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AwIABAUB",
+        "EvenBranchOrder": "BQQCAQcDAAY=",
+        "ControlBlockName": "ruiwatomo.bin",
+        "Title": "るいは智を呼ぶファンディスク ―明日のむこうに視える風― | 智以泪聚ＦＤ -吹向明日彼岸的可视之风-"
     },
     "Sabbat of the Witch": {
         "$type": "CxEncryption",
@@ -1338,9 +1536,29 @@
         "$type": "HashCrypt",
         "Title": "すうぃ～と☆SwitcH ～まじわるシセンでとろけるカラダ～"
     },
+    "Tamayura Mirai": {
+        "$type": "CxEncryption",
+        "Mask": 288,
+        "Offset": 1325,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "BQIDAAQB",
+        "EvenBranchOrder": "AAcGBQMBBAI=",
+        "ControlBlockName": "tamayura.bin",
+        "Title": "タマユラミライ | 玉响未来 | 深野协调魔法使 | 玉響未來"
+    },
     "Tanetsuke Dungeon": {
         "$type": "HashCrypt",
         "Title": "種付けダンジョン～褐色エルフ産卵アクメ～"
+    },
+    "Tasogare no Sinsemilla": {
+        "$type": "CxEncryption",
+        "Mask": 599,
+        "Offset": 656,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AQQFAgMA",
+        "EvenBranchOrder": "AgcGAQMEBQA=",
+        "ControlBlockName": "tasogare.bin",
+        "Title": "黄昏のシンセミア | 黄昏的禁忌之药"
     },
     "Tawawa Oku-san x Happening Gym": {
         "$type": "HashCrypt",
@@ -1393,6 +1611,16 @@
         "$type": "HashCrypt",
         "Title": "妻と息子にバレてはいけない背徳の媚熱 ～あやまちの密愛2～"
     },
+    "Tsuyuchiru Letter ~Umi to Shiori ni Amaoto o~": {
+        "$type": "CxEncryption",
+        "Mask": 592,
+        "Offset": 782,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AgUBAwQA",
+        "EvenBranchOrder": "BwMBBQQAAgY=",
+        "ControlBlockName": "tsuyuchiru.bin",
+        "Title": "ツユチル・レター～海と栞に雨音を～ | 梅时露霁书~雨潺海汐间~ | 梅時露霽書～雨潺海汐間～"
+    },
     "Ubawareta Gakuen ~Wana ni Ochita Yuutousei~": {
         "$type": "HashCrypt",
         "Title": "奪われた学園 ～罠に落ちた優等生～"
@@ -1443,6 +1671,16 @@
         "OddBranchOrder": "AwUEAAIB",
         "EvenBranchOrder": "BwABBAUCAwY=",
         "ControlBlockName": "wagamama_en.bin"
+    },
+    "Wagamama High Spec [Steam]": {
+        "$type": "CxEncryption",
+        "Mask": 302,
+        "Offset": 1387,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AwUCBAEA",
+        "EvenBranchOrder": "BwYEAwUBAAI=",
+        "ControlBlockName": "wagamama_steam.bin",
+        "Title": "ワガママハイスペック [Steam]"
     },
     "Wagamama High Spec OC": {
         "$type": "CxEncryption",

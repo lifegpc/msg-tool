@@ -1,4 +1,5 @@
 use crate::simple_pack::SimplePack;
+use std::collections::HashSet;
 use std::path::Path;
 
 /// Generate crypt.json.zst from crypt.json with minimum format
@@ -33,8 +34,13 @@ pub fn gen_cx_cb<P: AsRef<Path> + ?Sized, D: AsRef<Path> + ?Sized>(
     let json = json::parse(&json_data)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     let mut pack = SimplePack::new(&outdir.as_ref().join("cx_cb.pck"))?;
+    let mut seen_files = HashSet::new();
     for (_, obj) in json.entries() {
         if let Some(name) = obj["ControlBlockName"].as_str() {
+            if seen_files.contains(name) {
+                continue;
+            }
+            seen_files.insert(name.to_string());
             let file_path = pb.join(name);
             if !file_path.exists() {
                 return Err(std::io::Error::new(
@@ -43,6 +49,13 @@ pub fn gen_cx_cb<P: AsRef<Path> + ?Sized, D: AsRef<Path> + ?Sized>(
                 ));
             }
             let file = std::fs::File::open(file_path)?;
+            let file_size = file.metadata()?.len();
+            if file_size != 4096 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("File size must be 4096 bytes: {}", name),
+                ));
+            }
             let file = std::io::BufReader::new(file);
             pack.add_file(name, file)?;
         }
