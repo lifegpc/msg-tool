@@ -829,60 +829,67 @@ impl SenrenCxCrypt {
             names_section_id,
         })
     }
-    fn read_yuzu_names(&self, archive: &mut Xp3Archive) -> Result<()> {
-        if let Some(section) = archive
-            .extras
-            .iter()
-            .find(|s| s.tag == self.names_section_id)
+
+    fn read_yuzu_names(
+        reader: Box<dyn ReadDebug>,
+        unpacked_size: u32,
+    ) -> Result<(HashMap<u32, String>, HashMap<String, String>)> {
+        let mut decoded = MemWriter::with_capacity(unpacked_size as usize);
         {
-            let mut sreader = MemReaderRef::new(&section.data);
-            let offset = sreader.read_u64()? + archive.base_offset;
-            let unpacked_size = sreader.read_u32()?;
-            let packed_size = sreader.read_u32()?;
-            let index_stream =
-                MutexWrapper::new(archive.inner.clone(), offset).take(packed_size as u64);
-            let mut decoded = MemWriter::from_vec(Vec::with_capacity(unpacked_size as usize));
-            {
-                let mut decoder = flate2::read::ZlibDecoder::new(index_stream);
-                std::io::copy(&mut decoder, &mut decoded)?;
-            }
-            let decoded = decoded.into_inner();
-            let mut reader = MemReader::new(decoded);
-            let mut hash_map = HashMap::new();
-            let mut md5_map = HashMap::new();
-            let mut dir_offset = 0u64;
-            while !reader.is_eof() {
-                let _entry_sign = reader.read_u32()?;
-                let mut entry_size = reader.read_u64()?;
-                dir_offset += 12 + entry_size;
-                let hash = reader.read_u32()?;
-                let name_len = reader.read_u16()?;
-                entry_size -= 6;
-                if (name_len as u64) * 2 <= entry_size {
-                    let name = reader.read_exact_vec((name_len) as usize * 2)?;
-                    let name = decode_to_string(Encoding::Utf16LE, &name, true)?;
-                    if !hash_map.contains_key(&hash) {
-                        hash_map.insert(hash, name.clone());
-                    }
-                    let encoded =
-                        encode_string(Encoding::Utf16LE, &name.to_ascii_lowercase(), true)?;
-                    let md5 = format!("{:x}", md5::compute(encoded));
-                    md5_map.insert(md5, name);
+            let mut decoder = flate2::read::ZlibDecoder::new(reader);
+            std::io::copy(&mut decoder, &mut decoded)?;
+        }
+        let decoded = decoded.into_inner();
+        let mut reader = MemReader::new(decoded);
+        let mut hash_map = HashMap::new();
+        let mut md5_map = HashMap::new();
+        let mut dir_offset = 0u64;
+        while !reader.is_eof() {
+            let _entry_sign = reader.read_u32()?;
+            let mut entry_size = reader.read_u64()?;
+            dir_offset += 12 + entry_size;
+            let hash = reader.read_u32()?;
+            let name_len = reader.read_u16()?;
+            entry_size -= 6;
+            if (name_len as u64) * 2 <= entry_size {
+                let name = reader.read_exact_vec((name_len) as usize * 2)?;
+                let name = decode_to_string(Encoding::Utf16LE, &name, true)?;
+                if !hash_map.contains_key(&hash) {
+                    hash_map.insert(hash, name.clone());
                 }
-                reader.pos = dir_offset as usize;
-                md5_map.insert("$".into(), "startup.tjs".into());
+                let encoded = encode_string(Encoding::Utf16LE, &name.to_ascii_lowercase(), true)?;
+                let md5 = format!("{:x}", md5::compute(encoded));
+                md5_map.insert(md5, name);
             }
-            for entry in archive.entries.iter_mut() {
-                if let Some(name) = hash_map.get(&entry.file_hash) {
-                    entry.name = name.clone();
-                } else if let Some(name) = md5_map.get(&entry.name) {
-                    entry.name = name.clone();
-                }
+            reader.pos = dir_offset as usize;
+            md5_map.insert("$".into(), "startup.tjs".into());
+        }
+        Ok((hash_map, md5_map))
+    }
+}
+
+fn read_yuzu_names<T>(archive: &mut Xp3Archive, names_section_id: &str, convert: T) -> Result<()>
+where
+    T: FnOnce(Box<dyn ReadDebug>, u32) -> Result<(HashMap<u32, String>, HashMap<String, String>)>,
+{
+    if let Some(section) = archive.extras.iter().find(|s| s.tag == names_section_id) {
+        let mut sreader = MemReaderRef::new(&section.data);
+        let offset = sreader.read_u64()? + archive.base_offset;
+        let unpacked_size = sreader.read_u32()?;
+        let packed_size = sreader.read_u32()?;
+        let index_stream =
+            MutexWrapper::new(archive.inner.clone(), offset).take(packed_size as u64);
+        let (hash_map, md5_map) = convert(Box::new(index_stream), unpacked_size)?;
+        for entry in archive.entries.iter_mut() {
+            if let Some(name) = hash_map.get(&entry.file_hash) {
+                entry.name = name.clone();
+            } else if let Some(name) = md5_map.get(&entry.name) {
+                entry.name = name.clone();
             }
         }
-        archive.extras.retain(|s| s.tag != self.names_section_id);
-        Ok(())
     }
+    archive.extras.retain(|s| s.tag != names_section_id);
+    Ok(())
 }
 
 icx_enc_impl!(SenrenCxCrypt);
@@ -892,7 +899,11 @@ impl Crypt for Arc<SenrenCxCrypt> {
     base_schema_impl!();
     fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
         default_init_crypt(archive)?;
-        self.read_yuzu_names(archive)
+        read_yuzu_names(
+            archive,
+            &self.names_section_id,
+            SenrenCxCrypt::read_yuzu_names,
+        )
     }
     fn decrypt_supported(&self) -> bool {
         true
@@ -1032,7 +1043,170 @@ impl Crypt for Arc<CabbageCxCrypt> {
     base_schema_impl!();
     fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
         default_init_crypt(archive)?;
-        self.base.read_yuzu_names(archive)
+        read_yuzu_names(
+            archive,
+            &self.base.names_section_id,
+            SenrenCxCrypt::read_yuzu_names,
+        )
+    }
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+}
+
+#[derive(Debug)]
+struct NanaDecryptor {
+    state: [u32; 27],
+    seed: u64,
+}
+
+impl NanaDecryptor {
+    fn new(key: &[u32], seed1: u32, seed2: u32) -> Self {
+        let mut state = [0u32; 27];
+        let seed = (seed2 as u64) << 32 | (seed1 as u64);
+        let mut s = [0u32; 3];
+        let mut k = key[0];
+        s[0] = key[1];
+        s[1] = key[2];
+        s[2] = key[3];
+        state[0] = k;
+        let mut dst = 1;
+        for i in 0..26usize {
+            let src = i % 3;
+            let m = s[src].rotate_right(8);
+            let n = (i as u32) ^ k.wrapping_add(m);
+            k = n ^ k.rotate_left(3);
+            state[dst] = k;
+            dst += 1;
+            s[src] = n;
+        }
+        Self { state, seed }
+    }
+
+    fn decrypt(&self, data: &mut [u8]) {
+        let mut i = 0;
+        let mut offset = 0;
+        let mut length = data.len();
+        while length > 0 {
+            offset += 1;
+            let mut key = self.transform_key(offset ^ self.seed);
+            let count = std::cmp::min(length, 8);
+            for _ in 0..count {
+                data[i] ^= (key & 0xFF) as u8;
+                key >>= 8;
+                i += 1;
+            }
+            length -= count;
+        }
+    }
+
+    fn transform_key(&self, key: u64) -> u64 {
+        let mut lo = (key & 0xFFFFFFFF) as u32;
+        let mut hi = (key >> 32) as u32;
+        for i in 0..27 {
+            hi = hi.rotate_right(8);
+            hi = hi.wrapping_add(lo);
+            hi ^= self.state[i];
+            lo = lo.rotate_left(3);
+            lo ^= hi;
+        }
+        (hi as u64) << 32 | (lo as u64)
+    }
+}
+
+#[derive(Debug)]
+pub struct NanaCxCrypt {
+    base: SenrenCxCrypt,
+    decryptor: NanaDecryptor,
+}
+
+impl AsRef<BaseSchema> for NanaCxCrypt {
+    fn as_ref(&self) -> &BaseSchema {
+        self.base.as_ref()
+    }
+}
+
+impl NanaCxCrypt {
+    pub fn new(
+        base: BaseSchema,
+        schema: &CxSchema,
+        filename: &str,
+        names_section_id: String,
+        random_seed: u32,
+        yuz_key: &[u32],
+    ) -> Result<Arc<Self>> {
+        if yuz_key.len() != 6 {
+            return Err(anyhow::anyhow!(
+                "Invalid Yuzu keys for NanaCxCrypt: expected 6, got {}",
+                yuz_key.len()
+            ));
+        }
+        let cx = SenrenCxCrypt::new_inner(
+            base,
+            schema,
+            filename,
+            Box::new(CxProgramNanaBuilder::new(random_seed)),
+            names_section_id,
+        )?;
+        let decryptor = NanaDecryptor::new(yuz_key, yuz_key[4], yuz_key[5]);
+        Ok(Arc::new(Self {
+            base: cx,
+            decryptor,
+        }))
+    }
+
+    fn read_yuzu_names(
+        &self,
+        mut reader: Box<dyn ReadDebug>,
+        unpacked_size: u32,
+    ) -> Result<(HashMap<u32, String>, HashMap<String, String>)> {
+        let mut prefix = Vec::with_capacity(0x100);
+        (&mut reader).take(0x100).read_to_end(&mut prefix)?;
+        self.decryptor.decrypt(&mut prefix);
+        let reader = Box::new(PrefixStream::new(prefix, reader));
+        SenrenCxCrypt::read_yuzu_names(reader, unpacked_size)
+    }
+}
+
+icx_enc_impl!(NanaCxCrypt);
+icx_enc_arc_impl!(NanaCxCrypt);
+
+impl Crypt for Arc<NanaCxCrypt> {
+    base_schema_impl!();
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        default_init_crypt(archive)?;
+        read_yuzu_names(
+            archive,
+            &self.base.names_section_id,
+            |reader, unpacked_size| self.read_yuzu_names(reader, unpacked_size),
+        )
     }
     fn decrypt_supported(&self) -> bool {
         true

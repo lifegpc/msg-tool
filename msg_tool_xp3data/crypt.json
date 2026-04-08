@@ -416,6 +416,48 @@
         "ControlBlockName": "grisaia_vol2.bin",
         "Title": "グリザイア ファントムトリガー Vol. 2 | 灰色幻影扳机第2卷 | 灰色：幻影扳机 Vol. 2"
     },
+    "Grisaia: Phantom Trigger Vol.3": {
+        "$type": "NanaCxCrypt",
+        "Mask": 501,
+        "Offset": 174,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgUDBAEA",
+        "EvenBranchOrder": "AAIDAQUGBwQ=",
+        "StartupTjsNotEncrypted": true,
+        "NamesSectionId": "dls:",
+        "RandomSeed": 2463534242,
+        "YuzKey": [
+            3868544114,
+            706082328,
+            1479507413,
+            605919492,
+            3150100769,
+            4251163583
+        ],
+        "ControlBlockName": "grisaia_vol3.bin",
+        "Title": "グリザイア ファントムトリガー Vol. 3 | 灰色幻影扳机第3卷 | 灰色：幻影扳机 Vol. 3"
+    },
+    "Grisaia: Phantom Trigger Vol.4": {
+        "$type": "NanaCxCrypt",
+        "Mask": 501,
+        "Offset": 174,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgUDBAEA",
+        "EvenBranchOrder": "AAIDAQUGBwQ=",
+        "StartupTjsNotEncrypted": true,
+        "NamesSectionId": "dls:",
+        "RandomSeed": 2463534242,
+        "YuzKey": [
+            3868544114,
+            706082328,
+            1479507413,
+            605919492,
+            3150100769,
+            4251163583
+        ],
+        "ControlBlockName": "grisaia_vol4.bin",
+        "Title": "グリザイア ファントムトリガー Vol. 4 | 灰色幻影扳机第4卷 | 灰色：幻影扳机 Vol. 4"
+    },
     "Grisaia: Phantom Trigger Vol.5": {
         "$type": "CxEncryption",
         "Mask": 389,
@@ -475,6 +517,27 @@
         "EvenBranchOrder": "AgcBBQYEAAM=",
         "TpmFileName": "plugin/hatsujosw.tpm",
         "Title": "発情スイッチ ～美姉妹が催眠術に堕ちた先～"
+    },
+    "Haruoto Alice＊Gram": {
+        "$type": "NanaCxCrypt",
+        "Mask": 572,
+        "Offset": 109,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgUDBAEA",
+        "EvenBranchOrder": "AAIDAQUGBwQ=",
+        "StartupTjsNotEncrypted": true,
+        "NamesSectionId": "dls:",
+        "RandomSeed": 2463534242,
+        "YuzKey": [
+            1406040976,
+            3200797355,
+            1926882100,
+            1303657607,
+            3795909009,
+            676609281
+        ],
+        "ControlBlockName": "haruoto.bin",
+        "Title": "春音アリス＊グラム | 春音Alice＊Gram"
     },
     "Haze Man -The Local Hero-": {
         "$type": "CxEncryption",
@@ -1018,6 +1081,27 @@
     "Mizukoi": {
         "$type": "FlyingShineCrypt",
         "Title": "水恋～みずこい～"
+    },
+    "Momoiro Closet": {
+        "$type": "NanaCxCrypt",
+        "Mask": 408,
+        "Offset": 242,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgUDBAEA",
+        "EvenBranchOrder": "AAIDAQUGBwQ=",
+        "StartupTjsNotEncrypted": true,
+        "NamesSectionId": "dls:",
+        "RandomSeed": 2463534242,
+        "YuzKey": [
+            1532499583,
+            1492364298,
+            3985974824,
+            3368303250,
+            1642426535,
+            742252838
+        ],
+        "ControlBlockName": "momoiro.bin",
+        "Title": "ももいろクローゼット"
     },
     "Momoiro Closet [English]": {
         "$type": "CxEncryption",

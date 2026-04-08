@@ -137,6 +137,14 @@ enum CryptType {
         names_section_id: String,
         random_seed: u32,
     },
+    #[serde(rename_all = "PascalCase")]
+    NanaCxCrypt {
+        #[serde(flatten)]
+        cx: CxSchema,
+        names_section_id: String,
+        random_seed: u32,
+        yuz_key: Vec<u32>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -191,6 +199,19 @@ impl Schema {
                 filename,
                 names_section_id.clone(),
                 *random_seed,
+            )?),
+            CryptType::NanaCxCrypt {
+                cx,
+                names_section_id,
+                random_seed,
+                yuz_key,
+            } => Box::new(cx::NanaCxCrypt::new(
+                self.base.clone(),
+                cx,
+                filename,
+                names_section_id.clone(),
+                *random_seed,
+                &yuz_key,
             )?),
         })
     }
