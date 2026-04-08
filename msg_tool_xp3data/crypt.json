@@ -197,6 +197,28 @@
         "Key": 49,
         "Title": "僕の未来は、恋と課金と。～Charge To The Future～ [体験版] | 我的未来是恋爱与氪金 [试用版]"
     },
+    "Café Stella to Shinigami no Chou": {
+        "$type": "RiddleCxCrypt",
+        "Mask": 622,
+        "Offset": 146,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgUDBAEA",
+        "EvenBranchOrder": "AAIDAQUGBwQ=",
+        "NamesSectionId": "yuz:",
+        "RandomSeed": 2463534242,
+        "YuzKey": [
+            2660206490,
+            3437206417,
+            2258490061,
+            2497682059,
+            666440252,
+            2154974748
+        ],
+        "Key1": 1180159099,
+        "Key2": 2773455888,
+        "ControlBlockName": "cafe_stella.bin",
+        "Title": "喫茶ステラと死神の蝶 | 星光咖啡馆与死神之蝶 | 星光咖啡館與死神之蝶"
+    },
     "Chikan Yuugi": {
         "$type": "CxEncryption",
         "Mask": 531,
@@ -1370,6 +1392,26 @@
         "ControlBlockName": "riajuu.bin",
         "Title": "リア充催眠～リアルが充実する催眠生活はじめました。～",
         "ObfuscatedIndex": true
+    },
+    "Riddle Joker": {
+        "$type": "RiddleCxCrypt",
+        "Mask": 280,
+        "Offset": 271,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgUDBAEA",
+        "EvenBranchOrder": "AAIDAQUGBwQ=",
+        "StartupTjsNotEncrypted": true,
+        "NamesSectionId": "yuz:",
+        "RandomSeed": 2463534242,
+        "YuzKey": [
+            2660206490,
+            3437206417,
+            2258490061,
+            2497682059,
+            3184993560,
+            3577860684
+        ],
+        "ControlBlockName": "riddle.bin"
     },
     "Riddle Joker [Steam]": {
         "$type": "CxEncryption",

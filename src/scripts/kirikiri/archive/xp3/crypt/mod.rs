@@ -145,6 +145,18 @@ enum CryptType {
         random_seed: u32,
         yuz_key: Vec<u32>,
     },
+    #[serde(rename_all = "PascalCase")]
+    RiddleCxCrypt {
+        #[serde(flatten)]
+        cx: CxSchema,
+        names_section_id: String,
+        random_seed: u32,
+        yuz_key: Vec<u32>,
+        #[serde(default)]
+        key1: u32,
+        #[serde(default)]
+        key2: u32,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -212,6 +224,23 @@ impl Schema {
                 names_section_id.clone(),
                 *random_seed,
                 &yuz_key,
+            )?),
+            CryptType::RiddleCxCrypt {
+                cx,
+                names_section_id,
+                random_seed,
+                yuz_key,
+                key1,
+                key2,
+            } => Box::new(cx::RiddleCxCrypt::new(
+                self.base.clone(),
+                cx,
+                filename,
+                names_section_id.clone(),
+                *random_seed,
+                &yuz_key,
+                *key1,
+                *key2,
             )?),
         })
     }

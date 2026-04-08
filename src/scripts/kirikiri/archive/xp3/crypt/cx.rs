@@ -1,5 +1,6 @@
 use super::*;
 use anyhow::Result;
+use overf::wrapping as w;
 use std::path::PathBuf;
 use std::sync::Weak;
 
@@ -546,7 +547,10 @@ trait ICxProgram: std::fmt::Debug {
     fn emit_nop(&mut self, count: usize) -> bool;
     fn emit(&mut self, bytecode: CxByteCode, length: usize) -> bool;
     fn emit_u32(&mut self, x: u32) -> bool;
-    fn emit_random(&mut self) -> bool;
+    fn emit_random(&mut self) -> bool {
+        let random = self.get_random();
+        self.emit_u32(random)
+    }
     fn get_random(&mut self) -> u32;
 }
 
@@ -720,11 +724,6 @@ impl ICxProgram for CxProgram {
         self.code.push(x);
         self.length += 4;
         return true;
-    }
-
-    fn emit_random(&mut self) -> bool {
-        let random = self.get_random();
-        self.emit_u32(random)
     }
 
     fn get_random(&mut self) -> u32 {
@@ -973,10 +972,6 @@ impl ICxProgram for CxProgramNana {
     fn emit_u32(&mut self, x: u32) -> bool {
         self.base.emit_u32(x)
     }
-    fn emit_random(&mut self) -> bool {
-        let random = self.get_random();
-        self.emit_u32(random)
-    }
     fn get_random(&mut self) -> u32 {
         let mut s = self.base.seed ^ (self.base.seed << 17);
         s ^= (s << 18) | (s >> 15);
@@ -1199,6 +1194,284 @@ icx_enc_impl!(NanaCxCrypt);
 icx_enc_arc_impl!(NanaCxCrypt);
 
 impl Crypt for Arc<NanaCxCrypt> {
+    base_schema_impl!();
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        default_init_crypt(archive)?;
+        read_yuzu_names(
+            archive,
+            &self.base.names_section_id,
+            |reader, unpacked_size| self.read_yuzu_names(reader, unpacked_size),
+        )
+    }
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+}
+
+#[derive(Debug)]
+struct YuzDecryptor {
+    state: [u8; 64],
+}
+
+impl YuzDecryptor {
+    fn new(key1: &[u32], key2: &[u32], seed1: u32, seed2: u32) -> Self {
+        let mut state = [0u8; 64];
+        for i in 0..4 {
+            state[i * 4..i * 4 + 4].copy_from_slice(&key2[i].to_le_bytes());
+        }
+        for i in 0..8 {
+            state[i * 4 + 16..i * 4 + 20].copy_from_slice(&key1[i].to_le_bytes());
+        }
+        let t: u32 = !0;
+        state[48..52].copy_from_slice(&t.to_le_bytes());
+        state[52..56].copy_from_slice(&t.to_le_bytes());
+        state[56..60].copy_from_slice(&(!seed1).to_le_bytes());
+        state[60..64].copy_from_slice(&(!seed2).to_le_bytes());
+        Self { state }
+    }
+
+    fn decrypt(&self, data: &mut [u8]) {
+        let mut state1 = [0u8; 64];
+        let mut state2 = [0u8; 64];
+        let mut i = 0;
+        let mut offset: u64 = 0;
+        let mut length = data.len();
+        while length > 0 {
+            state1.copy_from_slice(&self.state);
+            state1[48..56].copy_from_slice(&(!offset).to_le_bytes());
+            offset += 1;
+            Self::transform_state(&state1, &mut state2, 8);
+            let count = length.min(0x40);
+            for j in 0..count {
+                data[i] ^= state2[j];
+                i += 1;
+            }
+            length -= count;
+        }
+    }
+
+    fn transform_state(state: &[u8], target: &mut [u8], length: usize) {
+        let mut tmp = [0u32; 16];
+        for i in 0..16 {
+            tmp[i] = !u32::from_le_bytes([
+                state[i * 4],
+                state[i * 4 + 1],
+                state[i * 4 + 2],
+                state[i * 4 + 3],
+            ]);
+        }
+        if length > 0 {
+            for _ in 0..((length - 1) >> 1) + 1 {
+                let mut t1 = w!(tmp[4] + tmp[0]);
+                let mut t2 = (t1 ^ tmp[12]).rotate_left(16);
+                let mut t3 = w!(t2 + tmp[8]);
+                let mut t4 = (tmp[4] ^ t3).rotate_left(12);
+                let mut t5 = w!(t4 + t1);
+                let mut t6 = (t5 ^ t2).rotate_left(8);
+                tmp[12] = t6;
+                w!(t6 += t3);
+                tmp[4] = (t4 ^ t6).rotate_left(7);
+                t4 = (w!(tmp[5] + tmp[1]) ^ tmp[13]).rotate_left(16);
+                t3 = (tmp[5] ^ w!(t4 + tmp[9])).rotate_left(12);
+                t2 = w!(t3 + tmp[5] + tmp[1]);
+                tmp[13] = (t2 ^ t4).rotate_left(8);
+                w!(tmp[9] += tmp[13] + t4);
+                tmp[5] = (t3 ^ tmp[9]).rotate_left(7);
+                t4 = (w!(tmp[6] + tmp[2]) ^ tmp[14]).rotate_left(16);
+                w!(tmp[10] += t4);
+                t1 = (tmp[6] ^ tmp[10]).rotate_left(12);
+                t3 = w!(t1 + tmp[6] + tmp[2]);
+                tmp[14] = (t3 ^ t4).rotate_left(8);
+                tmp[6] = (t1 ^ w!(tmp[14] + tmp[10])).rotate_left(7);
+                w!(tmp[10] += tmp[14]);
+                t4 = w!(tmp[7] + tmp[3]) ^ tmp[15];
+                w!(tmp[3] += tmp[7]);
+                t4 = t4.rotate_left(16);
+                w!(tmp[11] += t4);
+                t1 = (tmp[7] ^ tmp[11]).rotate_left(12);
+                t4 ^= w!(t1 + tmp[3]);
+                w!(tmp[3] += t1);
+                t4 = t4.rotate_left(8);
+                w!(tmp[11] += t4);
+                t1 = (t1 ^ tmp[11]).rotate_left(7);
+                w!(t5 += tmp[5]);
+                w!(t2 += tmp[6]);
+                t4 = (t5 ^ t4).rotate_left(16);
+                w!(tmp[10] += t4);
+                tmp[5] = (tmp[5] ^ tmp[10]).rotate_left(12);
+                tmp[0] = w!(tmp[5] + t5);
+                t4 = (tmp[0] ^ t4).rotate_left(8);
+                tmp[15] = t4;
+                w!(tmp[10] += t4);
+                tmp[5] = (tmp[5] ^ tmp[10]).rotate_left(7);
+                tmp[12] = (tmp[12] ^ t2).rotate_left(16);
+                w!(tmp[11] += tmp[12]);
+                t4 = (tmp[11] ^ tmp[6]).rotate_left(12);
+                tmp[1] = w!(t4 + t2);
+                tmp[12] = (tmp[12] ^ tmp[1]).rotate_left(8);
+                w!(tmp[11] += tmp[12]);
+                tmp[6] = (t4 ^ tmp[11]).rotate_left(7);
+                w!(t3 += t1);
+                t4 = (tmp[13] ^ t3).rotate_left(16);
+                t2 = w!(t4 + t6);
+                t1 = (t2 ^ t1).rotate_left(12);
+                tmp[2] = w!(t1 + t3);
+                tmp[13] = (t4 ^ tmp[2]).rotate_left(8);
+                tmp[8] = w!(tmp[13] + t2);
+                tmp[7] = (tmp[8] ^ t1).rotate_left(7);
+                t6 = (tmp[14] ^ w!(tmp[4] + tmp[3])).rotate_left(16);
+                t1 = (tmp[4] ^ w!(t6 + tmp[9])).rotate_left(12);
+                w!(tmp[3] += t1 + tmp[4]);
+                t3 = (t6 ^ tmp[3]).rotate_left(8);
+                w!(tmp[9] += t3 + t6);
+                tmp[4] = (t1 ^ tmp[9]).rotate_left(7);
+                tmp[14] = t3;
+            }
+        }
+        let mut pos = 0;
+        for i in 0..16 {
+            let d =
+                !u32::from_le_bytes([state[pos], state[pos + 1], state[pos + 2], state[pos + 3]]);
+            let d = w!(tmp[i] + d);
+            target[pos..pos + 4].copy_from_slice(&d.to_le_bytes());
+            pos += 4;
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RiddleCxCrypt {
+    base: SenrenCxCrypt,
+    decryptor: YuzDecryptor,
+    key1: u32,
+    key2: u32,
+}
+
+impl AsRef<BaseSchema> for RiddleCxCrypt {
+    fn as_ref(&self) -> &BaseSchema {
+        self.base.as_ref()
+    }
+}
+
+impl RiddleCxCrypt {
+    pub fn new(
+        base: BaseSchema,
+        schema: &CxSchema,
+        filename: &str,
+        names_section_id: String,
+        random_seed: u32,
+        yuz_key: &[u32],
+        key1: u32,
+        key2: u32,
+    ) -> Result<Arc<Self>> {
+        if yuz_key.len() != 6 {
+            return Err(anyhow::anyhow!(
+                "Invalid Yuzu keys for RiddleCxCrypt: expected 6, got {}",
+                yuz_key.len()
+            ));
+        }
+        let cx = SenrenCxCrypt::new_inner(
+            base,
+            schema,
+            filename,
+            Box::new(CxProgramNanaBuilder::new(random_seed)),
+            names_section_id,
+        )?;
+        let control_block = cx.base.control_block.as_ref();
+        let decryptor = YuzDecryptor::new(&control_block, yuz_key, yuz_key[4], yuz_key[5]);
+        Ok(Arc::new(Self {
+            base: cx,
+            decryptor,
+            key1,
+            key2,
+        }))
+    }
+
+    fn get_key_from_hash(&self, key: u32) -> u64 {
+        let lo = key ^ self.key2;
+        let mut hi = (key << 13) ^ key;
+        hi ^= hi >> 17;
+        hi ^= (hi << 5) ^ self.key1;
+        ((hi as u64) << 32) | (lo as u64)
+    }
+
+    fn read_yuzu_names(
+        &self,
+        mut reader: Box<dyn ReadDebug>,
+        unpacked_size: u32,
+    ) -> Result<(HashMap<u32, String>, HashMap<String, String>)> {
+        let mut prefix = Vec::with_capacity(0x100);
+        (&mut reader).take(0x100).read_to_end(&mut prefix)?;
+        self.decryptor.decrypt(&mut prefix);
+        let reader = Box::new(PrefixStream::new(prefix, reader));
+        SenrenCxCrypt::read_yuzu_names(reader, unpacked_size)
+    }
+}
+
+impl ICxEncryption for RiddleCxCrypt {
+    fn get_base_offset(&self, hash: u32) -> u32 {
+        self.base.get_base_offset(hash)
+    }
+    fn inner_decrypt(
+        &self,
+        key: u32,
+        offset: u64,
+        buffer: &mut [u8],
+        pos: usize,
+        count: usize,
+    ) -> Result<()> {
+        if offset < 8 && count > 0 {
+            let mut key = self.get_key_from_hash(key);
+            key >>= offset << 3;
+            let first_chunk = count.min(8 - offset as usize);
+            for i in 0..first_chunk {
+                buffer[pos + i] ^= (key & 0xFF) as u8;
+                key >>= 8;
+            }
+        }
+        self.base.inner_decrypt(key, offset, buffer, pos, count)
+    }
+    fn decode(
+        &self,
+        key: u32,
+        offset: u64,
+        buffer: &mut [u8],
+        pos: usize,
+        count: usize,
+    ) -> Result<()> {
+        self.base.decode(key, offset, buffer, pos, count)
+    }
+}
+icx_enc_arc_impl!(RiddleCxCrypt);
+
+impl Crypt for Arc<RiddleCxCrypt> {
     base_schema_impl!();
     fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
         default_init_crypt(archive)?;
