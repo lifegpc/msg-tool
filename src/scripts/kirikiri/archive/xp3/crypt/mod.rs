@@ -124,6 +124,12 @@ enum CryptType {
     },
     FlyingShineCrypt,
     CxEncryption(CxSchema),
+    #[serde(rename_all = "PascalCase")]
+    SenrenCxCrypt {
+        #[serde(flatten)]
+        cx: CxSchema,
+        names_section_id: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -159,6 +165,15 @@ impl Schema {
             CryptType::CxEncryption(schema) => {
                 Box::new(cx::CxEncryption::new(self.base.clone(), &schema, filename)?)
             }
+            CryptType::SenrenCxCrypt {
+                cx,
+                names_section_id,
+            } => Box::new(cx::SenrenCxCrypt::new(
+                self.base.clone(),
+                cx,
+                filename,
+                names_section_id.clone(),
+            )?),
         })
     }
 }
@@ -600,9 +615,6 @@ impl<R: Read> Read for FlyingShineCryptReader<R> {
         Ok(readed)
     }
 }
-
-// extended in cx.rs
-seek_reader_key_impl!(CxEncryptionReader<T>, (u32, Arc<cx::CxEncryption>));
 
 #[test]
 fn test_deserialize_crypt() {

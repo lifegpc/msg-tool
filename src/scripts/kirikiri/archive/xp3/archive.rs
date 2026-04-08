@@ -90,6 +90,18 @@ impl PartialEq<&[u8; 4]> for PropTag {
     }
 }
 
+impl PartialEq<String> for PropTag {
+    fn eq(&self, other: &String) -> bool {
+        self.tag == other.as_bytes()
+    }
+}
+
+impl PartialEq<&str> for PropTag {
+    fn eq(&self, other: &&str) -> bool {
+        self.tag == other.as_bytes()
+    }
+}
+
 impl ExtraProp {
     pub fn is_filename_hash(&self) -> bool {
         self.tag == CHUNK_HNFN

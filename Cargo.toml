@@ -35,6 +35,7 @@ libtlg-rs = { version = "0.2", optional = true, features = ["encode"] }
 lz4 = { version = "1.28", optional = true }
 markup5ever = { version = "0.38", optional = true }
 markup5ever_rcdom = { version = "0.38", optional = true }
+md5 = { version = "0.8", optional = true }
 memchr = { version = "2.7", optional = true }
 mozjpeg = { version = "0.10", optional = true }
 msg_tool_macro = { path = "./msg_tool_macro" }
@@ -94,7 +95,7 @@ hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "adler", "bytes", "fastcdc", "flate2", "int-enum", "msg_tool_xp3data", "parse-size", "sha2", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
+kirikiri-arc = ["kirikiri", "adler", "bytes", "fastcdc", "flate2", "int-enum", "md5", "msg_tool_xp3data", "parse-size", "sha2", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 musica = []
 musica-arc = ["musica", "crc32fast", "flate2", "include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]

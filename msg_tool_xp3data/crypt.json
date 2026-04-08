@@ -1378,6 +1378,17 @@
         "$type": "HashCrypt",
         "Title": "閃電の守護騎士ニィナ"
     },
+    "Senren＊Banka": {
+        "$type": "SenrenCxCrypt",
+        "Mask": 308,
+        "Offset": 1846,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AwECBAAF",
+        "EvenBranchOrder": "BwQDBgIAAQU=",
+        "NamesSectionId": "sen:",
+        "ControlBlockName": "senren_banka.bin",
+        "Title": "千恋＊万花 | 千戀＊萬花"
+    },
     "Shikijou Kyoudan": {
         "$type": "HashCrypt",
         "Title": "色情教団 | 妃神会秘史"

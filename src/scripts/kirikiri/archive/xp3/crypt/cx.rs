@@ -8,13 +8,13 @@ const S_CTL_BLOCK_SIGNATURE: &[u8] = b" Encryption control block";
 macro_rules! base_schema_impl {
     () => {
         fn hash_after_crypt(&self) -> bool {
-            self.base.hash_after_crypt
+            AsRef::<BaseSchema>::as_ref(self.as_ref()).hash_after_crypt
         }
         fn startup_tjs_not_encrypted(&self) -> bool {
-            self.base.startup_tjs_not_encrypted
+            AsRef::<BaseSchema>::as_ref(self.as_ref()).startup_tjs_not_encrypted
         }
         fn obfuscated_index(&self) -> bool {
-            self.base.obfuscated_index
+            AsRef::<BaseSchema>::as_ref(self.as_ref()).obfuscated_index
         }
     };
 }
@@ -27,12 +27,60 @@ pub struct CxEncryption {
     odd_branch_order: Vec<u8>,
     even_branch_order: Vec<u8>,
     control_block: Arc<Vec<u32>>,
-    programs: Vec<CxProgram>,
+    programs: Vec<Box<dyn ICxProgram>>,
+    program_builder: Box<dyn ICxProgramBuilder>,
     base: BaseSchema,
+}
+
+trait ICxEncryption: std::fmt::Debug {
+    fn get_base_offset(&self, hash: u32) -> u32;
+    fn inner_decrypt(
+        &self,
+        mut key: u32,
+        mut offset: u64,
+        buffer: &mut [u8],
+        mut pos: usize,
+        mut count: usize,
+    ) -> Result<()> {
+        let base_offset = self.get_base_offset(key);
+        if offset < base_offset as u64 {
+            let base_length = ((base_offset as u64 - offset) as usize).min(count);
+            self.decode(key, offset, buffer, pos, base_length)?;
+            offset += base_length as u64;
+            pos += base_length;
+            count -= base_length;
+        }
+        if count > 0 {
+            key = (key >> 16) ^ key;
+            self.decode(key, offset, buffer, pos, count)?;
+        }
+        Ok(())
+    }
+    fn decode(
+        &self,
+        key: u32,
+        offset: u64,
+        buffer: &mut [u8],
+        pos: usize,
+        count: usize,
+    ) -> Result<()>;
 }
 
 impl CxEncryption {
     pub fn new(base: BaseSchema, schema: &CxSchema, filename: &str) -> Result<Arc<Self>> {
+        Ok(Arc::new(Self::new_inner(
+            base,
+            schema,
+            filename,
+            Box::new(CxProgramBuilder::default()),
+        )?))
+    }
+    fn new_inner(
+        base: BaseSchema,
+        schema: &CxSchema,
+        filename: &str,
+        program_builder: Box<dyn ICxProgramBuilder>,
+    ) -> Result<Self> {
         if schema.prolog_order.len() != 3 {
             return Err(anyhow::anyhow!("Prolog order must have 3 elements"));
         }
@@ -70,23 +118,20 @@ impl CxEncryption {
             even_branch_order: schema.even_branch_order.bytes.clone(),
             control_block: control_block,
             programs,
+            program_builder,
         };
         for seed in 0..0x80 {
             obj.programs.push(obj.generate_program(seed)?);
         }
-        Ok(Arc::new(obj))
+        Ok(obj)
     }
 
-    fn new_program(&self, seed: u32) -> CxProgram {
-        CxProgram {
-            code: Vec::with_capacity(CX_PROGRAM_SIZE),
-            control_block: Arc::downgrade(&self.control_block),
-            length: 0,
-            seed,
-        }
+    fn new_program(&self, seed: u32) -> Box<dyn ICxProgram> {
+        self.program_builder
+            .build(seed, Arc::downgrade(&self.control_block))
     }
 
-    fn generate_program(&self, seed: u32) -> Result<CxProgram> {
+    fn generate_program(&self, seed: u32) -> Result<Box<dyn ICxProgram>> {
         let mut program = self.new_program(seed);
         for stage in (1..=5).rev() {
             if self.emit_code(&mut program, stage) {
@@ -135,7 +180,7 @@ impl CxEncryption {
         Err(anyhow::anyhow!("TPM file not found: {}", tpm_path))
     }
 
-    fn emit_code(&self, program: &mut CxProgram, stage: i32) -> bool {
+    fn emit_code(&self, program: &mut Box<dyn ICxProgram>, stage: i32) -> bool {
         program.emit_nop(5)
             && program.emit(MovEdiArg, 4)
             && self.emit_body(program, stage)
@@ -143,7 +188,7 @@ impl CxEncryption {
             && program.emit(Retn, 1)
     }
 
-    fn emit_body(&self, program: &mut CxProgram, stage: i32) -> bool {
+    fn emit_body(&self, program: &mut Box<dyn ICxProgram>, stage: i32) -> bool {
         if stage == 1 {
             return self.emit_prolog(program);
         }
@@ -174,7 +219,7 @@ impl CxEncryption {
         self.emit_odd_branch(program) && program.emit(PopEbx, 1)
     }
 
-    fn emit_body2(&self, program: &mut CxProgram, stage: i32) -> bool {
+    fn emit_body2(&self, program: &mut Box<dyn ICxProgram>, stage: i32) -> bool {
         if stage == 1 {
             return self.emit_prolog(program);
         }
@@ -185,7 +230,7 @@ impl CxEncryption {
         };
         r && self.emit_even_branch(program)
     }
-    fn emit_prolog(&self, program: &mut CxProgram) -> bool {
+    fn emit_prolog(&self, program: &mut Box<dyn ICxProgram>) -> bool {
         match self.prolog_order[(program.get_random() % 3) as usize] {
             2 => {
                 program.emit_nop(5)
@@ -202,7 +247,7 @@ impl CxEncryption {
         }
     }
 
-    fn emit_even_branch(&self, program: &mut CxProgram) -> bool {
+    fn emit_even_branch(&self, program: &mut Box<dyn ICxProgram>) -> bool {
         match self.even_branch_order[(program.get_random() & 7) as usize] {
             0 => program.emit(NotEax, 2),
             1 => program.emit(DecEax, 1),
@@ -240,7 +285,7 @@ impl CxEncryption {
         }
     }
 
-    fn emit_odd_branch(&self, program: &mut CxProgram) -> bool {
+    fn emit_odd_branch(&self, program: &mut Box<dyn ICxProgram>) -> bool {
         match self.odd_branch_order[(program.get_random() % 6) as usize] {
             0 => {
                 program.emit(PushEcx, 1)
@@ -264,10 +309,6 @@ impl CxEncryption {
         }
     }
 
-    fn get_base_offset(&self, hash: u32) -> u32 {
-        (hash & self.mask).wrapping_add(self.offset)
-    }
-
     fn execute_xcode(&self, mut hash: u32) -> Result<(u32, u32)> {
         let seed = hash & 0x7f;
         hash >>= 7;
@@ -276,28 +317,17 @@ impl CxEncryption {
         let ret2 = program.execute(!hash)?;
         Ok((ret1, ret2))
     }
+}
 
-    fn inner_decrypt(
-        &self,
-        mut key: u32,
-        mut offset: u64,
-        buffer: &mut [u8],
-        mut pos: usize,
-        mut count: usize,
-    ) -> Result<()> {
-        let base_offset = self.get_base_offset(key);
-        if offset < base_offset as u64 {
-            let base_length = ((base_offset as u64 - offset) as usize).min(count);
-            self.decode(key, offset, buffer, pos, base_length)?;
-            offset += base_length as u64;
-            pos += base_length;
-            count -= base_length;
-        }
-        if count > 0 {
-            key = (key >> 16) ^ key;
-            self.decode(key, offset, buffer, pos, count)?;
-        }
-        Ok(())
+impl AsRef<BaseSchema> for CxEncryption {
+    fn as_ref(&self) -> &BaseSchema {
+        &self.base
+    }
+}
+
+impl ICxEncryption for CxEncryption {
+    fn get_base_offset(&self, hash: u32) -> u32 {
+        (hash & self.mask).wrapping_add(self.offset)
     }
 
     fn decode(
@@ -331,6 +361,68 @@ impl CxEncryption {
     }
 }
 
+macro_rules! icx_enc_arc_impl {
+    ($t:ident) => {
+        impl ICxEncryption for Arc<$t> {
+            fn get_base_offset(&self, hash: u32) -> u32 {
+                self.as_ref().get_base_offset(hash)
+            }
+            fn inner_decrypt(
+                &self,
+                key: u32,
+                offset: u64,
+                buffer: &mut [u8],
+                pos: usize,
+                count: usize,
+            ) -> Result<()> {
+                self.as_ref().inner_decrypt(key, offset, buffer, pos, count)
+            }
+            fn decode(
+                &self,
+                key: u32,
+                offset: u64,
+                buffer: &mut [u8],
+                pos: usize,
+                count: usize,
+            ) -> Result<()> {
+                self.as_ref().decode(key, offset, buffer, pos, count)
+            }
+        }
+    };
+}
+
+macro_rules! icx_enc_impl {
+    ($t:ident) => {
+        impl ICxEncryption for $t {
+            fn get_base_offset(&self, hash: u32) -> u32 {
+                self.base.get_base_offset(hash)
+            }
+            fn inner_decrypt(
+                &self,
+                key: u32,
+                offset: u64,
+                buffer: &mut [u8],
+                pos: usize,
+                count: usize,
+            ) -> Result<()> {
+                self.base.inner_decrypt(key, offset, buffer, pos, count)
+            }
+            fn decode(
+                &self,
+                key: u32,
+                offset: u64,
+                buffer: &mut [u8],
+                pos: usize,
+                count: usize,
+            ) -> Result<()> {
+                self.base.decode(key, offset, buffer, pos, count)
+            }
+        }
+    };
+}
+
+icx_enc_arc_impl!(CxEncryption);
+
 impl Crypt for Arc<CxEncryption> {
     base_schema_impl!();
     fn decrypt_supported(&self) -> bool {
@@ -345,7 +437,10 @@ impl Crypt for Arc<CxEncryption> {
         cur_seg: &Segment,
         stream: Box<dyn Read + 'a>,
     ) -> Result<Box<dyn ReadDebug + 'a>> {
-        let key = (entry.file_hash, self.clone());
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
     fn decrypt_with_seek<'a>(
@@ -354,7 +449,10 @@ impl Crypt for Arc<CxEncryption> {
         cur_seg: &Segment,
         stream: Box<dyn ReadSeek + 'a>,
     ) -> Result<Box<dyn ReadSeek + 'a>> {
-        let key = (entry.file_hash, self.clone());
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
 }
@@ -418,7 +516,41 @@ struct Context {
     stack: Vec<u32>,
 }
 
-impl CxProgram {
+#[derive(Debug)]
+struct CxProgramBuilder {}
+
+impl Default for CxProgramBuilder {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
+trait ICxProgramBuilder: std::fmt::Debug {
+    fn build(&self, seed: u32, control_blocks: Weak<Vec<u32>>) -> Box<dyn ICxProgram>;
+}
+
+impl ICxProgramBuilder for CxProgramBuilder {
+    fn build(&self, seed: u32, control_blocks: Weak<Vec<u32>>) -> Box<dyn ICxProgram> {
+        Box::new(CxProgram {
+            code: Vec::with_capacity(CX_PROGRAM_SIZE),
+            control_block: control_blocks,
+            length: 0,
+            seed,
+        })
+    }
+}
+
+trait ICxProgram: std::fmt::Debug {
+    fn execute(&self, hash: u32) -> Result<u32>;
+    fn clear(&mut self);
+    fn emit_nop(&mut self, count: usize) -> bool;
+    fn emit(&mut self, bytecode: CxByteCode, length: usize) -> bool;
+    fn emit_u32(&mut self, x: u32) -> bool;
+    fn emit_random(&mut self) -> bool;
+    fn get_random(&mut self) -> u32;
+}
+
+impl ICxProgram for CxProgram {
     fn execute(&self, hash: u32) -> Result<u32> {
         let mut context = Context::default();
         let mut iterator = self.code.iter();
@@ -602,7 +734,45 @@ impl CxProgram {
     }
 }
 
-impl<R: Read> Read for CxEncryptionReader<R> {
+#[derive(msg_tool_macro::MyDebug)]
+struct CxEncryptionReader<'a, T> {
+    #[skip_fmt]
+    inner: T,
+    seg_start: u64,
+    seg_size: u64,
+    pos: u64,
+    key: (u32, Box<dyn ICxEncryption + 'a>),
+}
+
+impl<'a, T: Read> CxEncryptionReader<'a, T> {
+    pub fn new(inner: T, seg: &Segment, key: (u32, Box<dyn ICxEncryption + 'a>)) -> Self {
+        Self {
+            inner,
+            seg_start: seg.offset_in_file,
+            seg_size: seg.original_size,
+            pos: 0,
+            key,
+        }
+    }
+}
+
+impl<'a, T: Read + Seek> Seek for CxEncryptionReader<'a, T> {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let new_pos: i64 = match pos {
+            SeekFrom::Start(offset) => offset as i64,
+            SeekFrom::End(offset) => self.seg_size as i64 + offset,
+            SeekFrom::Current(offset) => self.pos as i64 + offset,
+        };
+        let offset = new_pos - self.pos as i64;
+        if offset != 0 {
+            self.inner.seek(SeekFrom::Current(offset))?;
+            self.pos = new_pos as u64;
+        }
+        Ok(self.pos)
+    }
+}
+
+impl<'a, R: Read> Read for CxEncryptionReader<'a, R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let offset = self.seg_start + self.pos;
         let count = self.inner.read(buf)?;
@@ -616,5 +786,142 @@ impl<R: Read> Read for CxEncryptionReader<R> {
         }
         self.pos += count as u64;
         Ok(count)
+    }
+}
+
+#[derive(Debug)]
+pub struct SenrenCxCrypt {
+    base: CxEncryption,
+    names_section_id: String,
+}
+
+impl AsRef<BaseSchema> for SenrenCxCrypt {
+    fn as_ref(&self) -> &BaseSchema {
+        self.base.as_ref()
+    }
+}
+
+impl SenrenCxCrypt {
+    pub fn new(
+        base: BaseSchema,
+        schema: &CxSchema,
+        filename: &str,
+        names_section_id: String,
+    ) -> Result<Arc<Self>> {
+        Ok(Arc::new(Self::new_inner(
+            base,
+            schema,
+            filename,
+            Box::new(CxProgramBuilder::default()),
+            names_section_id,
+        )?))
+    }
+    fn new_inner(
+        base: BaseSchema,
+        schema: &CxSchema,
+        filename: &str,
+        program_builder: Box<dyn ICxProgramBuilder>,
+        names_section_id: String,
+    ) -> Result<Self> {
+        let cx = CxEncryption::new_inner(base, schema, filename, program_builder)?;
+        Ok(Self {
+            base: cx,
+            names_section_id,
+        })
+    }
+    fn read_yuzu_names(&self, archive: &mut Xp3Archive) -> Result<()> {
+        if let Some(section) = archive
+            .extras
+            .iter()
+            .find(|s| s.tag == self.names_section_id)
+        {
+            let mut sreader = MemReaderRef::new(&section.data);
+            let offset = sreader.read_u64()? + archive.base_offset;
+            let unpacked_size = sreader.read_u32()?;
+            let packed_size = sreader.read_u32()?;
+            let index_stream =
+                MutexWrapper::new(archive.inner.clone(), offset).take(packed_size as u64);
+            let mut decoded = MemWriter::from_vec(Vec::with_capacity(unpacked_size as usize));
+            {
+                let mut decoder = flate2::read::ZlibDecoder::new(index_stream);
+                std::io::copy(&mut decoder, &mut decoded)?;
+            }
+            let decoded = decoded.into_inner();
+            let mut reader = MemReader::new(decoded);
+            let mut hash_map = HashMap::new();
+            let mut md5_map = HashMap::new();
+            let mut dir_offset = 0u64;
+            while !reader.is_eof() {
+                let _entry_sign = reader.read_u32()?;
+                let mut entry_size = reader.read_u64()?;
+                dir_offset += 12 + entry_size;
+                let hash = reader.read_u32()?;
+                let name_len = reader.read_u16()?;
+                entry_size -= 6;
+                if (name_len as u64) * 2 <= entry_size {
+                    let name = reader.read_exact_vec((name_len) as usize * 2)?;
+                    let name = decode_to_string(Encoding::Utf16LE, &name, true)?;
+                    if !hash_map.contains_key(&hash) {
+                        hash_map.insert(hash, name.clone());
+                    }
+                    let encoded =
+                        encode_string(Encoding::Utf16LE, &name.to_ascii_lowercase(), true)?;
+                    let md5 = format!("{:x}", md5::compute(encoded));
+                    md5_map.insert(md5, name);
+                }
+                reader.pos = dir_offset as usize;
+                md5_map.insert("$".into(), "startup.tjs".into());
+            }
+            for entry in archive.entries.iter_mut() {
+                if let Some(name) = hash_map.get(&entry.file_hash) {
+                    entry.name = name.clone();
+                } else if let Some(name) = md5_map.get(&entry.name) {
+                    entry.name = name.clone();
+                }
+            }
+        }
+        archive.extras.retain(|s| s.tag != self.names_section_id);
+        Ok(())
+    }
+}
+
+icx_enc_impl!(SenrenCxCrypt);
+icx_enc_arc_impl!(SenrenCxCrypt);
+
+impl Crypt for Arc<SenrenCxCrypt> {
+    base_schema_impl!();
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        default_init_crypt(archive)?;
+        self.read_yuzu_names(archive)
+    }
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
 }
