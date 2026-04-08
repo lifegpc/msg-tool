@@ -18,7 +18,7 @@ pub use crypt::get_supported_games_with_title;
 use flate2::read::ZlibDecoder;
 use overf::wrapping;
 pub use segmenter::SegmenterConfig;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 use writer::Xp3ArchiveWriter;
 use zstd::stream::read::Decoder as ZstdDecoder;
@@ -174,6 +174,8 @@ impl Xp3Archive {
         let mut archive = archive::Xp3Archive::new(stream, config, filename)?;
         if config.xp3_debug_archive {
             println!("Debug info for {}:\n{:#?}", filename, archive);
+            // Try flush stdout.
+            let _ = std::io::stdout().flush();
         }
         archive.entries.retain(|entry| {
             let i = &entry.name;

@@ -574,6 +574,18 @@
         "$type": "HashCrypt",
         "Title": "ほら、そんなに声を漏らすと彼氏にバレちまうぜ？ ～エロゲ世界でモブの少女を寝取ってみた～"
     },
+    "Hoshi Koi * Twinkle": {
+        "$type": "CabbageCxCrypt",
+        "Mask": 701,
+        "Offset": 172,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgUDBAEA",
+        "EvenBranchOrder": "AAIDAQUGBwQ=",
+        "NamesSectionId": "cbg:",
+        "RandomSeed": 2463534242,
+        "ControlBlockName": "hoshikoi.bin",
+        "Title": "星恋＊ティンクル | 星恋*twinkle | 星恋＊闪烁"
+    },
     "Ichizu ni Zettai Fukujuu na Imouto": {
         "$type": "HashCrypt",
         "Title": "一途に絶対服従な妹をめちゃくちゃにしてみた ～愛欲兄妹～"

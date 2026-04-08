@@ -130,6 +130,13 @@ enum CryptType {
         cx: CxSchema,
         names_section_id: String,
     },
+    #[serde(rename_all = "PascalCase")]
+    CabbageCxCrypt {
+        #[serde(flatten)]
+        cx: CxSchema,
+        names_section_id: String,
+        random_seed: u32,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -173,6 +180,17 @@ impl Schema {
                 cx,
                 filename,
                 names_section_id.clone(),
+            )?),
+            CryptType::CabbageCxCrypt {
+                cx,
+                names_section_id,
+                random_seed,
+            } => Box::new(cx::CabbageCxCrypt::new(
+                self.base.clone(),
+                cx,
+                filename,
+                names_section_id.clone(),
+                *random_seed,
             )?),
         })
     }

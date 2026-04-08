@@ -925,3 +925,143 @@ impl Crypt for Arc<SenrenCxCrypt> {
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
 }
+
+#[derive(Debug)]
+struct CxProgramNana {
+    base: CxProgram,
+    random_seed: u32,
+}
+
+impl CxProgramNana {
+    fn new(seed: u32, control_blocks: Weak<Vec<u32>>, random_seed: u32) -> Self {
+        Self {
+            base: CxProgram {
+                code: Vec::with_capacity(CX_PROGRAM_SIZE),
+                control_block: control_blocks,
+                length: 0,
+                seed,
+            },
+            random_seed,
+        }
+    }
+}
+
+impl ICxProgram for CxProgramNana {
+    fn execute(&self, hash: u32) -> Result<u32> {
+        self.base.execute(hash)
+    }
+    fn clear(&mut self) {
+        self.base.clear();
+    }
+    fn emit(&mut self, bytecode: CxByteCode, length: usize) -> bool {
+        self.base.emit(bytecode, length)
+    }
+    fn emit_nop(&mut self, count: usize) -> bool {
+        self.base.emit_nop(count)
+    }
+    fn emit_u32(&mut self, x: u32) -> bool {
+        self.base.emit_u32(x)
+    }
+    fn emit_random(&mut self) -> bool {
+        let random = self.get_random();
+        self.emit_u32(random)
+    }
+    fn get_random(&mut self) -> u32 {
+        let mut s = self.base.seed ^ (self.base.seed << 17);
+        s ^= (s << 18) | (s >> 15);
+        self.base.seed = !s;
+        let mut r = self.random_seed ^ (self.random_seed << 13);
+        r ^= r >> 17;
+        self.random_seed = r ^ (r << 5);
+        self.base.seed ^ self.random_seed
+    }
+}
+
+#[derive(Debug)]
+struct CxProgramNanaBuilder {
+    random_seed: u32,
+}
+
+impl CxProgramNanaBuilder {
+    fn new(random_seed: u32) -> Self {
+        Self { random_seed }
+    }
+}
+
+impl ICxProgramBuilder for CxProgramNanaBuilder {
+    fn build(&self, seed: u32, control_blocks: Weak<Vec<u32>>) -> Box<dyn ICxProgram> {
+        Box::new(CxProgramNana::new(seed, control_blocks, self.random_seed))
+    }
+}
+
+#[derive(Debug)]
+pub struct CabbageCxCrypt {
+    base: SenrenCxCrypt,
+}
+
+impl AsRef<BaseSchema> for CabbageCxCrypt {
+    fn as_ref(&self) -> &BaseSchema {
+        self.base.as_ref()
+    }
+}
+
+impl CabbageCxCrypt {
+    pub fn new(
+        base: BaseSchema,
+        schema: &CxSchema,
+        filename: &str,
+        names_section_id: String,
+        random_seed: u32,
+    ) -> Result<Arc<Self>> {
+        Ok(Arc::new(Self {
+            base: SenrenCxCrypt::new_inner(
+                base,
+                schema,
+                filename,
+                Box::new(CxProgramNanaBuilder::new(random_seed)),
+                names_section_id,
+            )?,
+        }))
+    }
+}
+
+icx_enc_impl!(CabbageCxCrypt);
+icx_enc_arc_impl!(CabbageCxCrypt);
+
+impl Crypt for Arc<CabbageCxCrypt> {
+    base_schema_impl!();
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        default_init_crypt(archive)?;
+        self.base.read_yuzu_names(archive)
+    }
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+}
