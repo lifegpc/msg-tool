@@ -1438,8 +1438,8 @@ dependencies = [
  "memchr",
  "mozjpeg",
  "msg-tool-jpegxl-sys",
- "msg_tool_build",
  "msg_tool_macro",
+ "msg_tool_xp3data",
  "num_cpus",
  "overf",
  "parse-size",
@@ -1477,6 +1477,14 @@ version = "0.3.0"
 dependencies = [
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "msg_tool_xp3data"
+version = "0.3.1"
+dependencies = [
+ "msg_tool_build",
+ "zstd",
 ]
 
 [[package]]

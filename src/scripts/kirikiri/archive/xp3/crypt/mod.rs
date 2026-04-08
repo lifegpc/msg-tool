@@ -8,6 +8,7 @@ use crate::utils::encoding::*;
 use crate::utils::serde_base64bytes::*;
 use crate::utils::simple_pack::*;
 use anyhow::Result;
+use msg_tool_xp3data::*;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek, SeekFrom};
@@ -162,12 +163,9 @@ impl Schema {
     }
 }
 
-include_flate::flate!(static CRYPT_DATA: str from "src/scripts/kirikiri/archive/xp3/crypt.json" with zstd);
-const CX_CB_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cx_cb.pck"));
-
 lazy_static::lazy_static! {
     static ref CRYPT_SCHEMA: BTreeMap<String, Schema> = {
-        serde_json::from_str(&CRYPT_DATA).expect("Failed to parse crypt.json")
+        serde_json::from_str(&get_crypt_data()).expect("Failed to parse crypt.json")
     };
     static ref ALIAS_TABLE: HashMap<String, String> = {
         let mut table = HashMap::new();

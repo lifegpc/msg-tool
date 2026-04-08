@@ -1,6 +1,26 @@
 use crate::simple_pack::SimplePack;
 use std::path::Path;
 
+/// Generate crypt.json.zst from crypt.json with minimum format
+pub fn gen_crypt<P: AsRef<Path> + ?Sized, D: AsRef<Path> + ?Sized>(
+    json_path: &P,
+    outdir: &D,
+    level: i32,
+) -> std::io::Result<()> {
+    let p = json_path.as_ref();
+    let json_data = std::fs::read_to_string(p)?;
+    let json = json::parse(&json_data)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    let out_data = json::stringify(json);
+    let out_path = outdir.as_ref().join("crypt.json.zst");
+    let mut out_file = std::io::BufWriter::new(std::fs::File::create(out_path)?);
+    let level = if level >= 0 && level <= 22 { level } else { 22 };
+    let mut encoder = zstd::stream::write::Encoder::new(&mut out_file, level)?;
+    std::io::copy(&mut out_data.as_bytes(), &mut encoder)?;
+    encoder.finish()?;
+    Ok(())
+}
+
 /// Pack all binary files in cx_cb into a single archive.
 pub fn gen_cx_cb<P: AsRef<Path> + ?Sized, D: AsRef<Path> + ?Sized>(
     json_path: &P,
@@ -8,11 +28,7 @@ pub fn gen_cx_cb<P: AsRef<Path> + ?Sized, D: AsRef<Path> + ?Sized>(
     level: i32,
 ) -> std::io::Result<()> {
     let p = json_path.as_ref();
-    let pb = p
-        .parent()
-        .unwrap_or_else(|| Path::new(""))
-        .join("crypt")
-        .join("cx_cb");
+    let pb = p.parent().unwrap_or_else(|| Path::new("")).join("cx_cb");
     let json_data = std::fs::read_to_string(p)?;
     let json = json::parse(&json_data)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;

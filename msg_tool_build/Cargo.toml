@@ -11,8 +11,9 @@ json = { version = "0.12", optional = true }
 zstd = { version = "0.13", optional = true }
 
 [features]
-kirikiri-arc = ["json", "simple-pack"]
+kirikiri-arc = ["json", "simple-pack", "zstd"]
 simple-pack = ["zstd"]
+unstable = []
 
 [package.metadata.docs.rs]
 all-features = true
