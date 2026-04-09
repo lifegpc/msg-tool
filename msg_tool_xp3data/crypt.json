@@ -135,6 +135,10 @@
         "$type": "HashCrypt",
         "Title": "姉撮 ～堕ちていくお姉ちゃんを助けられない僕～"
     },
+    "Aniki No Yome-san nara": {
+        "$type": "PoringSoftCrypt",
+        "Title": "兄貴の嫁さんなら、俺にハメられてヒイヒイ言ってるところだよ"
+    },
     "Aqua": {
         "$type": "CxEncryption",
         "Mask": 424,
@@ -191,6 +195,10 @@
         "$type": "HashCrypt",
         "Title": "ビッチギャルのガチイキアクメ ～家庭教師の童貞巨根にハマり堕ち～ | Bitch Gyaru no Gachi Iki Acme"
     },
+    "blue note": {
+        "$type": "PoringSoftCrypt",
+        "Title": "ブルーノート"
+    },
     "Bodatsu ~Kindan no Shokushu Soukan~": {
         "$type": "HashCrypt",
         "Title": "母奪～禁断の触手相姦～"
@@ -204,6 +212,10 @@
         "$type": "XorCrypt",
         "Key": 49,
         "Title": "僕の未来は、恋と課金と。～Charge To The Future～ [体験版] | 我的未来是恋爱与氪金 [试用版]"
+    },
+    "Bra-ban!": {
+        "$type": "PoringSoftCrypt",
+        "Title": "ぶらばん！ | 管乐恋曲！"
     },
     "Café Stella to Shinigami no Chou": {
         "$type": "RiddleCxCrypt",
@@ -743,6 +755,10 @@
         "$type": "NatsupochiCrypt",
         "Title": "妹孕ませっくす"
     },
+    "Imouto Kairaku Ochi": {
+        "$type": "PoringSoftCrypt",
+        "Title": "妹快楽堕ち～お兄ちゃんに無理やりハメられてから～ | 沉溺快感中的妹妹～自从被哥哥强行插入后～"
+    },
     "Imouto Shokushu Rape": {
         "$type": "HashCrypt",
         "Title": "妹触手レイプ ～復讐の処女貫通～"
@@ -1084,6 +1100,10 @@
         "$type": "DieselmineCrypt",
         "Title": "M-days 慟哭の交尾地獄"
     },
+    "Mahara Miko": {
+        "$type": "PoringSoftCrypt",
+        "Title": "魔孕巫女～お清めは愛欲淫靡に～"
+    },
     "Mahoutsukai no Yoru": {
         "$type": "CxEncryption",
         "Mask": 554,
@@ -1214,6 +1234,10 @@
         "$type": "HashCrypt",
         "Title": "桃尻インストラクター寝取りレッスン ～競泳水着でえろざんまい～"
     },
+    "Muchimuchi Dekapai Mara Gui Maou-sama": {
+        "$type": "PoringSoftCrypt",
+        "Title": "ムチムチデカパイマラ喰い魔王様とおんぼろ四畳半同棲生活 | 与爆乳魔王的同居生活"
+    },
     "Mugen no Tír na nÓg": {
         "$type": "XorCrypt",
         "Key": 85,
@@ -1227,6 +1251,10 @@
         "$type": "HashCrypt",
         "Title": "軟体レッスン ～いいなり彼女とひみつの放課後～"
     },
+    "Nariyuki→Papakatsu Girls!!": {
+        "$type": "PoringSoftCrypt",
+        "Title": "なりゆき→パパ活GIRLS!! | 惠里和千寻的援交日记"
+    },
     "Natsu no Owari": {
         "$type": "XorCrypt",
         "Key": 87,
@@ -1235,6 +1263,10 @@
     "Natsuiro Shimai": {
         "$type": "NatsupochiCrypt",
         "Title": "夏色姉妹 ～幼馴染と真夏のヒメゴト～ | 夏色姐妹～青梅竹马与盛夏秘事～"
+    },
+    "Natsuiro Shimai Trial": {
+        "$type": "PoringSoftCrypt",
+        "Title": "夏色姉妹 ～幼馴染と真夏のヒメゴト～ 体験版"
     },
     "Natsupochi": {
         "$type": "NatsupochiCrypt",
@@ -1310,6 +1342,10 @@
     "Okiba ga Nai!": {
         "$type": "OkibaCrypt",
         "Title": "置き場がない！"
+    },
+    "Oku-sama wa Moto Yariman -Besluted-": {
+        "$type": "PoringSoftCrypt",
+        "Title": "奥様は元ヤリマン ―Besluted―"
     },
     "Omae no Kaa-chan, Ii Onna Da yo na": {
         "$type": "NatsupochiCrypt",
@@ -1471,6 +1507,9 @@
         "EvenBranchOrder": "BAYBBQIHAAM=",
         "ControlBlockName": "pendulum.bin"
     },
+    "PRICE": {
+        "$type": "PoringSoftCrypt"
+    },
     "Princess Saga": {
         "$type": "FlyingShineCrypt",
         "Title": "プリンセスサーガ"
@@ -1545,6 +1584,10 @@
         "OddBranchOrder": "BQADBAIB",
         "EvenBranchOrder": "BgQFAAIHAQM=",
         "ControlBlockName": "riddle_steam.bin"
+    },
+    "Riding Incubus": {
+        "$type": "PoringSoftCrypt",
+        "Title": "らいでぃんぐ いんきゅばす"
     },
     "Rui wa Tomo o Yobu": {
         "$type": "CxEncryption",
@@ -1678,6 +1721,10 @@
     "Shin'yuu no Kyonyuu Mama to Nakadashi Seikatsu": {
         "$type": "FlyingShineCrypt",
         "Title": "親友の巨乳ママと中出し性活～こんなに射精してちゃ孕んじゃったね"
+    },
+    "Shindan no Kekka, Sore wa Koi no Yamai Desu": {
+        "$type": "PoringSoftCrypt",
+        "Title": "診断の結果、それは恋の病です | 诊断的结果、那是名为恋爱的病"
     },
     "Shiniyuku Kimi, Yakata ni Mebuku Zouo": {
         "$type": "CxEncryption",
@@ -1895,6 +1942,10 @@
         "EvenBranchOrder": "AAQBAgcFAwY=",
         "ControlBlockName": "towazugatari.bin",
         "Title": "永遠ズ語リ～少女凌辱秘抄～"
+    },
+    "Tsubasa no Oka no Hime": {
+        "$type": "PoringSoftCrypt",
+        "Title": "つばさの丘の姫王 A red and blue moon -finite loop-"
     },
     "Tsuma Kai -Tsuma Gai-": {
         "$type": "FlyingShineCrypt",

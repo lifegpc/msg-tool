@@ -645,6 +645,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri-arc")]
     /// Force extract encrypted files in Kirikiri XP3 archive without decryption.
     pub xp3_force_extract: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Force decrypt files in Kirikiri xp3 archive even when flags are not set.
+    /// Some encrypted files in Kirikiri XP3 archive may not set encryption flag, but still encrypted. Enable this to force decrypt these files.
+    pub xp3_force_decrypt: bool,
 }
 
 #[cfg(feature = "artemis")]

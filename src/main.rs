@@ -3397,6 +3397,8 @@ fn main() {
         xp3_debug_archive: arg.xp3_debug_archive,
         #[cfg(feature = "kirikiri-arc")]
         xp3_force_extract: arg.xp3_force_extract,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_force_decrypt: arg.xp3_force_decrypt,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

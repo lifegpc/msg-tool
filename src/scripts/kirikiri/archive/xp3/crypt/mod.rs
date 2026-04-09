@@ -165,6 +165,7 @@ enum CryptType {
     NephriteCrypt,
     AlteredPinkCrypt,
     NatsupochiCrypt,
+    PoringSoftCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -257,6 +258,7 @@ impl Schema {
             CryptType::NephriteCrypt => Box::new(NephriteCrypt::new(self.base.clone())),
             CryptType::AlteredPinkCrypt => Box::new(AlteredPinkCrypt::new(self.base.clone())),
             CryptType::NatsupochiCrypt => Box::new(NatsupochiCrypt::new(self.base.clone())),
+            CryptType::PoringSoftCrypt => Box::new(PoringSoftCrypt::new(self.base.clone())),
         })
     }
 }
@@ -902,6 +904,20 @@ impl<R: Read> Read for NatsupochiCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let readed = self.inner.read(buf)?;
         let key = (self.key >> 3) as u8;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(PoringSoftCrypt, PoringSoftCryptReader<T>);
+
+impl<R: Read> Read for PoringSoftCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key = (!w!(self.key + 1)) as u8;
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= key;
         }

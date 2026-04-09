@@ -163,6 +163,7 @@ pub struct Xp3Archive {
     decrypt_simple_crypt: bool,
     decompress_mdf: bool,
     force_extract: bool,
+    force_decrypt: bool,
 }
 
 impl Xp3Archive {
@@ -189,6 +190,7 @@ impl Xp3Archive {
             decrypt_simple_crypt: config.xp3_simple_crypt,
             decompress_mdf: config.xp3_mdf_decompress,
             force_extract: config.xp3_force_extract,
+            force_decrypt: config.xp3_force_decrypt,
         })
     }
 }
@@ -240,6 +242,7 @@ impl Script for Xp3Archive {
             self.archive.base_offset,
             crypt,
             skip_decrypt,
+            self.force_decrypt,
         );
         let mut header = [0u8; 16];
         let header_len = entry.read(&mut header)?;
@@ -314,6 +317,7 @@ struct Entry {
     entries_pos: Vec<u64>,
     script_type: Option<ScriptType>,
     skip_decrypt: bool,
+    force_decrypt: bool,
 }
 
 #[automatically_derived]
@@ -341,6 +345,7 @@ impl Entry {
         base_offset: u64,
         crypt: Arc<Box<dyn Crypt>>,
         skip_decrypt: bool,
+        force_decrypt: bool,
     ) -> Self {
         let mut pos = 0;
         let entries_pos = index
@@ -363,6 +368,7 @@ impl Entry {
             crypt,
             crypt_stream: None,
             skip_decrypt,
+            force_decrypt,
         }
     }
 }
@@ -419,7 +425,7 @@ impl Read for Entry {
         let seg_pos = self.entries_pos[seg_index];
         let skip_pos = self.pos - seg_pos;
         let read_size = seg.archived_size;
-        if !self.skip_decrypt && self.index.is_encrypted() {
+        if !self.skip_decrypt && (self.index.is_encrypted() || self.force_decrypt) {
             if seg.is_compressed || !self.crypt.decrypt_seek_supported() {
                 let mut cache: Box<dyn Read> = if seg.is_compressed {
                     let mut inner =
