@@ -160,6 +160,7 @@ enum CryptType {
     },
     SeitenCrypt,
     OkibaCrypt,
+    DieselmineCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -247,6 +248,7 @@ impl Schema {
             )?),
             CryptType::SeitenCrypt => Box::new(SeitenCrypt::new(self.base.clone())),
             CryptType::OkibaCrypt => Box::new(OkibaCrypt::new(self.base.clone())),
+            CryptType::DieselmineCrypt => Box::new(DieselmineCrypt::new(self.base.clone())),
         })
     }
 }
@@ -508,52 +510,61 @@ impl<R: Read> Read for MizukakeCryptReader<R> {
     }
 }
 
-#[derive(Debug)]
-pub struct HashCrypt {
-    base: BaseSchema,
+macro_rules! seek_crypt_filehash_key_u8_base_impl {
+    ($crypt:ident, $reader:ident) => {
+        #[derive(Debug)]
+        pub struct $crypt {
+            base: BaseSchema,
+        }
+        impl $crypt {
+            pub fn new(base: BaseSchema) -> Self {
+                Self { base }
+            }
+        }
+        impl Crypt for $crypt {
+            base_schema_impl!();
+            fn decrypt_supported(&self) -> bool {
+                true
+            }
+            fn decrypt_seek_supported(&self) -> bool {
+                true
+            }
+            fn decrypt<'a>(
+                &self,
+                entry: &Xp3Entry,
+                cur_seg: &Segment,
+                stream: Box<dyn Read + 'a>,
+            ) -> Result<Box<dyn ReadDebug + 'a>> {
+                Ok(Box::new($reader::new(
+                    stream,
+                    cur_seg,
+                    entry.file_hash as u8,
+                )))
+            }
+            fn decrypt_with_seek<'a>(
+                &self,
+                entry: &Xp3Entry,
+                cur_seg: &Segment,
+                stream: Box<dyn ReadSeek + 'a>,
+            ) -> Result<Box<dyn ReadSeek + 'a>> {
+                Ok(Box::new($reader::new(
+                    stream,
+                    cur_seg,
+                    entry.file_hash as u8,
+                )))
+            }
+        }
+    };
 }
 
-impl HashCrypt {
-    pub fn new(base: BaseSchema) -> Self {
-        Self { base }
-    }
+macro_rules! seek_crypt_filehash_key_u8_impl {
+    ($crypt:ident,$reader:ident<$t:ident>) => {
+        seek_crypt_filehash_key_u8_base_impl!($crypt, $reader);
+        seek_reader_key_impl!($reader<$t>, u8);
+    };
 }
 
-impl Crypt for HashCrypt {
-    base_schema_impl!();
-    fn decrypt_supported(&self) -> bool {
-        true
-    }
-    fn decrypt_seek_supported(&self) -> bool {
-        true
-    }
-    fn decrypt<'a>(
-        &self,
-        entry: &Xp3Entry,
-        cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
-        Ok(Box::new(HashCryptReader::new(
-            stream,
-            cur_seg,
-            entry.file_hash as u8,
-        )))
-    }
-    fn decrypt_with_seek<'a>(
-        &self,
-        entry: &Xp3Entry,
-        cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
-        Ok(Box::new(HashCryptReader::new(
-            stream,
-            cur_seg,
-            entry.file_hash as u8,
-        )))
-    }
-}
-
-seek_reader_key_impl!(HashCryptReader<T>, u8);
+seek_crypt_filehash_key_u8_impl!(HashCrypt, HashCryptReader<T>);
 
 impl<R: Read> Read for HashCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -729,13 +740,13 @@ macro_rules! seek_crypt_filehash_key_base_impl {
 }
 
 macro_rules! seek_crypt_filehash_key_impl {
-    ($crypt:ident,$reader:ident<$t:ident>,$key:ty) => {
+    ($crypt:ident,$reader:ident<$t:ident>) => {
         seek_crypt_filehash_key_base_impl!($crypt, $reader);
-        seek_reader_key_impl!($reader<$t>, $key);
+        seek_reader_key_impl!($reader<$t>, u32);
     };
 }
 
-seek_crypt_filehash_key_impl!(SeitenCrypt, SeitenCryptReader<T>, u32);
+seek_crypt_filehash_key_impl!(SeitenCrypt, SeitenCryptReader<T>);
 
 impl<R: Read> Read for SeitenCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -764,7 +775,7 @@ impl<R: Read> Read for SeitenCryptReader<R> {
     }
 }
 
-seek_crypt_filehash_key_impl!(OkibaCrypt, OkibaCryptReader<T>, u32);
+seek_crypt_filehash_key_impl!(OkibaCrypt, OkibaCryptReader<T>);
 
 impl<R: Read> Read for OkibaCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -795,6 +806,30 @@ impl<R: Read> Read for OkibaCryptReader<R> {
                     break;
                 }
             }
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_u8_impl!(DieselmineCrypt, DieselmineCryptReader<T>);
+
+impl<R: Read> Read for DieselmineCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key = self.key as i32;
+        for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+            let offset = self.seg_start + self.pos + i as u64;
+            let key = if offset < 123 {
+                21 * key
+            } else if offset < 246 {
+                -32 * key
+            } else if offset < 369 {
+                43 * key
+            } else {
+                -54 * key
+            } as u8;
+            *t ^= key;
         }
         self.pos += readed as u64;
         Ok(readed)
