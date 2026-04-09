@@ -164,6 +164,7 @@ enum CryptType {
     DameganeCrypt,
     NephriteCrypt,
     AlteredPinkCrypt,
+    NatsupochiCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -255,6 +256,7 @@ impl Schema {
             CryptType::DameganeCrypt => Box::new(DameganeCrypt::new(self.base.clone())),
             CryptType::NephriteCrypt => Box::new(NephriteCrypt::new(self.base.clone())),
             CryptType::AlteredPinkCrypt => Box::new(AlteredPinkCrypt::new(self.base.clone())),
+            CryptType::NatsupochiCrypt => Box::new(NatsupochiCrypt::new(self.base.clone())),
         })
     }
 }
@@ -880,7 +882,7 @@ impl<R: Read> Read for NephriteCryptReader<R> {
     }
 }
 
-seek_crypt_filehash_key_u8_impl!(AlteredPinkCrypt, AlteredPinkCryptReader<T>);
+seek_crypt_impl!(AlteredPinkCrypt, AlteredPinkCryptReader<T>);
 
 impl<R: Read> Read for AlteredPinkCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -888,6 +890,20 @@ impl<R: Read> Read for AlteredPinkCryptReader<R> {
         for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
             let offset = self.seg_start + self.pos + i as u64;
             *t ^= ALTERED_PINK_KEY_TABLE[(offset & 0xFF) as usize];
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(NatsupochiCrypt, NatsupochiCryptReader<T>);
+
+impl<R: Read> Read for NatsupochiCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key = (self.key >> 3) as u8;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
         }
         self.pos += readed as u64;
         Ok(readed)
