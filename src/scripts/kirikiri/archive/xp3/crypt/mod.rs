@@ -163,6 +163,7 @@ enum CryptType {
     DieselmineCrypt,
     DameganeCrypt,
     NephriteCrypt,
+    AlteredPinkCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -253,6 +254,7 @@ impl Schema {
             CryptType::DieselmineCrypt => Box::new(DieselmineCrypt::new(self.base.clone())),
             CryptType::DameganeCrypt => Box::new(DameganeCrypt::new(self.base.clone())),
             CryptType::NephriteCrypt => Box::new(NephriteCrypt::new(self.base.clone())),
+            CryptType::AlteredPinkCrypt => Box::new(AlteredPinkCrypt::new(self.base.clone())),
         })
     }
 }
@@ -878,6 +880,20 @@ impl<R: Read> Read for NephriteCryptReader<R> {
     }
 }
 
+seek_crypt_filehash_key_u8_impl!(AlteredPinkCrypt, AlteredPinkCryptReader<T>);
+
+impl<R: Read> Read for AlteredPinkCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+            let offset = self.seg_start + self.pos + i as u64;
+            *t ^= ALTERED_PINK_KEY_TABLE[(offset & 0xFF) as usize];
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
 #[test]
 fn test_deserialize_crypt() {
     for (key, schema) in CRYPT_SCHEMA.iter() {
@@ -890,4 +906,9 @@ fn test_cx_cb_table() {
     for (key, list) in CX_CB_TABLE.iter() {
         println!("Key: {}, List length: {}", key, list.len());
     }
+}
+
+#[test]
+fn test_altered_pink_key_table() {
+    assert_eq!(ALTERED_PINK_KEY_TABLE.len(), 0x100);
 }

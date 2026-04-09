@@ -12,3 +12,6 @@ pub fn get_crypt_data() -> String {
     decoder.read_to_string(&mut out).unwrap();
     out
 }
+
+/// AlteredPink KeyTable
+pub const ALTERED_PINK_KEY_TABLE: &[u8] = include_bytes!("bin/altered_pink.bin");

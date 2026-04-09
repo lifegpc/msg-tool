@@ -109,6 +109,10 @@
         "ControlBlockName": "akuratsu.bin",
         "Title": "あくらつ～恥辱の百合姉妹～"
     },
+    "Altered Pink": {
+        "$type": "AlteredPinkCrypt",
+        "Title": "アルタードピンク～特務戦隊デュエルレンジャー～"
+    },
     "Ama Koi Syrups": {
         "$type": "HashCrypt",
         "Title": "あま恋シロップス ～恥じらう恋心でシたくなる甘神様の恋祭り～ | 甘神大人的糖浆恋祭"
