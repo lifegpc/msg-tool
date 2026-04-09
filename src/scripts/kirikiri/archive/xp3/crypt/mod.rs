@@ -167,6 +167,7 @@ enum CryptType {
     NatsupochiCrypt,
     PoringSoftCrypt,
     AppliqueCrypt,
+    TokidokiCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -261,6 +262,7 @@ impl Schema {
             CryptType::NatsupochiCrypt => Box::new(NatsupochiCrypt::new(self.base.clone())),
             CryptType::PoringSoftCrypt => Box::new(PoringSoftCrypt::new(self.base.clone())),
             CryptType::AppliqueCrypt => Box::new(AppliqueCrypt::new(self.base.clone())),
+            CryptType::TokidokiCrypt => Box::new(TokidokiCrypt::new(self.base.clone())),
         })
     }
 }
@@ -937,6 +939,92 @@ impl<R: Read> Read for AppliqueCryptReader<R> {
         let skip = (5 - (self.seg_start + self.pos).min(5) as usize).min(readed);
         for t in (&mut buf[skip..readed]).iter_mut() {
             *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct TokidokiCrypt {
+    base: BaseSchema,
+}
+
+impl TokidokiCrypt {
+    pub fn new(base: BaseSchema) -> Self {
+        Self { base }
+    }
+
+    /// Retruns limit and key
+    fn get_key(&self, entry: &Xp3Entry) -> Result<(u64, u32)> {
+        let ext = entry
+            .name
+            .rsplit('.')
+            .next()
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if !ext.is_empty() {
+            let ext = format!(".{}", ext);
+            let mut ext_bin = encode_string(Encoding::Cp932, &ext, true)?;
+            ext_bin.resize(4, 0);
+            let mut reader = MemReaderRef::new(&ext_bin);
+            let key = !reader.read_u32()?;
+            if ext == ".asd" || ext == ".ks" || ext == ".tjs" {
+                Ok((entry.original_size, key))
+            } else {
+                Ok((entry.original_size.min(0x100), key))
+            }
+        } else {
+            Ok((entry.original_size.min(0x100), u32::MAX))
+        }
+    }
+}
+
+impl Crypt for TokidokiCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        Ok(Box::new(TokidokiCryptReader::new(
+            stream,
+            cur_seg,
+            self.get_key(entry)?,
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(TokidokiCryptReader::new(
+            stream,
+            cur_seg,
+            self.get_key(entry)?,
+        )))
+    }
+}
+
+seek_reader_key_impl!(TokidokiCryptReader<T>, (u64, u32));
+
+impl<R: Read> Read for TokidokiCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let (limit, key) = self.key;
+        let readed = self.inner.read(buf)?;
+        for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+            let offset = self.seg_start + self.pos + i as u64;
+            if offset < limit {
+                *t ^= (key >> ((offset as i32 & 3) << 3)) as u8;
+            }
         }
         self.pos += readed as u64;
         Ok(readed)

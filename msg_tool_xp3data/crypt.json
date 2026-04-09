@@ -1975,6 +1975,11 @@
         "$type": "HashCrypt",
         "Title": "とある熟女の変態調教 ～老いてなお滴る秘蜜と悦楽～"
     },
+    "Tokidoki Pakucchao!": {
+        "$type": "TokidokiCrypt",
+        "HashAfterCrypt": true,
+        "Title": "ときどきパクッちゃお！"
+    },
     "Tonarizuma 2 ~Otto ja Dekinai Koto Ippai Shite~": {
         "$type": "HashCrypt",
         "Title": "隣妻2 ～夫じゃできないこといっぱいシて～"
