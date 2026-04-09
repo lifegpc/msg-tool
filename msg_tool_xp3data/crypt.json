@@ -301,6 +301,10 @@
         "$type": "HashCrypt",
         "Title": "カスタム隷奴 4/4+/V"
     },
+    "Damegane": {
+        "$type": "DameganeCrypt",
+        "Title": "だめがね"
+    },
     "Daraku Koujo": {
         "$type": "FlyingShineCrypt",
         "Title": "堕落皇女～魔術師の罠に嵌った聖女～"
