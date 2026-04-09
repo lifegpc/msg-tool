@@ -162,6 +162,7 @@ enum CryptType {
     OkibaCrypt,
     DieselmineCrypt,
     DameganeCrypt,
+    NephriteCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -251,6 +252,7 @@ impl Schema {
             CryptType::OkibaCrypt => Box::new(OkibaCrypt::new(self.base.clone())),
             CryptType::DieselmineCrypt => Box::new(DieselmineCrypt::new(self.base.clone())),
             CryptType::DameganeCrypt => Box::new(DameganeCrypt::new(self.base.clone())),
+            CryptType::NephriteCrypt => Box::new(NephriteCrypt::new(self.base.clone())),
         })
     }
 }
@@ -846,6 +848,25 @@ impl<R: Read> Read for DameganeCryptReader<R> {
         for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
             let offset = self.seg_start + self.pos + i as u64;
             let key = if offset & 1 != 0 {
+                self.key
+            } else {
+                offset as u8
+            };
+            *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_u8_impl!(NephriteCrypt, NephriteCryptReader<T>);
+
+impl<R: Read> Read for NephriteCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+            let offset = self.seg_start + self.pos + i as u64;
+            let key = if offset & 1 == 0 {
                 self.key
             } else {
                 offset as u8

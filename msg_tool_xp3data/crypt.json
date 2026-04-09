@@ -412,6 +412,10 @@
         "$type": "HashCrypt",
         "Title": "不可視な愛情～透明なボクに感じるママ～"
     },
+    "Gakuen Butou no Folklore": {
+        "$type": "NephriteCrypt",
+        "Title": "学園舞闘のフォークロア"
+    },
     "Gakuen Tokkyuu Hotokenser": {
         "$type": "CxEncryption",
         "Mask": 330,
@@ -429,6 +433,10 @@
     "Gisobo, Choukyou Chuu": {
         "$type": "HashCrypt",
         "Title": "義祖母、調教中。 ～仲良しの秘訣はSMです。～"
+    },
+    "Gokkun! Onii-chan Milk": {
+        "$type": "NephriteCrypt",
+        "Title": "ごっくん！おにーちゃんみるく♪～ぷにぷにおっぱいな妹と～"
     },
     "Grisaia: Phantom Trigger [Steam]": {
         "$type": "CxEncryption",
@@ -531,6 +539,10 @@
         "EvenBranchOrder": "BQACAQcDBgQ=",
         "ControlBlockName": "haruiro.bin",
         "Title": "春色☆こみゅにけ～しょん♪"
+    },
+    "Hatarakanai Honey Life": {
+        "$type": "NephriteCrypt",
+        "Title": "ハタラカナイはにーらいふ"
     },
     "Hataraku Otaku no Ren'ai Jijou": {
         "$type": "CxEncryption",
@@ -694,6 +706,10 @@
     "Iede Musume Tanetsuke Kanyuu": {
         "$type": "HashCrypt",
         "Title": "家出娘種付け姦誘～気弱なあの子を肉便器開発～"
+    },
+    "Iinkai no Antihero": {
+        "$type": "NephriteCrypt",
+        "Title": "委員界の異端者 ～IINCHO-Re.co～"
     },
     "Ijou Seiai": {
         "$type": "HashCrypt",
@@ -1235,9 +1251,17 @@
         "ControlBlockName": "nidaime.bin",
         "Title": "二代目は☆魔法少女"
     },
+    "Niina-chan Lovely Life": {
+        "$type": "NephriteCrypt",
+        "Title": "にいなちゃん Lovely Life"
+    },
     "Nyotai-ka Panic!": {
         "$type": "HashCrypt",
         "Title": "女体化パニック！ ～オンナのコのカラダってキモチイイ～"
+    },
+    "Ochiteiku Wakazuma Maiko": {
+        "$type": "NephriteCrypt",
+        "Title": "堕ちていく若妻麻衣子"
     },
     "Ochiteyuku Seishoku Shukujo": {
         "$type": "HashCrypt",
@@ -1411,6 +1435,10 @@
         "$type": "FlyingShineCrypt",
         "Title": "プリンセスサーガ"
     },
+    "Rakugaki Overheart": {
+        "$type": "NephriteCrypt",
+        "Title": "らくがきオーバーハート"
+    },
     "Re:": {
         "$type": "FlyingShineCrypt"
     },
@@ -1433,6 +1461,10 @@
         "EvenBranchOrder": "AgQBAAUDBgc=",
         "TpmFileName": "plugin/relations.tpm",
         "Title": "リレーションズ シスター×シスター | リレーションズ　シスター・シスター"
+    },
+    "RGH ~Koi to Hero to Gakuen to~": {
+        "$type": "NephriteCrypt",
+        "Title": "RGH～恋とヒーローと学園と～"
     },
     "Riajuu Saimin": {
         "$type": "CxEncryption",
@@ -1571,6 +1603,10 @@
     "Seiso na Ano Ko wa, Kakure Bitch": {
         "$type": "HashCrypt",
         "Title": "清楚なあの娘は、隠れビッチ ～いつでもどこでも欲情ＳＥＸ～"
+    },
+    "Se-n-pa-i ~Hiromi-senpai": {
+        "$type": "NephriteCrypt",
+        "Title": "セ・ン・パ・イ〜広海センパイとのラブエロ部活"
     },
     "Senden no Shugo Kishi Niina": {
         "$type": "HashCrypt",
