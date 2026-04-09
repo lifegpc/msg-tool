@@ -159,6 +159,7 @@ enum CryptType {
         key2: u32,
     },
     SeitenCrypt,
+    OkibaCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -245,6 +246,7 @@ impl Schema {
                 *key2,
             )?),
             CryptType::SeitenCrypt => Box::new(SeitenCrypt::new(self.base.clone())),
+            CryptType::OkibaCrypt => Box::new(OkibaCrypt::new(self.base.clone())),
         })
     }
 }
@@ -687,52 +689,53 @@ impl<R: Read> Read for FlyingShineCryptReader<R> {
     }
 }
 
-#[derive(Debug)]
-pub struct SeitenCrypt {
-    base: BaseSchema,
+macro_rules! seek_crypt_filehash_key_base_impl {
+    ($crypt:ident, $reader:ident) => {
+        #[derive(Debug)]
+        pub struct $crypt {
+            base: BaseSchema,
+        }
+        impl $crypt {
+            pub fn new(base: BaseSchema) -> Self {
+                Self { base }
+            }
+        }
+        impl Crypt for $crypt {
+            base_schema_impl!();
+            fn decrypt_supported(&self) -> bool {
+                true
+            }
+            fn decrypt_seek_supported(&self) -> bool {
+                true
+            }
+            fn decrypt<'a>(
+                &self,
+                entry: &Xp3Entry,
+                cur_seg: &Segment,
+                stream: Box<dyn Read + 'a>,
+            ) -> Result<Box<dyn ReadDebug + 'a>> {
+                Ok(Box::new($reader::new(stream, cur_seg, entry.file_hash)))
+            }
+            fn decrypt_with_seek<'a>(
+                &self,
+                entry: &Xp3Entry,
+                cur_seg: &Segment,
+                stream: Box<dyn ReadSeek + 'a>,
+            ) -> Result<Box<dyn ReadSeek + 'a>> {
+                Ok(Box::new($reader::new(stream, cur_seg, entry.file_hash)))
+            }
+        }
+    };
 }
 
-impl SeitenCrypt {
-    pub fn new(base: BaseSchema) -> Self {
-        Self { base }
-    }
+macro_rules! seek_crypt_filehash_key_impl {
+    ($crypt:ident,$reader:ident<$t:ident>,$key:ty) => {
+        seek_crypt_filehash_key_base_impl!($crypt, $reader);
+        seek_reader_key_impl!($reader<$t>, $key);
+    };
 }
 
-impl Crypt for SeitenCrypt {
-    base_schema_impl!();
-    fn decrypt_supported(&self) -> bool {
-        true
-    }
-    fn decrypt_seek_supported(&self) -> bool {
-        true
-    }
-    fn decrypt<'a>(
-        &self,
-        entry: &Xp3Entry,
-        cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
-        Ok(Box::new(SeitenCryptReader::new(
-            stream,
-            cur_seg,
-            entry.file_hash,
-        )))
-    }
-    fn decrypt_with_seek<'a>(
-        &self,
-        entry: &Xp3Entry,
-        cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
-        Ok(Box::new(SeitenCryptReader::new(
-            stream,
-            cur_seg,
-            entry.file_hash,
-        )))
-    }
-}
-
-seek_reader_key_impl!(SeitenCryptReader<T>, u32);
+seek_crypt_filehash_key_impl!(SeitenCrypt, SeitenCryptReader<T>, u32);
 
 impl<R: Read> Read for SeitenCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -755,6 +758,43 @@ impl<R: Read> Read for SeitenCryptReader<R> {
                 w!(*t -= (key >> shift) as u8);
             }
             offset += 1;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(OkibaCrypt, OkibaCryptReader<T>, u32);
+
+impl<R: Read> Read for OkibaCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset = self.seg_start + self.pos;
+        let mut i = 0;
+        if offset < 0x65 {
+            let key = self.key >> 4;
+            let limit = readed.min(0x65 - offset as usize);
+            for _ in 0..limit {
+                buf[i] ^= key as u8;
+                i += 1;
+                offset += 1;
+            }
+        }
+        if i < readed {
+            offset -= 0x65;
+            let mut key = self.key;
+            key = ((key & 0xff0000) << 8)
+                | ((key & 0xff000000) >> 8)
+                | ((key & 0xff00) >> 8)
+                | ((key & 0xff) << 8);
+            loop {
+                buf[i] ^= (key >> (8 * (offset as u32 & 3))) as u8;
+                offset += 1;
+                i += 1;
+                if i >= readed {
+                    break;
+                }
+            }
         }
         self.pos += readed as u64;
         Ok(readed)
