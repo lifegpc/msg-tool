@@ -9,6 +9,7 @@ use crate::utils::serde_base64bytes::*;
 use crate::utils::simple_pack::*;
 use anyhow::Result;
 use msg_tool_xp3data::*;
+use overf::wrapping as w;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek, SeekFrom};
@@ -157,6 +158,7 @@ enum CryptType {
         #[serde(default)]
         key2: u32,
     },
+    SeitenCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -242,6 +244,7 @@ impl Schema {
                 *key1,
                 *key2,
             )?),
+            CryptType::SeitenCrypt => Box::new(SeitenCrypt::new(self.base.clone())),
         })
     }
 }
@@ -678,6 +681,80 @@ impl<R: Read> Read for FlyingShineCryptReader<R> {
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= xor;
             *t = t.rotate_right(shift);
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct SeitenCrypt {
+    base: BaseSchema,
+}
+
+impl SeitenCrypt {
+    pub fn new(base: BaseSchema) -> Self {
+        Self { base }
+    }
+}
+
+impl Crypt for SeitenCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        Ok(Box::new(SeitenCryptReader::new(
+            stream,
+            cur_seg,
+            entry.file_hash,
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(SeitenCryptReader::new(
+            stream,
+            cur_seg,
+            entry.file_hash,
+        )))
+    }
+}
+
+seek_reader_key_impl!(SeitenCryptReader<T>, u32);
+
+impl<R: Read> Read for SeitenCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset = self.seg_start + self.pos;
+        for t in (&mut buf[..readed]).iter_mut() {
+            let mut shift;
+            let key = self.key ^ (offset as u32);
+            if key & 2 != 0 {
+                shift = key & 0x18;
+                let ebx = key >> shift;
+                shift &= 8;
+                *t ^= (ebx | (key >> shift)) as u8;
+            }
+            if key & 4 != 0 {
+                w!(*t += key as u8);
+            }
+            if key & 8 != 0 {
+                shift = key & 0x10;
+                w!(*t -= (key >> shift) as u8);
+            }
+            offset += 1;
         }
         self.pos += readed as u64;
         Ok(readed)

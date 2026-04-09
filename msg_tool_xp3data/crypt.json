@@ -1508,6 +1508,10 @@
         "ControlBlockName": "seiin.bin",
         "Title": "聖淫の迷宮"
     },
+    "Seirei Tenshou": {
+        "$type": "SeitenCrypt",
+        "Title": "聖なるかな外伝・精霊天翔 ～壊れゆく世界の少女たち～ | 精灵天翔・迈向毁灭世界的少女们"
+    },
     "Seiso na Ano Ko wa, Kakure Bitch": {
         "$type": "HashCrypt",
         "Title": "清楚なあの娘は、隠れビッチ ～いつでもどこでも欲情ＳＥＸ～"
