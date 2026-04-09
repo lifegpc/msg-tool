@@ -89,6 +89,10 @@
         "$type": "HashCrypt",
         "Title": "愛妻淫辱接待～借金のかたに妻の調教を命じられた夫～"
     },
+    "Akatsuki no Goei": {
+        "$type": "AppliqueCrypt",
+        "Title": "暁の護衛 | 晓之护卫"
+    },
     "Akazukin to Mayoi no Mori": {
         "$type": "CxEncryption",
         "Mask": 369,
@@ -348,6 +352,10 @@
         "EvenBranchOrder": "BQYBBwMEAgA=",
         "ControlBlockName": "deepone.bin",
         "Title": "Deep One -ディープワン- | 深渊的来访者"
+    },
+    "Dekinai Watashi ga, Kurikaesu.": {
+        "$type": "AppliqueCrypt",
+        "Title": "できない私が、くり返す。 | 若能与你再次相见"
     },
     "DISCODE-2 Niritsu Haihan": {
         "$type": "NatsupochiCrypt",
@@ -727,6 +735,9 @@
         "$type": "DieselmineCrypt",
         "Title": "捕食ゲーム2～さようなら。丸呑み～"
     },
+    "Hotel. [Trial]": {
+        "$type": "AppliqueCrypt"
+    },
     "Ichizu ni Zettai Fukujuu na Imouto": {
         "$type": "HashCrypt",
         "Title": "一途に絶対服従な妹をめちゃくちゃにしてみた ～愛欲兄妹～"
@@ -849,6 +860,10 @@
         "EvenBranchOrder": "AwAGAgcBBAU=",
         "TpmFileName": "plugin/jktrouble.tpm",
         "Title": "JKトラブめいん\"s"
+    },
+    "Joker -Shisen no Hate no Doukeshi-": {
+        "$type": "AppliqueCrypt",
+        "Title": "JOKER -死線の果ての道化師-"
     },
     "Jokyoushi Rinkan no Kyoushitsu": {
         "$type": "FlyingShineCrypt",
@@ -1095,6 +1110,10 @@
         "EvenBranchOrder": "BQYDAQIEBwA=",
         "ControlBlockName": "love_laby.bin",
         "Title": "らぶ+らび"
+    },
+    "Lovesick Puppies -Bokura wa Koi Suru Tame ni Umaretekita-": {
+        "$type": "AppliqueCrypt",
+        "Title": "LOVESICK PUPPIES -僕らは恋するために生まれてきた- | LOVESICK PUPPIES -我们为了恋爱而诞生-"
     },
     "M-days Doukoku no Koubi Jigoku": {
         "$type": "DieselmineCrypt",
@@ -1363,6 +1382,10 @@
         "$type": "DieselmineCrypt",
         "Title": "思いっきり! 精液大量注入! ～高飛車女をアヘらせろ!～"
     },
+    "Omokage ~Ecchi na Happening!? Nandemo Dontokoi!~": {
+        "$type": "AppliqueCrypt",
+        "Title": "オモカゲ ～えっちなハプニング!? なんでもどんとこい!～ | 思影"
+    },
     "Onaji Class no Idol-san. Around me is full by a celebrity.": {
         "$type": "XorCrypt",
         "Key": 232,
@@ -1507,6 +1530,14 @@
         "EvenBranchOrder": "BAYBBQIHAAM=",
         "ControlBlockName": "pendulum.bin"
     },
+    "PRETTY x CATION": {
+        "$type": "AppliqueCrypt",
+        "Title": "プリティケーション | PRETTY×CATION"
+    },
+    "Pretty x Cation 2": {
+        "$type": "AppliqueCrypt",
+        "Title": "プリティケーション2 | PRETTY×CATION2"
+    },
     "PRICE": {
         "$type": "PoringSoftCrypt"
     },
@@ -1514,12 +1545,19 @@
         "$type": "FlyingShineCrypt",
         "Title": "プリンセスサーガ"
     },
+    "PURELY x CATION [Trial]": {
+        "$type": "AppliqueCrypt",
+        "Title": "PURELY×CATION 体験版"
+    },
     "Rakugaki Overheart": {
         "$type": "NephriteCrypt",
         "Title": "らくがきオーバーハート"
     },
     "Re:": {
         "$type": "FlyingShineCrypt"
+    },
+    "Re:birth Colony -Lost Azurite-": {
+        "$type": "AppliqueCrypt"
     },
     "Real Imouto ga Iru Ooizumi-kun no Baai": {
         "$type": "CxEncryption",
@@ -1710,6 +1748,10 @@
         "$type": "DieselmineCrypt",
         "Title": "セリフで感じて！声優どうし"
     },
+    "Shiden ~Enkan no Kizuna~": {
+        "$type": "AppliqueCrypt",
+        "Title": "紫電～円環の絆～ | 紫电～环之羁绊～"
+    },
     "Shikijou Kyoudan": {
         "$type": "HashCrypt",
         "Title": "色情教団 | 妃神会秘史"
@@ -1805,6 +1847,10 @@
     "Sobo to Boku": {
         "$type": "HashCrypt",
         "Title": "祖母と僕 ～おばあちゃん、なにかでちゃうよぉ～"
+    },
+    "Sorairo Innocent": {
+        "$type": "AppliqueCrypt",
+        "Title": "空色イノセント"
     },
     "Sorairo no Shizuku": {
         "$type": "MizukakeCrypt",
@@ -2080,6 +2126,10 @@
         "$type": "XorCrypt",
         "Key": 205,
         "Title": "ゆらめく心に満ちた世界で、君の夢と欲望は叶うか | 三千心世界，梦终将实现"
+    },
+    "Yurikago yori Tenshi made [Trial]": {
+        "$type": "AppliqueCrypt",
+        "Title": "揺り籠より天使まで 体験版"
     },
     "Yuugu ~Nyomitsu Gangu Adesugata~": {
         "$type": "CxEncryption",

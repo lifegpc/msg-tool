@@ -425,7 +425,9 @@ impl Read for Entry {
         let seg_pos = self.entries_pos[seg_index];
         let skip_pos = self.pos - seg_pos;
         let read_size = seg.archived_size;
-        if !self.skip_decrypt && (self.index.is_encrypted() || self.force_decrypt) {
+        if !self.skip_decrypt
+            && (self.index.is_encrypted() || (self.force_decrypt && self.crypt.decrypt_supported()))
+        {
             if seg.is_compressed || !self.crypt.decrypt_seek_supported() {
                 let mut cache: Box<dyn Read> = if seg.is_compressed {
                     let mut inner =
