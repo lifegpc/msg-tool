@@ -2259,6 +2259,10 @@
         "ControlBlockName": "yomibito.bin",
         "Title": "黄泉ビト知ラズ～甘い雌蕊の性徴詩～"
     },
+    "Yotsunoha": {
+        "$type": "HaikuoCrypt",
+        "Title": "よつのは | 四叶草"
+    },
     "your diary + H": {
         "$type": "SourireCrypt"
     },

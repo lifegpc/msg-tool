@@ -175,6 +175,7 @@ enum CryptType {
     AkabeiCrypt {
         seed: u32,
     },
+    HaikuoCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -274,6 +275,7 @@ impl Schema {
             CryptType::SourireCrypt => Box::new(SourireCrypt::new(self.base.clone())),
             CryptType::HibikiCrypt => Box::new(HibikiCrypt::new(self.base.clone())),
             CryptType::AkabeiCrypt { seed } => Box::new(AkabeiCrypt::new(self.base.clone(), *seed)),
+            CryptType::HaikuoCrypt => Box::new(HaikuoCrypt::new(self.base.clone())),
         })
     }
 }
@@ -1142,6 +1144,20 @@ impl<R: Read> Read for AkabeiCryptReader<R> {
         for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
             let offset = self.seg_start + self.pos + i as u64;
             *t ^= self.key[(offset & 0x1F) as usize];
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(HaikuoCrypt, HaikuoCryptReader<T>);
+
+impl<R: Read> Read for HaikuoCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key = (self.key ^ (self.key >> 8)) as u8;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
         }
         self.pos += readed as u64;
         Ok(readed)
