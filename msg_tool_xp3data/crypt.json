@@ -1798,7 +1798,7 @@
         "OddBranchOrder": "AgMEBQAB",
         "EvenBranchOrder": "BwYEAQMAAgU=",
         "ControlBlockName": "sabbat.bin",
-        "Title": "サノバウィッチ | 魔女的夜宴"
+        "Title": "サノバウィッチ [English] | 魔女的夜宴 [English]"
     },
     "Saikyou Chikan Densha": {
         "$type": "FlyingShineCrypt",
@@ -1817,6 +1817,10 @@
         "$type": "XorCrypt",
         "Key": 209,
         "Title": "サメと生きる七日間 体験版"
+    },
+    "Sanoba Witch": {
+        "$type": "YuzuCrypt",
+        "Title": "サノバウィッチ | 魔女的夜宴"
     },
     "Sakura Sakura": {
         "$type": "HashCrypt",

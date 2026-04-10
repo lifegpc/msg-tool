@@ -187,6 +187,7 @@ enum CryptType {
         first_xor: u8,
         zero_xor: u8,
     },
+    YuzuCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -299,6 +300,7 @@ impl Schema {
                 *first_xor,
                 *zero_xor,
             )),
+            CryptType::YuzuCrypt => Box::new(YuzuCrypt::new(self.base.clone())),
         })
     }
 }
@@ -1304,10 +1306,48 @@ impl<R: Read> Read for SmileCryptReader<R> {
     }
 }
 
+seek_crypt_filehash_key_impl!(YuzuCrypt, YuzuCryptReader<T>);
+
+impl<R: Read> Read for YuzuCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let hash = self.key ^ 0x1DDB6E7A;
+        let mut key = (hash ^ (hash >> 8) ^ (hash >> 16) ^ (hash >> 24)) as u8;
+        if key == 0 {
+            key = 0xD0;
+        }
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
 #[test]
 fn test_deserialize_crypt() {
     for (key, schema) in CRYPT_SCHEMA.iter() {
         println!("Title: {}, Schema: {:?}", key, schema);
+    }
+}
+
+#[test]
+fn check_alias_exists() {
+    let mut alias = std::collections::HashSet::new();
+    for (key, schema) in CRYPT_SCHEMA.iter() {
+        if alias.contains(key.as_str()) {
+            panic!("Game {} is already used", key);
+        }
+        alias.insert(key.to_string());
+        if let Some(title) = &schema.title {
+            for part in title.split("|") {
+                let part = part.trim();
+                if alias.contains(part) {
+                    panic!("Game alias {} in {} is already used", part, key);
+                }
+                alias.insert(part.to_string());
+            }
+        }
     }
 }
 
