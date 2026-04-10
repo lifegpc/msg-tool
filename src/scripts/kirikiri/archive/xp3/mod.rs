@@ -255,6 +255,35 @@ impl Script for Xp3Archive {
         let header_len = entry.read(&mut header)?;
         entry.rewind()?;
         entry.script_type = detect_script_type(&entry.index.name, &header, header_len);
+        if self
+            .archive
+            .crypt
+            .need_filter(&entry.index.name, &header, header_len)
+        {
+            if self.archive.crypt.filter_seek_supported() {
+                let index = entry.index.clone();
+                let mut result = self.archive.crypt.filter_with_seek(entry)?;
+                let header_len = result.read(&mut header)?;
+                result.rewind()?;
+                let script_type = detect_script_type(&index.name, &header, header_len);
+                return Ok(Box::new(CustomFilterWithSeekEntry {
+                    inner: result,
+                    index,
+                    script_type,
+                }));
+            } else {
+                let index = entry.index.clone();
+                let mut result = self.archive.crypt.filter(entry)?;
+                let header_len = result.read(&mut header)?;
+                let script_type = detect_script_type(&index.name, &header, header_len);
+                let prefix = header[..header_len].to_vec();
+                return Ok(Box::new(CustomFilterEntry {
+                    inner: PrefixStream::new(prefix, result),
+                    index,
+                    script_type,
+                }));
+            }
+        }
         if self.decrypt_simple_crypt
             && header_len >= 5
             && header[0] == 0xFE
@@ -778,5 +807,69 @@ impl ArchiveContent for MdfEntry {
 impl Read for MdfEntry {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
+    }
+}
+
+#[derive(Debug)]
+struct CustomFilterEntry {
+    inner: PrefixStream<Box<dyn ReadDebug>>,
+    index: archive::Xp3Entry,
+    script_type: Option<ScriptType>,
+}
+
+impl Read for CustomFilterEntry {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+impl ArchiveContent for CustomFilterEntry {
+    fn name(&self) -> &str {
+        &self.index.name
+    }
+
+    fn script_type(&self) -> Option<&ScriptType> {
+        self.script_type.as_ref()
+    }
+}
+
+#[derive(Debug)]
+struct CustomFilterWithSeekEntry {
+    inner: Box<dyn ReadSeek>,
+    index: archive::Xp3Entry,
+    script_type: Option<ScriptType>,
+}
+
+impl Read for CustomFilterWithSeekEntry {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+impl Seek for CustomFilterWithSeekEntry {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        self.inner.seek(pos)
+    }
+
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.inner.rewind()
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        self.inner.stream_position()
+    }
+}
+
+impl ArchiveContent for CustomFilterWithSeekEntry {
+    fn name(&self) -> &str {
+        &self.index.name
+    }
+
+    fn script_type(&self) -> Option<&ScriptType> {
+        self.script_type.as_ref()
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(self))
     }
 }

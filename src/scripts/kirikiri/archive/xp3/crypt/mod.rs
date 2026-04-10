@@ -1,5 +1,7 @@
 mod cx;
+mod cz;
 
+use super::Entry;
 use super::archive::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
@@ -99,6 +101,30 @@ pub trait Crypt: std::fmt::Debug {
     fn decrypt_seek_supported(&self) -> bool {
         false
     }
+
+    /// Determine whether the file with the given name and content need to be extra processed after decryption. (e.g. extra decryption by file type)
+    fn need_filter(&self, _filename: &str, _buf: &[u8], _buf_len: usize) -> bool {
+        false
+    }
+
+    /// Returns true if this crypt support seek when filtering
+    fn filter_seek_supported(&self) -> bool {
+        false
+    }
+
+    /// Apply extra processing to the decrypted content of the file.
+    fn filter(&self, _entry: Entry) -> Result<Box<dyn ReadDebug>> {
+        Err(anyhow::anyhow!(
+            "This crypt does not support content filter after decrypt"
+        ))
+    }
+
+    /// Apply extra processing to the decrypted content of the file, with seek support.
+    fn filter_with_seek(&self, _entry: Entry) -> Result<Box<dyn ReadSeek>> {
+        Err(anyhow::anyhow!(
+            "This crypt does not support content filter with seek after decrypt"
+        ))
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -189,6 +215,7 @@ enum CryptType {
     },
     YuzuCrypt,
     HighRunningCrypt,
+    KissCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -303,6 +330,7 @@ impl Schema {
             )),
             CryptType::YuzuCrypt => Box::new(YuzuCrypt::new(self.base.clone())),
             CryptType::HighRunningCrypt => Box::new(HighRunningCrypt::new(self.base.clone())),
+            CryptType::KissCrypt => Box::new(cz::KissCrypt::new(self.base.clone())),
         })
     }
 }
@@ -1344,6 +1372,8 @@ impl<R: Read> Read for HighRunningCryptReader<R> {
         Ok(readed)
     }
 }
+
+seek_reader_key_impl!(KissCryptReader<T>, u32);
 
 #[test]
 fn test_deserialize_crypt() {

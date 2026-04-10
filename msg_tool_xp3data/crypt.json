@@ -1256,6 +1256,10 @@
         "ControlBlockName": "maitetsu_last_run.bin",
         "Title": "まいてつ Last Run!! | 爱上火车-Last Run!!- | 愛上火車-Last Run!!-"
     },
+    "Make Me Lover": {
+        "$type": "KissCrypt",
+        "Title": "メイクMeラバー"
+    },
     "Mama no Okugai Shuuchi Lesson": {
         "$type": "HashCrypt",
         "Title": "ママの屋外羞恥レッスン ～視線が快楽に変る時…～"
