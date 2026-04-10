@@ -181,6 +181,12 @@ enum CryptType {
         key: u8,
     },
     ExaCrypt,
+    #[serde(rename_all = "PascalCase")]
+    SmileCrypt {
+        key_xor: u32,
+        first_xor: u8,
+        zero_xor: u8,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -283,6 +289,16 @@ impl Schema {
             CryptType::HaikuoCrypt => Box::new(HaikuoCrypt::new(self.base.clone())),
             CryptType::StripeCrypt { key } => Box::new(StripeCrypt::new(self.base.clone(), *key)),
             CryptType::ExaCrypt => Box::new(ExaCrypt::new(self.base.clone())),
+            CryptType::SmileCrypt {
+                key_xor,
+                first_xor,
+                zero_xor,
+            } => Box::new(SmileCrypt::new(
+                self.base.clone(),
+                *key_xor,
+                *first_xor,
+                *zero_xor,
+            )),
         })
     }
 }
@@ -1203,6 +1219,85 @@ impl<R: Read> Read for ExaCryptReader<R> {
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= (self.key >> shift) as u8;
             shift = (shift + 1) % 5;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct SmileCrypt {
+    base: BaseSchema,
+    key_xor: u32,
+    first_xor: u8,
+    zero_xor: u8,
+}
+
+impl SmileCrypt {
+    pub fn new(base: BaseSchema, key_xor: u32, first_xor: u8, zero_xor: u8) -> Self {
+        Self {
+            base,
+            key_xor,
+            first_xor,
+            zero_xor,
+        }
+    }
+}
+
+impl Crypt for SmileCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        let key = entry.file_hash ^ self.key_xor;
+        Ok(Box::new(SmileCryptReader::new(
+            stream,
+            cur_seg,
+            (key, self.first_xor, self.zero_xor),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        let key = entry.file_hash ^ self.key_xor;
+        Ok(Box::new(SmileCryptReader::new(
+            stream,
+            cur_seg,
+            (key, self.first_xor, self.zero_xor),
+        )))
+    }
+}
+
+seek_reader_key_impl!(SmileCryptReader<T>, (u32, u8, u8));
+
+impl<R: Read> Read for SmileCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let (mut hash, first_xor, zero_xor) = self.key;
+        let mut key = (hash ^ (hash >> 8) ^ (hash >> 16) ^ (hash >> 24)) as u8;
+        if key == 0 {
+            key = zero_xor;
+        }
+        if self.pos == 0 && self.seg_start == 0 && readed > 0 {
+            if hash & 0xFF == 0 {
+                hash = first_xor as u32;
+            }
+            buf[0] ^= hash as u8;
+        }
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
         }
         self.pos += readed as u64;
         Ok(readed)

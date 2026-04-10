@@ -230,6 +230,20 @@
         "Key": 49,
         "Title": "僕の未来は、恋と課金と。～Charge To The Future～ [体験版] | 我的未来是恋爱与氪金 [试用版]"
     },
+    "Boku to Koi Suru Ponkotsu Akuma.": {
+        "$type": "SmileCrypt",
+        "KeyXor": 3505437307,
+        "FirstXor": 123,
+        "ZeroXor": 94,
+        "Title": "僕と恋するポンコツアクマ。 | 与我恋爱的废柴小恶魔 | The Ditzy Demons Are in Love With Me | 與我戀愛的廢柴小惡魔"
+    },
+    "Boku to Koi Suru Ponkotsu Akuma. Suggoi Ecchi!": {
+        "$type": "SmileCrypt",
+        "KeyXor": 3505437307,
+        "FirstXor": 123,
+        "ZeroXor": 94,
+        "Title": "僕と恋するポンコツアクマ。 すっごいえっち！ | 与我恋爱的废柴恶魔。 ～甜腻后日谈～ | The Ditzy Demons Are in Love With Me - Fandisc"
+    },
     "Bosei Kanojo -Shikyuu Kikan Hen-": {
         "$type": "AkabeiCrypt",
         "Seed": 3598228156,
@@ -813,6 +827,13 @@
     "Imouto no Okage de Motesugite Yabai.": {
         "$type": "SourireCrypt",
         "Title": "妹のおかげでモテすぎてヤバい。 | 因为妹妹让我太受欢迎了糟糕了"
+    },
+    "Imouto no Seiiki": {
+        "$type": "SmileCrypt",
+        "KeyXor": 552518022,
+        "FirstXor": 134,
+        "ZeroXor": 60,
+        "Title": "妹のセイイキ | 妹的圣域 | My Little Sister's Special Place"
     },
     "Imouto Shokushu Rape": {
         "$type": "HashCrypt",
@@ -1399,6 +1420,13 @@
         "ControlBlockName": "nekogami.bin",
         "Title": "ネコ神さまと、ななつぼし -妹の姉- | 猫神大人与七颗星星"
     },
+    "Neko Para Extra": {
+        "$type": "SmileCrypt",
+        "KeyXor": 1146260359,
+        "FirstXor": 135,
+        "ZeroXor": 35,
+        "Title": "ネコぱらExtra 仔ネコの日の約束 | 猫娘乐园Extra 小猫之日的约定 | 貓娘樂園Extra 貓咪之日的約定"
+    },
     "Netorare Osananajimi ~Haruka to Chika~": {
         "$type": "NatsupochiCrypt",
         "Title": "寝取られ幼馴染～春花と千夏～"
@@ -1719,6 +1747,13 @@
         "$type": "AkabeiCrypt",
         "Seed": 798088789,
         "Title": "Role player：小粥姉妹の粘膜ポトレ ぐりぐちゃLIVE！ | ROLEPLAYER：小粥姐妹的黏膜游戏！"
+    },
+    "Royal Garden": {
+        "$type": "SmileCrypt",
+        "KeyXor": 1651056185,
+        "FirstXor": 57,
+        "ZeroXor": 106,
+        "Title": "ロイヤルガーデン～乙女に恋する皇子の戯曲～"
     },
     "Rui wa Tomo o Yobu": {
         "$type": "CxEncryption",
