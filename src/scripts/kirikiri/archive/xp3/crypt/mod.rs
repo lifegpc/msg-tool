@@ -4,6 +4,7 @@ use super::archive::*;
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
+use crate::utils::case_insensitive_string::*;
 use crate::utils::encoding::*;
 use crate::utils::serde_base64bytes::*;
 use crate::utils::simple_pack::*;
@@ -168,6 +169,7 @@ enum CryptType {
     PoringSoftCrypt,
     AppliqueCrypt,
     TokidokiCrypt,
+    SourireCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -263,12 +265,13 @@ impl Schema {
             CryptType::PoringSoftCrypt => Box::new(PoringSoftCrypt::new(self.base.clone())),
             CryptType::AppliqueCrypt => Box::new(AppliqueCrypt::new(self.base.clone())),
             CryptType::TokidokiCrypt => Box::new(TokidokiCrypt::new(self.base.clone())),
+            CryptType::SourireCrypt => Box::new(SourireCrypt::new(self.base.clone())),
         })
     }
 }
 
 lazy_static::lazy_static! {
-    static ref CRYPT_SCHEMA: BTreeMap<String, Schema> = {
+    static ref CRYPT_SCHEMA: BTreeMap<CaseInsensitiveString, Schema> = {
         serde_json::from_str(&get_crypt_data()).expect("Failed to parse crypt.json")
     };
     static ref ALIAS_TABLE: HashMap<String, String> = {
@@ -1025,6 +1028,20 @@ impl<R: Read> Read for TokidokiCryptReader<R> {
             if offset < limit {
                 *t ^= (key >> ((offset as i32 & 3) << 3)) as u8;
             }
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(SourireCrypt, SourireCryptReader<T>);
+
+impl<R: Read> Read for SourireCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key = (self.key ^ 0xCD) as u8;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
         }
         self.pos += readed as u64;
         Ok(readed)

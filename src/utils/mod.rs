@@ -3,6 +3,8 @@
 pub mod bit_stream;
 #[cfg(feature = "utils-blowfish")]
 pub mod blowfish;
+#[cfg(feature = "utils-case-insensitive-string")]
+pub mod case_insensitive_string;
 pub mod counter;
 #[cfg(feature = "utils-crc32")]
 pub mod crc32;

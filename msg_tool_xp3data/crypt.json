@@ -185,6 +185,9 @@
         "$type": "HashCrypt",
         "Title": "爆走女装計画～もしも俺が女装させられてレディースに入隊させられたら～"
     },
+    "Berry's": {
+        "$type": "SourireCrypt"
+    },
     "Bishuu ~Chigyaku no Mesu Dorei~": {
         "$type": "CxEncryption",
         "Mask": 531,
@@ -220,6 +223,9 @@
     "Bra-ban!": {
         "$type": "PoringSoftCrypt",
         "Title": "ぶらばん！ | 管乐恋曲！"
+    },
+    "Cafe Sourire": {
+        "$type": "SourireCrypt"
     },
     "Café Stella to Shinigami no Chou": {
         "$type": "RiddleCxCrypt",
@@ -770,6 +776,14 @@
         "$type": "PoringSoftCrypt",
         "Title": "妹快楽堕ち～お兄ちゃんに無理やりハメられてから～ | 沉溺快感中的妹妹～自从被哥哥强行插入后～"
     },
+    "Imouto no Katachi": {
+        "$type": "SourireCrypt",
+        "Title": "イモウトノカタチ | 妹之形"
+    },
+    "Imouto no Okage de Motesugite Yabai.": {
+        "$type": "SourireCrypt",
+        "Title": "妹のおかげでモテすぎてヤバい。 | 因为妹妹让我太受欢迎了糟糕了"
+    },
     "Imouto Shokushu Rape": {
         "$type": "HashCrypt",
         "Title": "妹触手レイプ ～復讐の処女貫通～"
@@ -909,6 +923,10 @@
         "Key": 205,
         "Title": "神頼みしすぎて俺の未来がヤバい。 | 求神太多我的未来糟糕了 | 太依赖咒术的我未来堪忧。"
     },
+    "Kanae to Meguri to no Sonogo ga Icha Love Sugite Yabai.": {
+        "$type": "SourireCrypt",
+        "Title": "叶とメグリとのその後がイチャらぶすぎてヤバい。 | 与叶和爱莉之后的故事太过亲密糟糕了"
+    },
     "Kanjuku Sakuranbou!": {
         "$type": "FlyingShineCrypt",
         "Title": "完熟☆さくらん棒ッ！ ～ヒキオタ達の姉妹交換～"
@@ -1022,6 +1040,10 @@
         "ControlBlockName": "koiga.bin",
         "Title": "恋がさくころ桜どき | 恋花绽放樱飞时"
     },
+    "Koi Suru Kanojo no Bukiyou na Butai": {
+        "$type": "SourireCrypt",
+        "Title": "恋する彼女の不器用な舞台 | 恋爱中的她的笨拙舞台"
+    },
     "Koikishi Purely ☆ Kiss": {
         "$type": "CxEncryption",
         "Mask": 561,
@@ -1068,6 +1090,10 @@
         "TpmFileName": "plugin/lavender.tpm",
         "Title": "光輪の町、ラベンダーの少女",
         "StartupTjsNotEncrypted": true
+    },
+    "Kurano-kunchi no Futago Jijou": {
+        "$type": "SourireCrypt",
+        "Title": "倉野くんちのふたご事情 | 仓野家的双胞胎故事"
     },
     "Kurenai no Tsuki": {
         "$type": "CxEncryption",
@@ -1159,6 +1185,10 @@
     "Mama to no Ikisugi Ama Ama Seikatsu": {
         "$type": "HashCrypt",
         "Title": "ママとのイキすぎ甘々性活～いっぱい気持ちいいコト教えてあ・げ・る～"
+    },
+    "Mamiya-kunchi no Itsutsugo Jijou": {
+        "$type": "SourireCrypt",
+        "Title": "間宮くんちの五つ子事情 | 间宫家的五子情事"
     },
     "Manakashi no Yuri wa Akaku Somaru [DL]": {
         "$type": "CxEncryption",
@@ -2105,6 +2135,9 @@
         "ControlBlockName": "walpurgis.bin",
         "Title": "ヴァルプルギス"
     },
+    "With Ribbon": {
+        "$type": "SourireCrypt"
+    },
     "Yome no Ane ga Kyonyuu Sugite": {
         "$type": "HashCrypt",
         "Title": "嫁の姉が巨乳過ぎて我慢できない ～義姉さんがこんなにエロかったなんて！"
@@ -2126,6 +2159,9 @@
         "EvenBranchOrder": "AAQBAgcFAwY=",
         "ControlBlockName": "yomibito.bin",
         "Title": "黄泉ビト知ラズ～甘い雌蕊の性徴詩～"
+    },
+    "your diary + H": {
+        "$type": "SourireCrypt"
     },
     "Yurameku Kokoro ni Michita Sekai de": {
         "$type": "XorCrypt",
