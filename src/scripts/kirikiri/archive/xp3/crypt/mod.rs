@@ -170,10 +170,12 @@ enum CryptType {
     AppliqueCrypt,
     TokidokiCrypt,
     SourireCrypt,
+    HibikiCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+#[allow(dead_code)]
 pub struct BaseSchema {
     #[serde(default)]
     hash_after_crypt: bool,
@@ -266,6 +268,7 @@ impl Schema {
             CryptType::AppliqueCrypt => Box::new(AppliqueCrypt::new(self.base.clone())),
             CryptType::TokidokiCrypt => Box::new(TokidokiCrypt::new(self.base.clone())),
             CryptType::SourireCrypt => Box::new(SourireCrypt::new(self.base.clone())),
+            CryptType::HibikiCrypt => Box::new(HibikiCrypt::new(self.base.clone())),
         })
     }
 }
@@ -1041,6 +1044,27 @@ impl<R: Read> Read for SourireCryptReader<R> {
         let readed = self.inner.read(buf)?;
         let key = (self.key ^ 0xCD) as u8;
         for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(HibikiCrypt, HibikiCryptReader<T>);
+
+impl <R: Read> Read for HibikiCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key1 = (self.key >> 5) as u8;
+        let key2 = (self.key >> 8) as u8;
+        for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+            let offset = self.seg_start + self.pos + i as u64;
+            let key = if offset <= 0x64 || offset & 4 != 0 {
+                key1
+            } else {
+                key2
+            };
             *t ^= key;
         }
         self.pos += readed as u64;

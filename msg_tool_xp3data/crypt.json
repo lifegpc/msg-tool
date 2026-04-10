@@ -1137,6 +1137,10 @@
         "ControlBlockName": "love_laby.bin",
         "Title": "らぶ+らび"
     },
+    "LOVELY x CATION": {
+        "$type": "HibikiCrypt",
+        "Title": "LOVELY×CATION"
+    },
     "Lovesick Puppies -Bokura wa Koi Suru Tame ni Umaretekita-": {
         "$type": "AppliqueCrypt",
         "Title": "LOVESICK PUPPIES -僕らは恋するために生まれてきた- | LOVESICK PUPPIES -我们为了恋爱而诞生-"
