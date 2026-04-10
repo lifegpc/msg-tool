@@ -358,6 +358,7 @@ pub struct PImg {
     psd: bool,
     psd_compress: bool,
     zlib_compression_level: u32,
+    psd_no_diff: bool,
 }
 
 impl PImg {
@@ -374,6 +375,7 @@ impl PImg {
             psd: config.emote_pimg_psd,
             psd_compress: config.psd_compress,
             zlib_compression_level: config.zlib_compression_level,
+            psd_no_diff: config.emote_pimg_psd_no_diff,
         })
     }
 
@@ -448,6 +450,10 @@ impl Script for PImg {
             return Ok(Box::new(std::iter::empty()));
         }
         let mut bases = HashMap::new();
+        let is_all_non_diff = psb["layers"]
+            .members()
+            .all(|layer| layer["diff_id"].is_none());
+        let mut base_id = None;
         for i in psb["layers"].members() {
             if !i["diff_id"].is_none() {
                 continue; // Skip layers with diff_id
@@ -457,10 +463,22 @@ impl Script for PImg {
                 .ok_or(anyhow::anyhow!("missing layer_id"))?;
             let top = i["top"].as_u32().ok_or(anyhow::anyhow!("missing top"))?;
             let left = i["left"].as_u32().ok_or(anyhow::anyhow!("missing left"))?;
+            if is_all_non_diff {
+                let width = i["width"]
+                    .as_u32()
+                    .ok_or(anyhow::anyhow!("missing width for non-diff layer"))?;
+                let height = i["height"]
+                    .as_u32()
+                    .ok_or(anyhow::anyhow!("missing height for non-diff layer"))?;
+                if !(top == 0 && left == 0 && width == width && height == height) {
+                    continue;
+                }
+            }
             let opacity = i["opacity"]
                 .as_u8()
                 .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid opacity"))?;
             bases.insert(layer_id, (self.load_img(layer_id)?, top, left, opacity));
+            base_id = Some(layer_id);
         }
         Ok(Box::new(PImgIter {
             pimg: self,
@@ -468,6 +486,8 @@ impl Script for PImg {
             height,
             layers: psb["layers"].members(),
             bases,
+            base_id: base_id.ok_or(anyhow::anyhow!("No valid base layer found"))?,
+            all_non_diff: is_all_non_diff,
         }))
     }
 
@@ -489,6 +509,50 @@ impl Script for PImg {
             depth: 8,
             data: vec![0u8; (width * height * 4) as usize],
         };
+        if !self.psd_no_diff {
+            let is_no_group = psb["layers"]
+                .members()
+                .all(|layer| layer["group_layer_id"].is_none());
+            let is_all_non_diff = psb["layers"]
+                .members()
+                .all(|layer| layer["diff_id"].is_none());
+            if is_all_non_diff && is_no_group {
+                let mut psb = psb.clone();
+                let diff_id = {
+                    let base_layer = psb["layers"]
+                        .members()
+                        .rev()
+                        .find(|layer| {
+                            layer["diff_id"].is_none()
+                                && layer["top"].as_i64() == Some(0)
+                                && layer["left"].as_i64() == Some(0)
+                                && layer["width"].as_u32() == Some(width)
+                                && layer["height"].as_u32() == Some(height)
+                        })
+                        .ok_or(anyhow::anyhow!(
+                            "No valid base layer found for overlay mode"
+                        ))?;
+                    base_layer["layer_id"]
+                        .as_i64()
+                        .ok_or(anyhow::anyhow!("missing layer_id for base layer"))?
+                };
+                for layer in psb["layers"].members_mut() {
+                    let layer_id = layer["layer_id"].as_i64().unwrap_or(-1);
+                    if layer_id != diff_id {
+                        layer["diff_id"] = diff_id.into();
+                    }
+                }
+                let layers = PImgLayerRoot::new(&psb["layers"])?;
+                if layers.len() != psb["layers"].len() {
+                    return Err(anyhow::anyhow!("Layer hierarchy is invalid"));
+                }
+                layers.save_to_psd(self, &mut psd, &mut base)?;
+                let file = std::fs::File::create(filename)?;
+                let mut writer = std::io::BufWriter::new(file);
+                psd.save(base, &mut writer)?;
+                return Ok(());
+            }
+        }
         let layers = PImgLayerRoot::new(&psb["layers"])?;
         if layers.len() != psb["layers"].len() {
             return Err(anyhow::anyhow!("Layer hierarchy is invalid"));
@@ -507,6 +571,8 @@ struct PImgIter<'a> {
     height: u32,
     layers: ListIter<'a>,
     bases: HashMap<i64, (Tlg, u32, u32, u8)>,
+    base_id: i64,
+    all_non_diff: bool,
 }
 
 impl<'a> Iterator for PImgIter<'a> {
@@ -549,7 +615,9 @@ impl<'a> Iterator for PImgIter<'a> {
                         .as_u8()
                         .ok_or_else(|| { anyhow::anyhow!("Layer does not have a valid opacity") })
                 );
-                if layer["diff_id"].is_none() {
+                if (layer["diff_id"].is_none() && !self.all_non_diff)
+                    || (self.all_non_diff && layer_id == self.base_id)
+                {
                     let base = &try_option!(self.bases.get(&layer_id).ok_or(anyhow::anyhow!(
                         "Base image for layer_id {} not found",
                         layer_id
@@ -578,10 +646,13 @@ impl<'a> Iterator for PImgIter<'a> {
                         data,
                     }));
                 } else {
-                    let diff_id =
+                    let diff_id = if self.all_non_diff {
+                        self.base_id
+                    } else {
                         try_option!(layer["diff_id"].as_i64().ok_or_else(|| {
                             anyhow::anyhow!("Layer does not have a valid diff_id")
-                        }));
+                        }))
+                    };
                     let (base, base_top, base_left, base_opacity) = try_option!(
                         self.bases
                             .get(&diff_id)

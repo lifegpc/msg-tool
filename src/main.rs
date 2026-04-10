@@ -3399,6 +3399,8 @@ fn main() {
         xp3_force_extract: arg.xp3_force_extract,
         #[cfg(feature = "kirikiri-arc")]
         xp3_force_decrypt: arg.xp3_force_decrypt,
+        #[cfg(feature = "emote-img")]
+        emote_pimg_psd_no_diff: arg.emote_pimg_psd_no_diff,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

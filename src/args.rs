@@ -737,6 +737,11 @@ pub struct Arg {
     /// Force decrypt files in Kirikiri xp3 archive even when flags are not set.
     /// Some encrypted files in Kirikiri XP3 archive may not set encryption flag, but still encrypted. Enable this to force decrypt these files.
     pub xp3_force_decrypt: bool,
+    #[cfg(feature = "emote-img")]
+    #[arg(long, global = true)]
+    /// Disable diff handle when exporting Emote PIMG images to PSD files.
+    /// If enabled, no group layers will be crated if both layer don't have diff_id and group_layer_id attribute.
+    pub emote_pimg_psd_no_diff: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
