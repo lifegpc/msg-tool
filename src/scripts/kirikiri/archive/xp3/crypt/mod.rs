@@ -180,6 +180,7 @@ enum CryptType {
     StripeCrypt {
         key: u8,
     },
+    ExaCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -281,6 +282,7 @@ impl Schema {
             CryptType::AkabeiCrypt { seed } => Box::new(AkabeiCrypt::new(self.base.clone(), *seed)),
             CryptType::HaikuoCrypt => Box::new(HaikuoCrypt::new(self.base.clone())),
             CryptType::StripeCrypt { key } => Box::new(StripeCrypt::new(self.base.clone(), *key)),
+            CryptType::ExaCrypt => Box::new(ExaCrypt::new(self.base.clone())),
         })
     }
 }
@@ -1186,6 +1188,21 @@ impl<R: Read> Read for StripeCryptReader<R> {
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= self.key;
             w!(*t += 1);
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(ExaCrypt, ExaCryptReader<T>);
+
+impl<R: Read> Read for ExaCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut shift = ((self.seg_start + self.pos) % 5) as u32;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= (self.key >> shift) as u8;
+            shift = (shift + 1) % 5;
         }
         self.pos += readed as u64;
         Ok(readed)
