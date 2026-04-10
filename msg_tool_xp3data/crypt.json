@@ -1974,6 +1974,11 @@
         "$type": "HashCrypt",
         "Title": "双性の姫君 ～ふたなり姉妹と魔王の求愛～"
     },
+    "Specialite!": {
+        "$type": "StripeCrypt",
+        "Key": 175,
+        "Title": "すぺしゃりて!"
+    },
     "Suiheisen made Nan Mile?": {
         "$type": "CxEncryption",
         "Mask": 610,

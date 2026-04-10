@@ -176,6 +176,10 @@ enum CryptType {
         seed: u32,
     },
     HaikuoCrypt,
+    #[serde(rename_all = "PascalCase")]
+    StripeCrypt {
+        key: u8,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -276,6 +280,7 @@ impl Schema {
             CryptType::HibikiCrypt => Box::new(HibikiCrypt::new(self.base.clone())),
             CryptType::AkabeiCrypt { seed } => Box::new(AkabeiCrypt::new(self.base.clone(), *seed)),
             CryptType::HaikuoCrypt => Box::new(HaikuoCrypt::new(self.base.clone())),
+            CryptType::StripeCrypt { key } => Box::new(StripeCrypt::new(self.base.clone(), *key)),
         })
     }
 }
@@ -604,45 +609,54 @@ impl<R: Read> Read for HashCryptReader<R> {
     }
 }
 
-#[derive(Debug)]
-pub struct XorCrypt {
-    base: BaseSchema,
-    key: u8,
+macro_rules! seek_crypt_key_base_impl {
+    ($crypt:ident, $reader:ident, $typ:ty) => {
+        #[derive(Debug)]
+        pub struct $crypt {
+            base: BaseSchema,
+            key: $typ,
+        }
+        impl $crypt {
+            pub fn new(base: BaseSchema, key: $typ) -> Self {
+                Self { base, key }
+            }
+        }
+        impl Crypt for $crypt {
+            base_schema_impl!();
+            fn decrypt_supported(&self) -> bool {
+                true
+            }
+            fn decrypt_seek_supported(&self) -> bool {
+                true
+            }
+            fn decrypt<'a>(
+                &self,
+                _entry: &Xp3Entry,
+                cur_seg: &Segment,
+                stream: Box<dyn Read + 'a>,
+            ) -> Result<Box<dyn ReadDebug + 'a>> {
+                Ok(Box::new($reader::new(stream, cur_seg, self.key)))
+            }
+            fn decrypt_with_seek<'a>(
+                &self,
+                _entry: &Xp3Entry,
+                cur_seg: &Segment,
+                stream: Box<dyn ReadSeek + 'a>,
+            ) -> Result<Box<dyn ReadSeek + 'a>> {
+                Ok(Box::new($reader::new(stream, cur_seg, self.key)))
+            }
+        }
+    };
 }
 
-impl XorCrypt {
-    pub fn new(base: BaseSchema, key: u8) -> Self {
-        Self { base, key }
-    }
+macro_rules! seek_crypt_key_impl {
+    ($crypt:ident, $reader:ident<$t:ident>, $typ:ty) => {
+        seek_crypt_key_base_impl!($crypt, $reader, $typ);
+        seek_reader_key_impl!($reader<$t>, $typ);
+    };
 }
 
-impl Crypt for XorCrypt {
-    base_schema_impl!();
-    fn decrypt_supported(&self) -> bool {
-        true
-    }
-    fn decrypt_seek_supported(&self) -> bool {
-        true
-    }
-    fn decrypt<'a>(
-        &self,
-        _entry: &Xp3Entry,
-        cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
-        Ok(Box::new(XorCryptReader::new(stream, cur_seg, self.key)))
-    }
-    fn decrypt_with_seek<'a>(
-        &self,
-        _entry: &Xp3Entry,
-        cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
-        Ok(Box::new(XorCryptReader::new(stream, cur_seg, self.key)))
-    }
-}
-
-seek_reader_key_impl!(XorCryptReader<T>, u8);
+seek_crypt_key_impl!(XorCrypt, XorCryptReader<T>, u8);
 
 impl<R: Read> Read for XorCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -1158,6 +1172,20 @@ impl<R: Read> Read for HaikuoCryptReader<R> {
         let key = (self.key ^ (self.key >> 8)) as u8;
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_key_impl!(StripeCrypt, StripeCryptReader<T>, u8);
+
+impl<R: Read> Read for StripeCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= self.key;
+            w!(*t += 1);
         }
         self.pos += readed as u64;
         Ok(readed)
