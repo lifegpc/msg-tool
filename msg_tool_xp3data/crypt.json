@@ -989,6 +989,10 @@
         "Key": 205,
         "Title": "神頼みしすぎて俺の未来がヤバい。 | 求神太多我的未来糟糕了 | 太依赖咒术的我未来堪忧。"
     },
+    "Kaminarikko Chuuihou!": {
+        "$type": "HighRunningCrypt",
+        "Title": "カミナリっ娘注意報！～未来の予報はヨメのちハラみ!?～"
+    },
     "Kanae to Meguri to no Sonogo ga Icha Love Sugite Yabai.": {
         "$type": "SourireCrypt",
         "Title": "叶とメグリとのその後がイチャらぶすぎてヤバい。 | 与叶和爱莉之后的故事太过亲密糟糕了"
@@ -1156,6 +1160,10 @@
         "TpmFileName": "plugin/lavender.tpm",
         "Title": "光輪の町、ラベンダーの少女",
         "StartupTjsNotEncrypted": true
+    },
+    "Kozukuri Onsen ~Ippai Tsukutte Ichizoku Hanei~": {
+        "$type": "HighRunningCrypt",
+        "Title": "こづくり温泉～いっぱいつくって一族繁栄!?～"
     },
     "Kurano-kunchi no Futago Jijou": {
         "$type": "SourireCrypt",

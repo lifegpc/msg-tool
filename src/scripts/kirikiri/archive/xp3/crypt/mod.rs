@@ -188,6 +188,7 @@ enum CryptType {
         zero_xor: u8,
     },
     YuzuCrypt,
+    HighRunningCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -301,6 +302,7 @@ impl Schema {
                 *zero_xor,
             )),
             CryptType::YuzuCrypt => Box::new(YuzuCrypt::new(self.base.clone())),
+            CryptType::HighRunningCrypt => Box::new(HighRunningCrypt::new(self.base.clone())),
         })
     }
 }
@@ -1318,6 +1320,25 @@ impl<R: Read> Read for YuzuCryptReader<R> {
         }
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_u8_impl!(HighRunningCrypt, HighRunningCryptReader<T>);
+
+impl<R: Read> Read for HighRunningCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key = self.key as u64;
+        if key != 0 {
+            for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+                let offset = self.seg_start + self.pos + i as u64;
+                if offset % key != 0 {
+                    *t ^= self.key;
+                }
+            }
         }
         self.pos += readed as u64;
         Ok(readed)
