@@ -134,7 +134,7 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["xp3"]
+        &["xp3", "bin"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
@@ -153,6 +153,13 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
         config: &ExtraConfig,
     ) -> Result<Box<dyn Archive>> {
         Ok(Box::new(Xp3ArchiveWriter::new(filename, files, config)?))
+    }
+
+    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+        if buf_len >= 11 && buf.starts_with(consts::XP3_MAGIC) {
+            return Some(100);
+        }
+        None
     }
 }
 

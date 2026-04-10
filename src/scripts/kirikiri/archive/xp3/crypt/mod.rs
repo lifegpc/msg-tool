@@ -171,6 +171,10 @@ enum CryptType {
     TokidokiCrypt,
     SourireCrypt,
     HibikiCrypt,
+    #[serde(rename_all = "PascalCase")]
+    AkabeiCrypt {
+        seed: u32,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -269,6 +273,7 @@ impl Schema {
             CryptType::TokidokiCrypt => Box::new(TokidokiCrypt::new(self.base.clone())),
             CryptType::SourireCrypt => Box::new(SourireCrypt::new(self.base.clone())),
             CryptType::HibikiCrypt => Box::new(HibikiCrypt::new(self.base.clone())),
+            CryptType::AkabeiCrypt { seed } => Box::new(AkabeiCrypt::new(self.base.clone(), *seed)),
         })
     }
 }
@@ -1053,7 +1058,7 @@ impl<R: Read> Read for SourireCryptReader<R> {
 
 seek_crypt_filehash_key_impl!(HibikiCrypt, HibikiCryptReader<T>);
 
-impl <R: Read> Read for HibikiCryptReader<R> {
+impl<R: Read> Read for HibikiCryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let readed = self.inner.read(buf)?;
         let key1 = (self.key >> 5) as u8;
@@ -1066,6 +1071,77 @@ impl <R: Read> Read for HibikiCryptReader<R> {
                 key2
             };
             *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct AkabeiCrypt {
+    base: BaseSchema,
+    seed: u32,
+}
+
+impl AkabeiCrypt {
+    pub fn new(base: BaseSchema, seed: u32) -> Self {
+        Self { base, seed }
+    }
+
+    fn get_key(&self, mut hash: u32) -> [u8; 0x20] {
+        let mut state = [0; 0x20];
+        hash = (hash ^ self.seed) & 0x7FFFFFFF;
+        hash = hash << 31 | hash;
+        for i in 0..0x20 {
+            state[i] = (hash & 0xFF) as u8;
+            hash = (hash & 0xFFFFFFFE) << 23 | hash >> 8;
+        }
+        state
+    }
+}
+
+impl Crypt for AkabeiCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        Ok(Box::new(AkabeiCryptReader::new(
+            stream,
+            cur_seg,
+            self.get_key(entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(AkabeiCryptReader::new(
+            stream,
+            cur_seg,
+            self.get_key(entry.file_hash),
+        )))
+    }
+}
+
+seek_reader_key_impl!(AkabeiCryptReader<T>, [u8; 0x20]);
+
+impl<R: Read> Read for AkabeiCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+            let offset = self.seg_start + self.pos + i as u64;
+            *t ^= self.key[(offset & 0x1F) as usize];
         }
         self.pos += readed as u64;
         Ok(readed)

@@ -61,6 +61,11 @@
         "EvenBranchOrder": "BQcBBgMCAAQ=",
         "ControlBlockName": "9nine_ep1_sekai.bin"
     },
+    "Aa Mama ni Naru!": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3598228156,
+        "Title": "ああっママになるっ！ ～アナタを想って溢れるおっぱい～ | 母爱如山 胸中无法压抑对你的爱 | 向妈妈撒娇吧"
+    },
     "Aete Mushi Suru Kimi to no Mirai ~Relay Broadcast~": {
         "$type": "CxEncryption",
         "Mask": 443,
@@ -80,6 +85,11 @@
         "EvenBranchOrder": "AQYEAAMHBQI=",
         "TpmFileName": "plugin/cxdec.tpm",
         "Title": "ああっお嬢様っ"
+    },
+    "AI Love": {
+        "$type": "AkabeiCrypt",
+        "Seed": 734916043,
+        "Title": "Ai 爱"
     },
     "Aibo Nyuujoku": {
         "$type": "FlyingShineCrypt",
@@ -220,9 +230,19 @@
         "Key": 49,
         "Title": "僕の未来は、恋と課金と。～Charge To The Future～ [体験版] | 我的未来是恋爱与氪金 [试用版]"
     },
+    "Bosei Kanojo -Shikyuu Kikan Hen-": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3598228156,
+        "Title": "母性カノジョ-子宮 帰還編- | 母性女友"
+    },
     "Bra-ban!": {
         "$type": "PoringSoftCrypt",
         "Title": "ぶらばん！ | 管乐恋曲！"
+    },
+    "Bukkake! Doshikoring MINUKI Max Acme...": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3854429322,
+        "Title": "BUKKAKE！ ドシコリングMINUKIマックスアクメしてもいいですか？ ～ドエロいポーズして貰って見抜きぶっかけしたらお互い興奮がドチャクソヤバイです～"
     },
     "Cafe Sourire": {
         "$type": "SourireCrypt"
@@ -248,6 +268,11 @@
         "Key2": 2773455888,
         "ControlBlockName": "cafe_stella.bin",
         "Title": "喫茶ステラと死神の蝶 | 星光咖啡馆与死神之蝶 | 星光咖啡館與死神之蝶"
+    },
+    "CharaBration!": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3854429322,
+        "Title": "きゃらぶれーしょん！ ～乙女は恋してキャラぶれる～ | charabration！恋爱少女人格崩坏"
     },
     "Chikan Yuugi": {
         "$type": "CxEncryption",
@@ -568,6 +593,11 @@
         "$type": "HashCrypt",
         "Title": "ハードコア・ティーチャー ～絶対服従へのロジック～"
     },
+    "Haru to Yuki": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3854429322,
+        "Title": "はるとゆき、"
+    },
     "Haruiro☆Communication♪": {
         "$type": "CxEncryption",
         "Mask": 257,
@@ -826,6 +856,16 @@
         "$type": "HashCrypt",
         "Title": "淫！辱！ピンクレンジャー!! ～堕ちた変身ヒロイン～"
     },
+    "Inochi no Spare": {
+        "$type": "AkabeiCrypt",
+        "Seed": 771534797,
+        "Title": "生命のスペア | 生命的备件"
+    },
+    "Inochi no Spare [Trial]": {
+        "$type": "AkabeiCrypt",
+        "Seed": 716950749,
+        "Title": "生命のスペア [体験版] | 生命的备件 [试玩版]"
+    },
     "Inraku Counseling": {
         "$type": "HashCrypt",
         "Title": "淫落カウンセリング ～夫の目の前で、妻は本性に堕ちてゆく～"
@@ -912,6 +952,11 @@
         "EvenBranchOrder": "AAYHAQUEAgM=",
         "ControlBlockName": "kakenuke.bin",
         "Title": "かけぬけ★青春スパーキング！ | 闪耀青春追逐记 | 绽放★青春全力向前冲！"
+    },
+    "Kamaitachi no Yoru": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3854429322,
+        "Title": "かまいたちの夜 | 镰鼬之夜"
     },
     "Kami-sama no You na Kimi e": {
         "$type": "XorCrypt",
@@ -1425,6 +1470,11 @@
         "Key": 232,
         "Title": "同じクラスのアイドルさん。Around me is full by a celebrity."
     },
+    "Onee-chan no Yuuwaku": {
+        "$type": "AkabeiCrypt",
+        "Seed": 705275717,
+        "Title": "如月真綾の誘惑 | 如月真绫的指导"
+    },
     "Onigokko!": {
         "$type": "CxEncryption",
         "Mask": 334,
@@ -1661,6 +1711,11 @@
         "$type": "PoringSoftCrypt",
         "Title": "らいでぃんぐ いんきゅばす"
     },
+    "Role Player: Okayu Shimai no Nenmaku Portrait - Gurigucha Live!": {
+        "$type": "AkabeiCrypt",
+        "Seed": 798088789,
+        "Title": "Role player：小粥姉妹の粘膜ポトレ ぐりぐちゃLIVE！ | ROLEPLAYER：小粥姐妹的黏膜游戏！"
+    },
     "Rui wa Tomo o Yobu": {
         "$type": "CxEncryption",
         "Mask": 740,
@@ -1690,6 +1745,11 @@
         "EvenBranchOrder": "BQQCAQcDAAY=",
         "ControlBlockName": "ruiwatomo.bin",
         "Title": "るいは智を呼ぶファンディスク ―明日のむこうに視える風― | 智以泪聚ＦＤ -吹向明日彼岸的可视之风-"
+    },
+    "Ryuukishi Bloody†Saga": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3854429322,
+        "Title": "竜騎士Bloody†Saga | 龙骑士Bloody†Saga"
     },
     "Sabbat of the Witch": {
         "$type": "CxEncryption",
@@ -1848,6 +1908,11 @@
         "$type": "HashCrypt",
         "Title": "触手王子の肉嫁探し～母と姉弟の終わらない絶頂地獄～"
     },
+    "Shoujo to Toshi no Sa, Futamawari.": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3854429322,
+        "Title": "少女と年の差、ふたまわり。 | 少女与我，两纪之差。"
+    },
     "Shugaten! -sugarfull tempering-": {
         "$type": "CxEncryption",
         "Mask": 676,
@@ -1895,6 +1960,16 @@
         "$type": "FlyingShineCrypt",
         "Title": "相姦恥療病棟 ～ナースはママで、女医は叔母"
     },
+    "Sousaku Kanojo no Ren'ai Koushiki": {
+        "$type": "AkabeiCrypt",
+        "Seed": 798088789,
+        "Title": "創作彼女の恋愛公式 | 创作少女的恋爱公式 | 创作彼女的恋爱方程式 | 創作彼女的戀愛方程式"
+    },
+    "Sousaku Kanojo no Ren'ai Koushiki - Trial Edition": {
+        "$type": "AkabeiCrypt",
+        "Seed": 798088789,
+        "Title": "創作彼女の恋愛公式 体験版"
+    },
     "Sousei no Himegimi": {
         "$type": "HashCrypt",
         "Title": "双性の姫君 ～ふたなり姉妹と魔王の求愛～"
@@ -1908,6 +1983,11 @@
         "EvenBranchOrder": "BwMGAgABBAU=",
         "TpmFileName": "plugin/mogla.tpm",
         "Title": "水平線まで何マイル？ - Deep Blue Sky ＆ Pure White Wings - | 离水平线还有多远？-深蓝的天空和洁白的翅膀- | 水平线尽头有多远"
+    },
+    "Suiren to Shion": {
+        "$type": "AkabeiCrypt",
+        "Seed": 798088789,
+        "Title": "水蓮と紫苑 | 水莲与紫苑"
     },
     "Suisei Ginka": {
         "$type": "CxEncryption",
@@ -1979,6 +2059,21 @@
     "Tawawa Oku-san x Happening Gym": {
         "$type": "HashCrypt",
         "Title": "たわわ奥さん×ハプニングジム ～むっちりボディとすけべなエクササイズ～"
+    },
+    "Teakamamire no Danshi": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3854429322,
+        "Title": "手垢塗れの堕天使"
+    },
+    "Teakamamire no Fukushuu": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3598228156,
+        "Title": "手垢塗れの復讐"
+    },
+    "Teakamamire no Tenshi": {
+        "$type": "AkabeiCrypt",
+        "Seed": 3737124058,
+        "Title": "手垢塗れの天使 | 被黑暗洗礼的天使"
     },
     "Temptation -Saiin no Naraku-": {
         "$type": "NatsupochiCrypt",
