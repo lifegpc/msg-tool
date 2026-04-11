@@ -18,6 +18,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 
+type CIS = CaseInsensitiveStr;
+
 pub fn default_init_crypt(archive: &mut Xp3Archive) -> Result<()> {
     if archive.extras.iter().any(|extra| extra.is_filename_hash()) {
         let mut filename_map = HashMap::new();
@@ -216,6 +218,11 @@ enum CryptType {
     YuzuCrypt,
     HighRunningCrypt,
     KissCrypt,
+    #[serde(rename_all = "PascalCase")]
+    PuCaCrypt {
+        hash_table: Vec<u32>,
+        key_table: Base64Bytes,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -331,6 +338,14 @@ impl Schema {
             CryptType::YuzuCrypt => Box::new(YuzuCrypt::new(self.base.clone())),
             CryptType::HighRunningCrypt => Box::new(HighRunningCrypt::new(self.base.clone())),
             CryptType::KissCrypt => Box::new(cz::KissCrypt::new(self.base.clone())),
+            CryptType::PuCaCrypt {
+                hash_table,
+                key_table,
+            } => Box::new(PuCaCrypt::new(
+                self.base.clone(),
+                hash_table.clone(),
+                key_table.bytes.clone(),
+            )?),
         })
     }
 }
@@ -387,10 +402,10 @@ pub fn get_supported_games_with_title() -> Vec<(&'static str, Option<&'static st
 }
 
 pub fn query_crypt_schema(game: &str) -> Option<&'static Schema> {
-    CRYPT_SCHEMA.get(game).or_else(|| {
+    CRYPT_SCHEMA.get(CIS::from_str(game)).or_else(|| {
         ALIAS_TABLE
             .get(game)
-            .and_then(|real_game| CRYPT_SCHEMA.get(real_game))
+            .and_then(|real_game| CRYPT_SCHEMA.get(CIS::from_str(real_game)))
     })
 }
 
@@ -1375,11 +1390,134 @@ impl<R: Read> Read for HighRunningCryptReader<R> {
 
 seek_reader_key_impl!(KissCryptReader<T>, u32);
 
+#[derive(Debug)]
+pub struct PuCaCrypt {
+    base: BaseSchema,
+    hash_table: Vec<u32>,
+    key_table: Vec<u8>,
+}
+
+impl PuCaCrypt {
+    pub fn new(base: BaseSchema, hash_table: Vec<u32>, key_table: Vec<u8>) -> Result<Self> {
+        if hash_table.len() != key_table.len() {
+            anyhow::bail!(
+                "Hash table and key table must have the same length, but got {} and {}",
+                hash_table.len(),
+                key_table.len()
+            );
+        }
+        Ok(Self {
+            base,
+            hash_table,
+            key_table,
+        })
+    }
+    fn get_key_table(&self, file_hash: u32) -> [u8; 0x400] {
+        let mut hash_table = [0u8; 32];
+        let mut hash = file_hash;
+        for k in (0..32).step_by(4) {
+            if hash & 1 != 0 {
+                hash |= 0x80000000;
+            } else {
+                hash &= 0x7FFFFFFF;
+            }
+            hash_table[k..k + 4].copy_from_slice(&hash.to_le_bytes());
+            hash >>= 1;
+        }
+        let mut key_table = [0u8; 0x400];
+        for l in 0..32 {
+            for m in 0..32 {
+                key_table[l * 32 + m] = (!hash_table[l]) ^ hash_table[m];
+            }
+        }
+        key_table
+    }
+}
+
+impl Crypt for PuCaCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        if let Some(pos) = self.hash_table.iter().position(|&h| h == entry.file_hash) {
+            Ok(Box::new(PuCaCryptReader::new(
+                stream,
+                cur_seg,
+                self.key_table[pos],
+            )))
+        } else {
+            Ok(Box::new(PuCaCryptReader2::new(
+                stream,
+                cur_seg,
+                self.get_key_table(entry.file_hash),
+            )))
+        }
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        if let Some(pos) = self.hash_table.iter().position(|&h| h == entry.file_hash) {
+            Ok(Box::new(PuCaCryptReader::new(
+                stream,
+                cur_seg,
+                self.key_table[pos],
+            )))
+        } else {
+            Ok(Box::new(PuCaCryptReader2::new(
+                stream,
+                cur_seg,
+                self.get_key_table(entry.file_hash),
+            )))
+        }
+    }
+}
+
+seek_reader_key_impl!(PuCaCryptReader<T>, u8);
+
+impl<T: Read> Read for PuCaCryptReader<T> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= self.key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_reader_key_impl!(PuCaCryptReader2<T>, [u8; 0x400]);
+
+impl<R: Read> Read for PuCaCryptReader2<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset = ((self.seg_start + self.pos) & 0x3FF) as usize;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= self.key[offset];
+            offset = (offset + 1) & 0x3FF;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
 #[test]
 fn test_deserialize_crypt() {
     for (key, schema) in CRYPT_SCHEMA.iter() {
         println!("Title: {}, Schema: {:?}", key, schema);
     }
+    assert!(CRYPT_SCHEMA.contains_key(CIS::from_str("PURELY x CATION")));
 }
 
 #[test]

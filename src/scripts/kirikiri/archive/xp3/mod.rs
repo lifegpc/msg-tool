@@ -134,7 +134,7 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["xp3", "bin"]
+        &["xp3", "bin", "dat"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
