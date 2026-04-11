@@ -256,7 +256,7 @@ pub struct Schema {
 }
 
 impl Schema {
-    pub fn create_crypt(&self, filename: &str) -> Result<Box<dyn Crypt>> {
+    pub fn create_crypt(&self, filename: &str, config: &ExtraConfig) -> Result<Box<dyn Crypt>> {
         Ok(match &self.crypt {
             CryptType::NoCrypt => Box::new(NoCrypt::new()),
             CryptType::FateCrypt => Box::new(FateCrypt::new(self.base.clone())),
@@ -354,9 +354,11 @@ impl Schema {
                 hash_table.clone(),
                 key_table.bytes.clone(),
             )?),
-            CryptType::RhapsodyCrypt { file_list_name } => {
-                Box::new(RhapsodyCrypt::new(self.base.clone(), &file_list_name)?)
-            }
+            CryptType::RhapsodyCrypt { file_list_name } => Box::new(RhapsodyCrypt::new(
+                self.base.clone(),
+                &file_list_name,
+                config.xp3_file_list_path.as_ref().map(|s| s.as_str()),
+            )?),
         })
     }
 }
@@ -1543,8 +1545,16 @@ pub struct RhapsodyCrypt {
 }
 
 impl RhapsodyCrypt {
-    pub fn new(base: BaseSchema, file_list_name: &str) -> Result<Self> {
-        let file_list = query_filename_list(file_list_name)?;
+    pub fn new(
+        base: BaseSchema,
+        file_list_name: &str,
+        file_list_path: Option<&str>,
+    ) -> Result<Self> {
+        let file_list = if let Some(path) = file_list_path {
+            std::fs::read_to_string(path)?
+        } else {
+            query_filename_list(file_list_name)?
+        };
         let mut names = HashMap::new();
         for name in file_list.lines() {
             let name = name.trim();

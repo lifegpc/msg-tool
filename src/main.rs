@@ -3401,6 +3401,8 @@ fn main() {
         xp3_force_decrypt: arg.xp3_force_decrypt,
         #[cfg(feature = "emote-img")]
         emote_pimg_psd_no_diff: arg.emote_pimg_psd_no_diff,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_file_list_path: arg.xp3_file_list_path.clone(),
     });
     match &arg.command {
         args::Command::Export { input, output } => {

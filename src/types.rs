@@ -653,6 +653,10 @@ pub struct ExtraConfig {
     /// Disable diff handle when exporting Emote PIMG images to PSD files.
     /// If enabled, no group layers will be crated if both layer don't have diff_id and group_layer_id attribute.
     pub emote_pimg_psd_no_diff: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    /// The path to the file list for Kirikiri XP3 archive. This is used to recover file names from hashed values.
+    /// Only works with some encyrption methods.
+    pub xp3_file_list_path: Option<String>,
 }
 
 #[cfg(feature = "artemis")]
