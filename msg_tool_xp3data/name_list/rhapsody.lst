@@ -1546,3 +1546,13 @@ system/world.ks
 system/world.tjs
 system/YAML.tjs
 system/YesNoDialog.tjs
+system/check.png
+system/execdialog.tjs
+system/linebreak.asd
+system/linebreak.png
+system/linebreak_a.png
+system/motion.tjs
+system/pagebreak.asd
+system/pagebreak.png
+system/pagebreak_a.png
+system/uiloader.tjs
