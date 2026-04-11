@@ -62,7 +62,10 @@ pub fn struct_unpack_impl_for_num(item: TokenStream) -> TokenStream {
 }
 
 fn has_skip_fmt_attr(field: &syn::Field) -> bool {
-    field.attrs.iter().any(|attr| attr.path().is_ident("skip_fmt"))
+    field
+        .attrs
+        .iter()
+        .any(|attr| attr.path().is_ident("skip_fmt"))
 }
 
 #[proc_macro_derive(MyDebug, attributes(skip_fmt))]
@@ -87,7 +90,11 @@ pub fn debug_macro_derive(input: TokenStream) -> TokenStream {
     let mut generics = generics;
     {
         let where_clause = generics.make_where_clause();
-        for field in data_struct.fields.iter().filter(|field| !has_skip_fmt_attr(field)) {
+        for field in data_struct
+            .fields
+            .iter()
+            .filter(|field| !has_skip_fmt_attr(field))
+        {
             let ty = &field.ty;
             where_clause
                 .predicates
@@ -958,4 +965,18 @@ pub fn default_macro_derive(input: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+#[cfg(feature = "kirikiri-arc")]
+#[proc_macro]
+pub fn rhapsody_crypt_const_name_hash(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as syn::LitStr);
+    let s = input.value();
+    let mut expanded = quote::quote! { 0u32 };
+    for c in s.chars() {
+        expanded = quote::quote! {
+            RhapsodyCrypt::update_name_hash(#expanded, #c)
+        };
+    }
+    TokenStream::from(expanded)
 }

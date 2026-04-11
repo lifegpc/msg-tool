@@ -65,3 +65,43 @@ pub fn gen_cx_cb<P: AsRef<Path> + ?Sized, D: AsRef<Path> + ?Sized>(
     }
     Ok(())
 }
+
+/// Pack all binary files in name_list into a single archive.
+pub fn gen_name_list<P: AsRef<Path> + ?Sized, D: AsRef<Path> + ?Sized>(
+    json_path: &P,
+    outdir: &D,
+    level: i32,
+) -> std::io::Result<()> {
+    let p = json_path.as_ref();
+    let pb = p
+        .parent()
+        .unwrap_or_else(|| Path::new(""))
+        .join("name_list");
+    let json_data = std::fs::read_to_string(p)?;
+    let json = json::parse(&json_data)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    let mut pack = SimplePack::new(&outdir.as_ref().join("name_list.pck"))?;
+    let mut seen_files = HashSet::new();
+    for (_, obj) in json.entries() {
+        if let Some(name) = obj["FileListName"].as_str() {
+            if seen_files.contains(name) {
+                continue;
+            }
+            seen_files.insert(name.to_string());
+            let file_path = pb.join(name);
+            if !file_path.exists() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("File not found: {}", file_path.display()),
+                ));
+            }
+            let file = std::fs::File::open(file_path)?;
+            let file = std::io::BufReader::new(file);
+            pack.add_file(name, file)?;
+        }
+    }
+    if level >= 0 && level <= 22 {
+        pack.compress(level)?;
+    }
+    Ok(())
+}

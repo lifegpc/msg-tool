@@ -11,6 +11,7 @@ proc-macro = true
 
 [features]
 artemis-arc = []
+kirikiri-arc = []
 unstable = []
 
 [dependencies]

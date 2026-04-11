@@ -477,6 +477,11 @@
         "EvenBranchOrder": "AAECAwQFBgc=",
         "ControlBlockName": "fate_hollow.bin"
     },
+    "Fate/Knight Rhapsody ACT 2": {
+        "$type": "RhapsodyCrypt",
+        "FileListName": "rhapsody.lst",
+        "Title": "招蕩的妄想劇場 ACT 2"
+    },
     "Fate/stay night": {
         "$type": "FateCrypt",
         "HashAfterCrypt": true

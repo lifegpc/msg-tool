@@ -43,6 +43,15 @@ pub fn default_init_crypt(archive: &mut Xp3Archive) -> Result<()> {
     Ok(())
 }
 
+fn default_read_name<'a>(reader: &mut Box<dyn Read + 'a>) -> Result<(String, u64)> {
+    let name_length = reader.read_u16()?;
+    let name = reader.read_exact_vec(name_length as usize * 2)?;
+    Ok((
+        decode_to_string(Encoding::Utf16LE, &name, true)?,
+        name_length as u64 * 2 + 2,
+    ))
+}
+
 pub trait Crypt: std::fmt::Debug {
     #[allow(dead_code)]
     /// whether Adler32 checksum should be calculated after contents have been encrypted.
@@ -64,12 +73,7 @@ pub trait Crypt: std::fmt::Debug {
 
     /// Read a entry name from archive index
     fn read_name<'a>(&self, reader: &mut Box<dyn Read + 'a>) -> Result<(String, u64)> {
-        let name_length = reader.read_u16()?;
-        let name = reader.read_exact_vec(name_length as usize * 2)?;
-        Ok((
-            decode_to_string(Encoding::Utf16LE, &name, true)?,
-            name_length as u64 * 2 + 2,
-        ))
+        default_read_name(reader)
     }
 
     /// Decrypts the given stream of data for the specified entry and segment.
@@ -223,6 +227,10 @@ enum CryptType {
         hash_table: Vec<u32>,
         key_table: Base64Bytes,
     },
+    #[serde(rename_all = "PascalCase")]
+    RhapsodyCrypt {
+        file_list_name: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -346,6 +354,9 @@ impl Schema {
                 hash_table.clone(),
                 key_table.bytes.clone(),
             )?),
+            CryptType::RhapsodyCrypt { file_list_name } => {
+                Box::new(RhapsodyCrypt::new(self.base.clone(), &file_list_name)?)
+            }
         })
     }
 }
@@ -386,6 +397,19 @@ lazy_static::lazy_static! {
         }
         table
     };
+}
+
+pub fn query_filename_list(name: &str) -> Result<String> {
+    let reader = MemReaderRef::new(NAME_LIST_DATA);
+    let mut pack = read_simple_pack(reader)?;
+    while let Some(mut entry) = pack.next()? {
+        if entry.name == name {
+            let mut str = String::new();
+            entry.read_to_string(&mut str)?;
+            return Ok(str);
+        }
+    }
+    Err(anyhow::anyhow!("Name list entry not found: {}", name))
 }
 
 /// Get the supported game titles for encrypted xp3 archives.
@@ -1506,6 +1530,127 @@ impl<R: Read> Read for PuCaCryptReader2<R> {
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= self.key[offset];
             offset = (offset + 1) & 0x3FF;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct RhapsodyCrypt {
+    base: BaseSchema,
+    names: HashMap<u32, String>,
+}
+
+impl RhapsodyCrypt {
+    pub fn new(base: BaseSchema, file_list_name: &str) -> Result<Self> {
+        let file_list = query_filename_list(file_list_name)?;
+        let mut names = HashMap::new();
+        for name in file_list.lines() {
+            let name = name.trim();
+            if !name.is_empty() {
+                names.insert(Self::get_name_hash(name.chars()), name.to_string());
+            }
+        }
+        Ok(Self { base, names })
+    }
+    fn get_name_hash<T: Iterator<Item = char>>(name: T) -> u32 {
+        let mut hash = 0;
+        for c in name {
+            hash = Self::update_name_hash(hash, c);
+        }
+        hash
+    }
+    const fn update_name_hash(hash: u32, c: char) -> u32 {
+        let c = c.to_ascii_lowercase() as u32;
+        let mut hash = w!(0x1000193u32 * hash ^ (c & 0xFF));
+        hash = w!(0x1000193u32 * hash ^ ((c >> 8) & 0xFF));
+        hash
+    }
+    fn get_key(&self, hash: u32) -> [u8; 12] {
+        let mut key = [0u8; 12];
+        key[0..4].copy_from_slice(&hash.to_le_bytes());
+        key[4..8].copy_from_slice(&(0x6E1DA9B2u32).to_le_bytes());
+        key[8..12].copy_from_slice(&(0x0040C800u32).to_le_bytes());
+        key
+    }
+}
+
+impl Crypt for RhapsodyCrypt {
+    base_schema_impl!();
+    fn read_name<'a>(&self, reader: &mut Box<dyn Read + 'a>) -> Result<(String, u64)> {
+        use msg_tool_macro::rhapsody_crypt_const_name_hash as hash;
+        const PNG_HASH: u32 = hash!(".png");
+        const MAP_HASH: u32 = hash!(".map");
+        const ASD_HASH: u32 = hash!(".asd");
+        const TJS_HASH: u32 = hash!(".tjs");
+        const TXT_HASH: u32 = hash!(".txt");
+        const KS_HASH: u32 = hash!(".ks");
+        const WAV_HASH: u32 = hash!(".wav");
+        const JPG_HASH: u32 = hash!(".jpg");
+        const OGG_HASH: u32 = hash!(".ogg");
+        let key = reader.read_u32()?;
+        let name_hash = reader.read_u32()? ^ key;
+        if let Some(name) = self.names.get(&name_hash) {
+            return Ok((name.clone(), 8));
+        }
+        let ext_hash = reader.read_u32()? ^ key;
+        let mut name = format!("{:08X}", name_hash);
+        match ext_hash {
+            PNG_HASH => name += ".png",
+            MAP_HASH => name += ".map",
+            ASD_HASH => name += ".asd",
+            TJS_HASH => name += ".tjs",
+            TXT_HASH => name += ".txt",
+            KS_HASH => name += ".ks",
+            WAV_HASH => name += ".wav",
+            JPG_HASH => name += ".jpg",
+            OGG_HASH => name += ".ogg",
+            _ => name += format!(".{:08X}", ext_hash).as_str(),
+        };
+        Ok((name, 12))
+    }
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        Ok(Box::new(RhapsodyCryptReader::new(
+            stream,
+            cur_seg,
+            self.get_key(entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(RhapsodyCryptReader::new(
+            stream,
+            cur_seg,
+            self.get_key(entry.file_hash),
+        )))
+    }
+}
+
+seek_reader_key_impl!(RhapsodyCryptReader<T>, [u8; 12]);
+
+impl<R: Read> Read for RhapsodyCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset = ((self.seg_start + self.pos) % 12) as usize;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= self.key[offset];
+            offset = (offset + 1) % 12;
         }
         self.pos += readed as u64;
         Ok(readed)

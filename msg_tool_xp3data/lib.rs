@@ -3,6 +3,8 @@ use std::io::Read;
 
 /// Control Block data for CxEncryption packed with SimplePack.
 pub const CX_CB_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cx_cb.pck"));
+/// Name list data packed with SimplePack.
+pub const NAME_LIST_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/name_list.pck"));
 const CRYPT_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/crypt.json.zst"));
 
 /// Get the crypt.json data as a string.
