@@ -258,6 +258,12 @@
         "Seed": 3854429322,
         "Title": "BUKKAKE！ ドシコリングMINUKIマックスアクメしてもいいですか？ ～ドエロいポーズして貰って見抜きぶっかけしたらお互い興奮がドチャクソヤバイです～"
     },
+    "Bura Bura": {
+        "$type": "SmxCrypt",
+        "Mask": 3,
+        "KeySeq": "AwUEAwg=",
+        "Title": "ぶら ぶら"
+    },
     "Cafe Sourire": {
         "$type": "SourireCrypt"
     },
@@ -641,6 +647,12 @@
         "ControlBlockName": "hataraku.bin",
         "Title": "働くオタクの恋愛事情"
     },
+    "Hataraku Otona no Ren'ai Jijou": {
+        "$type": "SmxCrypt",
+        "Mask": 2,
+        "KeySeq": "AwEAAg==",
+        "Title": "働くオトナの恋愛事情"
+    },
     "Hatsujou Switch": {
         "$type": "CxEncryption",
         "Mask": 281,
@@ -922,6 +934,12 @@
     "Itsu de mo Onna no Ko ni Seieki...": {
         "$type": "DieselmineCrypt",
         "Title": "いつでも女の子に精液大量注入！して褒められる世界"
+    },
+    "Izuna Zanshinken": {
+        "$type": "SmxCrypt",
+        "Mask": 5,
+        "KeySeq": "AwgHBgUEAg==",
+        "Title": "イヅナ斬審剣"
     },
     "Japanese School Life": {
         "$type": "CxEncryption",
@@ -1972,6 +1990,12 @@
         "$type": "HashCrypt",
         "Title": "清楚なあの娘は、隠れビッチ ～いつでもどこでも欲情ＳＥＸ～"
     },
+    "Sekisaba!": {
+        "$type": "SmxCrypt",
+        "Mask": 5,
+        "KeySeq": "AgUEAwICAw==",
+        "Title": "せきさば！～私立せきがはら学園女子サバイバルゲーム部～"
+    },
     "Se-n-pa-i ~Hiromi-senpai": {
         "$type": "NephriteCrypt",
         "Title": "セ・ン・パ・イ〜広海センパイとのラブエロ部活"
@@ -2405,6 +2429,12 @@
         "Seed": 4076513695,
         "Title": "ヤキモチストリーム | 吃醋大作战 | 醋意乱流"
     },
+    "Yaya, Okiba ga Nai!": {
+        "$type": "SmxCrypt",
+        "Mask": 4,
+        "KeySeq": "AQMDAgQB",
+        "Title": "やや置き場がない！"
+    },
     "Yome no Ane ga Kyonyuu Sugite": {
         "$type": "HashCrypt",
         "Title": "嫁の姉が巨乳過ぎて我慢できない ～義姉さんがこんなにエロかったなんて！"
@@ -2438,6 +2468,12 @@
         "$type": "XorCrypt",
         "Key": 205,
         "Title": "ゆらめく心に満ちた世界で、君の夢と欲望は叶うか | 三千心世界，梦终将实现"
+    },
+    "Yurikago yori Tenshi made": {
+        "$type": "SmxCrypt",
+        "Mask": 4,
+        "KeySeq": "AgMEBQQC",
+        "Title": "揺り籠より天使まで"
     },
     "Yurikago yori Tenshi made [Trial]": {
         "$type": "AppliqueCrypt",

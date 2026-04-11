@@ -235,6 +235,11 @@ enum CryptType {
     MadoCrypt {
         seed: u32,
     },
+    #[serde(rename_all = "PascalCase")]
+    SmxCrypt {
+        mask: u32,
+        key_seq: Base64Bytes,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -364,6 +369,9 @@ impl Schema {
                 config.xp3_file_list_path.as_ref().map(|s| s.as_str()),
             )?),
             CryptType::MadoCrypt { seed } => Box::new(MadoCrypt::new(self.base.clone(), *seed)),
+            CryptType::SmxCrypt { mask, key_seq } => {
+                Box::new(SmxCrypt::new(self.base.clone(), *mask, &key_seq.bytes)?)
+            }
         })
     }
 }
@@ -1747,6 +1755,102 @@ impl<R: Read> Read for MadoCryptReader<R> {
         for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
             let offset = self.seg_start + self.pos + i as u64;
             *t ^= self.key[(offset % 0x1F) as usize];
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct SmxCrypt {
+    base: BaseSchema,
+    mask: u32,
+    key_seq: Vec<u8>,
+}
+
+impl SmxCrypt {
+    pub fn new(base: BaseSchema, mask: u32, key_seq: &[u8]) -> Result<Self> {
+        if key_seq.len() <= mask as usize + 1 {
+            anyhow::bail!(
+                "Key sequence length must be greater than mask + 1, but got {} and {}",
+                key_seq.len(),
+                mask
+            );
+        }
+        if key_seq.len() < 2 {
+            anyhow::bail!(
+                "Key sequence length must be at least 2, but got {}",
+                key_seq.len()
+            );
+        }
+        Ok(Self {
+            base,
+            mask,
+            key_seq: key_seq.to_vec(),
+        })
+    }
+
+    fn generate_key(&self, file_hash: u32) -> Vec<u8> {
+        let mut key = vec![0u8; self.key_seq.len() - 1];
+        for i in 1..self.key_seq.len() {
+            key[i - 1] = (file_hash >> self.key_seq[i]) as u8;
+        }
+        key
+    }
+}
+
+impl Crypt for SmxCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        let start_key = (entry.file_hash >> self.key_seq[0]) as u8;
+        Ok(Box::new(SmxCryptReader::new(
+            stream,
+            cur_seg,
+            (self.mask, start_key, self.generate_key(entry.file_hash)),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        let start_key = (entry.file_hash >> self.key_seq[0]) as u8;
+        Ok(Box::new(SmxCryptReader::new(
+            stream,
+            cur_seg,
+            (self.mask, start_key, self.generate_key(entry.file_hash)),
+        )))
+    }
+}
+
+seek_reader_key_impl!(SmxCryptReader<T>, (u32, u8, Vec<u8>));
+
+impl<R: Read> Read for SmxCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let (mask, start_key, key) = &self.key;
+        let mask = *mask as u64;
+        let mut offset = self.seg_start + self.pos;
+        for t in (&mut buf[..readed]).iter_mut() {
+            let key = if offset <= 100 {
+                *start_key
+            } else {
+                key[(offset & mask) as usize]
+            };
+            *t ^= key;
+            offset += 1;
         }
         self.pos += readed as u64;
         Ok(readed)
