@@ -231,6 +231,10 @@ enum CryptType {
     RhapsodyCrypt {
         file_list_name: String,
     },
+    #[serde(rename_all = "PascalCase")]
+    MadoCrypt {
+        seed: u32,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -359,6 +363,7 @@ impl Schema {
                 &file_list_name,
                 config.xp3_file_list_path.as_ref().map(|s| s.as_str()),
             )?),
+            CryptType::MadoCrypt { seed } => Box::new(MadoCrypt::new(self.base.clone(), *seed)),
         })
     }
 }
@@ -539,6 +544,20 @@ macro_rules! base_schema_impl {
         }
         fn obfuscated_index(&self) -> bool {
             self.base.obfuscated_index
+        }
+    };
+}
+
+macro_rules! base_schema2_impl {
+    () => {
+        fn hash_after_crypt(&self) -> bool {
+            AsRef::<BaseSchema>::as_ref(self).hash_after_crypt
+        }
+        fn startup_tjs_not_encrypted(&self) -> bool {
+            AsRef::<BaseSchema>::as_ref(self).startup_tjs_not_encrypted
+        }
+        fn obfuscated_index(&self) -> bool {
+            AsRef::<BaseSchema>::as_ref(self).obfuscated_index
         }
     };
 }
@@ -1661,6 +1680,73 @@ impl<R: Read> Read for RhapsodyCryptReader<R> {
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= self.key[offset];
             offset = (offset + 1) % 12;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct MadoCrypt {
+    base: AkabeiCrypt,
+}
+
+impl MadoCrypt {
+    pub fn new(base: BaseSchema, seed: u32) -> Self {
+        Self {
+            base: AkabeiCrypt::new(base, seed),
+        }
+    }
+}
+
+impl AsRef<BaseSchema> for MadoCrypt {
+    fn as_ref(&self) -> &BaseSchema {
+        &self.base.base
+    }
+}
+
+impl Crypt for MadoCrypt {
+    base_schema2_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + 'a>,
+    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        Ok(Box::new(MadoCryptReader::new(
+            stream,
+            cur_seg,
+            self.base.get_key(entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + 'a>,
+    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        Ok(Box::new(MadoCryptReader::new(
+            stream,
+            cur_seg,
+            self.base.get_key(entry.file_hash),
+        )))
+    }
+}
+
+seek_reader_key_impl!(MadoCryptReader<T>, [u8; 0x20]);
+
+impl<R: Read> Read for MadoCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for (i, t) in (&mut buf[..readed]).iter_mut().enumerate() {
+            let offset = self.seg_start + self.pos + i as u64;
+            *t ^= self.key[(offset % 0x1F) as usize];
         }
         self.pos += readed as u64;
         Ok(readed)

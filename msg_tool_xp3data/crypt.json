@@ -726,6 +726,11 @@
         "ControlBlockName": "hello_lady_super.bin",
         "Title": "ハロー・レディ！ -Superior Entelecheia- | 淑女同萌！-Superior Entelecheia-"
     },
+    "Hentai Keimusho 24-ji": {
+        "$type": "MadoCrypt",
+        "Seed": 0,
+        "Title": "変態刑務所２４時～懲役２年　イキ続けた少女～"
+    },
     "Hentai Kyonyuu Nurse": {
         "$type": "HashCrypt",
         "Title": "HENTAI 巨乳ナース ～草食男子、治療計画！？～"
@@ -1058,6 +1063,11 @@
         "$type": "HashCrypt",
         "Title": "彼氏に内緒で快楽堕ち ～隠れヤリサーのリア充種付痴育～"
     },
+    "Kari Gurashi Ren'ai": {
+        "$type": "MadoCrypt",
+        "Seed": 0,
+        "Title": "かりぐらし恋愛 | 寄宿之恋 | 寄宿之戀"
+    },
     "Kasshoku Cool Bitch Hitozuma no Seiyoku Kaishou": {
         "$type": "HashCrypt",
         "Title": "褐色クールビッチ人妻の性欲解消 ～今度は海でセックスレッスン！？～"
@@ -1379,6 +1389,11 @@
         "Key": 85,
         "Title": "夢幻のティル・ナ・ノーグ | 梦幻的提尔纳诺"
     },
+    "Namaiki Delation": {
+        "$type": "MadoCrypt",
+        "Seed": 0,
+        "Title": "ナマイキデレーション"
+    },
     "Namaiki JK ni Fukushuu no Seikatsu Shidou": {
         "$type": "HashCrypt",
         "Title": "ナマイキJKに復讐の性活指導 ～先生、お願いだからもう許して…～"
@@ -1523,6 +1538,11 @@
         "$type": "AkabeiCrypt",
         "Seed": 705275717,
         "Title": "如月真綾の誘惑 | 如月真绫的指导"
+    },
+    "Oni no Wakusei": {
+        "$type": "MadoCrypt",
+        "Seed": 0,
+        "Title": "鬼の惑星"
     },
     "Onigokko!": {
         "$type": "CxEncryption",
@@ -1677,6 +1697,11 @@
     "Princess Saga": {
         "$type": "FlyingShineCrypt",
         "Title": "プリンセスサーガ"
+    },
+    "Puramai Wars": {
+        "$type": "MadoCrypt",
+        "Seed": 0,
+        "Title": "プラマイウォーズ | 正负战争"
     },
     "PURELY x CATION": {
         "$type": "PuCaCrypt",
@@ -2256,6 +2281,11 @@
         "ControlBlockName": "towazugatari.bin",
         "Title": "永遠ズ語リ～少女凌辱秘抄～"
     },
+    "Treasure Hunting": {
+        "$type": "MadoCrypt",
+        "Seed": 0,
+        "Title": "トレジャーハンティング—クレアのビッチな冒険—"
+    },
     "Tsubasa no Oka no Hime": {
         "$type": "PoringSoftCrypt",
         "Title": "つばさの丘の姫王 A red and blue moon -finite loop-"
@@ -2369,6 +2399,11 @@
     },
     "With Ribbon": {
         "$type": "SourireCrypt"
+    },
+    "Yakimochi Stream": {
+        "$type": "MadoCrypt",
+        "Seed": 4076513695,
+        "Title": "ヤキモチストリーム | 吃醋大作战 | 醋意乱流"
     },
     "Yome no Ane ga Kyonyuu Sugite": {
         "$type": "HashCrypt",
