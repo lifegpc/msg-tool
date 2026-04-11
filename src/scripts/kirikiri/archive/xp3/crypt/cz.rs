@@ -1,6 +1,6 @@
 use super::*;
 use aes::Aes128Dec;
-use aes::cipher::{BlockDecryptMut, KeyIvInit};
+use aes::cipher::{BlockModeDecrypt, KeyIvInit};
 use cbc::Decryptor;
 
 type Aes128CbcDec = Decryptor<Aes128Dec>;
@@ -8,7 +8,7 @@ type Aes128CbcDec = Decryptor<Aes128Dec>;
 const CZ_MAGIC: &[u8; 4] = b"\xFD\xD7\x90\xA5";
 const CZ_IV_SEED: u32 = 0xBFBFBFBF;
 const CZ_HEADER_KEY: &[u8; 4] = b"\x9D\x1D\x9A\xF2";
-const CZ_DEFAULT_KEY: &[u8] = b"\x91\x10\xfcuE\x8f\xb5\xe6\xfe\xac\xbaDvX\xc2\x1a";
+const CZ_DEFAULT_KEY: &[u8; 16] = b"\x91\x10\xfcuE\x8f\xb5\xe6\xfe\xac\xbaDvX\xc2\x1a";
 
 fn cz_decrypt_int(data: &[u8], offset: usize, key: u8) -> u32 {
     let mut v: u32 = (data[offset] ^ key ^ CZ_HEADER_KEY[0]) as u32;
@@ -71,8 +71,8 @@ impl Read for AesDecryptor {
         }
         // NoPadding
         for i in (0..readed).step_by(16) {
-            let block = &mut buf[i..i + 16];
-            self.aes.decrypt_block_mut(block.into());
+            let block: &mut [u8; 16] = (&mut buf[i..i + 16]).try_into().unwrap();
+            self.aes.decrypt_block(block.into());
         }
         let remaining = self.original_size - self.pos;
         let readed = readed.min(remaining as usize);
