@@ -354,7 +354,7 @@ fn is_this_format_name_len(buf: &[u8], name_len: usize) -> Result<u8> {
     }
     let first_size = reader.cpeek_u32_at(name_len as u64)?;
     let second_offset = reader.cpeek_u32_at(8 + name_len as u64 * 2)?;
-    if second_offset - next_offset == first_size {
+    if second_offset < next_offset || second_offset - next_offset == first_size {
         return Err(anyhow::anyhow!("Invalid second_offset in DAT archive"));
     }
     for i in 0..mcount {

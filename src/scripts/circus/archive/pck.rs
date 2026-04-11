@@ -480,7 +480,12 @@ pub fn is_this_format(buf: &[u8]) -> Result<u8> {
     while index < avail_count {
         let off = reader.read_u32()?;
         let size = reader.read_u32()?;
-        if off < prev_off || prev_off + prev_size != off {
+        if off < prev_off
+            || prev_off
+                .checked_add(prev_size)
+                .ok_or_else(|| anyhow::anyhow!("Overflow in offset calculation"))?
+                != off
+        {
             return Err(anyhow::anyhow!("Invalid offset."));
         }
         prev_off = off;
