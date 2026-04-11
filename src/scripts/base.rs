@@ -108,7 +108,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
     /// Checks if the given filename and buffer match this script format.
     /// * `filename` - The name of the file to check.
     /// * `buf` - The buffer containing the script data.
-    /// * `buf_len` - The length of the buffer.
+    /// * `buf_len` - The length of the valid data in the buffer (it MUST <= buf.len()).
     ///
     /// Returns a score (0-255) indicating how well the format matches.
     /// A higher score means a better match.
