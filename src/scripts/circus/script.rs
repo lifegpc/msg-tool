@@ -5,6 +5,7 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::{decode_to_string, encode_string};
 use anyhow::Result;
+use overf::overflowing;
 
 #[derive(Debug)]
 /// Circus MES Script Builder
@@ -51,13 +52,13 @@ fn try_parse_header(mut data: MemReaderRef<'_>) -> Result<u8> {
     let head0 = data.read_i32()?;
     let head1 = data.read_i32()?;
     if head1 == 0x3 {
-        let offset = head0 as u64 * 0x6 + 0x4;
+        let offset = overflowing!(head0 as u64 * 0x6 + 0x4);
         let version = data.peek_u16_at(offset)?;
         if ScriptInfo::query_by_version(version).is_some() {
             return Ok(10);
         }
     } else {
-        let offset = head0 as u64 * 0x4 + 0x4;
+        let offset = overflowing!(head0 as u64 * 0x4 + 0x4);
         let version = data.peek_u16_at(offset)?;
         if ScriptInfo::query_by_version(version).is_some() {
             return Ok(10);
