@@ -38,17 +38,17 @@ fn cz_create_iv(seed: u32) -> [u8; 16] {
 }
 
 #[derive(Debug)]
-struct AesDecryptor {
+struct AesDecryptor<'a> {
     aes: Aes128CbcDec,
-    entry: StreamRegion<Entry>,
+    entry: StreamRegion<Entry<'a>>,
     pos: u64,
     original_size: u64,
 }
 
-impl AesDecryptor {
+impl<'a> AesDecryptor<'a> {
     fn new(
         aes: Aes128CbcDec,
-        entry: StreamRegion<Entry>,
+        entry: StreamRegion<Entry<'a>>,
         original_size: u64,
     ) -> AlignedReader<16, Self> {
         AlignedReader::new(Self {
@@ -60,7 +60,7 @@ impl AesDecryptor {
     }
 }
 
-impl Read for AesDecryptor {
+impl<'a> Read for AesDecryptor<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let readed = self.entry.read_most(buf)?;
         if readed % 16 != 0 {
@@ -105,7 +105,7 @@ impl Crypt for KissCrypt {
     fn need_filter(&self, _filename: &str, buf: &[u8], buf_len: usize) -> bool {
         buf_len >= 4 && buf.starts_with(CZ_MAGIC)
     }
-    fn filter(&self, mut entry: Entry) -> Result<Box<dyn ReadDebug>> {
+    fn filter<'a>(&self, mut entry: Entry<'a>) -> Result<Box<dyn ReadDebug + 'a>> {
         let mut header = [0u8; 15];
         entry.read_exact(&mut header)?;
         let typ = [header[4] ^ 0x11, header[5] ^ 0x7F, header[6] ^ 0x9A];

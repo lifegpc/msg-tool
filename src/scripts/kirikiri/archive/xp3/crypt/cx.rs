@@ -828,8 +828,8 @@ impl SenrenCxCrypt {
         })
     }
 
-    fn read_yuzu_names(
-        reader: Box<dyn ReadDebug>,
+    fn read_yuzu_names<'a>(
+        reader: Box<dyn ReadDebug + 'a>,
         unpacked_size: u32,
     ) -> Result<(HashMap<u32, String>, HashMap<String, String>)> {
         let mut decoded = MemWriter::with_capacity(unpacked_size as usize);
@@ -866,9 +866,16 @@ impl SenrenCxCrypt {
     }
 }
 
-fn read_yuzu_names<T>(archive: &mut Xp3Archive, names_section_id: &str, convert: T) -> Result<()>
+fn read_yuzu_names<'a, T>(
+    archive: &mut Xp3Archive<'a>,
+    names_section_id: &str,
+    convert: T,
+) -> Result<()>
 where
-    T: FnOnce(Box<dyn ReadDebug>, u32) -> Result<(HashMap<u32, String>, HashMap<String, String>)>,
+    T: FnOnce(
+        Box<dyn ReadDebug + 'a>,
+        u32,
+    ) -> Result<(HashMap<u32, String>, HashMap<String, String>)>,
 {
     if let Some(section) = archive.extras.iter().find(|s| s.tag == names_section_id) {
         let mut sreader = MemReaderRef::new(&section.data);
@@ -1176,9 +1183,9 @@ impl NanaCxCrypt {
         }))
     }
 
-    fn read_yuzu_names(
+    fn read_yuzu_names<'a>(
         &self,
-        mut reader: Box<dyn ReadDebug>,
+        mut reader: Box<dyn ReadDebug + 'a>,
         unpacked_size: u32,
     ) -> Result<(HashMap<u32, String>, HashMap<String, String>)> {
         let mut prefix = Vec::with_capacity(0x100);
@@ -1421,9 +1428,9 @@ impl RiddleCxCrypt {
         ((hi as u64) << 32) | (lo as u64)
     }
 
-    fn read_yuzu_names(
+    fn read_yuzu_names<'a>(
         &self,
-        mut reader: Box<dyn ReadDebug>,
+        mut reader: Box<dyn ReadDebug + 'a>,
         unpacked_size: u32,
     ) -> Result<(HashMap<u32, String>, HashMap<String, String>)> {
         let mut prefix = Vec::with_capacity(0x100);

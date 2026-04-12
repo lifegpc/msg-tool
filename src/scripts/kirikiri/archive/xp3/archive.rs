@@ -114,8 +114,8 @@ impl ExtraProp {
 /// Represents the entire XP3 archive
 #[derive(Debug)]
 #[allow(dead_code)]
-pub struct Xp3Archive {
-    pub inner: Arc<Mutex<Box<dyn ReadSeek>>>,
+pub struct Xp3Archive<'a> {
+    pub inner: Arc<Mutex<Box<dyn ReadSeek + 'a>>>,
     pub crypt: Arc<Box<dyn Crypt>>,
     /// The offset which the archive file start. If the archive is embedded in another file (such as exe), this is the offset of the archive data within the larger file.
     pub base_offset: u64,

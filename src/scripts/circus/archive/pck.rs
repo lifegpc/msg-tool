@@ -68,15 +68,15 @@ impl ScriptBuilder for PckArchiveBuilder {
         }
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(PckArchive::new(reader, archive_encoding, config)?))
     }
 
@@ -197,12 +197,13 @@ impl<T: Read + Seek> Seek for Entry<T> {
 
 #[derive(Debug)]
 /// PCK Archive
-pub struct PckArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct PckArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     reader: Arc<Mutex<T>>,
     entries: Vec<PckFileHeader>,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> PckArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> PckArchive<'b, T> {
     /// Creates a new `PckArchive` from a reader.
     ///
     /// * `reader` - The reader to read the PCK archive from.
@@ -253,11 +254,12 @@ impl<T: Read + Seek + std::fmt::Debug> PckArchive<T> {
         Ok(Self {
             reader: Arc::new(Mutex::new(reader)),
             entries,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for PckArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for PckArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

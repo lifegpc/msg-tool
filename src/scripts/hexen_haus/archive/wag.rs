@@ -75,15 +75,15 @@ impl ScriptBuilder for HexenHausWagArchiveBuilder {
         )?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(HexenHausWagArchive::new(
             reader,
             archive_encoding,
@@ -121,13 +121,14 @@ struct HexenHausWagEntry {
 
 #[derive(Debug)]
 /// HexenHaus WAG archive reader
-pub struct HexenHausWagArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct HexenHausWagArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     reader: Arc<Mutex<T>>,
     file_length: u64,
     entries: Vec<HexenHausWagEntry>,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> HexenHausWagArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> HexenHausWagArchive<'b, T> {
     /// Creates a new `HexenHausWagArchive`
     pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         reader.seek(SeekFrom::Start(0))?;
@@ -318,6 +319,7 @@ impl<T: Read + Seek + std::fmt::Debug> HexenHausWagArchive<T> {
             reader,
             file_length,
             entries,
+            _mark: std::marker::PhantomData,
         })
     }
 
@@ -334,7 +336,7 @@ impl<T: Read + Seek + std::fmt::Debug> HexenHausWagArchive<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for HexenHausWagArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for HexenHausWagArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

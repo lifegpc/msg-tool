@@ -121,15 +121,15 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
         Ok(Box::new(Xp3Archive::new(file, config, filename)?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(Xp3Archive::new(reader, config, filename)?))
     }
 
@@ -165,16 +165,16 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
 
 #[derive(Debug)]
 /// Kirikiri XP3 Archive
-pub struct Xp3Archive {
-    archive: archive::Xp3Archive,
+pub struct Xp3Archive<'a> {
+    archive: archive::Xp3Archive<'a>,
     decrypt_simple_crypt: bool,
     decompress_mdf: bool,
     force_extract: bool,
     force_decrypt: bool,
 }
 
-impl Xp3Archive {
-    pub fn new<T: Read + Seek + std::fmt::Debug + 'static>(
+impl<'a> Xp3Archive<'a> {
+    pub fn new<T: Read + Seek + std::fmt::Debug + 'a>(
         stream: T,
         config: &ExtraConfig,
         filename: &str,
@@ -202,7 +202,7 @@ impl Xp3Archive {
     }
 }
 
-impl Script for Xp3Archive {
+impl<'b> Script for Xp3Archive<'b> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -340,14 +340,14 @@ fn detect_script_type(filename: &str, buf: &[u8], buf_len: usize) -> Option<Scri
     }
 }
 
-struct Entry {
-    reader: Arc<Mutex<Box<dyn ReadSeek>>>,
+struct Entry<'a> {
+    reader: Arc<Mutex<Box<dyn ReadSeek + 'a>>>,
     index: archive::Xp3Entry,
     crypt: Arc<Box<dyn Crypt>>,
     /// used to cache segment reader that can't seek. Such as decompressor reader or some decrypter reader.
-    cache: Option<Box<dyn Read>>,
+    cache: Option<Box<dyn Read + 'a>>,
     /// used to store decrypted stream of current segment when the cryptor support seek when decrypting.
-    crypt_stream: Option<Box<dyn ReadSeek>>,
+    crypt_stream: Option<Box<dyn ReadSeek + 'a>>,
     pos: u64,
     base_offset: u64,
     entries_pos: Vec<u64>,
@@ -357,7 +357,7 @@ struct Entry {
 }
 
 #[automatically_derived]
-impl std::fmt::Debug for Entry {
+impl<'a> std::fmt::Debug for Entry<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Entry")
             .field("reader", &self.reader)
@@ -374,9 +374,9 @@ impl std::fmt::Debug for Entry {
     }
 }
 
-impl Entry {
+impl<'a> Entry<'a> {
     fn new(
-        reader: Arc<Mutex<Box<dyn ReadSeek>>>,
+        reader: Arc<Mutex<Box<dyn ReadSeek + 'a>>>,
         index: archive::Xp3Entry,
         base_offset: u64,
         crypt: Arc<Box<dyn Crypt>>,
@@ -409,7 +409,7 @@ impl Entry {
     }
 }
 
-impl ArchiveContent for Entry {
+impl<'b> ArchiveContent for Entry<'b> {
     fn name(&self) -> &str {
         &self.index.name
     }
@@ -423,7 +423,7 @@ impl ArchiveContent for Entry {
     }
 }
 
-impl Read for Entry {
+impl<'a> Read for Entry<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.pos >= self.index.original_size {
             self.cache.take();
@@ -549,7 +549,7 @@ impl Read for Entry {
     }
 }
 
-impl Seek for Entry {
+impl<'a> Seek for Entry<'a> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(p) => p,
@@ -657,13 +657,13 @@ impl Seek for Entry {
     }
 }
 
-struct SimpleCryptZlib {
-    inner: PrefixStream<ZlibDecoder<StreamRegion<Entry>>>,
+struct SimpleCryptZlib<'a> {
+    inner: PrefixStream<ZlibDecoder<StreamRegion<Entry<'a>>>>,
     index: archive::Xp3Entry,
 }
 
-impl SimpleCryptZlib {
-    fn new(mut entry: Entry, index: archive::Xp3Entry) -> Result<Self> {
+impl<'a> SimpleCryptZlib<'a> {
+    fn new(mut entry: Entry<'a>, index: archive::Xp3Entry) -> Result<Self> {
         entry.seek(SeekFrom::Start(0x15))?;
         let entry = StreamRegion::new(entry, 0x15, index.original_size)?;
         let inner = PrefixStream::new(vec![0xFF, 0xFE], ZlibDecoder::new(entry));
@@ -671,26 +671,26 @@ impl SimpleCryptZlib {
     }
 }
 
-impl ArchiveContent for SimpleCryptZlib {
+impl<'a> ArchiveContent for SimpleCryptZlib<'a> {
     fn name(&self) -> &str {
         &self.index.name
     }
 }
 
-impl Read for SimpleCryptZlib {
+impl<'a> Read for SimpleCryptZlib<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
 #[derive(Debug)]
-struct SimpleCryptInner {
-    inner: StreamRegion<Entry>,
+struct SimpleCryptInner<'a> {
+    inner: StreamRegion<Entry<'a>>,
     crypt: u8,
 }
 
-impl SimpleCryptInner {
-    fn new(mut entry: Entry, crypt: u8) -> Result<Self> {
+impl<'a> SimpleCryptInner<'a> {
+    fn new(mut entry: Entry<'a>, crypt: u8) -> Result<Self> {
         entry.seek(SeekFrom::Start(5))?;
         let size = entry.index.original_size;
         let entry = StreamRegion::new(entry, 5, size)?;
@@ -701,7 +701,7 @@ impl SimpleCryptInner {
     }
 }
 
-impl Read for SimpleCryptInner {
+impl<'a> Read for SimpleCryptInner<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let readed = self.inner.read(buf)?;
         match self.crypt {
@@ -726,7 +726,7 @@ impl Read for SimpleCryptInner {
     }
 }
 
-impl Seek for SimpleCryptInner {
+impl<'a> Seek for SimpleCryptInner<'a> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         self.inner.seek(pos)
     }
@@ -741,19 +741,19 @@ impl Seek for SimpleCryptInner {
 }
 
 #[derive(Debug)]
-struct SimpleCrypt {
-    inner: PrefixStream<SimpleCryptInner>,
+struct SimpleCrypt<'a> {
+    inner: PrefixStream<SimpleCryptInner<'a>>,
     index: archive::Xp3Entry,
 }
 
-impl SimpleCrypt {
-    fn new(entry: Entry, index: archive::Xp3Entry, crypt: u8) -> Result<Self> {
+impl<'a> SimpleCrypt<'a> {
+    fn new(entry: Entry<'a>, index: archive::Xp3Entry, crypt: u8) -> Result<Self> {
         let inner = PrefixStream::new(vec![0xFF, 0xFE], SimpleCryptInner::new(entry, crypt)?);
         Ok(Self { inner, index })
     }
 }
 
-impl ArchiveContent for SimpleCrypt {
+impl<'b> ArchiveContent for SimpleCrypt<'b> {
     fn name(&self) -> &str {
         &self.index.name
     }
@@ -763,13 +763,13 @@ impl ArchiveContent for SimpleCrypt {
     }
 }
 
-impl Read for SimpleCrypt {
+impl<'a> Read for SimpleCrypt<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
-impl Seek for SimpleCrypt {
+impl<'a> Seek for SimpleCrypt<'a> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         self.inner.seek(pos)
     }
@@ -784,13 +784,13 @@ impl Seek for SimpleCrypt {
 }
 
 #[derive(Debug)]
-struct MdfEntry {
-    inner: ZlibDecoder<StreamRegion<Entry>>,
+struct MdfEntry<'a> {
+    inner: ZlibDecoder<StreamRegion<Entry<'a>>>,
     index: archive::Xp3Entry,
 }
 
-impl MdfEntry {
-    fn new(mut entry: Entry, index: archive::Xp3Entry) -> Result<Self> {
+impl<'a> MdfEntry<'a> {
+    fn new(mut entry: Entry<'a>, index: archive::Xp3Entry) -> Result<Self> {
         entry.seek(SeekFrom::Start(8))?;
         let entry = StreamRegion::new(entry, 8, index.original_size)?;
         let inner = ZlibDecoder::new(entry);
@@ -798,32 +798,32 @@ impl MdfEntry {
     }
 }
 
-impl ArchiveContent for MdfEntry {
+impl<'a> ArchiveContent for MdfEntry<'a> {
     fn name(&self) -> &str {
         &self.index.name
     }
 }
 
-impl Read for MdfEntry {
+impl<'a> Read for MdfEntry<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
 #[derive(Debug)]
-struct CustomFilterEntry {
-    inner: PrefixStream<Box<dyn ReadDebug>>,
+struct CustomFilterEntry<'a> {
+    inner: PrefixStream<Box<dyn ReadDebug + 'a>>,
     index: archive::Xp3Entry,
     script_type: Option<ScriptType>,
 }
 
-impl Read for CustomFilterEntry {
+impl<'a> Read for CustomFilterEntry<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
-impl ArchiveContent for CustomFilterEntry {
+impl<'a> ArchiveContent for CustomFilterEntry<'a> {
     fn name(&self) -> &str {
         &self.index.name
     }
@@ -834,19 +834,19 @@ impl ArchiveContent for CustomFilterEntry {
 }
 
 #[derive(Debug)]
-struct CustomFilterWithSeekEntry {
-    inner: Box<dyn ReadSeek>,
+struct CustomFilterWithSeekEntry<'a> {
+    inner: Box<dyn ReadSeek + 'a>,
     index: archive::Xp3Entry,
     script_type: Option<ScriptType>,
 }
 
-impl Read for CustomFilterWithSeekEntry {
+impl<'a> Read for CustomFilterWithSeekEntry<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
-impl Seek for CustomFilterWithSeekEntry {
+impl<'a> Seek for CustomFilterWithSeekEntry<'a> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         self.inner.seek(pos)
     }
@@ -860,7 +860,7 @@ impl Seek for CustomFilterWithSeekEntry {
     }
 }
 
-impl ArchiveContent for CustomFilterWithSeekEntry {
+impl<'b> ArchiveContent for CustomFilterWithSeekEntry<'b> {
     fn name(&self) -> &str {
         &self.index.name
     }

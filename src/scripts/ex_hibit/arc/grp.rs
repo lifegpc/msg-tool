@@ -17,24 +17,6 @@ impl ExHibitGrpArchiveBuilder {
     pub const fn new() -> Self {
         Self {}
     }
-
-    fn build_with_reader<T>(
-        &self,
-        reader: T,
-        filename: &str,
-        archive_encoding: Encoding,
-        config: &ExtraConfig,
-    ) -> Result<Box<dyn Script>>
-    where
-        T: Read + Seek + Debug + 'static,
-    {
-        Ok(Box::new(ExHibitGrpArchive::new(
-            reader,
-            filename,
-            archive_encoding,
-            config,
-        )?))
-    }
 }
 
 impl ScriptBuilder for ExHibitGrpArchiveBuilder {
@@ -55,7 +37,12 @@ impl ScriptBuilder for ExHibitGrpArchiveBuilder {
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script>> {
-        self.build_with_reader(MemReader::new(data), filename, archive_encoding, config)
+        Ok(Box::new(ExHibitGrpArchive::new(
+            MemReader::new(data),
+            filename,
+            archive_encoding,
+            config,
+        )?))
     }
 
     fn build_script_from_file(
@@ -74,19 +61,29 @@ impl ScriptBuilder for ExHibitGrpArchiveBuilder {
         let file = std::fs::File::open(filename)
             .with_context(|| format!("Failed to open '{}'.", filename))?;
         let reader = std::io::BufReader::new(file);
-        self.build_with_reader(reader, filename, archive_encoding, config)
+        Ok(Box::new(ExHibitGrpArchive::new(
+            reader,
+            filename,
+            archive_encoding,
+            config,
+        )?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
-        self.build_with_reader(reader, filename, archive_encoding, config)
+    ) -> Result<Box<dyn Script + 'a>> {
+        Ok(Box::new(ExHibitGrpArchive::new(
+            reader,
+            filename,
+            archive_encoding,
+            config,
+        )?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -121,12 +118,13 @@ struct GrpFileEntry {
 
 #[derive(Debug)]
 /// ExHibit GRP archive instance.
-pub struct ExHibitGrpArchive<T: Read + Seek + Debug> {
+pub struct ExHibitGrpArchive<'b, T: Read + Seek + Debug + 'b> {
     reader: Arc<Mutex<T>>,
     entries: Vec<GrpFileEntry>,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
-impl<T: Read + Seek + Debug> ExHibitGrpArchive<T> {
+impl<'b, T: Read + Seek + Debug + 'b> ExHibitGrpArchive<'b, T> {
     fn new(
         mut reader: T,
         filename: &str,
@@ -156,11 +154,12 @@ impl<T: Read + Seek + Debug> ExHibitGrpArchive<T> {
         Ok(Self {
             reader: Arc::new(Mutex::new(reader)),
             entries,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + Debug + 'static> Script for ExHibitGrpArchive<T> {
+impl<'b, T: Read + Seek + Debug + 'b> Script for ExHibitGrpArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

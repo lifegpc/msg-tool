@@ -86,15 +86,15 @@ pub trait ScriptBuilder: std::fmt::Debug {
     /// * `archive_encoding` - The encoding of the archive, if applicable.
     /// * `config` - Additional configuration options.
     /// * `archive` - An optional archive to which the script belongs.
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        mut reader: Box<dyn ReadSeek>,
+        mut reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         let mut data = Vec::new();
         reader
             .read_to_end(&mut data)
@@ -263,7 +263,7 @@ pub trait ArchiveContent: Read {
 }
 
 /// A trait for script types.
-pub trait Script: std::fmt::Debug + std::any::Any {
+pub trait Script: std::fmt::Debug {
     /// Returns the default output script type for this script.
     fn default_output_script_type(&self) -> OutputScriptType;
 

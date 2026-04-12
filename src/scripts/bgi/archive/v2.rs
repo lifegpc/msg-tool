@@ -77,15 +77,15 @@ impl ScriptBuilder for BgiArchiveBuilder {
         }
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(BgiArchive::new(
             reader,
             archive_encoding,
@@ -251,15 +251,16 @@ impl<F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> ArchiveContent fo
 
 #[derive(Debug)]
 /// BGI Archive Version 2
-pub struct BgiArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct BgiArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     reader: Arc<Mutex<T>>,
     entries: Vec<BgiFileHeader>,
     base_offset: u64,
     #[cfg(feature = "bgi-img")]
     is_sysgrp_arc: bool,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> BgiArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> BgiArchive<'b, T> {
     /// Creates a new BGI Archive from a reader.
     ///
     /// * `reader` - The reader to read the archive from.
@@ -299,11 +300,12 @@ impl<T: Read + Seek + std::fmt::Debug> BgiArchive<T> {
             base_offset: 16 + (file_count as u64 * 0x80),
             #[cfg(feature = "bgi-img")]
             is_sysgrp_arc,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for BgiArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for BgiArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

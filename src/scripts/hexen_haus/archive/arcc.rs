@@ -68,15 +68,15 @@ impl ScriptBuilder for HexenHausArccArchiveBuilder {
         )?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(HexenHausArccArchive::new(
             reader,
             archive_encoding,
@@ -114,12 +114,13 @@ struct HexenHausArccEntry {
 
 #[derive(Debug)]
 /// HexenHaus ARCC archive
-pub struct HexenHausArccArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct HexenHausArccArchive<'a, T: Read + Seek + std::fmt::Debug + 'a> {
     reader: Arc<Mutex<T>>,
     entries: Vec<HexenHausArccEntry>,
+    _mark: std::marker::PhantomData<&'a ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> HexenHausArccArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> HexenHausArccArchive<'b, T> {
     /// Creates a new `HexenHausArccArchive`
     pub fn new(mut reader: T, archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         reader.seek(SeekFrom::Start(0))?;
@@ -207,11 +208,15 @@ impl<T: Read + Seek + std::fmt::Debug> HexenHausArccArchive<T> {
             return Err(anyhow::anyhow!("ARCC archive contains no files"));
         }
 
-        Ok(HexenHausArccArchive { reader, entries })
+        Ok(HexenHausArccArchive {
+            reader,
+            entries,
+            _mark: std::marker::PhantomData,
+        })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for HexenHausArccArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for HexenHausArccArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

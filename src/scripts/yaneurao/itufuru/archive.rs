@@ -73,15 +73,15 @@ impl ScriptBuilder for ItufuruArchiveBuilder {
         }
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(ItufuruArchive::new(
             reader,
             archive_encoding,
@@ -170,13 +170,14 @@ impl ArchiveContent for Entry {
 
 #[derive(Debug)]
 /// Yaneurao Itufuru Archive Script
-pub struct ItufuruArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct ItufuruArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     reader: Arc<Mutex<Crypto<T>>>,
     first_file_offset: u32,
     files: Vec<CustomHeader>,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ItufuruArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> ItufuruArchive<'b, T> {
     /// Creates a new `ItufuruArchive`
     ///
     /// * `reader` - The reader to read the archive data from
@@ -219,11 +220,12 @@ impl<T: Read + Seek + std::fmt::Debug> ItufuruArchive<T> {
             reader: Arc::new(Mutex::new(reader)),
             first_file_offset,
             files,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for ItufuruArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for ItufuruArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

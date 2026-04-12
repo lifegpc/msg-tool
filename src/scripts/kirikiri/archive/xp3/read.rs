@@ -7,8 +7,8 @@ use anyhow::Result;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 
-impl Xp3Archive {
-    pub fn new<T: Read + Seek + std::fmt::Debug + 'static>(
+impl<'a> Xp3Archive<'a> {
+    pub fn new<T: Read + Seek + std::fmt::Debug + 'a>(
         stream: T,
         config: &ExtraConfig,
         filename: &str,
@@ -180,9 +180,9 @@ impl Xp3Archive {
         Ok(archive)
     }
 
-    fn get_index_stream<'a, T: Read + Seek + std::fmt::Debug + 'static>(
-        stream: &'a mut Box<T>,
-    ) -> Result<Box<dyn Read + 'a>> {
+    fn get_index_stream<'c, 'b, T: Read + Seek + std::fmt::Debug + 'b>(
+        stream: &'c mut Box<T>,
+    ) -> Result<Box<dyn Read + 'c>> {
         let index_type = stream.read_u8()?;
         Ok(match index_type {
             TVP_XP3_INDEX_ENCODE_RAW => {

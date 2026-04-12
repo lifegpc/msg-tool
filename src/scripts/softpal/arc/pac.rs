@@ -83,15 +83,15 @@ impl ScriptBuilder for SoftpalPacBuilder {
         )?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(SoftpalPacArchive::new(
             reader,
             archive_encoding,
@@ -138,12 +138,13 @@ struct SoftpalPacEntry {
 
 #[derive(Debug)]
 /// Softpal PAC archive reader.
-pub struct SoftpalPacArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct SoftpalPacArchive<'a, T: Read + Seek + std::fmt::Debug + 'a> {
     reader: Arc<Mutex<T>>,
     entries: Vec<SoftpalPacEntry>,
+    _mark: std::marker::PhantomData<&'a ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> SoftpalPacArchive<T> {
+impl<'a, T: Read + Seek + std::fmt::Debug + 'a> SoftpalPacArchive<'a, T> {
     fn new(
         mut reader: T,
         archive_encoding: Encoding,
@@ -175,6 +176,7 @@ impl<T: Read + Seek + std::fmt::Debug> SoftpalPacArchive<T> {
             return Ok(Self {
                 reader: Arc::new(Mutex::new(reader)),
                 entries: Vec::new(),
+                _mark: std::marker::PhantomData,
             });
         }
 
@@ -230,11 +232,12 @@ impl<T: Read + Seek + std::fmt::Debug> SoftpalPacArchive<T> {
         Ok(Self {
             reader: Arc::new(Mutex::new(reader)),
             entries,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for SoftpalPacArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for SoftpalPacArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

@@ -78,15 +78,15 @@ impl ScriptBuilder for CSIntArcBuilder {
         }
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(CSIntArc::new(
             reader,
             archive_encoding,
@@ -243,15 +243,16 @@ impl ArchiveContent for MemEntry {
 
 #[derive(Debug)]
 /// CatSystem2 Archive script.
-pub struct CSIntArc<T: Read + Seek + std::fmt::Debug> {
+pub struct CSIntArc<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     reader: Arc<Mutex<T>>,
     encrypt: Option<Blowfish>,
     entries: Vec<CSIntFileHeader>,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
 const NAME_SIZES: [usize; 2] = [0x20, 0x40];
 
-impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> CSIntArc<'b, T> {
     /// Creates a new instance of `CSIntArc` from a reader.
     ///
     /// * `reader` - The reader to read the archive from.
@@ -315,6 +316,7 @@ impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
                 reader: Arc::new(Mutex::new(reader)),
                 encrypt: Some(encrypt),
                 entries: entries,
+                _mark: std::marker::PhantomData,
             });
         }
         let file_size = reader.seek(SeekFrom::End(0))?;
@@ -346,6 +348,7 @@ impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
                     reader: Arc::new(Mutex::new(reader)),
                     encrypt: None,
                     entries,
+                    _mark: std::marker::PhantomData,
                 });
             }
         }
@@ -392,7 +395,7 @@ impl<T: Read + Seek + std::fmt::Debug> CSIntArc<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for CSIntArc<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for CSIntArc<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

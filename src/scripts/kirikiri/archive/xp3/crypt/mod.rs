@@ -119,14 +119,14 @@ pub trait Crypt: std::fmt::Debug {
     }
 
     /// Apply extra processing to the decrypted content of the file.
-    fn filter(&self, _entry: Entry) -> Result<Box<dyn ReadDebug>> {
+    fn filter<'a>(&self, _entry: Entry<'a>) -> Result<Box<dyn ReadDebug + 'a>> {
         Err(anyhow::anyhow!(
             "This crypt does not support content filter after decrypt"
         ))
     }
 
     /// Apply extra processing to the decrypted content of the file, with seek support.
-    fn filter_with_seek(&self, _entry: Entry) -> Result<Box<dyn ReadSeek>> {
+    fn filter_with_seek<'a>(&self, _entry: Entry<'a>) -> Result<Box<dyn ReadSeek + 'a>> {
         Err(anyhow::anyhow!(
             "This crypt does not support content filter with seek after decrypt"
         ))

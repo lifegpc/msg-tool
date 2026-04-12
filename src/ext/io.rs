@@ -2457,14 +2457,14 @@ impl<T: Seek> Seek for PrefixStream<T> {
 
 /// A readable stream that concatenates multiple streams.
 #[derive(Debug)]
-pub struct MultipleReadStream {
-    streams: Vec<Box<dyn ReadSeek>>,
+pub struct MultipleReadStream<'a> {
+    streams: Vec<Box<dyn ReadSeek + 'a>>,
     stream_lengths: Vec<u64>,
     total_length: u64,
     pos: u64,
 }
 
-impl MultipleReadStream {
+impl<'a> MultipleReadStream<'a> {
     /// Creates a new `MultipleReadStream`.
     pub fn new() -> Self {
         MultipleReadStream {
@@ -2476,7 +2476,7 @@ impl MultipleReadStream {
     }
 
     /// Adds a new stream to the end of the concatenated streams.
-    pub fn add_stream<T: ReadSeek + 'static>(&mut self, mut stream: T) -> Result<()> {
+    pub fn add_stream<T: ReadSeek + 'a>(&mut self, mut stream: T) -> Result<()> {
         let length = stream.stream_length()?;
         self.streams.push(Box::new(stream));
         self.stream_lengths.push(self.total_length);
@@ -2494,7 +2494,7 @@ impl MultipleReadStream {
     }
 }
 
-impl Read for MultipleReadStream {
+impl<'a> Read for MultipleReadStream<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if self.pos >= self.total_length {
             return Ok(0);
@@ -2518,7 +2518,7 @@ impl Read for MultipleReadStream {
     }
 }
 
-impl Seek for MultipleReadStream {
+impl<'a> Seek for MultipleReadStream<'a> {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(offset) => offset,

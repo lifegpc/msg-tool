@@ -60,15 +60,15 @@ impl ScriptBuilder for PImgBuilder {
         }
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(PImg::new(reader, filename, config)?))
     }
 

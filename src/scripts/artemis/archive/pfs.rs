@@ -67,15 +67,15 @@ impl ScriptBuilder for ArtemisArcBuilder {
         )?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(ArtemisArc::new(
             reader,
             archive_encoding,
@@ -131,14 +131,15 @@ struct PfsEntryHeader {
 
 #[derive(Debug)]
 /// The Artemis PFS archive script.
-pub struct ArtemisArc<T: Read + Seek + std::fmt::Debug> {
+pub struct ArtemisArc<'a, T: Read + Seek + std::fmt::Debug + 'a> {
     reader: Arc<Mutex<T>>,
     entries: Vec<PfsEntryHeader>,
     xor_key: Option<[u8; 20]>,
     output_ext: Option<String>,
+    _mark: std::marker::PhantomData<&'a ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> ArtemisArc<'b, T> {
     /// Creates a new Artemis PFS archive script.
     ///
     /// * `reader` - The reader for the archive.
@@ -196,11 +197,12 @@ impl<T: Read + Seek + std::fmt::Debug> ArtemisArc<T> {
             entries,
             xor_key,
             output_ext,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for ArtemisArc<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for ArtemisArc<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

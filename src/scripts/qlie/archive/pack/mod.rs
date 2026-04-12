@@ -78,15 +78,15 @@ impl ScriptBuilder for QliePackArchiveBuilder {
         }
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(QliePackArchive::new(
             reader,
             archive_encoding,
@@ -145,16 +145,17 @@ pub fn is_this_format<P: AsRef<std::path::Path> + ?Sized>(path: &P) -> Result<bo
 }
 
 #[derive(Debug)]
-pub struct QliePackArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct QliePackArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     header: QlieHeader,
     encryption: Box<dyn Encryption>,
     reader: Arc<Mutex<T>>,
     qkey: Option<QlieKey>,
     entries: Vec<QlieEntry>,
     common_key: Option<Vec<u8>>,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> QliePackArchive<'b, T> {
     pub fn new(
         mut reader: T,
         archive_encoding: Encoding,
@@ -253,6 +254,7 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
             qkey,
             entries,
             common_key,
+            _mark: std::marker::PhantomData,
         })
     }
 
@@ -299,7 +301,7 @@ impl<T: Read + Seek + std::fmt::Debug> QliePackArchive<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for QliePackArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for QliePackArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

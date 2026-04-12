@@ -64,15 +64,15 @@ impl ScriptBuilder for DatArchiveBuilder {
         }
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(DatArchive::new(reader, archive_encoding, config)?))
     }
 
@@ -185,15 +185,16 @@ pub struct DatExtraInfo {
 
 #[derive(Debug)]
 /// Circus DAT Archive
-pub struct DatArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct DatArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     reader: Arc<Mutex<T>>,
     entries: Vec<DatFileHeader>,
     name_len: usize,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
 const NAME_LEN: [usize; 3] = [0x24, 0x30, 0x3C];
 
-impl<T: Read + Seek + std::fmt::Debug> DatArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> DatArchive<'b, T> {
     /// Creates a new `DatArchive` from a reader.
     ///
     /// * `reader` - The reader to read the DAT archive from.
@@ -206,6 +207,7 @@ impl<T: Read + Seek + std::fmt::Debug> DatArchive<T> {
             reader,
             entries,
             name_len,
+            _mark: std::marker::PhantomData,
         })
     }
 
@@ -265,7 +267,7 @@ impl<T: Read + Seek + std::fmt::Debug> DatArchive<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for DatArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for DatArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

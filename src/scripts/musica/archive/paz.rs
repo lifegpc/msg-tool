@@ -160,15 +160,15 @@ impl ScriptBuilder for PazArcBuilder {
         )?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(PazArc::new(
             reader,
             filename,
@@ -240,8 +240,8 @@ impl PazEntry {
 }
 
 #[derive(Debug)]
-pub struct PazArc {
-    stream: Arc<Mutex<MultipleReadStream>>,
+pub struct PazArc<'a> {
+    stream: Arc<Mutex<MultipleReadStream<'a>>>,
     schema: Schema,
     arc_key: ArcKey,
     entries: Vec<PazEntry>,
@@ -253,8 +253,8 @@ pub struct PazArc {
 
 const AUDIO_PAZ_NAMES: &[&str] = &["bgm", "se", "voice", "pmbgm", "pmse", "pmvoice"];
 
-impl PazArc {
-    pub fn new<T: ReadSeek + 'static>(
+impl<'a> PazArc<'a> {
+    pub fn new<T: ReadSeek + 'a>(
         reader: T,
         filename: &str,
         archive_encoding: Encoding,
@@ -389,7 +389,7 @@ impl PazArc {
     }
 }
 
-impl Script for PazArc {
+impl<'b> Script for PazArc<'b> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

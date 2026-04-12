@@ -65,15 +65,15 @@ impl ScriptBuilder for ArtemisPf2Builder {
         )?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(ArtemisPf2::new(
             reader,
             archive_encoding,
@@ -132,13 +132,14 @@ struct Pf2EntryHeader {
 
 #[derive(Debug)]
 /// The Artemis PF2 archive script.
-pub struct ArtemisPf2<T: Read + Seek + std::fmt::Debug> {
+pub struct ArtemisPf2<'a, T: Read + Seek + std::fmt::Debug + 'a> {
     reader: Arc<Mutex<T>>,
     entries: Vec<Pf2EntryHeader>,
     output_ext: Option<String>,
+    _mark: std::marker::PhantomData<&'a ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ArtemisPf2<T> {
+impl<'a, T: Read + Seek + std::fmt::Debug + 'a> ArtemisPf2<'a, T> {
     /// Creates a new Artemis PF2 archive script.
     ///
     /// * `reader` - The reader for the archive.
@@ -182,11 +183,12 @@ impl<T: Read + Seek + std::fmt::Debug> ArtemisPf2<T> {
             reader: Arc::new(Mutex::new(reader)),
             entries,
             output_ext,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + 'static> Script for ArtemisPf2<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for ArtemisPf2<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

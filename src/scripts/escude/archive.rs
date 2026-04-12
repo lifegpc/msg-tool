@@ -72,15 +72,15 @@ impl ScriptBuilder for EscudeBinArchiveBuilder {
         }
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(EscudeBinArchive::new(
             reader,
             archive_encoding,
@@ -165,14 +165,15 @@ impl ArchiveContent for Entry {
 
 #[derive(Debug)]
 /// Escu:de Binary Archive
-pub struct EscudeBinArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct EscudeBinArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     reader: Arc<Mutex<T>>,
     file_count: u32,
     entries: Vec<BinEntry>,
     archive_encoding: Encoding,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> EscudeBinArchive<'b, T> {
     /// Creates a new `EscudeBinArchive` from a reader
     ///
     /// * `reader` - The reader to read the archive from
@@ -204,11 +205,12 @@ impl<T: Read + Seek + std::fmt::Debug> EscudeBinArchive<T> {
             file_count,
             entries,
             archive_encoding,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for EscudeBinArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for EscudeBinArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

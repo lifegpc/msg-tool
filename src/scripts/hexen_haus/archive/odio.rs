@@ -74,15 +74,15 @@ impl ScriptBuilder for HexenHausOdioArchiveBuilder {
         )?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(HexenHausOdioArchive::new(
             reader,
             archive_encoding,
@@ -120,12 +120,13 @@ struct HexenHausOdioEntry {
 
 #[derive(Debug)]
 /// HexenHaus ODIO archive reader
-pub struct HexenHausOdioArchive<T: Read + Seek + std::fmt::Debug> {
+pub struct HexenHausOdioArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {
     reader: Arc<Mutex<T>>,
     entries: Vec<HexenHausOdioEntry>,
+    _mark: std::marker::PhantomData<&'b ()>,
 }
 
-impl<T: Read + Seek + std::fmt::Debug> HexenHausOdioArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> HexenHausOdioArchive<'b, T> {
     /// Creates a new `HexenHausOdioArchive`
     pub fn new(mut reader: T, _archive_encoding: Encoding, _config: &ExtraConfig) -> Result<Self> {
         reader.seek(SeekFrom::Start(0))?;
@@ -221,11 +222,12 @@ impl<T: Read + Seek + std::fmt::Debug> HexenHausOdioArchive<T> {
         Ok(HexenHausOdioArchive {
             reader: Arc::new(Mutex::new(reader)),
             entries,
+            _mark: std::marker::PhantomData,
         })
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug + std::any::Any> Script for HexenHausOdioArchive<T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for HexenHausOdioArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }

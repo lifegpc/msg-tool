@@ -43,15 +43,15 @@ impl ScriptBuilder for PsbBuilder {
         Ok(Box::new(Psb::new(MemReader::new(buf), encoding, config)?))
     }
 
-    fn build_script_from_reader(
+    fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek>,
+        reader: Box<dyn ReadSeek + 'a>,
         _filename: &str,
         encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + 'a>> {
         Ok(Box::new(Psb::new(reader, encoding, config)?))
     }
 
