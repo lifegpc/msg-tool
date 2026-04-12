@@ -669,7 +669,7 @@ fn default_artemis_asb_end_tags() -> std::sync::Arc<std::collections::HashSet<St
     )
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 /// Script type
 pub enum ScriptType {
     #[cfg(feature = "artemis")]
