@@ -306,33 +306,32 @@ fn parse_name_info(name: &str) -> Result<NameInfo> {
             name
         ));
     }
+    let name = name.as_bytes();
     let prefix = &name[..3];
-    if !prefix.eq_ignore_ascii_case("res") {
+    if !prefix.eq_ignore_ascii_case(b"res") {
         return Err(anyhow::anyhow!(
-            "Filename '{}' does not start with 'res'.",
+            "Filename '{:#?}' does not start with 'res'.",
             name
         ));
     }
     let suffix = &name[name.len() - 4..];
-    if !suffix.eq_ignore_ascii_case(".grp") {
+    if !suffix.eq_ignore_ascii_case(b".grp") {
         return Err(anyhow::anyhow!(
-            "Filename '{}' does not end with '.grp'.",
+            "Filename '{:#?}' does not end with '.grp'.",
             name
         ));
     }
     let digits = &name[3..name.len() - 4];
-    if digits.is_empty() || !digits.chars().all(|c| c.is_ascii_digit()) {
+    if digits.is_empty() || !digits.iter().all(|c| c.is_ascii_digit()) {
         return Err(anyhow::anyhow!(
-            "Filename '{}' does not contain a numeric sequence.",
+            "Filename '{:#?}' does not contain a numeric sequence.",
             name
         ));
     }
-    let arc_num = digits.parse::<u32>().with_context(|| {
-        format!(
-            "Failed to parse archive number from '{}' (digits '{}').",
-            name, digits
-        )
-    })?;
+    let arc_num = std::str::from_utf8(digits)
+        .with_context(|| format!("Failed to parse archive number from '{:#?}' (digits '{:#?}').", name, digits))?
+        .parse::<u32>()
+        .with_context(|| format!("Failed to parse archive number from '{:#?}' (digits '{:#?}').", name, digits))?;
     Ok(NameInfo {
         digits_offset: 3,
         digits_len: digits.len(),
