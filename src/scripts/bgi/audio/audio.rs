@@ -73,6 +73,10 @@ impl ScriptBuilder for BgiAudioBuilder {
             None
         }
     }
+
+    fn is_audio(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug)]

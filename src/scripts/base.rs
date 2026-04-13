@@ -124,6 +124,11 @@ pub trait ScriptBuilder: std::fmt::Debug {
         false
     }
 
+    /// Returns true if this script is an audio.
+    fn is_audio(&self) -> bool {
+        false
+    }
+
     /// Creates an archive with the given files.
     ///
     /// * `filename` - The path of the archive file to create.

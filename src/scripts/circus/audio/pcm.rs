@@ -79,6 +79,10 @@ impl ScriptBuilder for PcmBuilder {
             None
         }
     }
+
+    fn is_audio(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, IntEnum)]
