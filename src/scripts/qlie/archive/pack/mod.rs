@@ -320,7 +320,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script for QliePac
         Ok(Box::new(self.entries.iter().map(|e| Ok(e.name.clone()))))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         let mut entry = self
             .entries
             .get(index)

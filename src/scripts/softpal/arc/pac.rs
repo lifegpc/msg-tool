@@ -144,7 +144,7 @@ pub struct SoftpalPacArchive<'a, T: Read + Seek + std::fmt::Debug + 'a> {
     _mark: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a, T: Read + Seek + std::fmt::Debug + 'a> SoftpalPacArchive<'a, T> {
+impl<'a, T: Read + Seek + std::fmt::Debug + Send + Sync + 'a> SoftpalPacArchive<'a, T> {
     fn new(
         mut reader: T,
         archive_encoding: Encoding,
@@ -237,7 +237,7 @@ impl<'a, T: Read + Seek + std::fmt::Debug + 'a> SoftpalPacArchive<'a, T> {
     }
 }
 
-impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for SoftpalPacArchive<'b, T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script for SoftpalPacArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -264,7 +264,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for SoftpalPacArchive<'b,
         ))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         let entry = self
             .entries
             .get(index)

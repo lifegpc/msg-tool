@@ -265,7 +265,7 @@ pub fn parse_script(
 }
 
 pub fn parse_script_from_archive<'a>(
-    file: &mut Box<dyn ArchiveContent + 'a>,
+    file: &mut Box<dyn ArchiveContent + Send + Sync + 'a>,
     arg: &args::Arg,
     config: std::sync::Arc<types::ExtraConfig>,
     archive: &Box<dyn scripts::Script>,

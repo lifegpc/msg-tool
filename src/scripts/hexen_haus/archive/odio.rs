@@ -227,7 +227,9 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> HexenHausOdioArchive<'b, T> {
     }
 }
 
-impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for HexenHausOdioArchive<'b, T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script
+    for HexenHausOdioArchive<'b, T>
+{
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -252,7 +254,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for HexenHausOdioArchive<
         Ok(Box::new(self.entries.iter().map(|entry| Ok(entry.offset))))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         if index >= self.entries.len() {
             return Err(anyhow!(
                 "Index out of bounds: {} (total files: {})",

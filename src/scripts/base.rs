@@ -262,7 +262,7 @@ pub trait ArchiveContent: Read {
         Ok(data)
     }
     /// Returns a reader that supports reading and seeking.
-    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(MemReader::new(self.data()?)))
     }
 }
@@ -460,7 +460,10 @@ pub trait Script: std::fmt::Debug {
     }
 
     /// Opens a file in the archive by its index.
-    fn open_file<'a>(&'a self, _index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(
+        &'a self,
+        _index: usize,
+    ) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         Err(anyhow::anyhow!(
             "This script type does not support opening files."
         ))
@@ -474,7 +477,7 @@ pub trait Script: std::fmt::Debug {
         &'a self,
         name: &str,
         ignore_case: bool,
-    ) -> Result<Box<dyn ArchiveContent + 'a>> {
+    ) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         for (i, fname) in self.iter_archive_filename()?.enumerate() {
             if let Ok(fname) = fname {
                 if fname == name || (ignore_case && fname.eq_ignore_ascii_case(name)) {
@@ -489,7 +492,10 @@ pub trait Script: std::fmt::Debug {
     }
 
     /// Opens a file in the archive by its offset.
-    fn open_file_by_offset<'a>(&'a self, offset: u64) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file_by_offset<'a>(
+        &'a self,
+        offset: u64,
+    ) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         for (i, off) in self.iter_archive_offset()?.enumerate() {
             if let Ok(off) = off {
                 if off == offset {

@@ -131,7 +131,7 @@ struct PfsEntryHeader {
 
 #[derive(Debug)]
 /// The Artemis PFS archive script.
-pub struct ArtemisArc<'a, T: Read + Seek + std::fmt::Debug + 'a> {
+pub struct ArtemisArc<'a, T: Read + Seek + std::fmt::Debug + Send + Sync + 'a> {
     reader: Arc<Mutex<T>>,
     entries: Vec<PfsEntryHeader>,
     xor_key: Option<[u8; 20]>,
@@ -139,7 +139,7 @@ pub struct ArtemisArc<'a, T: Read + Seek + std::fmt::Debug + 'a> {
     _mark: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'b, T: Read + Seek + std::fmt::Debug + 'b> ArtemisArc<'b, T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> ArtemisArc<'b, T> {
     /// Creates a new Artemis PFS archive script.
     ///
     /// * `reader` - The reader for the archive.
@@ -202,7 +202,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> ArtemisArc<'b, T> {
     }
 }
 
-impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for ArtemisArc<'b, T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script for ArtemisArc<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -229,7 +229,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for ArtemisArc<'b, T> {
         ))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         if index >= self.entries.len() {
             return Err(anyhow::anyhow!(
                 "Index out of bounds: {} (max: {})",

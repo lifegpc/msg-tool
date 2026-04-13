@@ -132,14 +132,14 @@ struct Pf2EntryHeader {
 
 #[derive(Debug)]
 /// The Artemis PF2 archive script.
-pub struct ArtemisPf2<'a, T: Read + Seek + std::fmt::Debug + 'a> {
+pub struct ArtemisPf2<'a, T: Read + Seek + std::fmt::Debug + Send + Sync + 'a> {
     reader: Arc<Mutex<T>>,
     entries: Vec<Pf2EntryHeader>,
     output_ext: Option<String>,
     _mark: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a, T: Read + Seek + std::fmt::Debug + 'a> ArtemisPf2<'a, T> {
+impl<'a, T: Read + Seek + std::fmt::Debug + Send + Sync + 'a> ArtemisPf2<'a, T> {
     /// Creates a new Artemis PF2 archive script.
     ///
     /// * `reader` - The reader for the archive.
@@ -188,7 +188,7 @@ impl<'a, T: Read + Seek + std::fmt::Debug + 'a> ArtemisPf2<'a, T> {
     }
 }
 
-impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for ArtemisPf2<'b, T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script for ArtemisPf2<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -215,7 +215,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for ArtemisPf2<'b, T> {
         ))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         if index >= self.entries.len() {
             return Err(anyhow::anyhow!(
                 "Index out of bounds: {} (max: {})",
@@ -242,14 +242,14 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for ArtemisPf2<'b, T> {
     }
 }
 
-struct Pf2Entry<T: Read + Seek> {
+struct Pf2Entry<T: Read + Seek + Send + Sync> {
     header: Pf2EntryHeader,
     reader: Arc<Mutex<T>>,
     pos: u64,
     script_type: Option<ScriptType>,
 }
 
-impl<T: Read + Seek> ArchiveContent for Pf2Entry<T> {
+impl<T: Read + Seek + Send + Sync> ArchiveContent for Pf2Entry<T> {
     fn name(&self) -> &str {
         &self.header.name
     }
@@ -259,7 +259,7 @@ impl<T: Read + Seek> ArchiveContent for Pf2Entry<T> {
     }
 }
 
-impl<T: Read + Seek> Read for Pf2Entry<T> {
+impl<T: Read + Seek + Send + Sync> Read for Pf2Entry<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let mut reader = self.reader.lock().map_err(|e| {
             std::io::Error::new(
@@ -279,7 +279,7 @@ impl<T: Read + Seek> Read for Pf2Entry<T> {
     }
 }
 
-impl<T: Read + Seek> Seek for Pf2Entry<T> {
+impl<T: Read + Seek + Send + Sync> Seek for Pf2Entry<T> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(offset) => offset,

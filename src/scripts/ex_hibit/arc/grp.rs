@@ -159,7 +159,7 @@ impl<'b, T: Read + Seek + Debug + 'b> ExHibitGrpArchive<'b, T> {
     }
 }
 
-impl<'b, T: Read + Seek + Debug + 'b> Script for ExHibitGrpArchive<'b, T> {
+impl<'b, T: Read + Seek + Debug + Send + Sync + 'b> Script for ExHibitGrpArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -184,7 +184,7 @@ impl<'b, T: Read + Seek + Debug + 'b> Script for ExHibitGrpArchive<'b, T> {
         Ok(Box::new(self.entries.iter().map(|entry| Ok(entry.offset))))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         if index >= self.entries.len() {
             return Err(anyhow::anyhow!(
                 "Index out of bounds: {} (max: {}).",

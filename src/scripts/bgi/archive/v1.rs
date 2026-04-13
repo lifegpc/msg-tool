@@ -273,7 +273,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> BgiArchive<'b, T> {
     }
 }
 
-impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for BgiArchive<'b, T> {
+impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script for BgiArchive<'b, T> {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Json
     }
@@ -298,7 +298,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for BgiArchive<'b, T> {
         Ok(Box::new(self.entries.iter().map(|e| Ok(e.offset as u64))))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         if index >= self.entries.len() {
             return Err(anyhow::anyhow!(
                 "Index out of bounds: {} (max: {})",
@@ -488,7 +488,7 @@ impl<F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> ArchiveContent fo
         Ok(self.data.data.clone())
     }
 
-    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(&mut self.data))
     }
 }

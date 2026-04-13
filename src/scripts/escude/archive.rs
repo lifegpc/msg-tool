@@ -158,7 +158,7 @@ impl ArchiveContent for Entry {
         Ok(self.data.data.clone())
     }
 
-    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(&mut self.data))
     }
 }
@@ -240,7 +240,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + 'b> Script for EscudeBinArchive<'b, 
         ))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         if index >= self.entries.len() {
             return Err(anyhow::anyhow!(
                 "Index out of bounds: {} (max: {})",

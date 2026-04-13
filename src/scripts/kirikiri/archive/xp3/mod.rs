@@ -226,7 +226,7 @@ impl<'b> Script for Xp3Archive<'b> {
         ))
     }
 
-    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + 'a>> {
+    fn open_file<'a>(&'a self, index: usize) -> Result<Box<dyn ArchiveContent + Send + Sync + 'a>> {
         let index = self
             .archive
             .entries
@@ -414,7 +414,7 @@ impl<'b> ArchiveContent for Entry<'b> {
         &self.index.name
     }
 
-    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(self))
     }
 
@@ -758,7 +758,7 @@ impl<'b> ArchiveContent for SimpleCrypt<'b> {
         &self.index.name
     }
 
-    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(self))
     }
 }
@@ -812,7 +812,7 @@ impl<'a> Read for MdfEntry<'a> {
 
 #[derive(Debug)]
 struct CustomFilterEntry<'a> {
-    inner: PrefixStream<Box<dyn ReadDebug + 'a>>,
+    inner: PrefixStream<Box<dyn ReadDebug + Send + Sync + 'a>>,
     index: archive::Xp3Entry,
     script_type: Option<ScriptType>,
 }
@@ -835,7 +835,7 @@ impl<'a> ArchiveContent for CustomFilterEntry<'a> {
 
 #[derive(Debug)]
 struct CustomFilterWithSeekEntry<'a> {
-    inner: Box<dyn ReadSeek + 'a>,
+    inner: Box<dyn ReadSeek + Send + Sync + 'a>,
     index: archive::Xp3Entry,
     script_type: Option<ScriptType>,
 }
@@ -869,7 +869,7 @@ impl<'b> ArchiveContent for CustomFilterWithSeekEntry<'b> {
         self.script_type.as_ref()
     }
 
-    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + 'a>> {
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(self))
     }
 }

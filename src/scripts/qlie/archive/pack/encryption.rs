@@ -30,9 +30,9 @@ pub trait Encryption: std::fmt::Debug {
     fn decrypt_name(&self, name: &mut [u8], hash: i32, encoding: Encoding) -> Result<String>;
     fn decrypt_entry<'a>(
         &self,
-        stream: Box<dyn ReadSeek + 'a>,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
         entry: &QlieEntry,
-    ) -> Result<Box<dyn ReadDebug + 'a>>;
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>>;
     fn index_has_hash(&self) -> bool {
         true
     }
@@ -56,7 +56,9 @@ pub fn create_encryption(
     }
 }
 
-pub fn decompress<'a>(data: Box<dyn ReadDebug + 'a>) -> Result<Box<dyn ReadDebug + 'a>> {
+pub fn decompress<'a>(
+    data: Box<dyn ReadDebug + Send + Sync + 'a>,
+) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
     Ok(Box::new(Decompressor::new(data)?))
 }
 
@@ -223,9 +225,9 @@ impl Encryption for Encryption31 {
     }
     fn decrypt_entry<'a>(
         &self,
-        stream: Box<dyn ReadSeek + 'a>,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
         entry: &QlieEntry,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         match entry.is_encrypted {
             // No encryption
             0 => Ok(Box::new(stream)),
@@ -317,7 +319,7 @@ impl Hasher for Encryption31Hasher {
 
 #[derive(Debug)]
 struct Encryption31DecryptV1<'a> {
-    stream: Box<dyn ReadSeek + 'a>,
+    stream: Box<dyn ReadSeek + Send + Sync + 'a>,
     table: MemReader,
     v4: u32,
     v6: u64,
@@ -325,7 +327,7 @@ struct Encryption31DecryptV1<'a> {
 
 impl<'a> Encryption31DecryptV1<'a> {
     pub fn new(
-        stream: Box<dyn ReadSeek + 'a>,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
         size: u32,
         name: String,
         key: u32,
@@ -437,7 +439,7 @@ impl<T: Write> Write for Encryption31EncryptV1<T> {
 
 #[derive(Debug)]
 struct Encryption31DecryptV2<'a> {
-    stream: Box<dyn ReadSeek + 'a>,
+    stream: Box<dyn ReadSeek + Send + Sync + 'a>,
     table: MemReader,
     v4: u32,
     v6: u64,
@@ -446,7 +448,7 @@ struct Encryption31DecryptV2<'a> {
 
 impl<'a> Encryption31DecryptV2<'a> {
     pub fn new(
-        stream: Box<dyn ReadSeek + 'a>,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
         size: u32,
         name: String,
         key: u32,
@@ -574,7 +576,7 @@ impl<T: Write> Write for Encryption31EncryptV2<T> {
 
 #[derive(Debug)]
 pub struct Decompressor<'a> {
-    stream: Box<dyn ReadDebug + 'a>,
+    stream: Box<dyn ReadDebug + Send + Sync + 'a>,
     is_16bit: bool,
     temp: Vec<u8>,
     buf: Vec<u8>,
@@ -582,7 +584,7 @@ pub struct Decompressor<'a> {
 }
 
 impl<'a> Decompressor<'a> {
-    pub fn new(mut stream: Box<dyn ReadDebug + 'a>) -> Result<Self> {
+    pub fn new(mut stream: Box<dyn ReadDebug + Send + Sync + 'a>) -> Result<Self> {
         let sign = stream.read_u32()?;
         if sign != 0xFF435031 {
             return Err(anyhow::anyhow!("Invalid compression signature"));
@@ -1061,9 +1063,9 @@ impl Encryption for Encryption30 {
 
     fn decrypt_entry<'a>(
         &self,
-        stream: Box<dyn ReadSeek + 'a>,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
         entry: &QlieEntry,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         if entry.is_encrypted == 0 {
             return Ok(Box::new(stream));
         }
@@ -1144,13 +1146,17 @@ impl Hasher for Encryption30Hasher {
 
 #[derive(Debug)]
 pub struct Decrypter<'a> {
-    stream: Box<dyn ReadSeek + 'a>,
+    stream: Box<dyn ReadSeek + Send + Sync + 'a>,
     v5: u64,
     v9: u64,
 }
 
 impl<'a> Decrypter<'a> {
-    pub fn new(stream: Box<dyn ReadSeek + 'a>, key: u32, length: u32) -> AlignedReader<8, Self> {
+    pub fn new(
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+        key: u32,
+        length: u32,
+    ) -> AlignedReader<8, Self> {
         const C1: u64 = 0xA73C5F9D;
         const C3: u64 = 0xFEC9753E;
         const V5_INIT: u64 = mmx_punpckldq2(C1);
@@ -1182,7 +1188,7 @@ impl<'a> Read for Decrypter<'a> {
 
 #[derive(Debug)]
 struct Encryption30Decrypt<'a> {
-    stream: Box<dyn ReadSeek + 'a>,
+    stream: Box<dyn ReadSeek + Send + Sync + 'a>,
     table: [u64; 0x10],
     hash64: u64,
     t: usize,
@@ -1190,7 +1196,7 @@ struct Encryption30Decrypt<'a> {
 
 impl<'a> Encryption30Decrypt<'a> {
     pub fn new<'b>(
-        stream: Box<dyn ReadSeek + 'a>,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
         raw_name: &'b [u8],
         common_key: &'b [u8],
         size: u32,
@@ -1275,9 +1281,9 @@ impl Encryption for Encryption10 {
 
     fn decrypt_entry<'a>(
         &self,
-        stream: Box<dyn ReadSeek + 'a>,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
         entry: &QlieEntry,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         if entry.is_encrypted == 0 {
             return Ok(Box::new(stream));
         }
@@ -1320,9 +1326,9 @@ impl Encryption for Encryption20 {
 
     fn decrypt_entry<'a>(
         &self,
-        stream: Box<dyn ReadSeek + 'a>,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
         entry: &QlieEntry,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         if entry.is_encrypted == 0 {
             return Ok(Box::new(stream));
         }
@@ -1336,13 +1342,13 @@ impl Encryption for Encryption20 {
 
 #[derive(Debug)]
 struct Encryption10Decrypt<'a> {
-    stream: Box<dyn ReadSeek + 'a>,
+    stream: Box<dyn ReadSeek + Send + Sync + 'a>,
     v5: u64,
     v9: u64,
 }
 
 impl<'a> Encryption10Decrypt<'a> {
-    pub fn new(stream: Box<dyn ReadSeek + 'a>, key: u32) -> AlignedReader<8, Self> {
+    pub fn new(stream: Box<dyn ReadSeek + Send + Sync + 'a>, key: u32) -> AlignedReader<8, Self> {
         const C1: u64 = 0xA73C5F9D;
         const C3: u64 = 0xFEC9753E;
         const V5_INIT: u64 = mmx_punpckldq2(C1);
