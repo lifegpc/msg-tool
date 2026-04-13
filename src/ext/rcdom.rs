@@ -1,9 +1,7 @@
 //! Extensions for markup5ever_rcdom crate.
+use crate::utils::html5ever_arcdom::{AtomicAttribute, Node, NodeData};
 use anyhow::Result;
-use markup5ever::Attribute;
-use markup5ever_rcdom::{Node, NodeData};
-use std::cell::{Ref, RefCell};
-use std::rc::{Rc, Weak};
+use std::sync::{Arc, Mutex, Weak};
 
 /// Extensions for [Node]
 pub trait NodeExt {
@@ -38,15 +36,15 @@ pub trait NodeExt {
 /// Extensions for [Rc<Node>]
 pub trait RcNodeExt {
     /// Pushes a child node to the current node.
-    fn push_child(&self, child: Rc<Node>) -> Result<()>;
+    fn push_child(&self, child: Arc<Node>) -> Result<()>;
     /// Create a deep clone
-    fn deep_clone(&self, parent: Option<Weak<Node>>) -> Result<Rc<Node>>;
+    fn deep_clone(&self, parent: Option<Weak<Node>>) -> Result<Arc<Node>>;
     /// Create a deep clone with modification of data.
     fn deep_clone_with_modify<F: Fn(&mut NodeData) -> Result<()>>(
         &self,
         parent: Option<Weak<Node>>,
         modify: F,
-    ) -> Result<Rc<Node>>;
+    ) -> Result<Arc<Node>>;
     /// Changes a child node at the given index by modifying its data.
     ///
     /// Deep clones are needed.
@@ -80,7 +78,7 @@ impl NodeExt for Node {
 
     fn is_processing_instruction<S: AsRef<str> + ?Sized>(&self, name: &S) -> bool {
         match &self.data {
-            NodeData::ProcessingInstruction { target, .. } => target.as_ref() == name.as_ref(),
+            NodeData::ProcessingInstruction { target, .. } => target == name.as_ref(),
             _ => false,
         }
     }
@@ -88,9 +86,8 @@ impl NodeExt for Node {
     fn element_attr_keys<'a>(&'a self) -> Result<Box<dyn Iterator<Item = String> + 'a>> {
         match &self.data {
             NodeData::Element { attrs, .. } => {
-                let borrowed = attrs.try_borrow()?;
-                let iter = AttrKeyIter { borrowed, pos: 0 };
-                Ok(Box::new(iter))
+                let attrs = attrs.lock().unwrap();
+                Ok(Box::new(KeyIter { attrs, index: 0 }))
             }
             _ => Ok(Box::new(std::iter::empty())),
         }
@@ -99,15 +96,11 @@ impl NodeExt for Node {
     fn get_attr_value<S: AsRef<str> + ?Sized>(&self, name: &S) -> Result<Option<String>> {
         match &self.data {
             NodeData::Element { attrs, .. } => {
-                let borrowed = attrs.try_borrow()?;
-                if let Some(attr) = borrowed
+                let attrs = attrs.lock().unwrap();
+                Ok(attrs
                     .iter()
                     .find(|a| a.name.local.as_ref() == name.as_ref())
-                {
-                    Ok(Some(attr.value.to_string()))
-                } else {
-                    Ok(None)
-                }
+                    .map(|a| a.value.to_string()))
             }
             _ => Ok(None),
         }
@@ -120,14 +113,14 @@ impl NodeExt for Node {
     ) -> Result<()> {
         match &self.data {
             NodeData::Element { attrs, .. } => {
-                let mut borrowed = attrs.try_borrow_mut()?;
+                let mut borrowed = attrs.lock().unwrap();
                 if let Some(attr) = borrowed
                     .iter_mut()
                     .find(|a| a.name.local.as_ref() == name.as_ref())
                 {
                     attr.value = value.as_ref().into();
                 } else {
-                    borrowed.push(Attribute {
+                    borrowed.push(AtomicAttribute {
                         name: markup5ever::QualName::new(
                             None,
                             markup5ever::Namespace::default(),
@@ -143,23 +136,23 @@ impl NodeExt for Node {
     }
 }
 
-impl RcNodeExt for Rc<Node> {
-    fn push_child(&self, child: Rc<Node>) -> Result<()> {
-        child.parent.replace(Some(Rc::downgrade(self)));
-        self.children.try_borrow_mut()?.push(child);
+impl RcNodeExt for Arc<Node> {
+    fn push_child(&self, child: Arc<Node>) -> Result<()> {
+        child.parent.store(Some(Arc::downgrade(self)));
+        self.children.lock().unwrap().push(child);
         Ok(())
     }
 
-    fn deep_clone(&self, parent: Option<Weak<Node>>) -> Result<Rc<Node>> {
+    fn deep_clone(&self, parent: Option<Weak<Node>>) -> Result<Arc<Node>> {
         let data = self.data.clone2()?;
         let node = Node {
             data,
-            children: RefCell::new(Vec::new()),
+            children: Mutex::new(Vec::new()),
             parent: parent.into(),
         };
-        let node = Rc::new(node);
-        for child in self.children.try_borrow()?.iter() {
-            let cloned_child = child.deep_clone(Some(Rc::downgrade(&node)))?;
+        let node = Arc::new(node);
+        for child in self.children.lock().unwrap().iter() {
+            let cloned_child = child.deep_clone(Some(Arc::downgrade(&node)))?;
             node.push_child(cloned_child)?;
         }
         Ok(node)
@@ -169,17 +162,17 @@ impl RcNodeExt for Rc<Node> {
         &self,
         parent: Option<Weak<Node>>,
         modify: F,
-    ) -> Result<Rc<Node>> {
+    ) -> Result<Arc<Node>> {
         let mut data = self.data.clone2()?;
         modify(&mut data)?;
         let node = Node {
             data,
-            children: RefCell::new(Vec::new()),
+            children: Mutex::new(Vec::new()),
             parent: parent.into(),
         };
-        let node = Rc::new(node);
-        for child in self.children.try_borrow()?.iter() {
-            let cloned_child = child.deep_clone(Some(Rc::downgrade(&node)))?;
+        let node = Arc::new(node);
+        for child in self.children.lock().unwrap().iter() {
+            let cloned_child = child.deep_clone(Some(Arc::downgrade(&node)))?;
             node.push_child(cloned_child)?;
         }
         Ok(node)
@@ -190,13 +183,13 @@ impl RcNodeExt for Rc<Node> {
         index: usize,
         modify: F,
     ) -> Result<()> {
-        let mut children = self.children.try_borrow_mut()?;
+        let mut children = self.children.lock().unwrap();
         if index >= children.len() {
             return Err(anyhow::anyhow!("Index out of bounds"));
         }
         let child = children.remove(index);
         child.parent.take();
-        let nchild = child.deep_clone_with_modify(Some(Rc::downgrade(self)), modify)?;
+        let nchild = child.deep_clone_with_modify(Some(Arc::downgrade(self)), modify)?;
         children.insert(index, nchild);
         Ok(())
     }
@@ -219,7 +212,7 @@ impl NodeDataExt for NodeData {
                 system_id: system_id.clone(),
             },
             NodeData::Text { contents } => NodeData::Text {
-                contents: contents.clone(),
+                contents: Arc::new(Mutex::new(contents.lock().unwrap().clone())),
             },
             NodeData::ProcessingInstruction { target, contents } => {
                 NodeData::ProcessingInstruction {
@@ -235,22 +228,22 @@ impl NodeDataExt for NodeData {
             } => {
                 let name = name.clone();
                 let mut nattrs = Vec::new();
-                for attr in attrs.try_borrow()?.iter() {
-                    nattrs.push(Attribute {
+                for attr in attrs.lock().unwrap().iter() {
+                    nattrs.push(AtomicAttribute {
                         name: attr.name.clone(),
                         value: attr.value.clone(),
                     });
                 }
-                let attrs = RefCell::new(nattrs);
-                let template = match template_contents.try_borrow()?.as_ref() {
+                let attrs = Mutex::new(nattrs);
+                let template = match template_contents.lock().unwrap().as_ref() {
                     Some(tc) => Some(tc.deep_clone(None)?),
                     None => None,
                 };
-                let template_contents = RefCell::new(template);
+                let template_contents = Mutex::new(template);
                 NodeData::Element {
                     name,
-                    attrs,
-                    template_contents,
+                    attrs: Arc::new(attrs),
+                    template_contents: Arc::new(template_contents),
                     mathml_annotation_xml_integration_point:
                         mathml_annotation_xml_integration_point.clone(),
                 }
@@ -272,21 +265,21 @@ impl NodeDataExt for NodeData {
     }
 }
 
-struct AttrKeyIter<'a> {
-    borrowed: Ref<'a, Vec<Attribute>>,
-    pos: usize,
+struct KeyIter<'a> {
+    attrs: std::sync::MutexGuard<'a, Vec<AtomicAttribute>>,
+    index: usize,
 }
 
-impl<'a> Iterator for AttrKeyIter<'a> {
+impl<'a> Iterator for KeyIter<'a> {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pos < self.borrowed.len() {
-            let attr = &self.borrowed[self.pos];
-            self.pos += 1;
-            Some(attr.name.local.to_string())
-        } else {
+        if self.index >= self.attrs.len() {
             None
+        } else {
+            let key = self.attrs[self.index].name.local.as_ref();
+            self.index += 1;
+            Some(key.to_string())
         }
     }
 }

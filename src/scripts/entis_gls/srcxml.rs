@@ -4,8 +4,8 @@ use crate::ext::rcdom::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
+use crate::utils::html5ever_arcdom::{ArcDom, Handle, SerializableHandle};
 use anyhow::Result;
-use markup5ever_rcdom::{Handle, RcDom, SerializableHandle};
 use xml5ever::driver::parse_document;
 use xml5ever::serialize::serialize;
 use xml5ever::tendril::TendrilSink;
@@ -62,11 +62,11 @@ impl SrcXmlScript {
     /// * `config` - Additional configuration options.
     pub fn new(buf: Vec<u8>, encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
         let decoded = decode_to_string(encoding, &buf, false)?;
-        let dom = parse_document(RcDom::default(), Default::default())
+        let dom = parse_document(ArcDom::default(), Default::default())
             .from_utf8()
             .one(decoded.as_bytes());
         {
-            let error = dom.errors.try_borrow()?;
+            let error = dom.errors.lock().unwrap();
             for e in error.iter() {
                 eprintln!("WARN: Error parsing srcxml: {}", e);
                 crate::COUNTER.inc_warning();
@@ -91,11 +91,11 @@ impl Script for SrcXmlScript {
     fn extract_messages(&self) -> Result<Vec<Message>> {
         let mut messages = Vec::new();
         let mut lang = self.lang.clone();
-        for i in self.handle.children.try_borrow()?.iter() {
+        for i in self.handle.children.lock().unwrap().iter() {
             if i.is_element("xscript") {
-                for code in i.children.try_borrow()?.iter() {
+                for code in i.children.lock().unwrap().iter() {
                     if code.is_element("code") {
-                        for ins in code.children.try_borrow()?.iter() {
+                        for ins in code.children.lock().unwrap().iter() {
                             if ins.is_element("msg") {
                                 let lan = match lang.as_ref() {
                                     Some(l) => l.as_str(),
@@ -130,7 +130,7 @@ impl Script for SrcXmlScript {
                                     .ok_or(anyhow::anyhow!("text not found"))?;
                                 messages.push(Message { name, message })
                             } else if ins.is_element("select") {
-                                for menu in ins.children.try_borrow()?.iter() {
+                                for menu in ins.children.lock().unwrap().iter() {
                                     if menu.is_element("menu") {
                                         let lan = match lang.as_ref() {
                                             Some(l) => l.as_str(),
@@ -179,8 +179,8 @@ impl Script for SrcXmlScript {
     ) -> Result<()> {
         let root = self.handle.deep_clone(None)?;
         if !encoding.is_utf8() {
-            let len = root.children.try_borrow()?.len();
-            if len > 0 && root.children.try_borrow()?[0].is_processing_instruction("xml") {
+            let len = root.children.lock().unwrap().len();
+            if len > 0 && root.children.lock().unwrap()[0].is_processing_instruction("xml") {
                 root.change_child(0, |data| {
                     data.set_processing_instruction_content("version=\"1.0\"")
                 })?;
@@ -189,11 +189,11 @@ impl Script for SrcXmlScript {
         let mut lang = self.lang.clone();
         let mut mess = messages.iter();
         let mut mes = mess.next();
-        for i in root.children.try_borrow()?.iter() {
+        for i in root.children.lock().unwrap().iter() {
             if i.is_element("xscript") {
-                for code in i.children.try_borrow()?.iter() {
+                for code in i.children.lock().unwrap().iter() {
                     if code.is_element("code") {
-                        for ins in code.children.try_borrow()?.iter() {
+                        for ins in code.children.lock().unwrap().iter() {
                             if ins.is_element("msg") {
                                 let m = match mes {
                                     Some(m) => m,
@@ -247,7 +247,7 @@ impl Script for SrcXmlScript {
                                 ins.set_attr_value(text_ref, &message)?;
                                 mes = mess.next();
                             } else if ins.is_element("select") {
-                                for menu in ins.children.try_borrow()?.iter() {
+                                for menu in ins.children.lock().unwrap().iter() {
                                     if menu.is_element("menu") {
                                         let m = match mes {
                                             Some(m) => m,

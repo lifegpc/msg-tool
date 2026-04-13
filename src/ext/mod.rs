@@ -7,6 +7,6 @@ pub mod mutex;
 pub mod path;
 #[cfg(feature = "emote-psb")]
 pub mod psb;
-#[cfg(feature = "markup5ever_rcdom")]
+#[cfg(feature = "xml5ever")]
 pub mod rcdom;
 pub mod vec;

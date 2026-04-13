@@ -16,6 +16,8 @@ pub mod escape;
 pub mod files;
 #[cfg(feature = "audio-flac")]
 pub mod flac;
+#[cfg(feature = "xml5ever")]
+pub mod html5ever_arcdom;
 #[cfg(feature = "image")]
 pub mod img;
 #[cfg(feature = "image-jxl")]

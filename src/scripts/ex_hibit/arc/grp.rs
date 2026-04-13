@@ -329,9 +329,19 @@ fn parse_name_info(name: &str) -> Result<NameInfo> {
         ));
     }
     let arc_num = std::str::from_utf8(digits)
-        .with_context(|| format!("Failed to parse archive number from '{:#?}' (digits '{:#?}').", name, digits))?
+        .with_context(|| {
+            format!(
+                "Failed to parse archive number from '{:#?}' (digits '{:#?}').",
+                name, digits
+            )
+        })?
         .parse::<u32>()
-        .with_context(|| format!("Failed to parse archive number from '{:#?}' (digits '{:#?}').", name, digits))?;
+        .with_context(|| {
+            format!(
+                "Failed to parse archive number from '{:#?}' (digits '{:#?}').",
+                name, digits
+            )
+        })?;
     Ok(NameInfo {
         digits_offset: 3,
         digits_len: digits.len(),
