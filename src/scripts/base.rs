@@ -57,7 +57,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>>;
+    ) -> Result<Box<dyn Script + Send + Sync>>;
 
     /// Builds a script from a file.
     ///
@@ -73,7 +73,7 @@ pub trait ScriptBuilder: std::fmt::Debug {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         let data = crate::utils::files::read_file(filename)?;
         self.build_script(data, filename, encoding, archive_encoding, config, archive)
     }
@@ -88,13 +88,13 @@ pub trait ScriptBuilder: std::fmt::Debug {
     /// * `archive` - An optional archive to which the script belongs.
     fn build_script_from_reader<'a>(
         &self,
-        mut reader: Box<dyn ReadSeek + 'a>,
+        mut reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         filename: &str,
         encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script + 'a>> {
+    ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
         let mut data = Vec::new();
         reader
             .read_to_end(&mut data)

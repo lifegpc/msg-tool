@@ -37,7 +37,7 @@ impl ScriptBuilder for DrefBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(Dref::new(
             buf, encoding, filename, config, archive,
         )?))

@@ -4,8 +4,8 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
-use std::cell::RefCell;
 use std::io::Write;
+use std::sync::Mutex;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
@@ -32,7 +32,7 @@ impl ScriptBuilder for MesBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(Mes::new(buf, encoding, config)?))
     }
 
@@ -156,7 +156,7 @@ impl<'a> TextParser<'a> {
 
 #[derive(Debug)]
 pub struct Mes {
-    disasm: RefCell<Box<dyn Disasm>>,
+    disasm: Mutex<Box<dyn Disasm + Send + Sync>>,
     encoding: Encoding,
     texts: Vec<SlikyString>,
 }
@@ -167,7 +167,8 @@ impl Mes {
         let num_message = reader.cpeek_u32()?;
         let code_offset = 4 + num_message as u64 * 4;
         let first_line_offset = reader.cpeek_u32_at(4)? as u64 + code_offset;
-        let mut disasm: Box<dyn Disasm> = if reader.cpeek_u8_at(first_line_offset)? == 0x19
+        let mut disasm: Box<dyn Disasm + Send + Sync> = if reader.cpeek_u8_at(first_line_offset)?
+            == 0x19
             && reader.cpeek_u32_at(first_line_offset + 1)? == 0
         {
             Box::new(Ai6WinDisasm::new(reader)?)
@@ -177,14 +178,17 @@ impl Mes {
         disasm.read_header()?;
         let texts = disasm.read_code()?;
         Ok(Self {
-            disasm: RefCell::new(disasm),
+            disasm: Mutex::new(disasm),
             encoding,
             texts,
         })
     }
 
     fn code_to_text(&self, str: &SlikyString) -> Result<String> {
-        let mut disasm = self.disasm.try_borrow_mut()?;
+        let mut disasm = self
+            .disasm
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to acquire disassembler lock"))?;
         let mut result = String::new();
         disasm.stream_mut().pos = str.start as usize;
         let end = str.start as usize + str.len as usize;
@@ -290,8 +294,12 @@ impl Script for Mes {
         encoding: Encoding,
         replacement: Option<&'a ReplacementTable>,
     ) -> Result<()> {
-        let opcodes = self.disasm.try_borrow()?.opcodes();
-        let mut inp = self.disasm.try_borrow()?.stream().clone();
+        let disasm = self
+            .disasm
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to acquire disassembler lock"))?;
+        let opcodes = disasm.opcodes();
+        let mut inp = disasm.stream().clone();
         inp.pos = 0;
         let mut patcher = BinaryPatcher::new(inp.to_ref(), file, |add| Ok(add), |add| Ok(add))?;
         let mut mess = messages.iter();
@@ -348,15 +356,15 @@ impl Script for Mes {
             return Err(anyhow::anyhow!("Too many messages"));
         }
         patcher.copy_up_to(inp.data.len() as u64)?;
-        let code_offset = self.disasm.try_borrow()?.code_offset();
-        for &address_offset in self.disasm.try_borrow()?.little_endian_addresses() {
+        let code_offset = disasm.code_offset();
+        for &address_offset in disasm.little_endian_addresses() {
             let orig_address = inp.cpeek_u32_at(address_offset as u64)? as u64;
             let orig_offset = orig_address + code_offset as u64;
             let new_offset = patcher.map_offset(orig_offset)?;
             let new_address = new_offset - code_offset as u64;
             patcher.patch_u32(address_offset as u64, new_address as u32)?;
         }
-        for &address_offset in self.disasm.try_borrow()?.big_endian_addresses() {
+        for &address_offset in disasm.big_endian_addresses() {
             let orig_address = inp.cpeek_u32_be_at(address_offset as u64)? as u64;
             let orig_offset = orig_address + code_offset as u64;
             let new_offset = patcher.map_offset(orig_offset)?;

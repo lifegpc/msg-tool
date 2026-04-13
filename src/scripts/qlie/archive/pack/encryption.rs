@@ -42,7 +42,7 @@ pub fn create_encryption(
     major: u8,
     minor: u8,
     game_key: Option<Vec<u8>>,
-) -> Result<Box<dyn Encryption>> {
+) -> Result<Box<dyn Encryption + Send + Sync>> {
     match (major, minor) {
         (3, 1) => Ok(Box::new(Encryption31::new())),
         (3, 0) => Ok(Box::new(Encryption30::new(game_key))),

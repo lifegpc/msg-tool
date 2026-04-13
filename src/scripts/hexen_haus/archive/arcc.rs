@@ -35,7 +35,7 @@ impl ScriptBuilder for HexenHausArccArchiveBuilder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(HexenHausArccArchive::new(
             MemReader::new(buf),
             archive_encoding,
@@ -50,7 +50,7 @@ impl ScriptBuilder for HexenHausArccArchiveBuilder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
             return Ok(Box::new(HexenHausArccArchive::new(
@@ -70,13 +70,13 @@ impl ScriptBuilder for HexenHausArccArchiveBuilder {
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + 'a>,
+        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script + 'a>> {
+    ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
         Ok(Box::new(HexenHausArccArchive::new(
             reader,
             archive_encoding,

@@ -31,7 +31,7 @@ impl ScriptBuilder for CstlScriptBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(CstlScript::new(buf, encoding, config)?))
     }
 

@@ -81,8 +81,8 @@ pub trait Crypt: std::fmt::Debug {
         &self,
         _entry: &Xp3Entry,
         _cur_seg: &Segment,
-        _stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        _stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         Err(anyhow::anyhow!("This crypt does not support decrypt"))
     }
 
@@ -91,8 +91,8 @@ pub trait Crypt: std::fmt::Debug {
         &self,
         _entry: &Xp3Entry,
         _cur_seg: &Segment,
-        _stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        _stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Err(anyhow::anyhow!(
             "This crypt does not support decrypt with seek"
         ))
@@ -119,14 +119,17 @@ pub trait Crypt: std::fmt::Debug {
     }
 
     /// Apply extra processing to the decrypted content of the file.
-    fn filter<'a>(&self, _entry: Entry<'a>) -> Result<Box<dyn ReadDebug + 'a>> {
+    fn filter<'a>(&self, _entry: Entry<'a>) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         Err(anyhow::anyhow!(
             "This crypt does not support content filter after decrypt"
         ))
     }
 
     /// Apply extra processing to the decrypted content of the file, with seek support.
-    fn filter_with_seek<'a>(&self, _entry: Entry<'a>) -> Result<Box<dyn ReadSeek + 'a>> {
+    fn filter_with_seek<'a>(
+        &self,
+        _entry: Entry<'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Err(anyhow::anyhow!(
             "This crypt does not support content filter with seek after decrypt"
         ))
@@ -265,7 +268,11 @@ pub struct Schema {
 }
 
 impl Schema {
-    pub fn create_crypt(&self, filename: &str, config: &ExtraConfig) -> Result<Box<dyn Crypt>> {
+    pub fn create_crypt(
+        &self,
+        filename: &str,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Crypt + Send + Sync>> {
         Ok(match &self.crypt {
             CryptType::NoCrypt => Box::new(NoCrypt::new()),
             CryptType::FateCrypt => Box::new(FateCrypt::new(self.base.clone())),
@@ -593,16 +600,16 @@ macro_rules! seek_crypt_base_impl {
                 &self,
                 _entry: &Xp3Entry,
                 cur_seg: &Segment,
-                stream: Box<dyn Read + 'a>,
-            ) -> Result<Box<dyn ReadDebug + 'a>> {
+                stream: Box<dyn Read + Send + Sync + 'a>,
+            ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
                 Ok(Box::new($reader::new(stream, cur_seg)))
             }
             fn decrypt_with_seek<'a>(
                 &self,
                 _entry: &Xp3Entry,
                 cur_seg: &Segment,
-                stream: Box<dyn ReadSeek + 'a>,
-            ) -> Result<Box<dyn ReadSeek + 'a>> {
+                stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+            ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
                 Ok(Box::new($reader::new(stream, cur_seg)))
             }
         }
@@ -683,8 +690,8 @@ macro_rules! seek_crypt_filehash_key_u8_base_impl {
                 &self,
                 entry: &Xp3Entry,
                 cur_seg: &Segment,
-                stream: Box<dyn Read + 'a>,
-            ) -> Result<Box<dyn ReadDebug + 'a>> {
+                stream: Box<dyn Read + Send + Sync + 'a>,
+            ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
                 Ok(Box::new($reader::new(
                     stream,
                     cur_seg,
@@ -695,8 +702,8 @@ macro_rules! seek_crypt_filehash_key_u8_base_impl {
                 &self,
                 entry: &Xp3Entry,
                 cur_seg: &Segment,
-                stream: Box<dyn ReadSeek + 'a>,
-            ) -> Result<Box<dyn ReadSeek + 'a>> {
+                stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+            ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
                 Ok(Box::new($reader::new(
                     stream,
                     cur_seg,
@@ -751,16 +758,16 @@ macro_rules! seek_crypt_key_base_impl {
                 &self,
                 _entry: &Xp3Entry,
                 cur_seg: &Segment,
-                stream: Box<dyn Read + 'a>,
-            ) -> Result<Box<dyn ReadDebug + 'a>> {
+                stream: Box<dyn Read + Send + Sync + 'a>,
+            ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
                 Ok(Box::new($reader::new(stream, cur_seg, self.key)))
             }
             fn decrypt_with_seek<'a>(
                 &self,
                 _entry: &Xp3Entry,
                 cur_seg: &Segment,
-                stream: Box<dyn ReadSeek + 'a>,
-            ) -> Result<Box<dyn ReadSeek + 'a>> {
+                stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+            ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
                 Ok(Box::new($reader::new(stream, cur_seg, self.key)))
             }
         }
@@ -822,8 +829,8 @@ impl Crypt for FlyingShineCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         Ok(Box::new(FlyingShineCryptReader::new(
             stream,
             cur_seg,
@@ -834,8 +841,8 @@ impl Crypt for FlyingShineCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(FlyingShineCryptReader::new(
             stream,
             cur_seg,
@@ -882,16 +889,16 @@ macro_rules! seek_crypt_filehash_key_base_impl {
                 &self,
                 entry: &Xp3Entry,
                 cur_seg: &Segment,
-                stream: Box<dyn Read + 'a>,
-            ) -> Result<Box<dyn ReadDebug + 'a>> {
+                stream: Box<dyn Read + Send + Sync + 'a>,
+            ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
                 Ok(Box::new($reader::new(stream, cur_seg, entry.file_hash)))
             }
             fn decrypt_with_seek<'a>(
                 &self,
                 entry: &Xp3Entry,
                 cur_seg: &Segment,
-                stream: Box<dyn ReadSeek + 'a>,
-            ) -> Result<Box<dyn ReadSeek + 'a>> {
+                stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+            ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
                 Ok(Box::new($reader::new(stream, cur_seg, entry.file_hash)))
             }
         }
@@ -1137,8 +1144,8 @@ impl Crypt for TokidokiCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         Ok(Box::new(TokidokiCryptReader::new(
             stream,
             cur_seg,
@@ -1149,8 +1156,8 @@ impl Crypt for TokidokiCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(TokidokiCryptReader::new(
             stream,
             cur_seg,
@@ -1246,8 +1253,8 @@ impl Crypt for AkabeiCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         Ok(Box::new(AkabeiCryptReader::new(
             stream,
             cur_seg,
@@ -1258,8 +1265,8 @@ impl Crypt for AkabeiCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(AkabeiCryptReader::new(
             stream,
             cur_seg,
@@ -1356,8 +1363,8 @@ impl Crypt for SmileCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let key = entry.file_hash ^ self.key_xor;
         Ok(Box::new(SmileCryptReader::new(
             stream,
@@ -1369,8 +1376,8 @@ impl Crypt for SmileCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         let key = entry.file_hash ^ self.key_xor;
         Ok(Box::new(SmileCryptReader::new(
             stream,
@@ -1499,8 +1506,8 @@ impl Crypt for PuCaCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         if let Some(pos) = self.hash_table.iter().position(|&h| h == entry.file_hash) {
             Ok(Box::new(PuCaCryptReader::new(
                 stream,
@@ -1519,8 +1526,8 @@ impl Crypt for PuCaCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         if let Some(pos) = self.hash_table.iter().position(|&h| h == entry.file_hash) {
             Ok(Box::new(PuCaCryptReader::new(
                 stream,
@@ -1657,8 +1664,8 @@ impl Crypt for RhapsodyCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         Ok(Box::new(RhapsodyCryptReader::new(
             stream,
             cur_seg,
@@ -1669,8 +1676,8 @@ impl Crypt for RhapsodyCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(RhapsodyCryptReader::new(
             stream,
             cur_seg,
@@ -1725,8 +1732,8 @@ impl Crypt for MadoCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         Ok(Box::new(MadoCryptReader::new(
             stream,
             cur_seg,
@@ -1737,8 +1744,8 @@ impl Crypt for MadoCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(MadoCryptReader::new(
             stream,
             cur_seg,
@@ -1811,8 +1818,8 @@ impl Crypt for SmxCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let start_key = (entry.file_hash >> self.key_seq[0]) as u8;
         Ok(Box::new(SmxCryptReader::new(
             stream,
@@ -1824,8 +1831,8 @@ impl Crypt for SmxCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         let start_key = (entry.file_hash >> self.key_seq[0]) as u8;
         Ok(Box::new(SmxCryptReader::new(
             stream,

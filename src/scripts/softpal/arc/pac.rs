@@ -56,7 +56,7 @@ impl ScriptBuilder for SoftpalPacBuilder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(SoftpalPacArchive::new(
             MemReader::new(buf),
             archive_encoding,
@@ -72,7 +72,7 @@ impl ScriptBuilder for SoftpalPacBuilder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         let file = std::fs::File::open(filename)?;
         let reader = std::io::BufReader::new(file);
         Ok(Box::new(SoftpalPacArchive::new(
@@ -85,13 +85,13 @@ impl ScriptBuilder for SoftpalPacBuilder {
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + 'a>,
+        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script + 'a>> {
+    ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
         Ok(Box::new(SoftpalPacArchive::new(
             reader,
             archive_encoding,

@@ -101,7 +101,7 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(Xp3Archive::new(
             MemReader::new(buf),
             config,
@@ -116,20 +116,20 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         let file = std::fs::File::open(filename)?;
         Ok(Box::new(Xp3Archive::new(file, config, filename)?))
     }
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + 'a>,
+        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         filename: &str,
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script + 'a>> {
+    ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
         Ok(Box::new(Xp3Archive::new(reader, config, filename)?))
     }
 
@@ -174,7 +174,7 @@ pub struct Xp3Archive<'a> {
 }
 
 impl<'a> Xp3Archive<'a> {
-    pub fn new<T: Read + Seek + std::fmt::Debug + 'a>(
+    pub fn new<T: Read + Seek + std::fmt::Debug + Send + Sync + 'a>(
         stream: T,
         config: &ExtraConfig,
         filename: &str,
@@ -341,13 +341,13 @@ fn detect_script_type(filename: &str, buf: &[u8], buf_len: usize) -> Option<Scri
 }
 
 struct Entry<'a> {
-    reader: Arc<Mutex<Box<dyn ReadSeek + 'a>>>,
+    reader: Arc<Mutex<Box<dyn ReadSeek + Send + Sync + 'a>>>,
     index: archive::Xp3Entry,
-    crypt: Arc<Box<dyn Crypt>>,
+    crypt: Arc<Box<dyn Crypt + Send + Sync>>,
     /// used to cache segment reader that can't seek. Such as decompressor reader or some decrypter reader.
-    cache: Option<Box<dyn Read + 'a>>,
+    cache: Option<Box<dyn Read + Send + Sync + 'a>>,
     /// used to store decrypted stream of current segment when the cryptor support seek when decrypting.
-    crypt_stream: Option<Box<dyn ReadSeek + 'a>>,
+    crypt_stream: Option<Box<dyn ReadSeek + Send + Sync + 'a>>,
     pos: u64,
     base_offset: u64,
     entries_pos: Vec<u64>,
@@ -376,10 +376,10 @@ impl<'a> std::fmt::Debug for Entry<'a> {
 
 impl<'a> Entry<'a> {
     fn new(
-        reader: Arc<Mutex<Box<dyn ReadSeek + 'a>>>,
+        reader: Arc<Mutex<Box<dyn ReadSeek + Send + Sync + 'a>>>,
         index: archive::Xp3Entry,
         base_offset: u64,
-        crypt: Arc<Box<dyn Crypt>>,
+        crypt: Arc<Box<dyn Crypt + Send + Sync>>,
         skip_decrypt: bool,
         force_decrypt: bool,
     ) -> Self {
@@ -465,13 +465,13 @@ impl<'a> Read for Entry<'a> {
             && (self.index.is_encrypted() || (self.force_decrypt && self.crypt.decrypt_supported()))
         {
             if seg.is_compressed || !self.crypt.decrypt_seek_supported() {
-                let mut cache: Box<dyn Read> = if seg.is_compressed {
+                let mut cache: Box<dyn Read + Send + Sync> = if seg.is_compressed {
                     let mut inner =
                         MutexWrapper::new(self.reader.clone(), start_pos).take(read_size);
                     let decompressed = if inner.peek_and_equal(ZSTD_SIGNATURE).is_ok() {
-                        Box::new(ZstdDecoder::new(inner)?) as Box<dyn Read>
+                        Box::new(ZstdDecoder::new(inner)?) as Box<dyn Read + Send + Sync>
                     } else {
-                        Box::new(ZlibDecoder::new(inner)) as Box<dyn Read>
+                        Box::new(ZlibDecoder::new(inner)) as Box<dyn Read + Send + Sync>
                     };
                     let decrypted =
                         self.crypt
@@ -482,7 +482,7 @@ impl<'a> Read for Entry<'a> {
                                     format!("Decryption failed: {}", e),
                                 )
                             })?;
-                    Box::new(decrypted) as Box<dyn Read>
+                    Box::new(decrypted) as Box<dyn Read + Send + Sync>
                 } else {
                     let inner = MutexWrapper::new(self.reader.clone(), start_pos).take(read_size);
                     let decrypted = self
@@ -494,7 +494,7 @@ impl<'a> Read for Entry<'a> {
                                 format!("Decryption failed: {}", e),
                             )
                         })?;
-                    Box::new(decrypted) as Box<dyn Read>
+                    Box::new(decrypted) as Box<dyn Read + Send + Sync>
                 };
                 if skip_pos != 0 {
                     let mut e = EmptyWriter::new();
@@ -528,9 +528,9 @@ impl<'a> Read for Entry<'a> {
         if seg.is_compressed {
             let mut inner = MutexWrapper::new(self.reader.clone(), start_pos).take(read_size);
             let mut cache = if inner.peek_and_equal(ZSTD_SIGNATURE).is_ok() {
-                Box::new(ZstdDecoder::new(inner)?) as Box<dyn Read>
+                Box::new(ZstdDecoder::new(inner)?) as Box<dyn Read + Send + Sync>
             } else {
-                Box::new(ZlibDecoder::new(inner)) as Box<dyn Read>
+                Box::new(ZlibDecoder::new(inner)) as Box<dyn Read + Send + Sync>
             };
             if skip_pos != 0 {
                 let mut e = EmptyWriter::new();

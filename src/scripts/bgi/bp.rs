@@ -30,7 +30,7 @@ impl ScriptBuilder for BGIBpScriptBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(BGIBpScript::new(buf, encoding, config)?))
     }
 

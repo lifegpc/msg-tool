@@ -29,7 +29,7 @@ impl ScriptBuilder for MapBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(Map::new(buf, encoding, config)?))
     }
 

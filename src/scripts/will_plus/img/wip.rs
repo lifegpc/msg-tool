@@ -33,7 +33,7 @@ impl ScriptBuilder for WillPlusWipImageBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(WillPlusWipImage::new(
             MemReader::new(data),
             config,

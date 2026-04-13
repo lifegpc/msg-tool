@@ -36,7 +36,7 @@ impl ScriptBuilder for ExHibitGrpArchiveBuilder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(ExHibitGrpArchive::new(
             MemReader::new(data),
             filename,
@@ -52,7 +52,7 @@ impl ScriptBuilder for ExHibitGrpArchiveBuilder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         if filename == "-" {
             return Err(anyhow::anyhow!(
                 "Reading ExHibit GRP from stdin is not supported; provide a file path."
@@ -71,13 +71,13 @@ impl ScriptBuilder for ExHibitGrpArchiveBuilder {
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + 'a>,
+        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script + 'a>> {
+    ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
         Ok(Box::new(ExHibitGrpArchive::new(
             reader,
             filename,

@@ -27,8 +27,8 @@ pub struct CxEncryption {
     odd_branch_order: Vec<u8>,
     even_branch_order: Vec<u8>,
     control_block: Arc<Vec<u32>>,
-    programs: Vec<Box<dyn ICxProgram>>,
-    program_builder: Box<dyn ICxProgramBuilder>,
+    programs: Vec<Box<dyn ICxProgram + Send + Sync>>,
+    program_builder: Box<dyn ICxProgramBuilder + Send + Sync>,
     base: BaseSchema,
 }
 
@@ -79,7 +79,7 @@ impl CxEncryption {
         base: BaseSchema,
         schema: &CxSchema,
         filename: &str,
-        program_builder: Box<dyn ICxProgramBuilder>,
+        program_builder: Box<dyn ICxProgramBuilder + Send + Sync>,
     ) -> Result<Self> {
         if schema.prolog_order.len() != 3 {
             return Err(anyhow::anyhow!("Prolog order must have 3 elements"));
@@ -126,12 +126,12 @@ impl CxEncryption {
         Ok(obj)
     }
 
-    fn new_program(&self, seed: u32) -> Box<dyn ICxProgram> {
+    fn new_program(&self, seed: u32) -> Box<dyn ICxProgram + Send + Sync> {
         self.program_builder
             .build(seed, Arc::downgrade(&self.control_block))
     }
 
-    fn generate_program(&self, seed: u32) -> Result<Box<dyn ICxProgram>> {
+    fn generate_program(&self, seed: u32) -> Result<Box<dyn ICxProgram + Send + Sync>> {
         let mut program = self.new_program(seed);
         for stage in (1..=5).rev() {
             if self.emit_code(&mut program, stage) {
@@ -180,7 +180,7 @@ impl CxEncryption {
         Err(anyhow::anyhow!("TPM file not found: {}", tpm_path))
     }
 
-    fn emit_code(&self, program: &mut Box<dyn ICxProgram>, stage: i32) -> bool {
+    fn emit_code(&self, program: &mut Box<dyn ICxProgram + Send + Sync>, stage: i32) -> bool {
         program.emit_nop(5)
             && program.emit(MovEdiArg, 4)
             && self.emit_body(program, stage)
@@ -188,7 +188,7 @@ impl CxEncryption {
             && program.emit(Retn, 1)
     }
 
-    fn emit_body(&self, program: &mut Box<dyn ICxProgram>, stage: i32) -> bool {
+    fn emit_body(&self, program: &mut Box<dyn ICxProgram + Send + Sync>, stage: i32) -> bool {
         if stage == 1 {
             return self.emit_prolog(program);
         }
@@ -219,7 +219,7 @@ impl CxEncryption {
         self.emit_odd_branch(program) && program.emit(PopEbx, 1)
     }
 
-    fn emit_body2(&self, program: &mut Box<dyn ICxProgram>, stage: i32) -> bool {
+    fn emit_body2(&self, program: &mut Box<dyn ICxProgram + Send + Sync>, stage: i32) -> bool {
         if stage == 1 {
             return self.emit_prolog(program);
         }
@@ -230,7 +230,7 @@ impl CxEncryption {
         };
         r && self.emit_even_branch(program)
     }
-    fn emit_prolog(&self, program: &mut Box<dyn ICxProgram>) -> bool {
+    fn emit_prolog(&self, program: &mut Box<dyn ICxProgram + Send + Sync>) -> bool {
         match self.prolog_order[(program.get_random() % 3) as usize] {
             2 => {
                 program.emit_nop(5)
@@ -247,7 +247,7 @@ impl CxEncryption {
         }
     }
 
-    fn emit_even_branch(&self, program: &mut Box<dyn ICxProgram>) -> bool {
+    fn emit_even_branch(&self, program: &mut Box<dyn ICxProgram + Send + Sync>) -> bool {
         match self.even_branch_order[(program.get_random() & 7) as usize] {
             0 => program.emit(NotEax, 2),
             1 => program.emit(DecEax, 1),
@@ -285,7 +285,7 @@ impl CxEncryption {
         }
     }
 
-    fn emit_odd_branch(&self, program: &mut Box<dyn ICxProgram>) -> bool {
+    fn emit_odd_branch(&self, program: &mut Box<dyn ICxProgram + Send + Sync>) -> bool {
         match self.odd_branch_order[(program.get_random() % 6) as usize] {
             0 => {
                 program.emit(PushEcx, 1)
@@ -435,11 +435,11 @@ impl Crypt for Arc<CxEncryption> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -447,11 +447,11 @@ impl Crypt for Arc<CxEncryption> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -526,11 +526,16 @@ impl Default for CxProgramBuilder {
 }
 
 trait ICxProgramBuilder: std::fmt::Debug {
-    fn build(&self, seed: u32, control_blocks: Weak<Vec<u32>>) -> Box<dyn ICxProgram>;
+    fn build(&self, seed: u32, control_blocks: Weak<Vec<u32>>)
+    -> Box<dyn ICxProgram + Send + Sync>;
 }
 
 impl ICxProgramBuilder for CxProgramBuilder {
-    fn build(&self, seed: u32, control_blocks: Weak<Vec<u32>>) -> Box<dyn ICxProgram> {
+    fn build(
+        &self,
+        seed: u32,
+        control_blocks: Weak<Vec<u32>>,
+    ) -> Box<dyn ICxProgram + Send + Sync> {
         Box::new(CxProgram {
             code: Vec::with_capacity(CX_PROGRAM_SIZE),
             control_block: control_blocks,
@@ -739,11 +744,15 @@ struct CxEncryptionReader<'a, T> {
     seg_start: u64,
     seg_size: u64,
     pos: u64,
-    key: (u32, Box<dyn ICxEncryption + 'a>),
+    key: (u32, Box<dyn ICxEncryption + Send + Sync + 'a>),
 }
 
 impl<'a, T: Read> CxEncryptionReader<'a, T> {
-    pub fn new(inner: T, seg: &Segment, key: (u32, Box<dyn ICxEncryption + 'a>)) -> Self {
+    pub fn new(
+        inner: T,
+        seg: &Segment,
+        key: (u32, Box<dyn ICxEncryption + Send + Sync + 'a>),
+    ) -> Self {
         Self {
             inner,
             seg_start: seg.offset_in_file,
@@ -818,7 +827,7 @@ impl SenrenCxCrypt {
         base: BaseSchema,
         schema: &CxSchema,
         filename: &str,
-        program_builder: Box<dyn ICxProgramBuilder>,
+        program_builder: Box<dyn ICxProgramBuilder + Send + Sync>,
         names_section_id: String,
     ) -> Result<Self> {
         let cx = CxEncryption::new_inner(base, schema, filename, program_builder)?;
@@ -920,11 +929,11 @@ impl Crypt for Arc<SenrenCxCrypt> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -932,11 +941,11 @@ impl Crypt for Arc<SenrenCxCrypt> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -1001,7 +1010,11 @@ impl CxProgramNanaBuilder {
 }
 
 impl ICxProgramBuilder for CxProgramNanaBuilder {
-    fn build(&self, seed: u32, control_blocks: Weak<Vec<u32>>) -> Box<dyn ICxProgram> {
+    fn build(
+        &self,
+        seed: u32,
+        control_blocks: Weak<Vec<u32>>,
+    ) -> Box<dyn ICxProgram + Send + Sync> {
         Box::new(CxProgramNana::new(seed, control_blocks, self.random_seed))
     }
 }
@@ -1060,11 +1073,11 @@ impl Crypt for Arc<CabbageCxCrypt> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -1072,11 +1085,11 @@ impl Crypt for Arc<CabbageCxCrypt> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -1219,11 +1232,11 @@ impl Crypt for Arc<NanaCxCrypt> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -1231,11 +1244,11 @@ impl Crypt for Arc<NanaCxCrypt> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -1497,11 +1510,11 @@ impl Crypt for Arc<RiddleCxCrypt> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
@@ -1509,11 +1522,11 @@ impl Crypt for Arc<RiddleCxCrypt> {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         let key = (
             entry.file_hash,
-            Box::new(self.clone()) as Box<dyn ICxEncryption + 'a>,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }

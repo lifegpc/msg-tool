@@ -133,7 +133,7 @@ impl ScriptBuilder for PazArcBuilder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(PazArc::new(
             MemReader::new(buf),
             filename,
@@ -149,7 +149,7 @@ impl ScriptBuilder for PazArcBuilder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         let f = std::fs::File::open(filename)?;
         let f = std::io::BufReader::new(f);
         Ok(Box::new(PazArc::new(
@@ -162,13 +162,13 @@ impl ScriptBuilder for PazArcBuilder {
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + 'a>,
+        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script + 'a>> {
+    ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
         Ok(Box::new(PazArc::new(
             reader,
             filename,
@@ -254,7 +254,7 @@ pub struct PazArc<'a> {
 const AUDIO_PAZ_NAMES: &[&str] = &["bgm", "se", "voice", "pmbgm", "pmse", "pmvoice"];
 
 impl<'a> PazArc<'a> {
-    pub fn new<T: ReadSeek + 'a>(
+    pub fn new<T: ReadSeek + Send + Sync + 'a>(
         reader: T,
         filename: &str,
         archive_encoding: Encoding,

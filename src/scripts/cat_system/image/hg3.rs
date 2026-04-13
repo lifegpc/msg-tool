@@ -36,7 +36,7 @@ impl ScriptBuilder for Hg3ImageBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(Hg3Image::new(data, config)?))
     }
 

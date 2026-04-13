@@ -55,7 +55,7 @@ impl ScriptBuilder for BgiImageBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(BgiImage::new(data, config)?))
     }
 

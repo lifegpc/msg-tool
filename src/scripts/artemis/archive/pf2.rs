@@ -38,7 +38,7 @@ impl ScriptBuilder for ArtemisPf2Builder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(ArtemisPf2::new(
             MemReader::new(buf),
             archive_encoding,
@@ -54,7 +54,7 @@ impl ScriptBuilder for ArtemisPf2Builder {
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         let f = std::fs::File::open(filename)?;
         let f = std::io::BufReader::new(f);
         Ok(Box::new(ArtemisPf2::new(
@@ -67,13 +67,13 @@ impl ScriptBuilder for ArtemisPf2Builder {
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + 'a>,
+        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script + 'a>> {
+    ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
         Ok(Box::new(ArtemisPf2::new(
             reader,
             archive_encoding,

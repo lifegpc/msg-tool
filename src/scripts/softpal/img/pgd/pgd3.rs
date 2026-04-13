@@ -29,7 +29,7 @@ impl ScriptBuilder for Pgd3Builder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(Pgd3::new(
             MemReader::new(buf),
             filename,

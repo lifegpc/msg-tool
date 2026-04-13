@@ -29,7 +29,7 @@ impl ScriptBuilder for MdfBuilder {
         _archive_encoding: Encoding,
         _config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(Mdf::new(buf, filename)?))
     }
 

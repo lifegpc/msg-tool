@@ -28,7 +28,7 @@ impl ScriptBuilder for ArtemisTxtBuilder {
         _archive_encoding: Encoding,
         _config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(ArtemisTxtScript::new(buf, encoding)?))
     }
 

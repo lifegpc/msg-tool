@@ -37,7 +37,7 @@ impl ScriptBuilder for BgiCBGBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(BgiCBG::new(data, config)?))
     }
 

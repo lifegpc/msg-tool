@@ -35,7 +35,7 @@ impl ScriptBuilder for TjsNs0Builder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(TjsNs0::new(buf, filename, encoding, config)?))
     }
 

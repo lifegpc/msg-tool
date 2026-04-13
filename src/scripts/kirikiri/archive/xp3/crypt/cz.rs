@@ -105,7 +105,7 @@ impl Crypt for KissCrypt {
     fn need_filter(&self, _filename: &str, buf: &[u8], buf_len: usize) -> bool {
         buf_len >= 4 && buf.starts_with(CZ_MAGIC)
     }
-    fn filter<'a>(&self, mut entry: Entry<'a>) -> Result<Box<dyn ReadDebug + 'a>> {
+    fn filter<'a>(&self, mut entry: Entry<'a>) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let mut header = [0u8; 15];
         entry.read_exact(&mut header)?;
         let typ = [header[4] ^ 0x11, header[5] ^ 0x7F, header[6] ^ 0x9A];
@@ -140,8 +140,8 @@ impl Crypt for KissCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn Read + 'a>,
-    ) -> Result<Box<dyn ReadDebug + 'a>> {
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
         let key = entry.file_hash ^ (entry.file_hash >> 19) ^ 0x4A9EEFF0;
         Ok(Box::new(KissCryptReader::new(stream, cur_seg, key)))
     }
@@ -149,8 +149,8 @@ impl Crypt for KissCrypt {
         &self,
         entry: &Xp3Entry,
         cur_seg: &Segment,
-        stream: Box<dyn ReadSeek + 'a>,
-    ) -> Result<Box<dyn ReadSeek + 'a>> {
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         let key = entry.file_hash ^ (entry.file_hash >> 19) ^ 0x4A9EEFF0;
         Ok(Box::new(KissCryptReader::new(stream, cur_seg, key)))
     }

@@ -34,7 +34,7 @@ impl ScriptBuilder for SoftpalScriptBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(SoftpalScript::new(
             buf, filename, encoding, config, archive,
         )?))

@@ -2458,7 +2458,7 @@ impl<T: Seek> Seek for PrefixStream<T> {
 /// A readable stream that concatenates multiple streams.
 #[derive(Debug)]
 pub struct MultipleReadStream<'a> {
-    streams: Vec<Box<dyn ReadSeek + 'a>>,
+    streams: Vec<Box<dyn ReadSeek + Send + Sync + 'a>>,
     stream_lengths: Vec<u64>,
     total_length: u64,
     pos: u64,
@@ -2476,7 +2476,7 @@ impl<'a> MultipleReadStream<'a> {
     }
 
     /// Adds a new stream to the end of the concatenated streams.
-    pub fn add_stream<T: ReadSeek + 'a>(&mut self, mut stream: T) -> Result<()> {
+    pub fn add_stream<T: ReadSeek + Send + Sync + 'a>(&mut self, mut stream: T) -> Result<()> {
         let length = stream.stream_length()?;
         self.streams.push(Box::new(stream));
         self.stream_lengths.push(self.total_length);
@@ -2485,7 +2485,7 @@ impl<'a> MultipleReadStream<'a> {
     }
 
     /// Adds a new boxed stream to the end of the concatenated streams.
-    pub fn add_stream_boxed(&mut self, mut stream: Box<dyn ReadSeek>) -> Result<()> {
+    pub fn add_stream_boxed(&mut self, mut stream: Box<dyn ReadSeek + Send + Sync>) -> Result<()> {
         let length = stream.stream_length()?;
         self.streams.push(stream);
         self.stream_lengths.push(self.total_length);

@@ -8,12 +8,12 @@ use std::io::{Read, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 
 impl<'a> Xp3Archive<'a> {
-    pub fn new<T: Read + Seek + std::fmt::Debug + 'a>(
+    pub fn new<T: Read + Seek + Send + Sync + std::fmt::Debug + 'a>(
         stream: T,
         config: &ExtraConfig,
         filename: &str,
     ) -> Result<Self> {
-        let crypt: Box<dyn Crypt> = if let Some(game_title) = &config.xp3_game_title {
+        let crypt: Box<dyn Crypt + Send + Sync> = if let Some(game_title) = &config.xp3_game_title {
             query_crypt_schema(game_title)
                 .ok_or_else(|| {
                     anyhow::anyhow!("Unsupported game title for XP3 archive: {}", game_title)

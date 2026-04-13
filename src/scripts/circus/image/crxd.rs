@@ -30,7 +30,7 @@ impl ScriptBuilder for CrxdImageBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(CrxdImage::new(
             MemReader::new(data),
             filename,

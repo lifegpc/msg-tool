@@ -31,7 +31,7 @@ impl ScriptBuilder for CircusMesScriptBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(CircusMesScript::new(buf, encoding, config)?))
     }
 

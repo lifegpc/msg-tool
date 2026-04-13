@@ -36,7 +36,7 @@ impl ScriptBuilder for KsBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(KsScript::new(buf, encoding, config)?))
     }
 

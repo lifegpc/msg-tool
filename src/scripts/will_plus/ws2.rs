@@ -32,7 +32,7 @@ impl ScriptBuilder for Ws2ScriptBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         if !config.will_plus_ws2_no_disasm {
             match Ws2DisasmScript::new(&buf, encoding, config, false) {
                 Ok(script) => return Ok(Box::new(script)),

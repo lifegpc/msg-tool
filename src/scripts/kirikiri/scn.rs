@@ -38,7 +38,7 @@ impl ScriptBuilder for ScnScriptBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(ScnScript::new(
             MemReader::new(buf),
             filename,
@@ -53,7 +53,7 @@ impl ScriptBuilder for ScnScriptBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
             Ok(Box::new(ScnScript::new(
@@ -70,13 +70,13 @@ impl ScriptBuilder for ScnScriptBuilder {
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + 'a>,
+        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         filename: &str,
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script + 'a>> {
+    ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
         Ok(Box::new(ScnScript::new(reader, filename, config)?))
     }
 

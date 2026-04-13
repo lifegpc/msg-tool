@@ -56,7 +56,7 @@ impl ScriptBuilder for CSXScriptBuilder {
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
-    ) -> Result<Box<dyn Script>> {
+    ) -> Result<Box<dyn Script + Send + Sync>> {
         Ok(Box::new(CSXScript::new(buf, config)?))
     }
 
@@ -79,7 +79,7 @@ impl ScriptBuilder for CSXScriptBuilder {
 
 #[derive(Debug)]
 pub struct CSXScript {
-    img: Box<dyn ECSImage>,
+    img: Box<dyn ECSImage + Send + Sync>,
     disasm: bool,
     custom_yaml: bool,
 }
@@ -91,18 +91,18 @@ impl CSXScript {
             match ver {
                 CSXScriptVersion::V1 => {
                     Box::new(ECSExecutionImageV1::new(reader.to_ref(), config)?)
-                        as Box<dyn ECSImage>
+                        as Box<dyn ECSImage + Send + Sync>
                 }
                 CSXScriptVersion::V2 => {
                     Box::new(ECSExecutionImageV2::new(reader.to_ref(), config)?)
-                        as Box<dyn ECSImage>
+                        as Box<dyn ECSImage + Send + Sync>
                 }
             }
         } else {
             match ECSExecutionImageV1::new(reader.to_ref(), config) {
                 Ok(img) => Box::new(img),
                 Err(_) => Box::new(ECSExecutionImageV2::new(reader.to_ref(), config)?)
-                    as Box<dyn ECSImage>,
+                    as Box<dyn ECSImage + Send + Sync>,
             }
         };
         Ok(Self {
