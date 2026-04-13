@@ -257,7 +257,8 @@ impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script for Artemis
     }
 }
 
-struct Entry<T: Read + Seek> {
+#[derive(Debug)]
+struct Entry<T: Read + Seek + std::fmt::Debug> {
     header: PfsEntryHeader,
     reader: Arc<Mutex<T>>,
     pos: u64,
@@ -265,7 +266,7 @@ struct Entry<T: Read + Seek> {
     xor_key: Option<[u8; 20]>,
 }
 
-impl<T: Read + Seek> ArchiveContent for Entry<T> {
+impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for Entry<T> {
     fn name(&self) -> &str {
         &self.header.name
     }
@@ -273,9 +274,13 @@ impl<T: Read + Seek> ArchiveContent for Entry<T> {
     fn script_type(&self) -> Option<&ScriptType> {
         self.script_type.as_ref()
     }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(self))
+    }
 }
 
-impl<T: Read + Seek> Read for Entry<T> {
+impl<T: Read + Seek + std::fmt::Debug> Read for Entry<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let mut reader = self.reader.lock().map_err(|e| {
             std::io::Error::new(
@@ -300,7 +305,7 @@ impl<T: Read + Seek> Read for Entry<T> {
     }
 }
 
-impl<T: Read + Seek> Seek for Entry<T> {
+impl<T: Read + Seek + std::fmt::Debug> Seek for Entry<T> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(offset) => offset,

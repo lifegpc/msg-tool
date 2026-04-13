@@ -302,6 +302,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script
     }
 }
 
+#[derive(Debug)]
 struct OdioEntry<T: Read + Seek> {
     name: String,
     reader: Arc<Mutex<T>>,
@@ -311,9 +312,13 @@ struct OdioEntry<T: Read + Seek> {
     decrypt: bool,
 }
 
-impl<T: Read + Seek> ArchiveContent for OdioEntry<T> {
+impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for OdioEntry<T> {
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(self))
     }
 }
 

@@ -119,6 +119,7 @@ struct PckFileHeader {
     size: u32,
 }
 
+#[derive(Debug)]
 struct Entry<T: Read + Seek> {
     header: PckFileHeader,
     reader: Arc<Mutex<T>>,
@@ -126,13 +127,17 @@ struct Entry<T: Read + Seek> {
     script_type: Option<ScriptType>,
 }
 
-impl<T: Read + Seek> ArchiveContent for Entry<T> {
+impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for Entry<T> {
     fn name(&self) -> &str {
         &self.header.name
     }
 
     fn script_type(&self) -> Option<&ScriptType> {
         self.script_type.as_ref()
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(self))
     }
 }
 

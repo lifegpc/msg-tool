@@ -384,6 +384,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> Script
     }
 }
 
+#[derive(Debug)]
 struct WagEntry<T: Read + Seek> {
     header: HexenHausWagEntry,
     reader: Arc<Mutex<T>>,
@@ -391,13 +392,17 @@ struct WagEntry<T: Read + Seek> {
     typ: Option<ScriptType>,
 }
 
-impl<T: Read + Seek> ArchiveContent for WagEntry<T> {
+impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for WagEntry<T> {
     fn name(&self) -> &str {
         &self.header.name
     }
 
     fn script_type(&self) -> Option<&ScriptType> {
         self.typ.as_ref()
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(self))
     }
 }
 

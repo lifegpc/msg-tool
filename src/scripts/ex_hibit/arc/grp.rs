@@ -197,6 +197,7 @@ impl<'b, T: Read + Seek + Debug + Send + Sync + 'b> Script for ExHibitGrpArchive
     }
 }
 
+#[derive(Debug)]
 struct GrpEntry<T: Read + Seek> {
     info: GrpFileEntry,
     reader: Arc<Mutex<T>>,
@@ -217,9 +218,12 @@ impl<T: Read + Seek> GrpEntry<T> {
     }
 }
 
-impl<T: Read + Seek> ArchiveContent for GrpEntry<T> {
+impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for GrpEntry<T> {
     fn name(&self) -> &str {
         &self.info.name
+    }
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(self))
     }
 }
 

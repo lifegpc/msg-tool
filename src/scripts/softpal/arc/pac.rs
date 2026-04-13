@@ -338,6 +338,14 @@ impl ArchiveContent for MemEntry {
     fn script_type(&self) -> Option<&ScriptType> {
         self.script_type.as_ref()
     }
+
+    fn data(&mut self) -> Result<Vec<u8>> {
+        Ok(self.data.clone())
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(MemReaderRef::new(&self.data)))
+    }
 }
 
 impl Read for MemEntry {
@@ -402,13 +410,17 @@ impl<T: Read + Seek + std::fmt::Debug> PacEntry<T> {
     }
 }
 
-impl<T: Read + Seek + std::fmt::Debug> ArchiveContent for PacEntry<T> {
+impl<T: Read + Seek + Send + Sync + std::fmt::Debug> ArchiveContent for PacEntry<T> {
     fn name(&self) -> &str {
         &self.header.name
     }
 
     fn script_type(&self) -> Option<&ScriptType> {
         self.script_type.as_ref()
+    }
+
+    fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(self))
     }
 }
 
