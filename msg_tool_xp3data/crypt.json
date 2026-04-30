@@ -2156,6 +2156,16 @@
         "Key": 175,
         "Title": "すぺしゃりて!"
     },
+    "Sugar Sweet Temptation": {
+        "$type": "CxEncryption",
+        "Mask": 532,
+        "Offset": 242,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AQIDAAUE",
+        "EvenBranchOrder": "BgQFAAIDAQc=",
+        "ControlBlockName": "sugar_sweet.bin",
+        "Title": "しゅがてん！-sugarfull tempering- [Steam] | 糖调! -sugarfull tempering- [Steam] | 糖调! [Steam] | 甜糖热恋 [Steam]"
+    },
     "Suiheisen made Nan Mile?": {
         "$type": "CxEncryption",
         "Mask": 610,
