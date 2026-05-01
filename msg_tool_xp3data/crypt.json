@@ -2296,6 +2296,11 @@
         "$type": "HashCrypt",
         "Title": "とある熟女の変態調教 ～老いてなお滴る秘蜜と悦楽～"
     },
+    "Tobenai Chou no Valentine": {
+        "$type": "XorCrypt",
+        "Key": 173,
+        "Title": "飛べない蝶のバレンタイン | 折翼之蝶的情人节"
+    },
     "Tokidoki Pakucchao!": {
         "$type": "TokidokiCrypt",
         "HashAfterCrypt": true,
