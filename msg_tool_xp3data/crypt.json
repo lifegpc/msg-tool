@@ -1171,6 +1171,10 @@
         "Key": 247,
         "Title": "ココロのカタチとイロとオト | 心之形心之色心之声"
     },
+    "Kon Kon": {
+        "$type": "FestivalCrypt",
+        "Title": "魂々"
+    },
     "Kore tte, Riajuu?": {
         "$type": "HashCrypt",
         "Title": "これって、リア充？ ～黒ギャルが、ドーテーを教育するそうですよ～"

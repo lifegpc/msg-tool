@@ -243,6 +243,7 @@ enum CryptType {
         mask: u32,
         key_seq: Base64Bytes,
     },
+    FestivalCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -379,6 +380,7 @@ impl Schema {
             CryptType::SmxCrypt { mask, key_seq } => {
                 Box::new(SmxCrypt::new(self.base.clone(), *mask, &key_seq.bytes)?)
             }
+            CryptType::FestivalCrypt => Box::new(FestivalCrypt::new(self.base.clone())),
         })
     }
 }
@@ -1858,6 +1860,20 @@ impl<R: Read> Read for SmxCryptReader<R> {
             };
             *t ^= key;
             offset += 1;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(FestivalCrypt, FestivalCryptReader<T>);
+
+impl<R: Read> Read for FestivalCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key = (!(self.key >> 7)) as u8;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
         }
         self.pos += readed as u64;
         Ok(readed)
