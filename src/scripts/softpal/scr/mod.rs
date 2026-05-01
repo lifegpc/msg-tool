@@ -128,12 +128,25 @@ impl SoftpalScript {
     fn load_point_data(mut data: MemReader) -> Result<Vec<u32>> {
         let mut magic = [0u8; 16];
         data.read_exact(&mut magic)?;
-        if magic != *b"$POINT_LIST_****" {
+        if magic != *b"$POINT_LIST_****" && magic != *b"_POINT_LIST_****" {
             return Err(anyhow::anyhow!("Invalid point list magic: {:?}", magic));
         }
+        let is_crypted = magic[0] == b'$' && {
+            let first_offset = data.cpeek_u32()?;
+            first_offset & 0xFF000000 != 0
+        };
         let mut label_offsets = Vec::new();
+        let mut shift = 4;
         while !data.is_eof() {
-            label_offsets.push(data.read_u32()? + CODE_OFFSET);
+            let mut val = data.read_u32()?;
+            if is_crypted {
+                let mut add = val.to_le_bytes();
+                add[0] = add[0].rotate_left(shift);
+                shift = (shift + 1) % 8;
+                val = u32::from_le_bytes(add);
+                val ^= 0x084DF873 ^ 0xFF987DEE;
+            }
+            label_offsets.push(val + CODE_OFFSET);
         }
         label_offsets.reverse();
         Ok(label_offsets)
