@@ -1,6 +1,6 @@
 [package]
 name = "msg_tool_build"
-version = "0.3.1"
+version = "0.4.0-alpha.1"
 edition = "2024"
 repository = "https://github.com/lifegpc/msg-tool"
 description = "Build time library for the msg-tool project."
