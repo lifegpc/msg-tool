@@ -418,11 +418,12 @@ impl<'a> Disasm<'a> {
                     }
                 } else {
                     self.stack.clear();
-                    self.variables.clear();
+                    // self.variables.clear();
                 }
             } else {
+                // DO NOT clear variables here. Variables are local registers and persist across math/logic ops.
                 self.stack.clear();
-                self.variables.clear();
+                // self.variables.clear();
             }
             self.pre_is_hover_text_move = is_hover_text_move;
             self.pre_is_hover_text_push = is_hover_text_push;
@@ -540,37 +541,29 @@ impl<'a> Disasm<'a> {
                     }
                 }
                 self.stack.clear();
-                self.variables.clear();
+                // self.variables.clear();
                 continue;
             }
             match instr.opcode {
                 ENTER => {
                     current_func_args = Some((instr.offset, instr.operands[0].value()));
                     self.stack.clear();
-                    self.variables.clear();
+                    self.variables.clear(); // Safe to clear here, entering a new function frame
                 }
-                MOV if instr.operands[0].typ() == OperandType::Variable => {
-                    self.variables
-                        .insert(instr.operands[0].value(), instr.operands[1]);
+                MOV => {
+                    self.handle_mov_instruction(instr)?;
                 }
                 PUSH => {
-                    if instr.operands[0].typ() == OperandType::Variable
-                        && self.variables.contains_key(&instr.operands[0].value())
-                    {
-                        let var = self.variables.get(&instr.operands[0].value()).unwrap();
-                        self.stack.push(*var);
-                    } else {
-                        self.stack.push(instr.operands[0]);
-                    }
+                    self.handle_push_instruction(instr)?;
                 }
                 RET => {
                     current_func_args = None;
                     self.stack.clear();
-                    self.variables.clear();
+                    self.variables.clear(); // Safe to clear here, leaving function frame
                 }
                 _ => {
                     self.stack.clear();
-                    self.variables.clear();
+                    // self.variables.clear();
                 }
             }
         }
@@ -579,8 +572,13 @@ impl<'a> Disasm<'a> {
 
     fn handle_mov_instruction(&mut self, instr: Instruction) -> Result<()> {
         if instr.operands[0].typ() == OperandType::Variable {
-            self.variables
-                .insert(instr.operands[0].value(), instr.operands[1]);
+            let mut rhs = instr.operands[1].clone();
+            if rhs.typ() == OperandType::Variable {
+                self.variables.get(&rhs.value()).map(|resolved| {
+                    rhs = resolved.clone();
+                });
+            }
+            self.variables.insert(instr.operands[0].value(), rhs);
         }
         Ok(())
     }
@@ -626,10 +624,10 @@ impl<'a> Disasm<'a> {
     }
 
     fn handle_call_instruction(&mut self, instr: Instruction) -> Result<()> {
-        self.handle_call_instruction_internal(instr)?;
+        let err = self.handle_call_instruction_internal(instr);
         self.stack.clear();
-        self.variables.clear();
-        Ok(())
+        // self.variables.clear();
+        err
     }
 
     fn handle_call_instruction_internal(&mut self, instr: Instruction) -> Result<()> {
@@ -683,10 +681,10 @@ impl<'a> Disasm<'a> {
     }
 
     fn handle_message_instruction(&mut self) -> Result<()> {
-        self.handle_message_instruction_internal()?;
+        let err = self.handle_message_instruction_internal();
         self.stack.clear();
-        self.variables.clear();
-        Ok(())
+        // self.variables.clear();
+        err
     }
 
     fn handle_another_message(&mut self) -> Result<()> {
@@ -747,10 +745,10 @@ impl<'a> Disasm<'a> {
     }
 
     fn handle_select_choice_instruction(&mut self) -> Result<()> {
-        self.handle_select_choice_instruction_internal()?;
+        let err = self.handle_select_choice_instruction_internal();
         self.stack.clear();
-        self.variables.clear();
-        Ok(())
+        // self.variables.clear();
+        err
     }
 
     fn handle_select_choice_instruction_internal(&mut self) -> Result<()> {
