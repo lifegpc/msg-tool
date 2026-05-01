@@ -2444,6 +2444,11 @@
         "Seed": 4076513695,
         "Title": "ヤキモチストリーム | 吃醋大作战 | 醋意乱流"
     },
+    "Yarinaoshi Crank-In": {
+        "$type": "XorCrypt",
+        "Key": 26,
+        "Title": "やりなおしクランクイン | 青春Encore"
+    },
     "Yaya, Okiba ga Nai!": {
         "$type": "SmxCrypt",
         "Mask": 4,
