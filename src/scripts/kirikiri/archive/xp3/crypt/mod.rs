@@ -244,6 +244,7 @@ enum CryptType {
         key_seq: Base64Bytes,
     },
     FestivalCrypt,
+    PinPointCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -381,6 +382,7 @@ impl Schema {
                 Box::new(SmxCrypt::new(self.base.clone(), *mask, &key_seq.bytes)?)
             }
             CryptType::FestivalCrypt => Box::new(FestivalCrypt::new(self.base.clone())),
+            CryptType::PinPointCrypt => Box::new(PinPointCrypt::new(self.base.clone())),
         })
     }
 }
@@ -504,6 +506,7 @@ macro_rules! seek_reader_impl {
         struct $reader<$t: Read> {
             #[skip_fmt]
             inner: $t,
+            #[allow(unused)]
             /// Start offset of the current xp3 entry.
             seg_start: u64,
             seg_size: u64,
@@ -1874,6 +1877,31 @@ impl<R: Read> Read for FestivalCryptReader<R> {
         let key = (!(self.key >> 7)) as u8;
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_impl!(PinPointCrypt, PinPointCryptReader<T>);
+
+impl<R: Read> PinPointCryptReader<R> {
+    #[inline(always)]
+    fn count_set_bits(x: u8) -> u32 {
+        let mut bit_count = ((x & 0x55) + ((x >> 1) & 0x55)) as u32;
+        bit_count = (bit_count & 0x33) + ((bit_count >> 2) & 0x33);
+        ((bit_count & 0xF) + ((bit_count >> 4) & 0xF)) & 0xF
+    }
+}
+
+impl<R: Read> Read for PinPointCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for t in (&mut buf[..readed]).iter_mut() {
+            let bit_count = Self::count_set_bits(*t);
+            if bit_count > 0 {
+                *t = (*t).rotate_left(bit_count);
+            }
         }
         self.pos += readed as u64;
         Ok(readed)
