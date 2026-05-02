@@ -24,7 +24,7 @@ ctrlc = "3.4"
 digest-io = { version = "0.1", optional = true }
 emote-psb = { version = "0.5", optional = true , features = ["serde"] }
 encoding = "0.2"
-fancy-regex = { version = "0.17", optional = true }
+fancy-regex = { version = "0.18", optional = true }
 fastcdc = { version = "3.2", optional = true }
 flate2 = { version = "1.1", optional = true }
 include-flate = { version = "0.3", optional = true }
