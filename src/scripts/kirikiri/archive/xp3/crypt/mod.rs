@@ -2205,7 +2205,82 @@ impl<R: Read> Read for SyangrilaSmartCryptReader<R> {
     }
 }
 
-seek_crypt_filehash_key_u8_impl!(Kano2Crypt, Kano2CryptReader<T>);
+const WARC_MAGIC: &[u8] = b"warc";
+const WARC_TYPE_KEY: [u8; 3] = [0x27, 0xaf, 0x67];
+const WARC_SIZE_KEY: [u8; 4] = [0x7d, 0x16, 0x9f, 0xf1];
+
+#[derive(Debug)]
+pub struct Kano2Crypt {
+    base: BaseSchema,
+}
+
+impl Kano2Crypt {
+    pub fn new(base: BaseSchema) -> Self {
+        Self { base }
+    }
+}
+
+impl Crypt for Kano2Crypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        Ok(Box::new(Kano2CryptReader::new(
+            stream,
+            cur_seg,
+            entry.file_hash as u8,
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(Kano2CryptReader::new(
+            stream,
+            cur_seg,
+            entry.file_hash as u8,
+        )))
+    }
+    fn need_filter(&self, _filename: &str, buf: &[u8], buf_len: usize) -> bool {
+        buf_len >= 4 && buf.starts_with(WARC_MAGIC)
+    }
+    fn filter<'a>(&self, mut entry: Entry<'a>) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        let mut magic = [0; 4];
+        entry.read_exact(&mut magic)?;
+        if &magic != WARC_MAGIC {
+            anyhow::bail!("Unsupported magic: {:?}.", magic);
+        }
+        let mut typ = [0; 3];
+        entry.read_exact(&mut typ)?;
+        for i in 0..3 {
+            typ[i] ^= WARC_TYPE_KEY[i];
+        }
+        if &typ != b"STR" && &typ != b"OCT" && &typ != b"AOD" && &typ != b"INT" && &typ != b"REL" {
+            eprintln!("WARNING: Unknown type key: {:?}", typ);
+            crate::COUNTER.inc_warning();
+        }
+        let mut size = [0; 4];
+        entry.read_exact(&mut size)?;
+        for i in 0..4 {
+            size[i] ^= typ[0] ^ WARC_SIZE_KEY[i];
+        }
+        let _uncompressed_size = u32::from_le_bytes(size);
+        Ok(Box::new(flate2::read::ZlibDecoder::new(entry)))
+    }
+}
+
+seek_reader_key_impl!(Kano2CryptReader<T>, u8);
 
 impl<R: Read> Read for Kano2CryptReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
