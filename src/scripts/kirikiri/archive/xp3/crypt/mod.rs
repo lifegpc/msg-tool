@@ -245,6 +245,7 @@ enum CryptType {
     },
     FestivalCrypt,
     PinPointCrypt,
+    HybridCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -383,6 +384,7 @@ impl Schema {
             }
             CryptType::FestivalCrypt => Box::new(FestivalCrypt::new(self.base.clone())),
             CryptType::PinPointCrypt => Box::new(PinPointCrypt::new(self.base.clone())),
+            CryptType::HybridCrypt => Box::new(HybridCrypt::new(self.base.clone())),
         })
     }
 }
@@ -1902,6 +1904,20 @@ impl<R: Read> Read for PinPointCryptReader<R> {
             if bit_count > 0 {
                 *t = (*t).rotate_left(bit_count);
             }
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_impl!(HybridCrypt, HybridCryptReader<T>);
+
+impl<R: Read> Read for HybridCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let key = (self.key >> 5) as u8;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= key;
         }
         self.pos += readed as u64;
         Ok(readed)

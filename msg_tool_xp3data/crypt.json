@@ -2497,6 +2497,14 @@
         "$type": "HaikuoCrypt",
         "Title": "よつのは | 四叶草"
     },
+    "Youjoku no Onna Kishi": {
+        "$type": "HybridCrypt",
+        "Title": "孕辱の女騎士、オーガの苗床に堕つ"
+    },
+    "Youjoku no Ouhi to Sono Himegimi": {
+        "$type": "HybridCrypt",
+        "Title": "孕辱の王妃とその姫君"
+    },
     "your diary + H": {
         "$type": "SourireCrypt"
     },
