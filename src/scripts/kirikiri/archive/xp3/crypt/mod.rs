@@ -2276,7 +2276,11 @@ impl Crypt for Kano2Crypt {
             size[i] ^= typ[0] ^ WARC_SIZE_KEY[i];
         }
         let _uncompressed_size = u32::from_le_bytes(size);
-        Ok(Box::new(flate2::read::ZlibDecoder::new(entry)))
+        let reader = flate2::read::ZlibDecoder::new(entry);
+        if &typ == b"STR" {
+            return Ok(Box::new(PrefixStream::new(vec![0xFF, 0xFE], reader)));
+        }
+        Ok(Box::new(reader))
     }
 }
 
