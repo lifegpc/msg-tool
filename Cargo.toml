@@ -29,7 +29,7 @@ fastcdc = { version = "4.0", optional = true }
 flate2 = { version = "1.1", optional = true }
 include-flate = { version = "0.3", optional = true }
 int-enum = { version = "1.2", optional = true }
-jieba-rs = { version = "0.8", optional = true }
+jieba-rs = { version = "0.9", optional = true }
 json = { version = "0.12", optional = true }
 jpegxl-sys = { package = "msg-tool-jpegxl-sys", version = "0.11", optional = true, features = ["vendored"] }
 lazy_static = "1.5.0"
