@@ -258,6 +258,7 @@ enum CryptType {
     },
     SyangrilaSmartCrypt,
     Kano2Crypt,
+    MiburoCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -408,6 +409,7 @@ impl Schema {
             )),
             CryptType::SyangrilaSmartCrypt => Box::new(SyangrilaSmartCrypt::new(self.base.clone())),
             CryptType::Kano2Crypt => Box::new(Kano2Crypt::new(self.base.clone())),
+            CryptType::MiburoCrypt => Box::new(MiburoCrypt::new(self.base.clone())),
         })
     }
 }
@@ -2295,6 +2297,77 @@ impl<R: Read> Read for Kano2CryptReader<R> {
                 *t ^= self.key;
             }
             offset = (offset + 1) % 8;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct MiburoCrypt {
+    base: BaseSchema,
+}
+
+impl MiburoCrypt {
+    pub fn new(base: BaseSchema) -> Self {
+        Self { base }
+    }
+
+    fn init_key(mut hash: u32) -> [u8; 29] {
+        hash &= 0x1FFFFFFF;
+        hash |= (hash & 1) << 29;
+        let mut key = [0; 29];
+        for i in 0..29 {
+            key[i] = hash as u8;
+            hash = (hash >> 8) | ((hash << 0x15) & 0xFF000000);
+        }
+        key
+    }
+}
+
+impl Crypt for MiburoCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        Ok(Box::new(MiburoCryptReader::new(
+            stream,
+            cur_seg,
+            Self::init_key(entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(MiburoCryptReader::new(
+            stream,
+            cur_seg,
+            Self::init_key(entry.file_hash),
+        )))
+    }
+}
+
+seek_reader_key_impl!(MiburoCryptReader<T>, [u8; 29]);
+
+impl<R: Read> Read for MiburoCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset = ((self.seg_start + self.pos) % 29) as usize;
+        for t in buf[..readed].iter_mut() {
+            *t ^= self.key[offset];
+            offset = (offset + 1) % 29;
         }
         self.pos += readed as u64;
         Ok(readed)
