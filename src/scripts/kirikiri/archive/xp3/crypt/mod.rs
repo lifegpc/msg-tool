@@ -246,6 +246,10 @@ enum CryptType {
     FestivalCrypt,
     PinPointCrypt,
     HybridCrypt,
+    #[serde(rename_all = "PascalCase")]
+    NekoWorksCrypt {
+        key: Base64Bytes,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -385,6 +389,9 @@ impl Schema {
             CryptType::FestivalCrypt => Box::new(FestivalCrypt::new(self.base.clone())),
             CryptType::PinPointCrypt => Box::new(PinPointCrypt::new(self.base.clone())),
             CryptType::HybridCrypt => Box::new(HybridCrypt::new(self.base.clone())),
+            CryptType::NekoWorksCrypt { key } => {
+                Box::new(NekoWorksCrypt::new(self.base.clone(), key.bytes.clone())?)
+            }
         })
     }
 }
@@ -1918,6 +1925,82 @@ impl<R: Read> Read for HybridCryptReader<R> {
         let key = (self.key >> 5) as u8;
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= key;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct NekoWorksCrypt {
+    base: BaseSchema,
+    key: Vec<u8>,
+}
+
+impl NekoWorksCrypt {
+    pub fn new(base: BaseSchema, key: Vec<u8>) -> Result<Self> {
+        if key.len() < 31 {
+            anyhow::bail!("NekoWorksCrypt: key is too small.");
+        }
+        Ok(Self { base, key })
+    }
+
+    fn init_key(&self, mut hash: u32) -> [u8; 31] {
+        hash &= 0x7FFFFFFF;
+        hash = hash << 31 | hash;
+        let mut key = [0; 31];
+        key.copy_from_slice(&self.key[..31]);
+        for i in 0..31 {
+            key[i] ^= hash as u8;
+            hash = (hash & 0xFFFFFFFE) << 23 | hash >> 8;
+        }
+        key
+    }
+}
+
+impl Crypt for NekoWorksCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        Ok(Box::new(NekoWorksCryptReader::new(
+            stream,
+            cur_seg,
+            self.init_key(entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(NekoWorksCryptReader::new(
+            stream,
+            cur_seg,
+            self.init_key(entry.file_hash),
+        )))
+    }
+}
+
+seek_reader_key_impl!(NekoWorksCryptReader<T>, [u8; 31]);
+
+impl<R: Read> Read for NekoWorksCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset = ((self.seg_start + self.pos) % 31) as usize;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= self.key[offset];
+            offset = (offset + 1) % 31;
         }
         self.pos += readed as u64;
         Ok(readed)

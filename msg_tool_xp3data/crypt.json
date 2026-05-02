@@ -500,6 +500,21 @@
         "$type": "HashCrypt",
         "Title": "不可視な愛情～透明なボクに感じるママ～"
     },
+    "Futamata Ren'ai": {
+        "$type": "NekoWorksCrypt",
+        "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "Title": "フタマタ恋愛 | 恋爱成双 | 劈腿之恋"
+    },
+    "Futamata Ren'ai - Rui & Miyako Mini After Story": {
+        "$type": "NekoWorksCrypt",
+        "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "Title": "フタマタ恋愛 瑠衣＆宮子ミニアフターストーリー | 恋爱成双 瑠衣&宫子 mini小剧场"
+    },
+    "Futamata Ren'ai - Yua & Kirame Mini After Story": {
+        "$type": "NekoWorksCrypt",
+        "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "Title": "フタマタ恋愛 結愛＆煌ミニアフターストーリー | 恋爱成双 结爱&煌 mini小剧场"
+    },
     "Gakuen Butou no Folklore": {
         "$type": "NephriteCrypt",
         "Title": "学園舞闘のフォークロア"
@@ -1150,6 +1165,11 @@
     "Koi Suru Kanojo no Bukiyou na Butai": {
         "$type": "SourireCrypt",
         "Title": "恋する彼女の不器用な舞台 | 恋爱中的她的笨拙舞台"
+    },
+    "Koibana Ren'ai": {
+        "$type": "NekoWorksCrypt",
+        "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "Title": "コイバナ恋愛 | 八卦恋爱"
     },
     "Koikishi Purely ☆ Kiss": {
         "$type": "CxEncryption",
@@ -1831,6 +1851,21 @@
         "TpmFileName": "plugin/relations.tpm",
         "Title": "リレーションズ シスター×シスター | リレーションズ　シスター・シスター"
     },
+    "Ren'ai x Royale": {
+        "$type": "NekoWorksCrypt",
+        "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "Title": "恋愛×ロワイアル | 恋爱×决胜战 | 恋爱×争夺战"
+    },
+    "Ren'ai x Royale - Nonoka & Renna & Yuna Mini After Story": {
+        "$type": "NekoWorksCrypt",
+        "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "Title": "恋愛×ロワイアル 乃々香＆蓮菜＆由奈 ミニアフターストーリー | 恋爱×决胜战 乃乃香&莲菜&由奈小故事"
+    },
+    "Ren'ai, Karichaimashita": {
+        "$type": "NekoWorksCrypt",
+        "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "Title": "恋愛、借りちゃいました | 恋爱，我就借走了 | 想谈个恋爱吗？那就给钱吧 | 恋爱，我就借走咯"
+    },
     "RGH ~Koi to Hero to Gakuen to~": {
         "$type": "NephriteCrypt",
         "Title": "RGH～恋とヒーローと学園と～"
@@ -1997,6 +2032,11 @@
     "Seiso na Ano Ko wa, Kakure Bitch": {
         "$type": "HashCrypt",
         "Title": "清楚なあの娘は、隠れビッチ ～いつでもどこでも欲情ＳＥＸ～"
+    },
+    "Sekai-Ichi Yaritai Jugyou ~Rin-sensei no Loli Bitch na Hanten Sekai~": {
+        "$type": "NekoWorksCrypt",
+        "Key": "l4m0/ejjYWYBNve+9k1+TgAAAAAAAAAAAQAAABcAAAA=",
+        "Title": "世界一ヤリたい授業 ～林先生のロリビッチな反転世界～"
     },
     "Sekisaba!": {
         "$type": "SmxCrypt",
@@ -2212,6 +2252,11 @@
         "EvenBranchOrder": "AgUEAQAHAwY=",
         "TpmFileName": "plugin/sukitama.tpm",
         "Title": "好きで好きでたまらない"
+    },
+    "Suki to Suki to de Sankaku Ren'ai": {
+        "$type": "NekoWorksCrypt",
+        "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "Title": "スキとスキとでサンカク恋愛 | 青春×好奇相伴的三角恋爱"
     },
     "Sukui no Serenade": {
         "$type": "CxEncryption",
