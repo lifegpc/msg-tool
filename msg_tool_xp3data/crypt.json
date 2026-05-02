@@ -1152,6 +1152,10 @@
         "Key": 10,
         "Title": "こあくまちゃんの誘惑っ！ | 小恶魔的诱惑！"
     },
+    "Koi de wa Naku - It's not love, but so where near.": {
+        "$type": "SyangrilaSmartCrypt",
+        "Title": "恋ではなく ―― It’s not love，but so where near."
+    },
     "Koi ga Saku Koro Sakura Doki": {
         "$type": "CxEncryption",
         "Mask": 393,

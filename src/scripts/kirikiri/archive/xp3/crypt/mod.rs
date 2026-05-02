@@ -256,6 +256,7 @@ enum CryptType {
         key2: u64,
         key3: u64,
     },
+    SyangrilaSmartCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -404,6 +405,7 @@ impl Schema {
                 *key2,
                 *key3,
             )),
+            CryptType::SyangrilaSmartCrypt => Box::new(SyangrilaSmartCrypt::new(self.base.clone())),
         })
     }
 }
@@ -2121,6 +2123,80 @@ impl<R: Read> Read for NinkiSeiyuuCryptReader<R> {
             *t = (*t).wrapping_add(self.key.1[offset2] ^ self.key.2[offset2]);
             offset1 = (offset1 + 1) % 0x1F;
             offset2 = (offset2 + 1) % 0x3D;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct SyangrilaSmartCrypt {
+    base: BaseSchema,
+}
+
+impl SyangrilaSmartCrypt {
+    pub fn new(base: BaseSchema) -> Self {
+        Self { base }
+    }
+
+    fn get_key(hash: u32) -> [u8; 5] {
+        [
+            (hash >> 5) as u8,
+            (hash >> 5) as u8,
+            (hash >> 7) as u8,
+            (hash >> 1) as u8,
+            (hash >> 4) as u8,
+        ]
+    }
+}
+
+impl Crypt for SyangrilaSmartCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        Ok(Box::new(SyangrilaSmartCryptReader::new(
+            stream,
+            cur_seg,
+            Self::get_key(entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(SyangrilaSmartCryptReader::new(
+            stream,
+            cur_seg,
+            Self::get_key(entry.file_hash),
+        )))
+    }
+}
+
+seek_reader_key_impl!(SyangrilaSmartCryptReader<T>, [u8; 5]);
+
+impl<R: Read> Read for SyangrilaSmartCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let offset = self.seg_start + self.pos;
+        for (i, t) in buf[..readed].iter_mut().enumerate() {
+            let tpos = offset + i as u64;
+            if tpos <= 0x64 {
+                *t ^= self.key[4];
+            } else {
+                *t ^= self.key[(tpos & 3) as usize];
+            }
         }
         self.pos += readed as u64;
         Ok(readed)
