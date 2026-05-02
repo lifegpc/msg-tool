@@ -250,6 +250,12 @@ enum CryptType {
     NekoWorksCrypt {
         key: Base64Bytes,
     },
+    #[serde(rename_all = "PascalCase")]
+    NinkiSeiyuuCrypt {
+        key1: u64,
+        key2: u64,
+        key3: u64,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -392,6 +398,12 @@ impl Schema {
             CryptType::NekoWorksCrypt { key } => {
                 Box::new(NekoWorksCrypt::new(self.base.clone(), key.bytes.clone())?)
             }
+            CryptType::NinkiSeiyuuCrypt { key1, key2, key3 } => Box::new(NinkiSeiyuuCrypt::new(
+                self.base.clone(),
+                *key1,
+                *key2,
+                *key3,
+            )),
         })
     }
 }
@@ -2001,6 +2013,114 @@ impl<R: Read> Read for NekoWorksCryptReader<R> {
         for t in (&mut buf[..readed]).iter_mut() {
             *t ^= self.key[offset];
             offset = (offset + 1) % 31;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct NinkiSeiyuuCrypt {
+    base: BaseSchema,
+    tbl2: [u8; 64],
+    tbl3: [u8; 64],
+}
+
+impl NinkiSeiyuuCrypt {
+    pub fn new(base: BaseSchema, key1: u64, key2: u64, key3: u64) -> Self {
+        let tbl2 = Self::get_table2(3080);
+        let tbl3 = Self::get_table3(3080, key1, key2, key3);
+        Self { base, tbl2, tbl3 }
+    }
+    fn get_table1(seed: u32) -> [u8; 32] {
+        let mut key = [0; 32];
+        let mut v48 = seed & 0x7FFFFFFF;
+        for i in 0..31 {
+            key[i] = v48 as u8;
+            v48 = (v48 >> 8) | (((v48 as u8) as u32) << 23);
+        }
+        key
+    }
+    fn get_table2(seed: u32) -> [u8; 64] {
+        let mut key = [0; 64];
+        let v51 = seed & 0xFFF;
+        let v52 = ((v51 | (v51 << 13)) as u64) | (((v51 >> 19) as u64) << 32);
+        let mut v53 = v51 | ((v52 as u32) << 13);
+        let mut v54 = (((((v52 as u32) << 7) & 0x1FFFFFFF) as u64) | (v52 >> 19)) as u32;
+        for i in 0..61 {
+            let v56 = v53 as u8;
+            key[i] = v56;
+            v53 = ((((v54 as u64) << 32) | (v53 as u64)) >> 8) as u32;
+            v54 = (v54 >> 8) | ((v56 as u32) << 21);
+        }
+        key
+    }
+    fn get_table3(seed: u32, key1: u64, key2: u64, key3: u64) -> [u8; 64] {
+        let mut key = [0; 64];
+        let v88 = seed & 0xFFF;
+        let v89 = ((v88 | (v88 << 13)) as u64) | (((v88 >> 19) as u64) << 32);
+        let mut v90 = ((key1 + key2) ^ ((v88 | ((v89 as u32) << 13)) as u64)) as u32;
+        let mut v91 =
+            ((((key1 + ((key3 & 0xFFFFFFFF00000000) | (key2 & 0xFFFFFFFF))) >> 32) & 0x1FFFFFFF)
+                ^ (((((v89 as u32) << 7) & 0x1FFFFFFF) as u64) | (v89 >> 19))) as u32;
+        for i in 0..61 {
+            let v93 = v90 as u8;
+            key[i] = v93;
+            v90 = ((((v91 as u64) << 32) | (v90 as u64)) >> 8) as u32;
+            v91 = (v91 >> 8) | ((v93 as u32) << 21);
+        }
+        key
+    }
+}
+
+impl Crypt for NinkiSeiyuuCrypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        let key = (
+            Self::get_table1(entry.file_hash),
+            self.tbl2.clone(),
+            self.tbl3.clone(),
+        );
+        Ok(Box::new(NinkiSeiyuuCryptReader::new(stream, cur_seg, key)))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        let key = (
+            Self::get_table1(entry.file_hash),
+            self.tbl2.clone(),
+            self.tbl3.clone(),
+        );
+        Ok(Box::new(NinkiSeiyuuCryptReader::new(stream, cur_seg, key)))
+    }
+}
+
+seek_reader_key_impl!(NinkiSeiyuuCryptReader<T>, ([u8; 32], [u8; 64], [u8; 64]));
+
+impl<R: Read> Read for NinkiSeiyuuCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset1 = ((self.seg_start + self.pos) % 0x1F) as usize;
+        let mut offset2 = ((self.seg_start + self.pos) % 0x3D) as usize;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= self.key.0[offset1];
+            *t = (*t).wrapping_add(self.key.1[offset2] ^ self.key.2[offset2]);
+            offset1 = (offset1 + 1) % 0x1F;
+            offset2 = (offset2 + 1) % 0x3D;
         }
         self.pos += readed as u64;
         Ok(readed)

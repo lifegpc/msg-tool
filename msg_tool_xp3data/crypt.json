@@ -1523,6 +1523,13 @@
         "$type": "NephriteCrypt",
         "Title": "にいなちゃん Lovely Life"
     },
+    "Ninki Seiyuu [Steam]": {
+        "$type": "NinkiSeiyuuCrypt",
+        "Key1": 7953573635333415499,
+        "Key2": 12618520504104391278,
+        "Key3": 16867801142055146094,
+        "Title": "人気声優のつくりかた [Steam] | 人气声优的养成方式 [Steam] | 人氣聲優的養成方式 [Steam]"
+    },
     "Nitou Ou Mono wa Ittou mo Ezu": {
         "$type": "NatsupochiCrypt",
         "Title": "二刀追うものは一刀も得ず | 追二刀者不得一刀"
