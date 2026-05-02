@@ -2511,6 +2511,10 @@
     "With Ribbon": {
         "$type": "SourireCrypt"
     },
+    "xx na Kanojo no Tsukurikata 2": {
+        "$type": "Kano2Crypt",
+        "Title": "××な彼女のつくりかた2"
+    },
     "Yakimochi Stream": {
         "$type": "MadoCrypt",
         "Seed": 4076513695,

@@ -257,6 +257,7 @@ enum CryptType {
         key3: u64,
     },
     SyangrilaSmartCrypt,
+    Kano2Crypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -406,6 +407,7 @@ impl Schema {
                 *key3,
             )),
             CryptType::SyangrilaSmartCrypt => Box::new(SyangrilaSmartCrypt::new(self.base.clone())),
+            CryptType::Kano2Crypt => Box::new(Kano2Crypt::new(self.base.clone())),
         })
     }
 }
@@ -2197,6 +2199,23 @@ impl<R: Read> Read for SyangrilaSmartCryptReader<R> {
             } else {
                 *t ^= self.key[(tpos & 3) as usize];
             }
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_u8_impl!(Kano2Crypt, Kano2CryptReader<T>);
+
+impl<R: Read> Read for Kano2CryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset = (self.seg_start + self.pos) % 8;
+        for t in buf[..readed].iter_mut() {
+            if offset == 0 {
+                *t ^= self.key;
+            }
+            offset = (offset + 1) % 8;
         }
         self.pos += readed as u64;
         Ok(readed)
