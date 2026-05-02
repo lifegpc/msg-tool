@@ -53,7 +53,12 @@ impl Segmenter for FastCdcSegmenter {
         &'a self,
         data: &'a mut Reader,
     ) -> Box<dyn Iterator<Item = Result<Vec<u8>>> + 'a> {
-        let cdc = StreamCDC::new(data, self.min_size, self.avg_size, self.max_size);
+        let cdc = StreamCDC::new(
+            data,
+            self.min_size as usize,
+            self.avg_size as usize,
+            self.max_size as usize,
+        );
         Box::new(cdc.map(|chunk| Ok(chunk?.data)))
     }
 }
