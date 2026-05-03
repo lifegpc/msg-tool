@@ -24,6 +24,8 @@ pub mod img;
 pub mod jxl;
 #[cfg(feature = "lossless-audio")]
 pub mod lossless_audio;
+#[cfg(feature = "utils-lzss")]
+pub mod lzss;
 mod macros;
 #[cfg(feature = "utils-mmx")]
 pub mod mmx;

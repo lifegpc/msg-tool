@@ -1898,6 +1898,11 @@ impl<'a> MemWriterRef<'a> {
     pub fn new(data: &'a mut [u8]) -> Self {
         MemWriterRef { data, pos: 0 }
     }
+
+    /// Returns true if is eof.
+    pub fn is_eof(&self) -> bool {
+        self.pos >= self.data.len()
+    }
 }
 
 impl<'a> Read for MemWriterRef<'a> {

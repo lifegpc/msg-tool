@@ -1280,6 +1280,10 @@
         "ControlBlockName": "loca_love.bin",
         "Title": "ろけらぶ - 同棲×後輩 | 恋爱定位Location Love同居×后辈"
     },
+    "L.O.V.E ~Kokuhaku~": {
+        "$type": "ChainReactionCrypt",
+        "Title": "L.O.V.E. ～告白～"
+    },
     "Love Love Boin series": {
         "$type": "FlyingShineCrypt",
         "Title": "らぶらぶボイン"
@@ -1466,6 +1470,10 @@
         "$type": "HashCrypt",
         "Title": "ナマイキJKに復讐の性活指導 ～先生、お願いだからもう許して…～"
     },
+    "Nakadashi Hara Maid series": {
+        "$type": "ChainReactionCrypt",
+        "Title": "なかだし孕メイド | なかだし孕メイド2"
+    },
     "Nantai Lesson": {
         "$type": "HashCrypt",
         "Title": "軟体レッスン ～いいなり彼女とひみつの放課後～"
@@ -1571,6 +1579,10 @@
     "Ochiteyuku Seishoku Shukujo": {
         "$type": "HashCrypt",
         "Title": "堕ちてゆく聖職淑女～いけない、夫に無理矢理やらされていただけなのに感じちゃう～"
+    },
+    "Oishii Mahou no Tonaekata": {
+        "$type": "ChainReactionCrypt",
+        "Title": "おいしい魔法のとなえかた。"
     },
     "Ojou-sama wa Gakuen no Seieki Benjo": {
         "$type": "HashCrypt",

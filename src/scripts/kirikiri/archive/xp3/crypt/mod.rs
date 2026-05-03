@@ -1,3 +1,4 @@
+mod chain_reaction;
 mod cx;
 mod cz;
 
@@ -265,6 +266,7 @@ enum CryptType {
         char_map: String,
         layer_name_suffix: String,
     },
+    ChainReactionCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -427,6 +429,9 @@ impl Schema {
                 char_map,
                 layer_name_suffix,
             )?),
+            CryptType::ChainReactionCrypt => {
+                Box::new(chain_reaction::ChainReactionCrypt::new(self.base.clone()))
+            }
         })
     }
 }
@@ -2462,6 +2467,8 @@ impl Crypt for PureMoreCrypt {
         Ok(())
     }
 }
+
+seek_reader_key_impl!(ChainReactionCryptReader<T>, (u32, u32));
 
 #[test]
 fn test_deserialize_crypt() {

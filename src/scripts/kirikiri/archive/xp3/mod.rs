@@ -407,6 +407,15 @@ impl<'a> Entry<'a> {
             force_decrypt,
         }
     }
+
+    fn new2(
+        reader: Arc<Mutex<Box<dyn ReadSeek + Send + Sync + 'a>>>,
+        index: archive::Xp3Entry,
+        base_offset: u64,
+        crypt: Arc<Box<dyn Crypt + Send + Sync>>,
+    ) -> Self {
+        Self::new(reader, index, base_offset, crypt, false, false)
+    }
 }
 
 impl<'b> ArchiveContent for Entry<'b> {
