@@ -259,6 +259,12 @@ enum CryptType {
     SyangrilaSmartCrypt,
     Kano2Crypt,
     MiburoCrypt,
+    #[serde(rename_all = "PascalCase")]
+    PureMoreCrypt {
+        file_list_name: String,
+        char_map: String,
+        layer_name_suffix: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -410,6 +416,17 @@ impl Schema {
             CryptType::SyangrilaSmartCrypt => Box::new(SyangrilaSmartCrypt::new(self.base.clone())),
             CryptType::Kano2Crypt => Box::new(Kano2Crypt::new(self.base.clone())),
             CryptType::MiburoCrypt => Box::new(MiburoCrypt::new(self.base.clone())),
+            CryptType::PureMoreCrypt {
+                file_list_name,
+                char_map,
+                layer_name_suffix,
+            } => Box::new(PureMoreCrypt::new(
+                self.base.clone(),
+                file_list_name,
+                config.xp3_file_list_path.as_ref().map(|s| s.as_str()),
+                char_map,
+                layer_name_suffix,
+            )?),
         })
     }
 }
@@ -2371,6 +2388,78 @@ impl<R: Read> Read for MiburoCryptReader<R> {
         }
         self.pos += readed as u64;
         Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct PureMoreCrypt {
+    base: BaseSchema,
+    names: HashMap<String, String>,
+}
+
+impl PureMoreCrypt {
+    pub fn new(
+        base: BaseSchema,
+        file_list_name: &str,
+        file_list_path: Option<&str>,
+        char_map: &str,
+        layer_name_suffix: &str,
+    ) -> Result<Self> {
+        use sha2::Digest;
+        use unicode_segmentation::UnicodeSegmentation;
+        let mut names = HashMap::new();
+        let file_list = if let Some(path) = file_list_path {
+            std::fs::read_to_string(path)?
+        } else {
+            query_filename_list(file_list_name)?
+        };
+        let char_map: Vec<_> = char_map.graphemes(true).collect();
+        for name in file_list.lines() {
+            let name = name.trim();
+            if name.is_empty() {
+                continue;
+            }
+            let parts: Vec<_> = name.splitn(2, ",").collect();
+            let mut name = parts[0].to_owned();
+            if let Some(ext) = name.rfind(".") {
+                name = name[..ext].to_owned();
+            }
+            if parts.len() == 2 {
+                name += layer_name_suffix;
+            }
+            let encoded = encode_string(Encoding::Utf16LE, &name, true)?;
+            let mut sha256 = sha2::Sha256::new();
+            sha256.update(&encoded);
+            name = String::new();
+            for hash in sha256.finalize() {
+                name += char_map[hash as usize];
+            }
+            name += ".tlg";
+            names.insert(name, parts[0].to_owned());
+        }
+        Ok(Self { base, names })
+    }
+}
+
+impl Crypt for PureMoreCrypt {
+    base_schema_impl!();
+    fn read_name<'a>(&self, reader: &mut Box<dyn Read + 'a>) -> Result<(String, u64)> {
+        let (name, size) = default_read_name(reader)?;
+        let name_length = name.encode_utf16().count();
+        if name_length != 36 || !name.ends_with(".tlg") {
+            return Ok((name, size));
+        }
+        Ok((
+            self.names.get(&name).map(|s| s.to_string()).unwrap_or(name),
+            size,
+        ))
+    }
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        for entry in archive.entries.iter_mut() {
+            // mark all files are not encrypted.
+            entry.flags = 0;
+        }
+        Ok(())
     }
 }
 
