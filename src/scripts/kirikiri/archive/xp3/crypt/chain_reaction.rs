@@ -444,3 +444,78 @@ impl<R: Read> Read for XanaduCryptReader<R> {
         Ok(readed)
     }
 }
+
+#[derive(Debug)]
+pub struct SisMikoCrypt {
+    base: XanaduCrypt,
+}
+
+impl SisMikoCrypt {
+    pub fn new(base: BaseSchema) -> Self {
+        Self {
+            base: XanaduCrypt::new(base),
+        }
+    }
+}
+
+impl AsRef<BaseSchema> for SisMikoCrypt {
+    fn as_ref(&self) -> &BaseSchema {
+        self.base.as_ref()
+    }
+}
+
+impl Crypt for SisMikoCrypt {
+    base_schema_impl!();
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        IChainReactionCrypt::init(&self.base, archive)
+    }
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        Ok(Box::new(SisMikoCryptReader::new(
+            stream,
+            cur_seg,
+            (self.base.get_encryption_limit(entry), entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(SisMikoCryptReader::new(
+            stream,
+            cur_seg,
+            (self.base.get_encryption_limit(entry), entry.file_hash),
+        )))
+    }
+}
+
+impl<R: Read> Read for SisMikoCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let (limit, hash) = self.key;
+        let limit = limit as u64;
+        let mut offset = self.seg_start + self.pos;
+        if offset < limit {
+            let key = !(hash.rotate_right(16));
+            let count = (limit - offset).min(readed as u64);
+            for t in buf[..count as usize].iter_mut() {
+                *t ^= (key >> ((offset & 3) << 3)) as u8;
+                offset += 1;
+            }
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}

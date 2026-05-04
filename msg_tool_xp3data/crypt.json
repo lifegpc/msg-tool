@@ -2204,6 +2204,11 @@
         "ControlBlockName": "shugaten.bin",
         "Title": "しゅがてん！-sugarfull tempering- | 糖调! -sugarfull tempering- | 糖调! | 甜糖热恋"
     },
+    "Sis x Miko": {
+        "$type": "SisMikoCrypt",
+        "StartupTjsNotEncrypted": true,
+        "Title": "シス×みこ"
+    },
     "Sis Koi ~Shisukoi~": {
         "$type": "CxEncryption",
         "Mask": 286,
