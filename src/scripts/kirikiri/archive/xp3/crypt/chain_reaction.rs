@@ -345,3 +345,102 @@ impl IChainReactionCrypt for ChocolatCrypt {
         self.base.init(archive)
     }
 }
+
+#[derive(Debug)]
+pub struct XanaduCrypt {
+    base: BaseSchema,
+    inner: ChainReactionCryptBase,
+}
+
+impl XanaduCrypt {
+    pub fn new(base: BaseSchema) -> Self {
+        Self {
+            base,
+            inner: ChainReactionCryptBase::new("plugins/list.txt".into()),
+        }
+    }
+}
+
+impl AsRef<BaseSchema> for XanaduCrypt {
+    fn as_ref(&self) -> &BaseSchema {
+        &self.base
+    }
+}
+
+impl IChainReactionCrypt for XanaduCrypt {
+    fn get_encryption_limit(&self, entry: &Xp3Entry) -> u32 {
+        let limit = self.inner.get_encryption_limit(entry);
+        match limit {
+            0 => 0,
+            2 => entry.original_size as u32,
+            _ => 0x100,
+        }
+    }
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        let mut bin = ChainReactionCryptBase::read_list_bin(archive, "list2.txt")?;
+        if bin.is_none() {
+            bin = ChainReactionCryptBase::read_list_bin(archive, "plugins/list.txt")?;
+        }
+        if let Some(bin) = bin {
+            self.inner.init2(bin)?;
+        }
+        Ok(())
+    }
+}
+
+impl Crypt for XanaduCrypt {
+    base_schema_impl!();
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        IChainReactionCrypt::init(self, archive)
+    }
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        Ok(Box::new(XanaduCryptReader::new(
+            stream,
+            cur_seg,
+            (self.get_encryption_limit(entry), entry.file_hash),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(XanaduCryptReader::new(
+            stream,
+            cur_seg,
+            (self.get_encryption_limit(entry), entry.file_hash),
+        )))
+    }
+}
+
+impl<R: Read> Read for XanaduCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let (limit, hash) = self.key;
+        let limit = limit as u64;
+        let mut offset = self.seg_start + self.pos;
+        if offset < limit {
+            let key = hash ^ (!0x03020100);
+            let count = (limit - offset).min(readed as u64);
+            for t in buf[..count as usize].iter_mut() {
+                let extra = (((offset & 0xFF) >> 2) << 2) as u8;
+                *t ^= (key >> (((offset & 3) << 3) as u32)) as u8 ^ extra;
+                offset += 1;
+            }
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}

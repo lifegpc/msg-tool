@@ -269,6 +269,7 @@ enum CryptType {
     ChainReactionCrypt,
     HachukanoCrypt,
     ChocolatCrypt,
+    XanaduCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -440,6 +441,7 @@ impl Schema {
             CryptType::ChocolatCrypt => {
                 Box::new(chain_reaction::ChocolatCrypt::new(self.base.clone()))
             }
+            CryptType::XanaduCrypt => Box::new(chain_reaction::XanaduCrypt::new(self.base.clone())),
         })
     }
 }
@@ -2477,6 +2479,7 @@ impl Crypt for PureMoreCrypt {
 }
 
 seek_reader_key_impl!(ChainReactionCryptReader<T>, (u32, u32));
+seek_reader_key_impl!(XanaduCryptReader<T>, (u32, u32));
 
 #[test]
 fn test_deserialize_crypt() {

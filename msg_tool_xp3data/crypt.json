@@ -790,6 +790,11 @@
         "$type": "HashCrypt",
         "Title": "ヒメと魔神と恋するたましぃ"
     },
+    "Himesho!": {
+        "$type": "XanaduCrypt",
+        "StartupTjsNotEncrypted": true,
+        "Title": "ひめしょ！"
+    },
     "Hinekuremono no Gakuen Seishun Monogatari": {
         "$type": "CxEncryption",
         "Mask": 559,
