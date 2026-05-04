@@ -1528,8 +1528,6 @@ dependencies = [
 [[package]]
 name = "msg_tool_build"
 version = "0.4.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03574cc2818bf434ec34795cf6f3d0749a1e6b8ac156b273cb273d75d9391cf2"
 dependencies = [
  "json",
  "zstd",

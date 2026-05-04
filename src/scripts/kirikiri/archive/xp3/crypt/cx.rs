@@ -1531,3 +1531,357 @@ impl Crypt for Arc<RiddleCxCrypt> {
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
 }
+
+#[derive(Debug)]
+pub struct HxCryptLite {
+    base: CxEncryption,
+    header_key: Option<Vec<u8>>,
+    header_split_position: u64,
+    file_crypt_flag: bool,
+}
+
+impl HxCryptLite {
+    pub fn new(
+        base: BaseSchema,
+        schema: &CxSchema,
+        filename: &str,
+        header_key: Option<Vec<u8>>,
+        header_split_position: u64,
+        file_crypt_flag: bool,
+        random_type: i32,
+    ) -> Result<Arc<Self>> {
+        if let Some(key) = header_key.as_ref() {
+            if key.len() < 8 {
+                anyhow::bail!("header_key is too small.");
+            }
+        }
+        Ok(Arc::new(Self {
+            base: CxEncryption::new_inner(
+                base,
+                schema,
+                filename,
+                Box::new(HxProgramLiteBuilder::new(random_type)),
+            )?,
+            header_key,
+            header_split_position,
+            file_crypt_flag,
+        }))
+    }
+}
+
+impl AsRef<BaseSchema> for HxCryptLite {
+    fn as_ref(&self) -> &BaseSchema {
+        self.base.as_ref()
+    }
+}
+
+#[derive(Debug)]
+struct HxProgramLite {
+    base: CxProgram,
+    random_type: i32,
+    random_block: [u32; 0x270],
+    block_position: usize,
+}
+
+impl HxProgramLite {
+    pub fn new(seed: u32, control_block: Weak<Vec<u32>>, random_method: i32) -> Self {
+        let block_position = 0x270;
+        let mut block = [0; 0x270];
+        block[0] = seed;
+        for i in 1..0x270 {
+            block[i] =
+                ((block[i - 1] ^ (block[i - 1] >> 0x1E)) * 0x6C078965).wrapping_add(i as u32);
+        }
+        Self {
+            base: CxProgram {
+                code: Vec::with_capacity(CX_PROGRAM_SIZE),
+                control_block,
+                length: 0,
+                seed,
+            },
+            random_type: random_method,
+            random_block: block,
+            block_position,
+        }
+    }
+
+    fn get_random_new(&mut self) -> u32 {
+        if self.block_position == 0x270 {
+            self.transform_block();
+        }
+        let s0 = self.random_block[self.block_position];
+        let s1 = (s0 >> 11) ^ s0;
+        let s2 = ((s1 & 0xFF3A58AD) << 7) ^ s1;
+        let s3 = ((s2 & 0xFFFFDF8C) << 15) ^ s2;
+        let s4 = (s3 >> 18) ^ s3;
+        self.block_position += 1;
+        s4
+    }
+
+    fn transform_block(&mut self) {
+        self.block_position = 0;
+        let block = &mut self.random_block;
+        // 0-0xE2
+        for i in 0..0xE3 {
+            let s0 = if (block[i + 1] & 1) != 0 {
+                0x9908B0DFu32
+            } else {
+                0
+            };
+            let s1 = (((block[i] ^ block[i + 1]) & 0x7FFFFFFE) ^ block[i]) >> 1;
+            let s2 = s0 ^ s1 ^ block[i + 0x18D];
+            block[i] = s2;
+        }
+        // 0xE3-0x26E
+        for i in 0..0x18C {
+            let s0 = if (block[i + 1 + 0xE3] & 1) != 0 {
+                0x9908B0DFu32
+            } else {
+                0
+            };
+            let s1 =
+                (((block[i + 0xE3] ^ block[i + 1 + 0xE3]) & 0x7FFFFFFE) ^ block[i + 0xE3]) >> 1;
+            let s2 = s0 ^ s1 ^ block[i];
+            block[i + 0xE3] = s2;
+        }
+        // 0x26F
+        let s0 = if (block[0] & 1) != 0 {
+            0x9908B0DFu32
+        } else {
+            0
+        };
+        let s1 = (((block[0x26F] ^ block[0]) & 0x7FFFFFFE) ^ block[0x26F]) >> 1;
+        let s2 = s0 ^ s1 ^ block[0x18C];
+        block[0x26F] = s2;
+    }
+}
+
+impl ICxProgram for HxProgramLite {
+    fn execute(&self, hash: u32) -> Result<u32> {
+        self.base.execute(hash)
+    }
+    fn clear(&mut self) {
+        self.base.clear();
+    }
+    fn emit(&mut self, bytecode: CxByteCode, length: usize) -> bool {
+        self.base.emit(bytecode, length)
+    }
+    fn emit_nop(&mut self, count: usize) -> bool {
+        self.base.emit_nop(count)
+    }
+    fn emit_u32(&mut self, x: u32) -> bool {
+        self.base.emit_u32(x)
+    }
+    fn get_random(&mut self) -> u32 {
+        if self.random_type == 0 {
+            self.base.get_random()
+        } else {
+            self.get_random_new()
+        }
+    }
+}
+
+#[derive(Debug)]
+struct HxProgramLiteBuilder {
+    random_method: i32,
+}
+
+impl HxProgramLiteBuilder {
+    pub fn new(random_method: i32) -> Self {
+        Self { random_method }
+    }
+}
+
+impl ICxProgramBuilder for HxProgramLiteBuilder {
+    fn build(
+        &self,
+        seed: u32,
+        control_blocks: Weak<Vec<u32>>,
+    ) -> Box<dyn ICxProgram + Send + Sync> {
+        Box::new(HxProgramLite::new(seed, control_blocks, self.random_method))
+    }
+}
+
+struct HxFileDecryptor {
+    split_pos1: u64,
+    split_pos2: u64,
+    key: u32,
+    key1: u8,
+    key2: u8,
+}
+
+impl HxFileDecryptor {
+    fn new(key: u64, file_key_flag: bool) -> Self {
+        let key_ptr = key.to_le_bytes();
+        let mut global_key = key_ptr[0] as u32;
+        let mut key1 = key_ptr[1];
+        let mut key2 = key_ptr[2];
+        let split_pos1 = u16::from_le_bytes([key_ptr[6], key_ptr[7]]) as u64;
+        let mut split_pos2 = u16::from_le_bytes([key_ptr[4], key_ptr[5]]) as u64;
+        if split_pos1 == split_pos2 {
+            split_pos2 += 1;
+        }
+        if global_key == 0 {
+            global_key = 1;
+        }
+        global_key = global_key.wrapping_mul(0x01010101);
+        if file_key_flag {
+            key1 = 0;
+            key2 = 0;
+        }
+        Self {
+            split_pos1,
+            split_pos2,
+            key: global_key,
+            key1,
+            key2,
+        }
+    }
+
+    fn decrypt(&self, data: &mut [u8], offset: u64, pos: usize, count: usize) {
+        if count == 0 {
+            return;
+        }
+        let key = self.key.to_le_bytes();
+        let mut key_pos = (offset & 3) as usize;
+        for i in 0..count {
+            data[pos + i] ^= key[key_pos];
+            key_pos = (key_pos + 1) & 3;
+        }
+        let count = count as u64;
+        if self.split_pos1 >= offset && self.split_pos1 < offset + count {
+            data[(self.split_pos1 - offset) as usize + pos] ^= self.key1;
+        }
+        if self.split_pos2 >= offset && self.split_pos2 < offset + count {
+            data[(self.split_pos2 - offset) as usize + pos] ^= self.key2;
+        }
+    }
+}
+
+struct HxHeaderDecryptor {
+    key: [u8; 8],
+    pos: u64,
+}
+
+impl HxHeaderDecryptor {
+    fn new(hash: u32, key: &[u8], pos: u64) -> Self {
+        let key_ptr = [
+            u32::from_le_bytes([key[0], key[1], key[2], key[3]]),
+            u32::from_le_bytes([key[4], key[5], key[6], key[7]]),
+        ];
+        let s0 = hash ^ key_ptr[1];
+        let s1 = hash ^ (hash << 13);
+        let s2 = s1 ^ (s1 >> 17);
+        let s3 = s2 ^ (s2 << 5) ^ key_ptr[0];
+        let key = ((s3 as u64) << 32) | (s0 as u64);
+        Self {
+            key: key.to_le_bytes(),
+            pos,
+        }
+    }
+
+    fn decrypt(&self, data: &mut [u8], offset: u64, pos: usize, count: usize) {
+        let mut start_pos = offset;
+        if start_pos <= self.pos {
+            start_pos = self.pos;
+        }
+        let mut end_pos = offset + count as u64;
+        if end_pos >= self.pos + 8 {
+            end_pos = self.pos + 8;
+        }
+        if start_pos >= end_pos {
+            return;
+        }
+        let dlen = end_pos - start_pos;
+        let key_start_index = start_pos - self.pos;
+        let data_start_index = start_pos - offset + pos as u64;
+        for i in 0..dlen {
+            data[(data_start_index + i) as usize] ^= self.key[(key_start_index + i) as usize];
+        }
+    }
+}
+
+impl ICxEncryption for HxCryptLite {
+    fn get_base_offset(&self, _hash: u32) -> u32 {
+        _hash
+    }
+    fn inner_decrypt(
+        &self,
+        hash: u32,
+        offset: u64,
+        buffer: &mut [u8],
+        pos: usize,
+        count: usize,
+    ) -> Result<()> {
+        if let Some(key) = self.header_key.as_ref() {
+            let dec = HxHeaderDecryptor::new(hash, &key, self.header_split_position);
+            dec.decrypt(buffer, offset, pos, count);
+        }
+        let ret1 = self.base.execute_xcode(hash)?;
+        let ret2 = self.base.execute_xcode(hash ^ (hash >> 16))?;
+        let key1 = ((ret1.1 as u64) << 32) | (ret1.0 as u64);
+        let key2 = ((ret2.1 as u64) << 32) | (ret2.0 as u64);
+        let split_pos = (self.base.offset + (hash & self.base.mask)) as u64;
+        let dec1 = HxFileDecryptor::new(key1, self.file_crypt_flag);
+        let dec2 = HxFileDecryptor::new(key2, self.file_crypt_flag);
+        if split_pos > offset {
+            if split_pos < offset + count as u64 {
+                let blen1 = split_pos - offset;
+                let blen2 = offset + count as u64 - split_pos;
+                dec1.decrypt(buffer, offset, pos, blen1 as usize);
+                dec2.decrypt(buffer, offset + blen1, pos + blen1 as usize, blen2 as usize);
+            } else {
+                dec1.decrypt(buffer, offset, pos, count);
+            }
+        } else {
+            dec2.decrypt(buffer, offset, pos, count);
+        }
+        Ok(())
+    }
+    fn decode(
+        &self,
+        _key: u32,
+        _offset: u64,
+        _buffer: &mut [u8],
+        _pos: usize,
+        _count: usize,
+    ) -> Result<()> {
+        Ok(())
+    }
+}
+
+icx_enc_arc_impl!(HxCryptLite);
+
+impl Crypt for Arc<HxCryptLite> {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        let key = (
+            entry.file_hash,
+            Box::new(self.clone()) as Box<dyn ICxEncryption + Send + Sync + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+}

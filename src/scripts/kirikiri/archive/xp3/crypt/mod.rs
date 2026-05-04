@@ -271,6 +271,19 @@ enum CryptType {
     ChocolatCrypt,
     XanaduCrypt,
     SisMikoCrypt,
+    #[serde(rename_all = "PascalCase")]
+    HxCryptLite {
+        #[serde(flatten)]
+        cx: CxSchema,
+        #[serde(default)]
+        header_key: Option<Base64Bytes>,
+        #[serde(default)]
+        header_split_position: u64,
+        #[serde(default)]
+        file_crypt_flag: bool,
+        #[serde(default)]
+        random_type: i32,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -446,6 +459,21 @@ impl Schema {
             CryptType::SisMikoCrypt => {
                 Box::new(chain_reaction::SisMikoCrypt::new(self.base.clone()))
             }
+            CryptType::HxCryptLite {
+                cx,
+                header_key,
+                header_split_position,
+                file_crypt_flag,
+                random_type,
+            } => Box::new(cx::HxCryptLite::new(
+                self.base.clone(),
+                cx,
+                filename,
+                header_key.as_ref().map(|s| s.bytes.clone()),
+                *header_split_position,
+                *file_crypt_flag,
+                *random_type,
+            )?),
         })
     }
 }
@@ -480,6 +508,9 @@ lazy_static::lazy_static! {
             let mut list = Vec::with_capacity(0x400);
             let errmsg = format!("Failed to read u32 in cx_cb.pck entry {}", entry.name);
             for _ in 0..0x400 {
+                list.push(entry.read_u32().expect(&errmsg));
+            }
+            while !entry.is_eof() {
                 list.push(entry.read_u32().expect(&errmsg));
             }
             table.insert(entry.name.clone(), list);

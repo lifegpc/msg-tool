@@ -123,6 +123,16 @@
         "ControlBlockName": "akuratsu.bin",
         "Title": "あくらつ～恥辱の百合姉妹～"
     },
+    "ALIA's CARNIVAL Flowering Sky [Offical Chinese Ver]": {
+        "$type": "HxCryptLite",
+        "Mask": 430,
+        "Offset": 306,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AQAEAgMF",
+        "EvenBranchOrder": "BwUBBAADAgY=",
+        "ControlBlockName": "alia_ch.bin",
+        "Title": "爱丽娅的明日盛典！Flowering Sky"
+    },
     "Altered Pink": {
         "$type": "AlteredPinkCrypt",
         "Title": "アルタードピンク～特務戦隊デュエルレンジャー～"
@@ -1461,6 +1471,16 @@
     "Momojiri Instructor Netori Lesson": {
         "$type": "HashCrypt",
         "Title": "桃尻インストラクター寝取りレッスン ～競泳水着でえろざんまい～"
+    },
+    "Motto Haramase Honoo no Oppai Chou Ero Appli Gakuen [Offical Chinese-Eng Ver]": {
+        "$type": "HxCryptLite",
+        "Mask": 589,
+        "Offset": 332,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AQIEAAUD",
+        "EvenBranchOrder": "BgUCAQQHAAM=",
+        "ControlBlockName": "heapps.bin",
+        "Title": "吹弹！丰盈！波涛汹涌 超情色APP学院"
     },
     "Muchimuchi Dekapai Mara Gui Maou-sama": {
         "$type": "PoringSoftCrypt",

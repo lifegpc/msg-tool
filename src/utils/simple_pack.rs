@@ -47,6 +47,16 @@ pub struct SimplePackEntry<'a, T: Read> {
     pub name: String,
 }
 
+impl<'a, T: Read> SimplePackEntry<'a, T> {
+    pub fn total_size(&self) -> u64 {
+        self.total
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.current >= self.total
+    }
+}
+
 impl<'a, T: Read> Drop for SimplePackEntry<'a, T> {
     fn drop(&mut self) {
         let to_skip = self.total - self.current;

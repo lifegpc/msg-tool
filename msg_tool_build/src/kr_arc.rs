@@ -50,11 +50,21 @@ pub fn gen_cx_cb<P: AsRef<Path> + ?Sized, D: AsRef<Path> + ?Sized>(
             }
             let file = std::fs::File::open(file_path)?;
             let file_size = file.metadata()?.len();
-            if file_size != 4096 {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("File size must be 4096 bytes: {}", name),
-                ));
+            let typ = obj["$type"].as_str().unwrap();
+            if typ == "HxCryptLite" {
+                if file_size != 0x3000 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("File size must be 12288 bytes: {}", name),
+                    ));
+                }
+            } else {
+                if file_size != 4096 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("File size must be 4096 bytes: {}", name),
+                    ));
+                }
             }
             let file = std::io::BufReader::new(file);
             pack.add_file(name, file)?;

@@ -19,4 +19,4 @@ unstable = ["msg_tool_build/unstable"]
 all-features = true
 
 [build-dependencies]
-msg_tool_build = { version = "0.4.0-alpha.1", features = ["kirikiri-arc"] }
+msg_tool_build = { path = "../msg_tool_build", features = ["kirikiri-arc"] }
