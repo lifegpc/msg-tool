@@ -217,6 +217,10 @@ impl ChainReactionCrypt {
             inner: Box::new(ChainReactionCryptBase::new("plugin/list.bin".into())),
         }
     }
+
+    fn new_inner(base: BaseSchema, inner: Box<dyn IChainReactionCrypt + Send + Sync>) -> Self {
+        Self { base, inner }
+    }
 }
 
 impl AsRef<BaseSchema> for ChainReactionCrypt {
@@ -277,5 +281,37 @@ impl<R: Read> Read for ChainReactionCryptReader<R> {
         }
         self.pos += readed as u64;
         Ok(readed)
+    }
+}
+
+#[derive(Debug)]
+pub struct HachukanoCrypt {
+    base: ChainReactionCryptBase,
+}
+
+impl HachukanoCrypt {
+    pub fn new(base: BaseSchema) -> ChainReactionCrypt {
+        ChainReactionCrypt::new_inner(
+            base,
+            Box::new(Self {
+                base: ChainReactionCryptBase::new("plugins/list.txt".into()),
+            }),
+        )
+    }
+}
+
+impl IChainReactionCrypt for HachukanoCrypt {
+    fn get_encryption_limit(&self, entry: &Xp3Entry) -> u32 {
+        let limit = self.base.get_encryption_limit(entry);
+        match limit {
+            0 => 0,
+            1 => 0x100,
+            2 => 0x200,
+            3 => entry.original_size as u32,
+            _ => limit,
+        }
+    }
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        self.base.init(archive)
     }
 }

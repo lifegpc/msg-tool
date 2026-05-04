@@ -624,6 +624,11 @@
         "ControlBlockName": "grisaia_vol5.bin",
         "Title": "グリザイア ファントムトリガー Vol. 5 | 灰色幻影扳机第5卷 | 灰色：幻影扳机 Vol. 5"
     },
+    "Hachukano": {
+        "$type": "HachukanoCrypt",
+        "StartupTjsNotEncrypted": true,
+        "Title": "はちゅかの"
+    },
     "Hahadori ~Ochiteiku Haha no Eizou Kiroku~": {
         "$type": "HashCrypt",
         "Title": "母撮 ～堕ちていく母の映像記録～"

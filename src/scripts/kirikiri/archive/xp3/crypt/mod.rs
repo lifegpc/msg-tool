@@ -267,6 +267,7 @@ enum CryptType {
         layer_name_suffix: String,
     },
     ChainReactionCrypt,
+    HachukanoCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -431,6 +432,9 @@ impl Schema {
             )?),
             CryptType::ChainReactionCrypt => {
                 Box::new(chain_reaction::ChainReactionCrypt::new(self.base.clone()))
+            }
+            CryptType::HachukanoCrypt => {
+                Box::new(chain_reaction::HachukanoCrypt::new(self.base.clone()))
             }
         })
     }
