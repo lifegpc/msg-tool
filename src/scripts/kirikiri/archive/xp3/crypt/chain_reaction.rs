@@ -315,3 +315,33 @@ impl IChainReactionCrypt for HachukanoCrypt {
         self.base.init(archive)
     }
 }
+
+#[derive(Debug)]
+pub struct ChocolatCrypt {
+    base: ChainReactionCryptBase,
+}
+
+impl ChocolatCrypt {
+    pub fn new(base: BaseSchema) -> ChainReactionCrypt {
+        ChainReactionCrypt::new_inner(
+            base,
+            Box::new(Self {
+                base: ChainReactionCryptBase::new("plugins/list.txt".into()),
+            }),
+        )
+    }
+}
+
+impl IChainReactionCrypt for ChocolatCrypt {
+    fn get_encryption_limit(&self, entry: &Xp3Entry) -> u32 {
+        let limit = self.base.get_encryption_limit(entry);
+        match limit {
+            0 => 0,
+            2 => entry.original_size as u32,
+            _ => 0x100,
+        }
+    }
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        self.base.init(archive)
+    }
+}

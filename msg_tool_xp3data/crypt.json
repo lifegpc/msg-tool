@@ -1756,6 +1756,11 @@
         "$type": "HashCrypt",
         "Title": "パパ大好き！と言ってくれ…～反抗期の娘を催眠アプリで狂愛しつけ～"
     },
+    "Papikon ~Futago no Musume wa Doukyuusei?!~": {
+        "$type": "ChocolatCrypt",
+        "StartupTjsNotEncrypted": true,
+        "Title": "ぱ・ぴ・こ・ん ～双子の娘はどうきゅうせい!?～ | 萌・上・父・上"
+    },
     "Parquet": {
         "$type": "CxEncryption",
         "Mask": 699,
