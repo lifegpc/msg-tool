@@ -12,10 +12,12 @@ adler = { version = "1", optional = true }
 aes = { version = "0.9", optional = true }
 anyhow = "1"
 base64 = { version = "0.22", optional = true }
+blake2 = { version = "0.10", optional = true }
 block_compression = { version = "0.9", optional = true, default-features = false, features = ["bc7"] }
 byteorder = { version = "1.5", default-features = false, optional = true}
 bytes = { version = "1.11", optional = true }
 cbc = { version = "0.2", optional = true }
+chacha20 = { version = "0.10", optional = true }
 clap = { version = "4.5", features = ["derive"] }
 crc32fast = { version = "1.5", optional = true }
 crossbeam = { version = "0.8", optional = true }
@@ -27,6 +29,7 @@ encoding = "0.2"
 fancy-regex = { version = "0.18", optional = true }
 fastcdc = { version = "4.0", optional = true }
 flate2 = { version = "1.1", optional = true }
+hex = { version = "0.4", optional = true }
 include-flate = { version = "0.3", optional = true }
 int-enum = { version = "1.2", optional = true }
 jieba-rs = { version = "0.9", optional = true }
@@ -98,7 +101,7 @@ hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "adler", "aes", "bytes", "cbc", "fastcdc", "flate2", "int-enum", "md5", "msg_tool_macro/kirikiri-arc", "msg_tool_xp3data", "parse-size", "sha2", "utils-case-insensitive-string", "utils-lzss", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
+kirikiri-arc = ["kirikiri", "adler", "aes", "base64", "blake2", "bytes", "cbc", "chacha20/legacy", "fastcdc", "flate2", "hex", "int-enum", "md5", "msg_tool_macro/kirikiri-arc", "msg_tool_xp3data", "parse-size", "sha2", "utils-case-insensitive-string", "utils-lzss", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 musica = []
 musica-arc = ["musica", "crc32fast", "flate2", "include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]

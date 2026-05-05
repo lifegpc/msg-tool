@@ -188,6 +188,12 @@ pub struct DatExtraInfo {
     pub name_len: usize,
 }
 
+impl AnyDebug for DatExtraInfo {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 #[derive(Debug)]
 /// Circus DAT Archive
 pub struct DatArchive<'b, T: Read + Seek + std::fmt::Debug + 'b> {

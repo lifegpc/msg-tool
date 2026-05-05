@@ -149,6 +149,7 @@ impl<'a> Xp3Archive<'a> {
                         timestamp,
                         segments,
                         extras: entry_extras,
+                        extra: None,
                     };
                     if entry.name == "startup.tjs"
                         && entry.flags != 0

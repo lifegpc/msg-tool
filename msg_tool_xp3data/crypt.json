@@ -410,6 +410,18 @@
         "Key": 118,
         "Title": "ダウニャーさんと飼い主くん"
     },
+    "D.C.5 ~Da Capo 5~": {
+        "$type": "HxCrypt",
+        "Mask": 742,
+        "Offset": 183,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AAEDBAUC",
+        "EvenBranchOrder": "AAIEBwEDBQY=",
+        "Key": "4ozUw00nStHvknH8ECpqL1BVC9nOrpdryY4wHKtBTFE=",
+        "Nonce": "pjhv8KmiW/gnbdoy6c5J6Q==",
+        "FilterKey": 12271333071625965214,
+        "ControlBlockName": "dc5.bin"
+    },
     "Deatte 5-fun wa Ore no Mono!": {
         "$type": "XorCrypt",
         "Key": 53,

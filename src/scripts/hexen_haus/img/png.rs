@@ -54,13 +54,19 @@ impl ScriptBuilder for PngImageBuilder {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 /// Extra information for PNG image
 pub struct ExtraInfo {
     /// x offset
     pub offset_x: u32,
     /// y offset
     pub offset_y: u32,
+}
+
+impl AnyDebug for ExtraInfo {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -115,6 +121,6 @@ impl Script for PngImage {
     fn extra_info<'a>(&'a self) -> Option<Box<dyn AnyDebug + 'a>> {
         self.extra
             .as_ref()
-            .map(|e| Box::new(e) as Box<dyn AnyDebug>)
+            .map(|e| Box::new(e.clone()) as Box<dyn AnyDebug>)
     }
 }

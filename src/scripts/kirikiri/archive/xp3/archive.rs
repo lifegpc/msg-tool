@@ -1,6 +1,6 @@
 use super::consts::*;
 use super::crypt::Crypt;
-use crate::scripts::base::ReadSeek;
+use crate::scripts::base::{AnyDebug, ReadSeek};
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 
@@ -29,7 +29,8 @@ pub struct ArchiveItem {
     pub segments: Vec<Segment>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone)]
+#[allow(unused)]
 pub struct Xp3Entry {
     pub name: String,
     pub flags: u32,
@@ -39,6 +40,7 @@ pub struct Xp3Entry {
     pub timestamp: Option<u64>,
     pub segments: Vec<Segment>,
     pub extras: Vec<ExtraProp>,
+    pub extra: Option<Arc<Box<dyn AnyDebug + Send + Sync>>>,
 }
 
 impl Xp3Entry {

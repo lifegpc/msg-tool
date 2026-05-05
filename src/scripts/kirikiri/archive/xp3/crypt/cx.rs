@@ -1,7 +1,14 @@
 use super::*;
+use crate::ext::mutex::MutexExt;
+use crate::utils::files::*;
+use crate::utils::struct_pack::*;
 use anyhow::Result;
+use chacha20::ChaCha20Legacy;
+use serde::{Deserializer, de};
+use std::collections::HashSet;
+use std::ops::Index;
 use std::path::PathBuf;
-use std::sync::Weak;
+use std::sync::{Mutex, Weak};
 
 const S_CTL_BLOCK_SIGNATURE: &[u8] = b" Encryption control block";
 
@@ -1884,4 +1891,1077 @@ impl Crypt for Arc<HxCryptLite> {
         );
         Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+struct FileHash([u8; 32]);
+
+impl std::fmt::Debug for FileHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "FileHash(")?;
+        write!(f, "{}", hex::encode(self.0))?;
+        write!(f, ")")
+    }
+}
+
+impl std::fmt::Display for FileHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for FileHash {
+    type Error = anyhow::Error;
+    fn try_from(value: &'a [u8]) -> Result<Self> {
+        Ok(Self(value.try_into()?))
+    }
+}
+
+impl<'a> TryFrom<&'a str> for FileHash {
+    type Error = anyhow::Error;
+    fn try_from(value: &'a str) -> Result<Self> {
+        Self::try_from(hex::decode(value)?.as_slice())
+    }
+}
+
+impl<'de> Deserialize<'de> for FileHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let bytes = hex::decode(&s).map_err(de::Error::custom)?;
+        let arr = bytes.try_into().map_err(|bytes: Vec<u8>| {
+            de::Error::custom(format!(
+                "FileHash length mismatch: expected 32 bytes, got {}",
+                bytes.len()
+            ))
+        })?;
+        Ok(FileHash(arr))
+    }
+}
+
+impl FileHash {
+    fn to_string(&self) -> String {
+        hex::encode(&self.0)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+struct PathHash(u64);
+
+impl std::fmt::Debug for PathHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PathHash({:#x})", self.0)
+    }
+}
+
+impl std::fmt::Display for PathHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(&self.0.to_be_bytes()))
+    }
+}
+
+impl<'de> Deserialize<'de> for PathHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let bytes = hex::decode(&s).map_err(de::Error::custom)?;
+        let arr: [u8; 8] = bytes.try_into().map_err(|bytes: Vec<u8>| {
+            de::Error::custom(format!(
+                "PathHash length mismatch: expected 8 bytes, got {}",
+                bytes.len()
+            ))
+        })?;
+        Ok(PathHash(u64::from_be_bytes(arr)))
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for PathHash {
+    type Error = anyhow::Error;
+    fn try_from(value: &'a [u8]) -> Result<Self> {
+        let arr: [u8; 8] = value.try_into()?;
+        Ok(PathHash(u64::from_be_bytes(arr)))
+    }
+}
+
+impl<'a> TryFrom<&'a str> for PathHash {
+    type Error = anyhow::Error;
+    fn try_from(value: &'a str) -> Result<Self> {
+        Self::try_from(hex::decode(value)?.as_slice())
+    }
+}
+
+impl PathHash {
+    fn to_string(&self) -> String {
+        hex::encode(&self.0.to_be_bytes())
+    }
+}
+
+#[derive(Clone, Deserialize)]
+struct KeyPackage {
+    description: String,
+    sku: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CxdecDb {
+    #[allow(unused)]
+    file_hash_salt: String,
+    /// xp3 filename -> path hash -> file hash -> file name
+    file_list: HashMap<String, HashMap<PathHash, HashMap<FileHash, Option<String>>>>,
+    #[serde(default)]
+    key_packages: Vec<KeyPackage>,
+    #[allow(unused)]
+    path_hash_salt: String,
+    path_mapping: HashMap<PathHash, Option<String>>,
+    project_name: String,
+}
+
+impl std::fmt::Debug for CxdecDb {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CxdecDb").finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug)]
+pub struct HxCrypt {
+    base: CxEncryption,
+    key: [u8; 32],
+    nonce: [u8; 16],
+    filter_key: u64,
+    file_mapping: HashMap<FileHash, String>,
+    path_mapping: HashMap<PathHash, String>,
+    info_map: Mutex<HashMap<String, HxEntry>>,
+}
+
+#[derive(Clone)]
+pub struct IndexKey {
+    key: [u8; 32],
+    nonce: [u8; 16],
+}
+
+impl std::fmt::Debug for IndexKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IndexKey")
+            .field("key", &hex::encode(&self.key))
+            .field("nonce", &hex::encode(&self.nonce))
+            .finish()
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct IndexKeyTmp {
+    key: String,
+    nonce: String,
+}
+
+impl<'de> Deserialize<'de> for IndexKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use base64::{Engine, engine::general_purpose::STANDARD};
+        let s = IndexKeyTmp::deserialize(deserializer)?;
+        let bytes = STANDARD.decode(&s.key).map_err(de::Error::custom)?;
+        let key: [u8; 32] = bytes.try_into().map_err(|bytes: Vec<u8>| {
+            de::Error::custom(format!(
+                "Index key length mismatch: expected 32 bytes, got {}",
+                bytes.len()
+            ))
+        })?;
+        let hbytes = STANDARD.decode(&s.nonce).map_err(de::Error::custom)?;
+        let nonce: [u8; 16] = hbytes.try_into().map_err(|bytes: Vec<u8>| {
+            de::Error::custom(format!(
+                "Index key nonce length mismatch: expected 16 bytes, got {}",
+                bytes.len()
+            ))
+        })?;
+        Ok(Self { key, nonce })
+    }
+}
+
+impl HxCrypt {
+    pub fn new(
+        base: BaseSchema,
+        cx: &CxSchema,
+        index_key: Option<&IndexKey>,
+        filter_key: u64,
+        random_type: i32,
+        file_list_name: Option<&str>,
+        file_list_path: Option<&str>,
+        index_key_dict: &HashMap<String, IndexKey>,
+        filename: &str,
+    ) -> Result<Self> {
+        let mut index_key = if let Some(fkey) = index_key {
+            Some(fkey.clone())
+        } else {
+            None
+        };
+        let p = std::path::Path::new(filename);
+        let b = p
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get file name from path."))?;
+        let s: &str = &b.to_string_lossy();
+        if let Some(ind) = index_key_dict.get(s) {
+            index_key = Some(ind.clone())
+        }
+        let index_key = index_key.ok_or_else(|| anyhow::anyhow!("Can not find index key."))?;
+        let (file_map, path_map) = if let Some(path) = file_list_path {
+            let data = std::fs::read(path)?;
+            let data = decode_to_string(Encoding::Utf8, &data, true)?;
+            Self::read_names(&data, s)?
+        } else if let Some(name) = file_list_name {
+            let flist = query_filename_list(name)?;
+            Self::read_names(&flist, s)?
+        } else {
+            let pdir = p.parent().map(|s| s.to_owned()).unwrap_or_default();
+            if let Some(k) = Self::try_default_name(&pdir.join("filelist.json"), s)? {
+                k
+            } else if let Some(k) = Self::try_default_name(&pdir.join("filelist.lst"), s)? {
+                k
+            } else {
+                (HashMap::new(), HashMap::new())
+            }
+        };
+        Ok(Self {
+            base: CxEncryption::new_inner(
+                base,
+                cx,
+                filename,
+                Box::new(HxProgramBuilder::new(random_type)),
+            )?,
+            key: index_key.key,
+            nonce: index_key.nonce,
+            filter_key,
+            file_mapping: file_map,
+            path_mapping: path_map,
+            info_map: Mutex::new(HashMap::new()),
+        })
+    }
+
+    fn try_default_name<P: AsRef<std::path::Path>>(
+        s: &P,
+        b: &str,
+    ) -> Result<Option<(HashMap<FileHash, String>, HashMap<PathHash, String>)>> {
+        let n = match get_ignorecase_path(s) {
+            Ok(s) => s,
+            Err(_) => return Ok(None),
+        };
+        if !n.exists() {
+            return Ok(None);
+        }
+        let s = std::fs::read(&n)?;
+        let data = decode_to_string(Encoding::Utf8, &s, true)?;
+        let names = Self::read_names(&data, b)?;
+        eprintln!(
+            "Read {} file entries and {} directory entries from filelist {}.",
+            names.0.len(),
+            names.1.len(),
+            n.display()
+        );
+        Ok(Some(names))
+    }
+
+    fn read_names(
+        s: &str,
+        basename: &str,
+    ) -> Result<(HashMap<FileHash, String>, HashMap<PathHash, String>)> {
+        if let Ok(s) = serde_json::from_str::<CxdecDb>(&s) {
+            let path_map: HashMap<_, _> = s
+                .path_mapping
+                .iter()
+                .filter_map(|(k, v)| match v {
+                    Some(v) => Some((k.clone(), v.clone())),
+                    None => None,
+                })
+                .collect();
+            let file_map: HashMap<_, _> = if let Some(s) = s.file_list.get(basename) {
+                s.iter()
+                    .map(|s| s.1)
+                    .flatten()
+                    .filter_map(|(k, v)| match v {
+                        Some(v) => Some((k.clone(), v.clone())),
+                        None => None,
+                    })
+                    .collect()
+            } else {
+                HashMap::new()
+            };
+            return Ok((file_map, path_map));
+        }
+        let mut file_map = HashMap::new();
+        let mut path_map = HashMap::new();
+        for line in s.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let mut iter = line.splitn(2, ':');
+            let key = match iter.next() {
+                Some(v) => v,
+                None => continue,
+            };
+            let value = match iter.next() {
+                Some(v) => v,
+                None => continue,
+            };
+            if key.len() == 16 {
+                let key = PathHash::try_from(key)?;
+                path_map.insert(key, value.to_string());
+            } else if key.len() == 64 {
+                let key = FileHash::try_from(key)?;
+                file_map.insert(key, value.to_string());
+            }
+        }
+        Ok((file_map, path_map))
+    }
+
+    fn create_chacha20_crypt(&self) -> Result<ChaCha20Legacy> {
+        use chacha20::{KeyIvInit, cipher::StreamCipherSeek};
+        let mut nonce = [0; 8];
+        nonce.copy_from_slice(&self.nonce[..8]);
+        let mut crypt = ChaCha20Legacy::new((&self.key).into(), (&nonce).into());
+        crypt.try_seek(64)?;
+        Ok(crypt)
+    }
+
+    fn read_index<T: Read + Seek>(&self, mut stream: T) -> Result<()> {
+        use chacha20::cipher::StreamCipher;
+        let len = stream.stream_length()?;
+        let mut crypt = self.create_chacha20_crypt()?;
+        let tlen = len as usize - 16;
+        let mut buf = Vec::with_capacity(tlen);
+        stream.seek(SeekFrom::Start(16))?;
+        stream.read_to_end(&mut buf)?;
+        crypt.try_apply_keystream(&mut buf)?;
+        let mut stream = flate2::read::ZlibDecoder::new(MemReaderRef::new(&buf[4..]));
+        let mut buf = Vec::new();
+        stream.read_to_end(&mut buf)?;
+        let mut reader = MemReader::new(buf);
+        let root_obj = TjsValue::unpack(&mut reader, true, Encoding::Utf16LE, &None)?;
+        if !root_obj.is_array() {
+            anyhow::bail!("Index object is not an array.");
+        }
+        let mut info_map = self.info_map.lock_blocking();
+        info_map.clear();
+        let set = create_garbage_filename_set("xp3hnp");
+        for i in (0..root_obj.len()).step_by(2) {
+            let path_hash = PathHash::try_from(
+                root_obj[i]
+                    .as_bytes()
+                    .ok_or_else(|| anyhow::anyhow!("path hash is not bytes."))?,
+            )?;
+            let dir_obj = &root_obj[i + 1];
+            if !dir_obj.is_array() {
+                anyhow::bail!("dir object at index {} is not array.", i + 1);
+            }
+            let (path_name, path_is_hash) = if let Some(n) = self.path_mapping.get(&path_hash) {
+                (n.to_owned(), false)
+            } else {
+                (path_hash.to_string() + "/", true)
+            };
+            for j in (0..dir_obj.len()).step_by(2) {
+                let entry_hash = FileHash::try_from(
+                    dir_obj[j]
+                        .as_bytes()
+                        .ok_or_else(|| anyhow::anyhow!("entry hash is not bytes."))?,
+                )?;
+                let entry_obj = &dir_obj[j + 1];
+                if !entry_obj.is_array() {
+                    anyhow::bail!("Entry object at index {},{} is not array.", i + 1, j + 1);
+                }
+                if entry_obj.len() < 2 {
+                    anyhow::bail!("Entry object at index {},{} is too small.", i + 1, j + 1);
+                }
+                let entry_id = entry_obj[0]
+                    .as_u64()
+                    .ok_or_else(|| anyhow::anyhow!("Entry id is not int."))?;
+                let entry_key = entry_obj[1]
+                    .as_u64()
+                    .ok_or_else(|| anyhow::anyhow!("Entry key is not int."))?;
+                let (name, name_is_hash) = if let Some(n) = self.file_mapping.get(&entry_hash) {
+                    (n.to_owned(), false)
+                } else {
+                    (entry_hash.to_string(), true)
+                };
+                let uname = Self::get_unicode_name(entry_id as u32);
+                let entry = HxEntry {
+                    path: path_name.clone(),
+                    name,
+                    id: entry_id,
+                    key: entry_key,
+                    name_is_hash,
+                    path_is_hash,
+                    is_garbage: set.contains(&entry_hash),
+                };
+                info_map.insert(uname, entry);
+            }
+        }
+        Ok(())
+    }
+
+    fn get_unicode_name(mut hash: u32) -> String {
+        let mut buf = [0u16; 4];
+        let mut i = 0;
+        loop {
+            buf[i] = ((hash & 0x3FFF) + 0x5000) as u16;
+            hash >>= 14;
+            i += 1;
+            if hash == 0 {
+                break;
+            }
+        }
+        let s = String::from_utf16_lossy(&buf[..i]);
+        s
+    }
+
+    fn create_filter_key(&self, entry_key: u64, header_key_seed: u64) -> Result<HxFilterKey> {
+        let key0 = entry_key as u32;
+        let key1 = (entry_key >> 32) as u32;
+        let k0 = self.base.execute_xcode(key0)?;
+        let file_key_0 = (k0.0 as u64) | ((k0.1 as u64) << 32);
+        let k1 = self.base.execute_xcode(key1)?;
+        let file_key_1 = (k1.0 as u64) | ((k1.1 as u64) << 32);
+        let split_position =
+            (self.base.offset as u64 + ((entry_key >> 16) & self.base.mask as u64)) & 0xffffffff;
+        let mut header_key = [0u8; 16];
+        let k3 = self.base.execute_xcode(header_key_seed as u32)?;
+        let mut v5 = (k3.0 as u64) | ((k3.1 as u64) << 32);
+        v5 = !v5;
+        let mut writer = MemWriterRef::new(&mut header_key);
+        writer.write_u64_be(v5)?;
+        let k3 = self.base.execute_xcode(v5 as u32)?;
+        v5 = (k3.0 as u64) | ((k3.1 as u64) << 32);
+        v5 = !v5;
+        writer.write_u64_be(v5)?;
+        Ok(HxFilterKey {
+            key: [file_key_0, file_key_1],
+            header_key,
+            split_position,
+            has_header_key: true,
+            flag: false,
+        })
+    }
+}
+
+impl AsRef<CxEncryption> for HxCrypt {
+    fn as_ref(&self) -> &CxEncryption {
+        &self.base
+    }
+}
+
+struct CopyStream<'a> {
+    inner: Box<dyn Read + Send + Sync + 'a>,
+}
+
+impl<'a> CopyStream<'a> {
+    pub fn new(stream: Box<dyn Read + Send + Sync + 'a>) -> Self {
+        Self { inner: stream }
+    }
+}
+
+impl<'a> std::fmt::Debug for CopyStream<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CopyStream").finish_non_exhaustive()
+    }
+}
+
+impl<'a> Read for CopyStream<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read(buf)
+    }
+}
+
+impl Crypt for HxCrypt {
+    base_schema_impl!();
+    fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+        if let Some(hxv4) = archive.extras.iter().find(|x| x.tag == "Hxv4") {
+            let mut reader = MemReaderRef::new(&hxv4.data);
+            let offset = reader.read_u64()? + archive.base_offset;
+            let size = reader.read_u32()?;
+            let _flags = reader.read_u16()?;
+            let stream = StreamRegion::with_size(
+                MutexWrapper::new(archive.inner.clone(), offset),
+                size as u64,
+            )?;
+            self.read_index(stream)?;
+            let info_map = self.info_map.lock_blocking();
+            for entry in archive.entries.iter_mut() {
+                if let Some(info) = info_map.get(&entry.name) {
+                    if info.is_garbage {
+                        continue;
+                    }
+                    entry.name = format!("{}{}", info.path, info.name);
+                    let info = info.clone();
+                    entry.extra = Some(Arc::new(Box::new(info)))
+                }
+            }
+            archive.entries.retain(|x| {
+                x.extra.is_some() || !info_map.get(&x.name).is_some_and(|x| x.is_garbage)
+            });
+        }
+        archive.extras.retain(|x| x.tag != "Hxv4");
+        Ok(())
+    }
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        let info = match entry.extra.as_ref() {
+            Some(info) => info,
+            None => return Ok(Box::new(CopyStream::new(stream))),
+        };
+        let info = info
+            .as_any()
+            .downcast_ref::<HxEntry>()
+            .ok_or_else(|| anyhow::anyhow!("extra info is not hx entry."))?;
+        let mut entry_key = info.key;
+        if (info.id & 0x100000000) == 0 {
+            entry_key ^= self.filter_key;
+        }
+        let header_key = !entry_key;
+        let key = self.create_filter_key(entry_key, header_key)?;
+        let filter = HxFilter::new(key);
+        let key = (
+            entry.file_hash,
+            Box::new(filter) as Box<dyn ICxEncryption + Send + Sync + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        let info = match entry.extra.as_ref() {
+            Some(info) => info,
+            None => return Ok(stream),
+        };
+        let info = info
+            .as_any()
+            .downcast_ref::<HxEntry>()
+            .ok_or_else(|| anyhow::anyhow!("extra info is not hx entry."))?;
+        let mut entry_key = info.key;
+        if (info.id & 0x100000000) == 0 {
+            entry_key ^= self.filter_key;
+        }
+        let header_key = !entry_key;
+        let key = self.create_filter_key(entry_key, header_key)?;
+        let filter = HxFilter::new(key);
+        let key = (
+            entry.file_hash,
+            Box::new(filter) as Box<dyn ICxEncryption + Send + Sync + 'a>,
+        );
+        Ok(Box::new(CxEncryptionReader::new(stream, cur_seg, key)))
+    }
+}
+
+#[derive(Debug)]
+enum TjsValue {
+    Void,
+    Str(String),
+    ByteArray(Vec<u8>),
+    Int(i64),
+    #[allow(unused)]
+    Double(f64),
+    Array(Vec<TjsValue>),
+    Dict(HashMap<String, TjsValue>),
+}
+
+impl TjsValue {
+    fn is_array(&self) -> bool {
+        matches!(self, Self::Array(_))
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::Str(s) => s.len(),
+            Self::ByteArray(arr) => arr.len(),
+            Self::Array(arr) => arr.len(),
+            Self::Dict(dict) => dict.len(),
+            _ => 0,
+        }
+    }
+
+    fn as_bytes(&self) -> Option<&[u8]> {
+        match self {
+            Self::ByteArray(arr) => Some(arr),
+            _ => None,
+        }
+    }
+
+    fn as_u64(&self) -> Option<u64> {
+        match self {
+            Self::Int(i) => Some(*i as u64),
+            _ => None,
+        }
+    }
+}
+
+const VOID: TjsValue = TjsValue::Void;
+
+impl Index<usize> for TjsValue {
+    type Output = TjsValue;
+    fn index(&self, index: usize) -> &Self::Output {
+        match self {
+            Self::Array(arr) => arr.get(index).unwrap_or(&VOID),
+            _ => &VOID,
+        }
+    }
+}
+
+fn unpack_string<R: Read + Seek>(reader: &mut R, big: bool, encoding: Encoding) -> Result<String> {
+    let len = u32::unpack(reader, big, encoding, &None)? as usize;
+    let tlen = if encoding.is_utf16le() { len * 2 } else { len };
+    let mut buf = vec![0u8; tlen];
+    reader.read_exact(&mut buf)?;
+    let s = decode_to_string(encoding, &buf, true)?;
+    Ok(s)
+}
+
+impl StructUnpack for TjsValue {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let typ = u8::unpack(reader, big, encoding, info)?;
+        Ok(match typ {
+            0 => Self::Void,
+            2 => Self::Str(unpack_string(reader, big, encoding)?),
+            3 => {
+                let len = u32::unpack(reader, big, encoding, info)?;
+                let data = reader.read_exact_vec(len as usize)?;
+                Self::ByteArray(data)
+            }
+            4 => {
+                let num = i64::unpack(reader, big, encoding, info)?;
+                Self::Int(num)
+            }
+            5 => {
+                let num = f64::unpack(reader, big, encoding, info)?;
+                Self::Double(num)
+            }
+            0x81 => {
+                let len = u32::unpack(reader, big, encoding, info)?;
+                let mut arr = Vec::with_capacity(len as usize);
+                for _ in 0..len {
+                    arr.push(Self::unpack(reader, big, encoding, info)?);
+                }
+                Self::Array(arr)
+            }
+            0xC1 => {
+                let len = u32::unpack(reader, big, encoding, info)?;
+                let mut dict = HashMap::with_capacity(len as usize);
+                for _ in 0..len {
+                    let name = unpack_string(reader, big, encoding)?;
+                    let obj = Self::unpack(reader, big, encoding, info)?;
+                    dict.insert(name, obj);
+                }
+                Self::Dict(dict)
+            }
+            _ => anyhow::bail!("Unknown type id: {typ:02x}."),
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+struct HxEntry {
+    path: String,
+    name: String,
+    id: u64,
+    key: u64,
+    name_is_hash: bool,
+    path_is_hash: bool,
+    is_garbage: bool,
+}
+
+impl AnyDebug for HxEntry {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct HxSplitMix64 {
+    state: u64,
+}
+
+impl HxSplitMix64 {
+    pub fn new(seed: u64) -> Self {
+        Self { state: seed }
+    }
+}
+
+trait IRng: std::fmt::Debug {
+    fn next(&mut self) -> u64;
+}
+
+impl IRng for HxSplitMix64 {
+    fn next(&mut self) -> u64 {
+        self.state = self.state.wrapping_add(0x9E3779B97F4A7C15);
+        let mut z = self.state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+        z ^ (z >> 31)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Xoroshiro128PlusPlus {
+    state: [u64; 2],
+}
+
+impl Xoroshiro128PlusPlus {
+    pub fn new(state: [u64; 2]) -> Self {
+        assert!(
+            state[0] != 0 || state[1] != 0,
+            "Initial state cannot be all zeros."
+        );
+        Self { state }
+    }
+}
+
+impl IRng for Xoroshiro128PlusPlus {
+    fn next(&mut self) -> u64 {
+        let s0 = self.state[0];
+        let mut s1 = self.state[1];
+        let result = s0.wrapping_add(s1).rotate_left(17).wrapping_add(s0);
+        s1 ^= s0;
+        self.state[0] = s0.rotate_left(49) ^ s1 ^ (s1 << 21);
+        self.state[1] = s1.rotate_left(28);
+        result
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Xoroshiro128StarStar {
+    state: [u64; 2],
+}
+
+impl Xoroshiro128StarStar {
+    pub fn new(state: [u64; 2]) -> Self {
+        assert!(
+            state[0] != 0 || state[1] != 0,
+            "Initial state cannot be all zeros."
+        );
+        Self { state }
+    }
+}
+
+impl IRng for Xoroshiro128StarStar {
+    fn next(&mut self) -> u64 {
+        let s0 = self.state[0];
+        let mut s1 = self.state[1];
+        let result = s0.wrapping_mul(5).rotate_left(7).wrapping_mul(9);
+        s1 ^= s0;
+        self.state[0] = s0.rotate_left(24) ^ s1 ^ (s1 << 16);
+        self.state[1] = s1.rotate_left(37);
+        result
+    }
+}
+
+#[derive(Debug)]
+struct HxProgram {
+    base: CxProgram,
+    rng: Box<dyn IRng + Send + Sync>,
+}
+
+impl HxProgram {
+    pub fn new(seed: u32, control_block: Weak<Vec<u32>>, random_method: i32) -> Self {
+        let initial_seed = (seed as u64) | (!(seed as u64) << 32);
+        let mut seeder = HxSplitMix64::new(initial_seed);
+        let seed1 = seeder.next();
+        let seed2 = seeder.next();
+        let xoroshiro_seed = [seed1, seed2];
+        Self {
+            base: CxProgram {
+                code: Vec::new(),
+                control_block,
+                length: 0,
+                seed,
+            },
+            rng: if random_method == 0 {
+                Box::new(Xoroshiro128PlusPlus::new(xoroshiro_seed))
+            } else {
+                Box::new(Xoroshiro128StarStar::new(xoroshiro_seed))
+            },
+        }
+    }
+}
+
+impl ICxProgram for HxProgram {
+    fn execute(&self, hash: u32) -> Result<u32> {
+        self.base.execute(hash)
+    }
+    fn clear(&mut self) {
+        self.base.clear();
+    }
+    fn emit(&mut self, bytecode: CxByteCode, length: usize) -> bool {
+        self.base.emit(bytecode, length)
+    }
+    fn emit_nop(&mut self, count: usize) -> bool {
+        self.base.emit_nop(count)
+    }
+    fn emit_u32(&mut self, x: u32) -> bool {
+        self.base.emit_u32(x)
+    }
+    fn get_random(&mut self) -> u32 {
+        self.rng.next() as u32
+    }
+}
+
+#[derive(Debug)]
+struct HxProgramBuilder {
+    random_method: i32,
+}
+
+impl HxProgramBuilder {
+    pub fn new(random_method: i32) -> Self {
+        Self { random_method }
+    }
+}
+
+impl ICxProgramBuilder for HxProgramBuilder {
+    fn build(
+        &self,
+        seed: u32,
+        control_blocks: Weak<Vec<u32>>,
+    ) -> Box<dyn ICxProgram + Send + Sync> {
+        Box::new(HxProgram::new(seed, control_blocks, self.random_method))
+    }
+}
+
+struct HxFilterKey {
+    key: [u64; 2],
+    header_key: [u8; 16],
+    split_position: u64,
+    has_header_key: bool,
+    flag: bool,
+}
+
+#[derive(Clone)]
+struct HxFilterSpanDecryptor {
+    first_decrypt_key: u32,
+    key1: u8,
+    key2: u8,
+    span_position: [u64; 2],
+}
+
+impl std::fmt::Debug for HxFilterSpanDecryptor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HxFilterSpanDecryptor")
+            .field(
+                "firstDecryptKey",
+                &format_args!("{:#x}", &self.first_decrypt_key),
+            )
+            .field("key1", &format_args!("{:#x}", &self.key1))
+            .field("key2", &format_args!("{:#x}", &self.key2))
+            .field(
+                "spanPosition",
+                &format_args!("{:#x}, {:#x}", self.span_position[0], self.span_position[1]),
+            )
+            .finish()
+    }
+}
+
+impl HxFilterSpanDecryptor {
+    pub fn new(key: u64, flag: bool) -> Self {
+        let decrypt_key_bytes = ((key >> 8) & 0xFFFF) as u32;
+        let mut first_decrypt_key = (key & 0xFF) as u32;
+        let mut span_position = [(key >> 48) & 0xFFFF, (key >> 32) & 0xFFFF];
+        if span_position[0] == span_position[1] {
+            span_position[1] = span_position[1].wrapping_add(1);
+        }
+        if !flag && first_decrypt_key == 0 {
+            first_decrypt_key = 0xA5;
+        }
+        first_decrypt_key = first_decrypt_key.wrapping_mul(0x01010101);
+        let (key1, key2) = if flag {
+            (0, 0)
+        } else {
+            (
+                (decrypt_key_bytes & 0xFF) as u8,
+                ((decrypt_key_bytes >> 8) & 0xFF) as u8,
+            )
+        };
+        Self {
+            first_decrypt_key,
+            key1,
+            key2,
+            span_position,
+        }
+    }
+
+    pub fn decrypt(&self, position: u64, data: &mut [u8]) {
+        if data.is_empty() {
+            return;
+        }
+        let key_bytes = self.first_decrypt_key.to_le_bytes();
+        for (i, byte) in data.iter_mut().enumerate() {
+            let key_index = ((position as usize) + i) & 3;
+            *byte ^= key_bytes[key_index];
+        }
+        let data_len = data.len() as u64;
+        if self.key1 != 0 {
+            let pos1 = self.span_position[0];
+            if pos1 >= position && pos1 < position + data_len {
+                let index = (pos1 - position) as usize;
+                data[index] ^= self.key1;
+            }
+        }
+        if self.key2 != 0 {
+            let pos2 = self.span_position[1];
+            if pos2 >= position && pos2 < position + data_len {
+                let index = (pos2 - position) as usize;
+                data[index] ^= self.key2;
+            }
+        }
+    }
+}
+
+struct HxFilter {
+    span_decryptors: [HxFilterSpanDecryptor; 2],
+    split_position: u64,
+    header_key: [u8; 16],
+    has_header_key: bool,
+}
+
+impl HxFilter {
+    pub fn new(key: HxFilterKey) -> HxFilter {
+        HxFilter {
+            span_decryptors: [
+                HxFilterSpanDecryptor::new(key.key[0], key.flag),
+                HxFilterSpanDecryptor::new(key.key[1], key.flag),
+            ],
+            split_position: key.split_position,
+            header_key: key.header_key,
+            has_header_key: key.has_header_key,
+        }
+    }
+
+    fn decrypt_header(&self, position: u64, buffer: &mut [u8]) {
+        let header_len = self.header_key.len() as u64;
+        let overlap_start = position;
+        let overlap_end = (position + buffer.len() as u64).min(header_len);
+        if overlap_start >= overlap_end {
+            return;
+        }
+        for i in overlap_start..overlap_end {
+            let buffer_index = (i - position) as usize;
+            let key_index = i as usize;
+            buffer[buffer_index] ^= self.header_key[key_index];
+        }
+    }
+
+    pub fn decrypt(&self, position: u64, buffer: &mut [u8]) {
+        if buffer.is_empty() {
+            return;
+        }
+        if self.has_header_key {
+            self.decrypt_header(position, buffer);
+        }
+        let buffer_len = buffer.len() as u64;
+        let buffer_end_pos = position + buffer_len;
+        if buffer_end_pos <= self.split_position {
+            self.span_decryptors[0].decrypt(position, buffer);
+        } else if position >= self.split_position {
+            self.span_decryptors[1].decrypt(position, buffer);
+        } else {
+            let split_index = (self.split_position - position) as usize;
+            let (part1, part2) = buffer.split_at_mut(split_index);
+            self.span_decryptors[0].decrypt(position, part1);
+            self.span_decryptors[1].decrypt(self.split_position, part2);
+        }
+    }
+}
+
+impl std::fmt::Debug for HxFilter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HxFilter")
+            .field("spanDecryptors", &self.span_decryptors)
+            .field(
+                "splitPosition",
+                &format_args!("{:#x}", &self.split_position),
+            )
+            .field("hasHeaderKey", &self.has_header_key)
+            .field("headerKey", &hex::encode(self.header_key))
+            .finish()
+    }
+}
+
+impl ICxEncryption for HxFilter {
+    fn get_base_offset(&self, _hash: u32) -> u32 {
+        0
+    }
+    fn decode(
+        &self,
+        _key: u32,
+        _offset: u64,
+        _buffer: &mut [u8],
+        _pos: usize,
+        _count: usize,
+    ) -> Result<()> {
+        Ok(())
+    }
+    fn inner_decrypt(
+        &self,
+        _key: u32,
+        offset: u64,
+        buffer: &mut [u8],
+        pos: usize,
+        count: usize,
+    ) -> Result<()> {
+        self.decrypt(offset, &mut buffer[pos..pos + count]);
+        Ok(())
+    }
+}
+
+fn calculate_file_hash(pathname: &str, file_hash_salt: &str) -> FileHash {
+    use blake2::{Blake2s256, Digest};
+    let mut hasher = Blake2s256::new();
+    (pathname.to_lowercase() + file_hash_salt)
+        .encode_utf16()
+        .for_each(|b| {
+            hasher.update(&b.to_le_bytes());
+        });
+    let result = hasher.finalize();
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(&result);
+    FileHash(hash)
+}
+
+fn create_garbage_filename_set(file_hash_salt: &str) -> HashSet<FileHash> {
+    let mut set = HashSet::new();
+    set.insert(calculate_file_hash("$$$ This is a protected archive. $$$ 著作者はこのアーカイブが正規の利用方法以外の方法で展開されることを望んでいません。 $$$ This is a protected archive. $$$ 著作者はこのアーカイブが正規の利用方法以外の方法で展開されることを望んでいません。 $$$ This is a protected archive. $$$ 著作者はこのアーカイブが正規の利用方法以外の方法で展開されることを望んでいません。 $$$ Warning! Extracting this archive may infringe on author's rights. 警告 このアーカイブを展開することにより、あなたは著作者の権利を侵害するおそれがあります。.txt", file_hash_salt));
+    set
+}
+
+#[test]
+fn test_filehash_deserialize() {
+    assert_eq!(
+        FileHash([
+            0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf, 0x0,
+            0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf
+        ]),
+        serde_json::from_str(
+            "\"000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0F\""
+        )
+        .unwrap()
+    );
 }

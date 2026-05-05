@@ -284,6 +284,20 @@ enum CryptType {
         #[serde(default)]
         random_type: i32,
     },
+    #[serde(rename_all = "PascalCase")]
+    HxCrypt {
+        #[serde(flatten)]
+        cx: CxSchema,
+        #[serde(default, flatten)]
+        index_key: Option<cx::IndexKey>,
+        filter_key: u64,
+        #[serde(default)]
+        random_type: i32,
+        #[serde(default)]
+        file_list_name: Option<String>,
+        #[serde(default)]
+        index_key_dict: HashMap<String, cx::IndexKey>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -473,6 +487,24 @@ impl Schema {
                 *header_split_position,
                 *file_crypt_flag,
                 *random_type,
+            )?),
+            CryptType::HxCrypt {
+                cx,
+                index_key,
+                filter_key,
+                random_type,
+                file_list_name,
+                index_key_dict,
+            } => Box::new(cx::HxCrypt::new(
+                self.base.clone(),
+                cx,
+                index_key.as_ref(),
+                *filter_key,
+                *random_type,
+                file_list_name.as_ref().map(|s| s.as_str()),
+                config.xp3_file_list_path.as_ref().map(|s| s.as_str()),
+                index_key_dict,
+                filename,
             )?),
         })
     }
