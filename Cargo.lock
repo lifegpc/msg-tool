@@ -1573,6 +1573,7 @@ dependencies = [
  "serde_yaml_ng",
  "sha1",
  "sha2",
+ "siphasher",
  "stylua",
  "tendril",
  "unicode-segmentation",

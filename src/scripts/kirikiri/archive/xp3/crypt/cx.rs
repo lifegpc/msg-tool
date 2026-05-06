@@ -2111,7 +2111,7 @@ impl HxCrypt {
             index_key = Some(ind.clone())
         }
         let index_key = index_key.ok_or_else(|| anyhow::anyhow!("Can not find index key."))?;
-        let (file_map, path_map) = if let Some(path) = file_list_path {
+        let (file_map, mut path_map) = if let Some(path) = file_list_path {
             let data = std::fs::read(path)?;
             let data = decode_to_string(Encoding::Utf8, &data, true)?;
             Self::read_names(&data, s)?
@@ -2128,6 +2128,10 @@ impl HxCrypt {
                 (HashMap::new(), HashMap::new())
             }
         };
+        let default_path_hash = calculate_path_hash("", "xp3hnp");
+        if !path_map.contains_key(&default_path_hash) {
+            path_map.insert(default_path_hash, String::new());
+        }
         Ok(Self {
             base: CxEncryption::new_inner(
                 base,
@@ -2952,6 +2956,18 @@ fn create_garbage_filename_set(file_hash_salt: &str) -> HashSet<FileHash> {
     set
 }
 
+fn calculate_path_hash(pathname: &str, path_hash_salt: &str) -> PathHash {
+    use std::hash::Hasher;
+    let mut hasher = siphasher::sip::SipHasher24::new();
+    (pathname.to_lowercase() + path_hash_salt)
+        .encode_utf16()
+        .for_each(|b| {
+            hasher.write(&b.to_le_bytes());
+        });
+    let data = hasher.finish().to_ne_bytes();
+    PathHash(u64::from_be_bytes(data))
+}
+
 #[test]
 fn test_filehash_deserialize() {
     assert_eq!(
@@ -2963,5 +2979,17 @@ fn test_filehash_deserialize() {
             "\"000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0F\""
         )
         .unwrap()
+    );
+}
+
+#[test]
+fn test_calculate_path_hash() {
+    assert_eq!(
+        calculate_path_hash("", "xp3hnp"),
+        PathHash::try_from("94d4a97c61498621").unwrap(),
+    );
+    assert_eq!(
+        calculate_path_hash("scenario/scripts/", "xp3hnp"),
+        PathHash::try_from("c81c19411c1a5e54").unwrap(),
     );
 }

@@ -151,6 +151,20 @@
         "TpmFileName": "plugin/AmairoIsleNauts.tpm",
         "Title": "天色＊アイルノーツ | 天色幻想岛"
     },
+    "AMBITIOUS MISSION After Episode 1": {
+        "$type": "HxCrypt",
+        "Mask": 454,
+        "Offset": 656,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "BAMCBQAB",
+        "EvenBranchOrder": "AAIHAwQBBgU=",
+        "Key": "Wa7phHMk/a0hEztfLDpfcWbN1n7e0DYitcdCV1m/2EQ=",
+        "Nonce": "DDEouJ4BezmeMVKZf7WVqA==",
+        "FilterKey": 375708990042069900,
+        "RandomType": 1,
+        "ControlBlockName": "amb_after_ep1.bin",
+        "Title": "AMBITIOUS MISSION アフターエピソード1 かぐや＆あてな | Ambitious Mission FD1"
+    },
     "Anata no Milk Kudasai na": {
         "$type": "HashCrypt",
         "Title": "あなたの精液くださいな ～私とボクとどっちがお好み？～"
@@ -310,6 +324,67 @@
         "ControlBlockName": "cafe_stella.bin",
         "Title": "喫茶ステラと死神の蝶 | 星光咖啡馆与死神之蝶 | 星光咖啡館與死神之蝶"
     },
+    "Café Stella to Shinigami no Chou [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 486,
+        "Offset": 101,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "BAEFAAMC",
+        "EvenBranchOrder": "BgMBAgQFAAc=",
+        "FilterKey": 9413765695581088110,
+        "IndexKeyDict": {
+            "data.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "video.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "bgm.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "fgimage.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "bgimage.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "scn.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "voice.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "main.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "evimage.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "uipsd.xp3": {
+                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+            },
+            "video2.xp3": {
+                "Key": "9lU4Kgw+IvRM3Zm0ubsa161RAxURD9ghXmSvYH7f/VE=",
+                "Nonce": "r5eGhOPufNjqgZMwtggGhg=="
+            },
+            "adult.xp3": {
+                "Key": "9lU4Kgw+IvRM3Zm0ubsa161RAxURD9ghXmSvYH7f/VE=",
+                "Nonce": "r5eGhOPufNjqgZMwtggGhg=="
+            }
+        },
+        "ControlBlockName": "cafe_stella_steam.bin",
+        "Title": "喫茶ステラと死神の蝶 [Steam] | 星光咖啡馆与死神之蝶 [Steam] | 星光咖啡館與死神之蝶 [Steam]"
+    },
     "CharaBration!": {
         "$type": "AkabeiCrypt",
         "Seed": 3854429322,
@@ -420,7 +495,8 @@
         "Key": "4ozUw00nStHvknH8ECpqL1BVC9nOrpdryY4wHKtBTFE=",
         "Nonce": "pjhv8KmiW/gnbdoy6c5J6Q==",
         "FilterKey": 12271333071625965214,
-        "ControlBlockName": "dc5.bin"
+        "ControlBlockName": "dc5.bin",
+        "Title": "D.C.5 ～ダ・カーポ5～ | 初音岛5 | D.C.5 Plus Happiness ～ダ・カーポ5～プラスハピネス | D.C.5 ~Da Capo 5~ Future Link | D.C.5 Future Link ～ダ・カーポ5～ フューチャーリンク | D.C.5 Sweet Happiness ～ダ・カーポ5～スイートハピネス"
     },
     "Deatte 5-fun wa Ore no Mono!": {
         "$type": "XorCrypt",

@@ -57,6 +57,7 @@ serde_json = "1"
 serde_yaml_ng = "0.10"
 sha1 = { version = "0.11", optional = true }
 sha2 = { version = "0.11", optional = true }
+siphasher = { version = "1.0", optional = true }
 stylua = { version = "2.1", optional = true, default-features = false}
 tendril = { version = "0.5", optional = true }
 unicode-segmentation = "1.12"
@@ -101,7 +102,7 @@ hexen-haus = ["memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "adler", "aes", "base64", "blake2", "bytes", "cbc", "chacha20/legacy", "fastcdc", "flate2", "hex", "int-enum", "md5", "msg_tool_macro/kirikiri-arc", "msg_tool_xp3data", "parse-size", "sha2", "utils-case-insensitive-string", "utils-lzss", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
+kirikiri-arc = ["kirikiri", "adler", "aes", "base64", "blake2", "bytes", "cbc", "chacha20/legacy", "fastcdc", "flate2", "hex", "int-enum", "md5", "msg_tool_macro/kirikiri-arc", "msg_tool_xp3data", "parse-size", "sha2", "siphasher", "utils-case-insensitive-string", "utils-lzss", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
 kirikiri-img = ["kirikiri", "image", "libtlg-rs"]
 musica = []
 musica-arc = ["musica", "crc32fast", "flate2", "include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]
