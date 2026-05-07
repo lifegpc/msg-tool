@@ -828,6 +828,44 @@
         "$type": "NatsupochiCrypt",
         "Title": "ハメ撮り実況中継！兄妹初エッチ12時間"
     },
+    "Hanagane Kanade * Gram": {
+        "$type": "HxCrypt",
+        "Mask": 286,
+        "Offset": 498,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AAECBQME",
+        "EvenBranchOrder": "BQQAAQYHAgM=",
+        "IndexKey1": {
+            "Key": "Vnbq70VOkeTm9z+CFn87TWCtW4yjlw2G/XZhABDZESg=",
+            "Nonce": "4DrhHSEEbjB1KIHwxeB6QA=="
+        },
+        "IndexKey2": {
+            "Key": "Vd6niXkTdIrWYCsl2YX9+1D3YZkobqypm+vGg2r2gqI=",
+            "Nonce": "l6Iz9qaAgPkq4DVbz41Wyg=="
+        },
+        "FilterKey": 16663009093760992250,
+        "ControlBlockName": "hanagane.bin",
+        "Title": "花鐘カナデ＊グラム | 花钟Kanade＊Gram | 花鐘カナデ＊グラム Chapter:1 小桜結 | 钟Kanade＊Gram 第一章：小樱结 | 花鐘カナデ＊グラム Chapter:2 花ノ香澄玲 | 花钟Kanade＊Gram 第二章：花埜香澄玲 | 花鐘カナデ＊グラム Chapter:3 星泉コトナ | 花钟Kanade＊Gram 第三章：星泉琴凪 | 花鐘カナデ＊グラム Chapter:4 綾世奏 -最終章- | 花钟Kanade＊Gram 第四章： 绫世奏 -最终章-"
+    },
+    "Hanataba o Kimi ni Okurou -Kinsenka-": {
+        "$type": "HxCrypt",
+        "Mask": 709,
+        "Offset": 142,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BAUBAgAD",
+        "EvenBranchOrder": "BAADAgYBBQc=",
+        "IndexKey1": {
+            "Key": "G/XgzYa0RLT0OCMnjLqSeO/jMK4jyu1uaiAHr40Y3Ys=",
+            "Nonce": "cc3UONtGw78QAKoouq0l1w=="
+        },
+        "IndexKey2": {
+            "Key": "MBiFRC04c2eAL5WkRO1cp5UywQ3btfv1vyn8NxvrGMU=",
+            "Nonce": "M4811NIGo5ULRTNHwZr/cQ=="
+        },
+        "FilterKey": 3973740848023794385,
+        "ControlBlockName": "hanataba.bin",
+        "Title": "花束を君に贈ろう-Kinsenka- | 将花朵献与你-Kinsenka-"
+    },
     "Haniwari! Sayaka Ojou-sama": {
         "$type": "FlyingShineCrypt",
         "Title": "はにわり!沙耶華お嬢様～感染する股間の大きなモノ～"
@@ -1244,6 +1282,25 @@
         "$type": "HighRunningCrypt",
         "Title": "カミナリっ娘注意報！～未来の予報はヨメのちハラみ!?～"
     },
+    "KANADE": {
+        "$type": "HxCrypt",
+        "Mask": 474,
+        "Offset": 723,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AgUDAAQB",
+        "EvenBranchOrder": "BgAHAgEFBAM=",
+        "IndexKey1": {
+            "Key": "qBj/86jQ7f1PjerOWScVHSgZMe4uGQv5iNhiVyQGEQo=",
+            "Nonce": "gQgIhtDT/a6wNiTtscVZjg=="
+        },
+        "IndexKey2": {
+            "Key": "S54kI8pc9UJscHL5HwUvpXOiB/+jBoYsnuNuVnnT69M=",
+            "Nonce": "4wxtVvw7QxL2GdKGIUCO7w=="
+        },
+        "FilterKey": 1844611658351213130,
+        "RandomType": 1,
+        "ControlBlockName": "kanade.bin"
+    },
     "Kanae to Meguri to no Sonogo ga Icha Love Sugite Yabai.": {
         "$type": "SourireCrypt",
         "Title": "叶とメグリとのその後がイチャらぶすぎてヤバい。 | 与叶和爱莉之后的故事太过亲密糟糕了"
@@ -1357,6 +1414,26 @@
         "EvenBranchOrder": "BQQBAAcGAgM=",
         "ControlBlockName": "kinomino.bin",
         "Title": "きのみの～コスプレ研へようこそ～"
+    },
+    "Kioku no Kenban": {
+        "$type": "HxCrypt",
+        "Mask": 727,
+        "Offset": 373,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "BQIEAQMA",
+        "EvenBranchOrder": "AgQAAQcDBgU=",
+        "IndexKey1": {
+            "Key": "3wLIJOY+GHYkKW3stTumP6k2AqyV+JR5qq5MMoOq57M=",
+            "Nonce": "p2MbWZ7u1itf1p4F9juu+A=="
+        },
+        "IndexKey2": {
+            "Key": "S9GGRHYyW0S1sfgGG1+2UelPxwYe1v/sb+lZlj5exFY=",
+            "Nonce": "drZ/9I7F6EYeiBcMhcoDGA=="
+        },
+        "FilterKey": 5169252572216286810,
+        "RandomType": 1,
+        "ControlBlockName": "kioku.bin",
+        "Title": "記憶の鍵盤 | 记忆的琴键 | 記憶的琴鍵"
     },
     "Koakuma-chan no Yuuwaku!": {
         "$type": "XorCrypt",
