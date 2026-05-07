@@ -1,4 +1,5 @@
 use super::*;
+use crate::ext::atomic::AtomicQuick;
 use crate::ext::mutex::MutexExt;
 use crate::utils::files::*;
 use crate::utils::struct_pack::*;
@@ -8,6 +9,7 @@ use serde::{Deserializer, de};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut, Index};
 use std::path::PathBuf;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Mutex, Weak};
 
 const S_CTL_BLOCK_SIGNATURE: &[u8] = b" Encryption control block";
@@ -2032,7 +2034,7 @@ pub struct HxCrypt {
     base: CxEncryption,
     key1: IndexKey,
     key2: IndexKeys,
-    filter_key: u64,
+    filter_key: AtomicU64,
     file_mapping: HashMap<FileHash, String>,
     path_mapping: HashMap<PathHash, String>,
     info_map: Mutex<HashMap<String, HxEntry>>,
@@ -2042,6 +2044,7 @@ pub struct HxCrypt {
 pub struct IndexKey {
     key: [u8; 32],
     nonce: [u8; 16],
+    filter_key: Option<u64>,
 }
 
 impl std::fmt::Debug for IndexKey {
@@ -2049,6 +2052,7 @@ impl std::fmt::Debug for IndexKey {
         f.debug_struct("IndexKey")
             .field("key", &hex::encode(&self.key))
             .field("nonce", &hex::encode(&self.nonce))
+            .field("filter_key", &self.filter_key)
             .finish()
     }
 }
@@ -2058,6 +2062,8 @@ impl std::fmt::Debug for IndexKey {
 struct IndexKeyTmp {
     key: String,
     nonce: String,
+    #[serde(default)]
+    filter_key: Option<u64>,
 }
 
 impl<'de> Deserialize<'de> for IndexKey {
@@ -2081,7 +2087,11 @@ impl<'de> Deserialize<'de> for IndexKey {
                 bytes.len()
             ))
         })?;
-        Ok(Self { key, nonce })
+        Ok(Self {
+            key,
+            nonce,
+            filter_key: s.filter_key,
+        })
     }
 }
 
@@ -2168,7 +2178,7 @@ impl HxCrypt {
             )?,
             key1: index_key1.clone(),
             key2: index_key2.clone(),
-            filter_key,
+            filter_key: AtomicU64::new(filter_key),
             file_mapping: file_map,
             path_mapping: path_map,
             info_map: Mutex::new(HashMap::new()),
@@ -2262,6 +2272,9 @@ impl HxCrypt {
             1 => &self.key1,
             _ => anyhow::bail!("Unknown hxv4 flags: {}", flags),
         };
+        if let Some(filter_key) = &key.filter_key {
+            self.filter_key.qsave(*filter_key);
+        }
         let mut nonce = [0; 8];
         nonce.copy_from_slice(&key.nonce[..8]);
         let mut crypt = ChaCha20Legacy::new((&key.key).into(), (&nonce).into());
@@ -2494,7 +2507,7 @@ impl Crypt for HxCrypt {
             .ok_or_else(|| anyhow::anyhow!("extra info is not hx entry."))?;
         let mut entry_key = info.key;
         if (info.id & 0x100000000) == 0 {
-            entry_key ^= self.filter_key;
+            entry_key ^= self.filter_key.qload();
         }
         let header_key = !entry_key;
         let key = self.create_filter_key(entry_key, header_key)?;
@@ -2521,7 +2534,7 @@ impl Crypt for HxCrypt {
             .ok_or_else(|| anyhow::anyhow!("extra info is not hx entry."))?;
         let mut entry_key = info.key;
         if (info.id & 0x100000000) == 0 {
-            entry_key ^= self.filter_key;
+            entry_key ^= self.filter_key.qload();
         }
         let header_key = !entry_key;
         let key = self.create_filter_key(entry_key, header_key)?;

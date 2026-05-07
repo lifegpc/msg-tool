@@ -1554,7 +1554,8 @@
             },
             {
                 "Key": "kHMdDweFjeDFVTwQA10XQAPUAOfXzKp2ukygeLzGzHg=",
-                "Nonce": "CSBjzSXQNTioPhDp710WCQ=="
+                "Nonce": "CSBjzSXQNTioPhDp710WCQ==",
+                "FilterKey": 13089994567570788352
             }
         ],
         "FilterKey": 8093658935271803197,
@@ -1667,6 +1668,33 @@
     "Manamusume wa, Mazo Seirei": {
         "$type": "HashCrypt",
         "Title": "愛娘は、マゾ性隷 ～娘だからって遠慮しないでね？～"
+    },
+    "Mashiro-iro Symphony": {
+        "$type": "HxCrypt",
+        "Mask": 284,
+        "Offset": 389,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BQABBAID",
+        "EvenBranchOrder": "AQYFAAcCBAM=",
+        "IndexKey1": {
+            "Key": "pWVnGBsl5MFeR3EH2yJwHx2ZvHkWDxQhIhODqqdxMMo=",
+            "Nonce": "JClYlfgFkP8dN6oa3iOrAw=="
+        },
+        "IndexKey2": [
+            {
+                "Key": "q0lPvHOK7Qa4OM615uOvyTInTJf8aYpS/jcpM1uNnuo=",
+                "Nonce": "1KoS7cnIicdp1hZ0bjlduw=="
+            },
+            {
+                "Key": "kUUY3z8D94i85yssB5xRBZmSiKRNABPPAl88Qtf7Ix0=",
+                "Nonce": "+Hg91OLLC9E4ET7YbHMHsA==",
+                "FilterKey": 14361241883570560968
+            }
+        ],
+        "FilterKey": 1449527129867772322,
+        "RandomType": 1,
+        "ControlBlockName": "mashiro.bin",
+        "Title": "Mashiro-iro Symphony -Love is pure white- Remake for FHD | Mashiro-iro Symphony: Sana Edition | ましろ色シンフォニー -Love is pure white- Remake for FHD | 纯白交响曲 -Love is pure white- HD Remake | 純白交響曲 -Love is pure white- HD Remake | ましろ色シンフォニー SANA EDITION | 纯白交响曲 SANA EDITION | 純白交響曲 SANA EDITION"
     },
     "Me ga Sametara Seieki ga 100 Bai...": {
         "$type": "DieselmineCrypt",
