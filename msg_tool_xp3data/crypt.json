@@ -414,6 +414,26 @@
         "ControlBlockName": "comyu.bin",
         "Title": "コミュ - 黒い竜と優しい王国 - | Co:μ-黑龙与温柔的王国"
     },
+    "Criminal Border": {
+        "$type": "HxCrypt",
+        "Mask": 453,
+        "Offset": 604,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AwACBQQB",
+        "EvenBranchOrder": "BQACAwQHBgE=",
+        "IndexKey1": {
+            "Key": "L+SmM7G1i3DzVn8WfJw0rKYncCc0eO9NV4pNnLD/3Zw=",
+            "Nonce": "x1bUUghkqzH/wBfctS+Bqw=="
+        },
+        "IndexKey2": {
+            "Key": "uRtOr9x1duMO9oSmzmVjyfRbVR13WqudlAMAw4JB9Lw=",
+            "Nonce": "bldfTzJ3TE8Kocn8akGzsA=="
+        },
+        "FilterKey": 18385003206934157155,
+        "RandomType": 1,
+        "ControlBlockName": "criminal_border.bin",
+        "Title": "クリミナルボーダー | クリミナルボーダー 1st offence | クリミナルボーダー 2nd"
+    },
     "Crime Rhyme series": {
         "$type": "FlyingShineCrypt",
         "Title": "クライミライ"
@@ -507,6 +527,24 @@
         "OddBranchOrder": "AAMFBAIB",
         "EvenBranchOrder": "BQMAAgEEBgc=",
         "TpmFileName": "plugin/dracuriot.tpm"
+    },
+    "Dracu-Riot! [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 650,
+        "Offset": 85,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AwIBAAQF",
+        "EvenBranchOrder": "BwQDAAEGAgU=",
+        "IndexKey1": {
+            "Key": "72RWfeyDtW7ZPE8BgPlbmzBTzW4hHj/vst3GsROA/1s=",
+            "Nonce": "xyThhownJns+GPNvPp95DA=="
+        },
+        "IndexKey2": {
+            "Key": "9uNRehQDCpnjkdawm9PlobiMBXsp5EImKyPZuLBs1MM=",
+            "Nonce": "XNEvlGm1qv9ds2qohh/rxQ=="
+        },
+        "FilterKey": 3503864232240089825,
+        "ControlBlockName": "dracu_steam.bin"
     },
     "Ero Mangaka-san to Binbou Shimai": {
         "$type": "CxEncryption",
