@@ -288,15 +288,13 @@ enum CryptType {
     HxCrypt {
         #[serde(flatten)]
         cx: CxSchema,
-        #[serde(default, flatten)]
-        index_key: Option<cx::IndexKey>,
+        index_key1: cx::IndexKey,
+        index_key2: cx::IndexKey,
         filter_key: u64,
         #[serde(default)]
         random_type: i32,
         #[serde(default)]
         file_list_name: Option<String>,
-        #[serde(default)]
-        index_key_dict: HashMap<String, cx::IndexKey>,
     },
 }
 
@@ -490,20 +488,20 @@ impl Schema {
             )?),
             CryptType::HxCrypt {
                 cx,
-                index_key,
+                index_key1,
+                index_key2,
                 filter_key,
                 random_type,
                 file_list_name,
-                index_key_dict,
             } => Box::new(cx::HxCrypt::new(
                 self.base.clone(),
                 cx,
-                index_key.as_ref(),
+                index_key1,
+                index_key2,
                 *filter_key,
                 *random_type,
                 file_list_name.as_ref().map(|s| s.as_str()),
                 config.xp3_file_list_path.as_ref().map(|s| s.as_str()),
-                index_key_dict,
                 filename,
             )?),
         })

@@ -158,8 +158,14 @@
         "PrologOrder": "AAEC",
         "OddBranchOrder": "BAMCBQAB",
         "EvenBranchOrder": "AAIHAwQBBgU=",
-        "Key": "Wa7phHMk/a0hEztfLDpfcWbN1n7e0DYitcdCV1m/2EQ=",
-        "Nonce": "DDEouJ4BezmeMVKZf7WVqA==",
+        "IndexKey1": {
+            "Key": "qITmTKxWdz7SPxrMP5zAJcLDiPpIBHzgCBCK5wtPUgw=",
+            "Nonce": "n+1KapDnHLI8hC3q3fxK/g=="
+        },
+        "IndexKey2": {
+            "Key": "Wa7phHMk/a0hEztfLDpfcWbN1n7e0DYitcdCV1m/2EQ=",
+            "Nonce": "DDEouJ4BezmeMVKZf7WVqA=="
+        },
         "FilterKey": 375708990042069900,
         "RandomType": 1,
         "ControlBlockName": "amb_after_ep1.bin",
@@ -331,57 +337,15 @@
         "PrologOrder": "AgAB",
         "OddBranchOrder": "BAEFAAMC",
         "EvenBranchOrder": "BgMBAgQFAAc=",
-        "FilterKey": 9413765695581088110,
-        "IndexKeyDict": {
-            "data.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "video.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "bgm.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "fgimage.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "bgimage.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "scn.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "voice.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "main.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "evimage.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "uipsd.xp3": {
-                "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-                "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-            },
-            "video2.xp3": {
-                "Key": "9lU4Kgw+IvRM3Zm0ubsa161RAxURD9ghXmSvYH7f/VE=",
-                "Nonce": "r5eGhOPufNjqgZMwtggGhg=="
-            },
-            "adult.xp3": {
-                "Key": "9lU4Kgw+IvRM3Zm0ubsa161RAxURD9ghXmSvYH7f/VE=",
-                "Nonce": "r5eGhOPufNjqgZMwtggGhg=="
-            }
+        "IndexKey1": {
+            "Key": "9lU4Kgw+IvRM3Zm0ubsa161RAxURD9ghXmSvYH7f/VE=",
+            "Nonce": "r5eGhOPufNjqgZMwtggGhg=="
         },
+        "IndexKey2": {
+            "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
+            "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
+        },
+        "FilterKey": 9413765695581088110,
         "ControlBlockName": "cafe_stella_steam.bin",
         "Title": "喫茶ステラと死神の蝶 [Steam] | 星光咖啡馆与死神之蝶 [Steam] | 星光咖啡館與死神之蝶 [Steam]"
     },
@@ -492,8 +456,14 @@
         "PrologOrder": "AAIB",
         "OddBranchOrder": "AAEDBAUC",
         "EvenBranchOrder": "AAIEBwEDBQY=",
-        "Key": "4ozUw00nStHvknH8ECpqL1BVC9nOrpdryY4wHKtBTFE=",
-        "Nonce": "pjhv8KmiW/gnbdoy6c5J6Q==",
+        "IndexKey1": {
+            "Key": "2+qfpN7+FNCJA82aDwKn+Bl6W1lsp6ZRmDwtghduU5U=",
+            "Nonce": "28WWa+SxnONuANYPjybnWg=="
+        },
+        "IndexKey2": {
+            "Key": "4ozUw00nStHvknH8ECpqL1BVC9nOrpdryY4wHKtBTFE=",
+            "Nonce": "pjhv8KmiW/gnbdoy6c5J6Q=="
+        },
         "FilterKey": 12271333071625965214,
         "ControlBlockName": "dc5.bin",
         "Title": "D.C.5 ～ダ・カーポ5～ | 初音岛5 | D.C.5 Plus Happiness ～ダ・カーポ5～プラスハピネス | D.C.5 ~Da Capo 5~ Future Link | D.C.5 Future Link ～ダ・カーポ5～ フューチャーリンク | D.C.5 Sweet Happiness ～ダ・カーポ5～スイートハピネス"

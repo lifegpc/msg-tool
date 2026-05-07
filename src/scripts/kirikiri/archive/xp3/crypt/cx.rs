@@ -2030,8 +2030,8 @@ impl std::fmt::Debug for CxdecDb {
 #[derive(Debug)]
 pub struct HxCrypt {
     base: CxEncryption,
-    key: [u8; 32],
-    nonce: [u8; 16],
+    key1: IndexKey,
+    key2: IndexKey,
     filter_key: u64,
     file_mapping: HashMap<FileHash, String>,
     path_mapping: HashMap<PathHash, String>,
@@ -2089,28 +2089,19 @@ impl HxCrypt {
     pub fn new(
         base: BaseSchema,
         cx: &CxSchema,
-        index_key: Option<&IndexKey>,
+        index_key1: &IndexKey,
+        index_key2: &IndexKey,
         filter_key: u64,
         random_type: i32,
         file_list_name: Option<&str>,
         file_list_path: Option<&str>,
-        index_key_dict: &HashMap<String, IndexKey>,
         filename: &str,
     ) -> Result<Self> {
-        let mut index_key = if let Some(fkey) = index_key {
-            Some(fkey.clone())
-        } else {
-            None
-        };
         let p = std::path::Path::new(filename);
         let b = p
             .file_name()
             .ok_or_else(|| anyhow::anyhow!("Failed to get file name from path."))?;
         let s: &str = &b.to_string_lossy();
-        if let Some(ind) = index_key_dict.get(s) {
-            index_key = Some(ind.clone())
-        }
-        let index_key = index_key.ok_or_else(|| anyhow::anyhow!("Can not find index key."))?;
         let (file_map, mut path_map) = if let Some(path) = file_list_path {
             let data = std::fs::read(path)?;
             let data = decode_to_string(Encoding::Utf8, &data, true)?;
@@ -2139,8 +2130,8 @@ impl HxCrypt {
                 filename,
                 Box::new(HxProgramBuilder::new(random_type)),
             )?,
-            key: index_key.key,
-            nonce: index_key.nonce,
+            key1: index_key1.clone(),
+            key2: index_key2.clone(),
             filter_key,
             file_mapping: file_map,
             path_mapping: path_map,
@@ -2225,19 +2216,24 @@ impl HxCrypt {
         Ok((file_map, path_map))
     }
 
-    fn create_chacha20_crypt(&self) -> Result<ChaCha20Legacy> {
+    fn create_chacha20_crypt(&self, flags: u16) -> Result<ChaCha20Legacy> {
         use chacha20::{KeyIvInit, cipher::StreamCipherSeek};
+        let key = match flags {
+            0 => &self.key2,
+            1 => &self.key1,
+            _ => anyhow::bail!("Unknown hxv4 flags: {}", flags),
+        };
         let mut nonce = [0; 8];
-        nonce.copy_from_slice(&self.nonce[..8]);
-        let mut crypt = ChaCha20Legacy::new((&self.key).into(), (&nonce).into());
+        nonce.copy_from_slice(&key.nonce[..8]);
+        let mut crypt = ChaCha20Legacy::new((&key.key).into(), (&nonce).into());
         crypt.try_seek(64)?;
         Ok(crypt)
     }
 
-    fn read_index<T: Read + Seek>(&self, mut stream: T) -> Result<()> {
+    fn read_index<T: Read + Seek>(&self, mut stream: T, flags: u16) -> Result<()> {
         use chacha20::cipher::StreamCipher;
         let len = stream.stream_length()?;
-        let mut crypt = self.create_chacha20_crypt()?;
+        let mut crypt = self.create_chacha20_crypt(flags)?;
         let tlen = len as usize - 16;
         let mut buf = Vec::with_capacity(tlen);
         stream.seek(SeekFrom::Start(16))?;
@@ -2388,12 +2384,12 @@ impl Crypt for HxCrypt {
             let mut reader = MemReaderRef::new(&hxv4.data);
             let offset = reader.read_u64()? + archive.base_offset;
             let size = reader.read_u32()?;
-            let _flags = reader.read_u16()?;
+            let flags = reader.read_u16()?;
             let stream = StreamRegion::with_size(
                 MutexWrapper::new(archive.inner.clone(), offset),
                 size as u64,
             )?;
-            self.read_index(stream)?;
+            self.read_index(stream, flags)?;
             let info_map = self.info_map.lock_blocking();
             for entry in archive.entries.iter_mut() {
                 if let Some(info) = info_map.get(&entry.name) {
