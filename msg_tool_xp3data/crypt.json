@@ -546,6 +546,64 @@
         "FilterKey": 3503864232240089825,
         "ControlBlockName": "dracu_steam.bin"
     },
+    "Ecchi de Ichizu na Doinaka Nii-sama to, Koshikiyukashii Byoujaku Imouto": {
+        "$type": "HxCrypt",
+        "Mask": 499,
+        "Offset": 199,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AwACBQQB",
+        "EvenBranchOrder": "AwUEAQYHAgA=",
+        "IndexKey1": {
+            "Key": "czFQF5kGeukdZTOaRDx621TZdJwTVKvOpVfa4z0EgY4=",
+            "Nonce": "MRYfhyOuVxlAa+0qzMYwaw=="
+        },
+        "IndexKey2": {
+            "Key": "5pJDCVjQvyFlbn6snEnC6jUh5TloMEJROliOqikf3Jo=",
+            "Nonce": "LZuC3q1jPsdYJkjeR7+rPA=="
+        },
+        "FilterKey": 4345841408798405444,
+        "ControlBlockName": "ecchi_imouto.bin",
+        "Title": "エッチで一途なド田舎兄さまと、古式ゆかしい病弱妹 | 痴情哥哥与病弱妹妹的乡间生活"
+    },
+    "Ecchi de Ichizu na Doinaka Nii-sama to, Koshikiyukashii Byoujaku Imouto [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 754,
+        "Offset": 709,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AgUBAAQD",
+        "EvenBranchOrder": "BwYBBAAFAgM=",
+        "IndexKey1": {
+            "Key": "XEBDiHjIxqdKYhsmEYrW6HWEExqmaoUdh0MU0TEXu9I=",
+            "Nonce": "Ao6sO0C4PQjgiFbh16BXJQ=="
+        },
+        "IndexKey2": {
+            "Key": "6poloFNp7vPdnXskiZFFUogE5RE9YERgJNk6NACuUwc=",
+            "Nonce": "0iImxiZEb8Kk/HB1ukgiug=="
+        },
+        "FilterKey": 7438181844168039831,
+        "ControlBlockName": "ecchi_imouto_steam.bin",
+        "Title": "ド田舎兄妹 | エッチで一途なド田舎兄さまと、古式ゆかしい病弱妹 [Steam] | 痴情哥哥与病弱妹妹的乡间生活 [Steam]"
+    },
+    "Ego's Spark": {
+        "$type": "HxCrypt",
+        "Mask": 746,
+        "Offset": 432,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AQMABQQC",
+        "EvenBranchOrder": "AQcCBAADBQY=",
+        "IndexKey1": {
+            "Key": "BXE/oxim+42qXaa3cQ5BW71fhLQaKgGvaocGX6/TWVw=",
+            "Nonce": "w9jcw0SBoZOsHZXajTuqaA=="
+        },
+        "IndexKey2": {
+            "Key": "D8g75/RBtvYo4axQTQh8vV7TAhHx1PyP6NFUkdSeDHg=",
+            "Nonce": "oV8p/Bs1dw72ucbGJWW4qA=="
+        },
+        "FilterKey": 16190459816224924970,
+        "RandomType": 1,
+        "ControlBlockName": "ego_spark.bin",
+        "Title": "キスからはじめるエゴイズム | 从Kiss开始的自我主义～EGOISM～ | 从亲吻开始的「紫梧」主义"
+    },
     "Ero Mangaka-san to Binbou Shimai": {
         "$type": "CxEncryption",
         "Mask": 524,
@@ -649,6 +707,25 @@
     "Ganki Tengoku": {
         "$type": "DieselmineCrypt",
         "Title": "顔騎天国"
+    },
+    "GINKA": {
+        "$type": "HxCrypt",
+        "Mask": 409,
+        "Offset": 390,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "BAUCAQMA",
+        "EvenBranchOrder": "AgYFAwQABwE=",
+        "IndexKey1": {
+            "Key": "KXxLtr3hOcflZK22CpmUGIl+/LeIbjXZ/DUbdbjffXY=",
+            "Nonce": "I60dFT7SiTOoqZzBVomC9g=="
+        },
+        "IndexKey2": {
+            "Key": "Cjdq+Es3nUvYJ6oERjMuuFrPw/wKP17JezkioEOOl5A=",
+            "Nonce": "MTOid9bj199PWAz3dYU9PQ=="
+        },
+        "FilterKey": 4637060952903284183,
+        "RandomType": 1,
+        "ControlBlockName": "ginka.bin"
     },
     "Gisobo, Choukyou Chuu": {
         "$type": "HashCrypt",
