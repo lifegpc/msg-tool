@@ -1775,6 +1775,26 @@
         "$type": "HashCrypt",
         "Title": "桃尻インストラクター寝取りレッスン ～競泳水着でえろざんまい～"
     },
+    "MOON GHOST": {
+        "$type": "HxCrypt",
+        "Mask": 707,
+        "Offset": 656,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AAMEAgUB",
+        "EvenBranchOrder": "BQcCBAADBgE=",
+        "IndexKey1": {
+            "Key": "cGLWGPK24wo5n6Zgbk+naf1Rf2mBe1WX3EFccPCbzq4=",
+            "Nonce": "7u0GMRtBmLatRQbL4mFTIA=="
+        },
+        "IndexKey2": {
+            "Key": "jx9YAQjwPvMMOaPFEP9I3pUACVmb+7LP8e+kGdPULaU=",
+            "Nonce": "jsxDDvgPa0l8Ga7phbGGvg=="
+        },
+        "FilterKey": 8931968892599732121,
+        "RandomType": 1,
+        "ControlBlockName": "moon_ghost.bin",
+        "Title": "ムーン・ゴースト | 月乡幽灵"
+    },
     "Motto Haramase Honoo no Oppai Chou Ero Appli Gakuen [Offical Chinese-Eng Ver]": {
         "$type": "HxCryptLite",
         "Mask": 589,
