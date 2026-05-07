@@ -1536,6 +1536,31 @@
         "$type": "HashCrypt",
         "Title": "黒ギャル娘との淫欲相姦～翻弄される父親の性欲～"
     },
+    "Limelight Lemonade Jam": {
+        "$type": "HxCrypt",
+        "Mask": 738,
+        "Offset": 643,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AQIEAwAF",
+        "EvenBranchOrder": "AgUABwYBAwQ=",
+        "IndexKey1": {
+            "Key": "fMktWafCUSPGVDvR/8LUx9f+yh3Y+PIq90XmzJ6xZhI=",
+            "Nonce": "aDnPYFowPzhVdOsfJweaYA=="
+        },
+        "IndexKey2": [
+            {
+                "Key": "/IZHSi5vZTrAxMC4OyQ/+yminq7Uz5yotLa47H1QGI4=",
+                "Nonce": "GiXPX9XR1GyQIMCSLOIy5w=="
+            },
+            {
+                "Key": "kHMdDweFjeDFVTwQA10XQAPUAOfXzKp2ukygeLzGzHg=",
+                "Nonce": "CSBjzSXQNTioPhDp710WCQ=="
+            }
+        ],
+        "FilterKey": 8093658935271803197,
+        "ControlBlockName": "limelight.bin",
+        "Title": "ライムライト・レモネードジャム | 聚光灯下的青柠恋曲 | 橘光柠水随想曲"
+    },
     "Little Hole": {
         "$type": "HashCrypt",
         "Title": "りとるほーる ～俺の娘がこんなに……なハズがない | Littlehole～我的女儿不可能这么……"

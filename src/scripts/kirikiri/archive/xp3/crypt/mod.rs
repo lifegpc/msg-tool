@@ -289,7 +289,7 @@ enum CryptType {
         #[serde(flatten)]
         cx: CxSchema,
         index_key1: cx::IndexKey,
-        index_key2: cx::IndexKey,
+        index_key2: cx::IndexKeys,
         filter_key: u64,
         #[serde(default)]
         random_type: i32,

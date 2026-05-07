@@ -6,7 +6,7 @@ use anyhow::Result;
 use chacha20::ChaCha20Legacy;
 use serde::{Deserializer, de};
 use std::collections::HashSet;
-use std::ops::Index;
+use std::ops::{Deref, DerefMut, Index};
 use std::path::PathBuf;
 use std::sync::{Mutex, Weak};
 
@@ -2031,7 +2031,7 @@ impl std::fmt::Debug for CxdecDb {
 pub struct HxCrypt {
     base: CxEncryption,
     key1: IndexKey,
-    key2: IndexKey,
+    key2: IndexKeys,
     filter_key: u64,
     file_mapping: HashMap<FileHash, String>,
     path_mapping: HashMap<PathHash, String>,
@@ -2085,12 +2085,48 @@ impl<'de> Deserialize<'de> for IndexKey {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct IndexKeys(pub Vec<IndexKey>);
+
+impl Deref for IndexKeys {
+    type Target = Vec<IndexKey>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for IndexKeys {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum IndexKeysTmp {
+    List(Vec<IndexKey>),
+    Single(IndexKey),
+}
+
+impl<'de> Deserialize<'de> for IndexKeys {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let tmp = IndexKeysTmp::deserialize(deserializer)?;
+        Ok(match tmp {
+            IndexKeysTmp::List(list) => Self(list),
+            IndexKeysTmp::Single(one) => Self(vec![one]),
+        })
+    }
+}
+
 impl HxCrypt {
     pub fn new(
         base: BaseSchema,
         cx: &CxSchema,
         index_key1: &IndexKey,
-        index_key2: &IndexKey,
+        index_key2: &IndexKeys,
         filter_key: u64,
         random_type: i32,
         file_list_name: Option<&str>,
@@ -2216,10 +2252,13 @@ impl HxCrypt {
         Ok((file_map, path_map))
     }
 
-    fn create_chacha20_crypt(&self, flags: u16) -> Result<ChaCha20Legacy> {
+    fn create_chacha20_crypt(&self, flags: u16, key_index: usize) -> Result<ChaCha20Legacy> {
         use chacha20::{KeyIvInit, cipher::StreamCipherSeek};
         let key = match flags {
-            0 => &self.key2,
+            0 => self
+                .key2
+                .get(key_index)
+                .ok_or_else(|| anyhow::anyhow!("Index out of bound"))?,
             1 => &self.key1,
             _ => anyhow::bail!("Unknown hxv4 flags: {}", flags),
         };
@@ -2230,10 +2269,16 @@ impl HxCrypt {
         Ok(crypt)
     }
 
-    fn read_index<T: Read + Seek>(&self, mut stream: T, flags: u16) -> Result<()> {
+    fn read_index_stream_internel<T: Read + Seek>(
+        &self,
+        stream: &mut T,
+        flags: u16,
+        key_index: usize,
+    ) -> Result<MemReader> {
         use chacha20::cipher::StreamCipher;
+        stream.rewind()?;
         let len = stream.stream_length()?;
-        let mut crypt = self.create_chacha20_crypt(flags)?;
+        let mut crypt = self.create_chacha20_crypt(flags, key_index)?;
         let tlen = len as usize - 16;
         let mut buf = Vec::with_capacity(tlen);
         stream.seek(SeekFrom::Start(16))?;
@@ -2242,7 +2287,26 @@ impl HxCrypt {
         let mut stream = flate2::read::ZlibDecoder::new(MemReaderRef::new(&buf[4..]));
         let mut buf = Vec::new();
         stream.read_to_end(&mut buf)?;
-        let mut reader = MemReader::new(buf);
+        Ok(MemReader::new(buf))
+    }
+
+    fn read_index_stream<T: Read + Seek>(&self, mut stream: T, flags: u16) -> Result<MemReader> {
+        if flags != 0 {
+            self.read_index_stream_internel(&mut stream, flags, 0)
+        } else if self.key2.len() == 1 {
+            self.read_index_stream_internel(&mut stream, flags, 0)
+        } else {
+            for i in 0..self.key2.len() {
+                if let Ok(reader) = self.read_index_stream_internel(&mut stream, flags, i) {
+                    return Ok(reader);
+                }
+            }
+            anyhow::bail!("All index key decrypt failed.")
+        }
+    }
+
+    fn read_index<T: Read + Seek>(&self, stream: T, flags: u16) -> Result<()> {
+        let mut reader = self.read_index_stream(stream, flags)?;
         let root_obj = TjsValue::unpack(&mut reader, true, Encoding::Utf16LE, &None)?;
         if !root_obj.is_array() {
             anyhow::bail!("Index object is not an array.");
