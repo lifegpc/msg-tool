@@ -2842,6 +2842,46 @@
         "ControlBlockName": "tenshin.bin",
         "Title": "天神乱漫 LUCKY or UNLUCKY!? | 天神乱漫 Happy Go Lucky!!"
     },
+    "Tenshi☆Souzou RE-BOOT!": {
+        "$type": "HxCrypt",
+        "Mask": 430,
+        "Offset": 117,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BAIDAAUB",
+        "EvenBranchOrder": "BgUAAQQCAwc=",
+        "IndexKey1": {
+            "Key": "ocNsSeq68XOYJS1FB/nZrfQRAi2IJQnRaK5+lRhMccM=",
+            "Nonce": "v58U8g+7bl/4vA2uHXzoLA=="
+        },
+        "IndexKey2": {
+            "Key": "oGfomfn8IVns4rpMZLwYgCg/4RbpO3RTjs15oxLg8Lk=",
+            "Nonce": "sNKsP1P0fx4fUnbsk+dCDw=="
+        },
+        "FilterKey": 943460468367187513,
+        "RandomType": 1,
+        "ControlBlockName": "tenshi_souzou.bin",
+        "Title": "天使☆騒々 RE-BOOT! | 天使☆纷扰 RE-BOOT!"
+    },
+    "Tenshi☆Souzou RE-BOOT! [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 476,
+        "Offset": 661,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "BAEAAwUC",
+        "EvenBranchOrder": "AwQBAgYABwU=",
+        "IndexKey1": {
+            "Key": "FqO3qONnzpBU5/v8BwrF0GjlAyqv5S13X1yOaRySM0w=",
+            "Nonce": "BnLxK6kr3r0ypcrlHVPnzw=="
+        },
+        "IndexKey2": {
+            "Key": "ck3EgecQJMU+2e4qFnTznK7EDg1V/7EeYP5uH33MQSg=",
+            "Nonce": "Ui8g0KjkQuhaHotN6tKNow=="
+        },
+        "FilterKey": 963735915407649977,
+        "RandomType": 1,
+        "ControlBlockName": "tenshi_souzou_steam.bin",
+        "Title": "天使☆騒々 RE-BOOT! [Steam] | 天使☆嚣嚣 RE-BOOT! | Angelic☆Chaos RE-BOOT! | 天使☆囂囂 RE-BOOT!"
+    },
     "Tettei Anal Chiiku": {
         "$type": "HashCrypt",
         "Title": "徹底アナル恥育 ～こっちが、気持ち良すぎて…～"
@@ -2902,6 +2942,26 @@
     "Tsuma to Musuko ni Barete": {
         "$type": "HashCrypt",
         "Title": "妻と息子にバレてはいけない背徳の媚熱 ～あやまちの密愛2～"
+    },
+    "Tsumugi no Hanayome": {
+        "$type": "HxCrypt",
+        "Mask": 432,
+        "Offset": 527,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AAEDBAUC",
+        "EvenBranchOrder": "AQUHBAMABgI=",
+        "IndexKey1": {
+            "Key": "eazfOWWl+lau8amud39rXVnn2pYhOaRA3PbJV5xWQqM=",
+            "Nonce": "9pqMYePsq382dCBwbU7akA=="
+        },
+        "IndexKey2": {
+            "Key": "Z8fwb+amqGZYsmc6afAhoRHaqVuK7N4xCYY///fwyBk=",
+            "Nonce": "gob4bQ6Y1aH8/PU1w/A49A=="
+        },
+        "FilterKey": 6247673544962084162,
+        "RandomType": 1,
+        "ControlBlockName": "tsumugi.bin",
+        "Title": "紬の花嫁"
     },
     "Tsundere Itoko to Koakuma ...": {
         "$type": "DieselmineCrypt",
@@ -3132,5 +3192,24 @@
         "EvenBranchOrder": "BgMAAgUBBwQ=",
         "ControlBlockName": "zutto.bin",
         "Title": "ずっとすきしてたくさんすきして | 挚爱随行_倾慕相伴"
+    },
+    "Zwei Trigger": {
+        "$type": "HxCrypt",
+        "Mask": 737,
+        "Offset": 261,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AQUABAMC",
+        "EvenBranchOrder": "AwYHAgAFAQQ=",
+        "IndexKey1": {
+            "Key": "D2cNmNovMSogaZlKIY5hKTuE3sMryluc6JE1qDeK0s0=",
+            "Nonce": "rvFLPxRYKVIVdF9GhssHFQ=="
+        },
+        "IndexKey2": {
+            "Key": "l3/tREcnVAwCHjxdGJ2lPLrJi9sm1WkPWxzkLWFgAfI=",
+            "Nonce": "MhBpPc/mQ1l2sqrv+xzbqA=="
+        },
+        "FilterKey": 13797005803164086474,
+        "ControlBlockName": "zwei.bin",
+        "Title": "ツヴァイトリガー"
     }
 }
