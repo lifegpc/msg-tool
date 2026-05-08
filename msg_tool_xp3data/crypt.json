@@ -2651,6 +2651,26 @@
         "ControlBlockName": "shiniyuku.bin",
         "Title": "死に逝く君、館に芽吹く憎悪 | 濒死轮回的卿于馆中萌生的憎恶"
     },
+    "Shiniyuku Kishi, Isekai ni Hibiku Danmatsuma": {
+        "$type": "HxCrypt",
+        "Mask": 284,
+        "Offset": 389,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BQABBAID",
+        "EvenBranchOrder": "AQYFAAcCBAM=",
+        "IndexKey1": {
+            "Key": "pWVnGBsl5MFeR3EH2yJwHx2ZvHkWDxQhIhODqqdxMMo=",
+            "Nonce": "JClYlfgFkP8dN6oa3iOrAw=="
+        },
+        "IndexKey2": {
+            "Key": "kUUY3z8D94i85yssB5xRBZmSiKRNABPPAl88Qtf7Ix0=",
+            "Nonce": "+Hg91OLLC9E4ET7YbHMHsA=="
+        },
+        "FilterKey": 14361241883570560968,
+        "RandomType": 1,
+        "ControlBlockName": "mashiro.bin",
+        "Title": "死に逝く騎士、異世界に響く断末魔 | 濒死的骑士，于异世界中响彻的绝唱"
+    },
     "Shirokoi Sakura * Gram LF": {
         "$type": "HxCrypt",
         "Mask": 674,
