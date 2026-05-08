@@ -2017,6 +2017,25 @@
         "Seed": 705275717,
         "Title": "如月真綾の誘惑 | 如月真绫的指导"
     },
+    "One Room -Yui Hanasaka Memorial-": {
+        "$type": "HxCrypt",
+        "Mask": 587,
+        "Offset": 239,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AwUEAQIA",
+        "EvenBranchOrder": "AwECAAQGBwU=",
+        "IndexKey1": {
+            "Key": "GMdE+58BMd/ziJKurBxST5M02R7yrgey9d3rTIo9X9s=",
+            "Nonce": "L1Cb7dAUKnO2FJpxr/RFRA=="
+        },
+        "IndexKey2": {
+            "Key": "+9Dzus/2sl9Sc8mgtCNKmxZrAHfAJO5YXop2bA+b6aI=",
+            "Nonce": "/RuYJjyWDUaiZzwaVh3YMg=="
+        },
+        "FilterKey": 13306018283334067101,
+        "ControlBlockName": "one_room.bin",
+        "Title": "One Room ー花坂結衣メモリアルー | One Room ー花坂结衣 回忆篇ー | One Room ー花坂結衣 回憶篇ー"
+    },
     "Oni no Wakusei": {
         "$type": "MadoCrypt",
         "Seed": 0,
@@ -2408,6 +2427,26 @@
         "ControlBlockName": "sabbat.bin",
         "Title": "サノバウィッチ [English] | 魔女的夜宴 [English]"
     },
+    "Sabbat of the Witch [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 550,
+        "Offset": 456,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "BQABAgQD",
+        "EvenBranchOrder": "AQYDBwAEAgU=",
+        "IndexKey1": {
+            "Key": "bK10kg/GukoedZMLuTe126j/PQaio6CafBLYKzyl094=",
+            "Nonce": "k20dSjrgCJCb6T7uesj8Pg=="
+        },
+        "IndexKey2": {
+            "Key": "5mYupLUMzQg9VuE+C9Uu86dQSAUszHfVfRvFqHPgvxQ=",
+            "Nonce": "/v6CC1cGDlC3zCWA2wTZkw=="
+        },
+        "FilterKey": 11597933590262878937,
+        "RandomType": 1,
+        "ControlBlockName": "sabbat_steam.bin",
+        "Title": "サノバウィッチ [Steam] | 魔女的夜宴 [Steam]"
+    },
     "Saikyou Chikan Densha": {
         "$type": "FlyingShineCrypt",
         "Title": "埼狂痴漢電車～7人の獲物達～"
@@ -2569,6 +2608,26 @@
     "Shokushu Ouji no Nikuyome Sagashi": {
         "$type": "HashCrypt",
         "Title": "触手王子の肉嫁探し～母と姉弟の終わらない絶頂地獄～"
+    },
+    "Shoujo☆Kageki Revue Starlight Butai Souzougeki Harukanaru El Dorado": {
+        "$type": "HxCrypt",
+        "Mask": 735,
+        "Offset": 524,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AAMBBAUC",
+        "EvenBranchOrder": "AQUEAAIGBwM=",
+        "IndexKey1": {
+            "Key": "Kz+Cx+uFfBos3Hi9Hcktkejh2G3aVOaMaHwTDAz8+pI=",
+            "Nonce": "cKQOo+wFBZesrRS8iXB8Dw=="
+        },
+        "IndexKey2": {
+            "Key": "Kvre1P6r/gIU+b9L6jccmTv2TG6I3YnmPA+9evAuSc8=",
+            "Nonce": "AxpVAnZnnlq3l1qJX8qYsA=="
+        },
+        "FilterKey": 5722300531391807285,
+        "RandomType": 1,
+        "ControlBlockName": "revue_starlight.bin",
+        "Title": "少女☆歌劇 レヴュースタァライト　舞台奏像劇　遥かなるエルドラド | 少女☆歌剧 Revue Starlight 舞台奏像剧 遥远的黄金国 | 少女☆歌劇 Revue Starlight 舞台奏像劇 遙遠的黃金國"
     },
     "Shoujo to Toshi no Sa, Futamawari.": {
         "$type": "AkabeiCrypt",
