@@ -1923,6 +1923,26 @@
         "$type": "ChainReactionCrypt",
         "Title": "なかだし孕メイド | なかだし孕メイド2"
     },
+    "Nanagane Gakuen -Ryokou Bu-": {
+        "$type": "HxCrypt",
+        "Mask": 338,
+        "Offset": 517,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AQIFAwQA",
+        "EvenBranchOrder": "BAUBBgACBwM=",
+        "IndexKey1": {
+            "Key": "CBN5fBSsGLZ2iLCy9hDgWsbekzTuYddEQFtpvSIe4MA=",
+            "Nonce": "Kg2ggv+mS8LVlpf6KWPVaw=="
+        },
+        "IndexKey2": {
+            "Key": "q7YHH8xlh5hNEKYr1iJjqt+VArIMAOA4BRC9hWMPkw8=",
+            "Nonce": "WLk+apNvhRbzQtHg2vbCZg=="
+        },
+        "FilterKey": 11316787120640952725,
+        "RandomType": 1,
+        "ControlBlockName": "nanagane.bin",
+        "Title": "七ヶ音学園 -旅行部- | 七音学园-旅行部- | 七ヶ音学園 旅行部 -Tour:01 伊香保編- | 七ヶ音学園 旅行部 -Tour:02 Hakone編- | 七ヶ音学園 旅行部 -Tour:02 箱根編- | 七ヶ音学園 旅行部 -Tour:03 Kinugawa編- | 七ヶ音学園 旅行部 -Tour:03 鬼怒川編- | 七ヶ音学園 旅行部 -Tour:04 Kusatsu編-"
+    },
     "Nantai Lesson": {
         "$type": "HashCrypt",
         "Title": "軟体レッスン ～いいなり彼女とひみつの放課後～"
