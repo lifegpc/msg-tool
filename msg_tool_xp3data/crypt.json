@@ -1118,6 +1118,25 @@
         "ZeroXor": 60,
         "Title": "妹のセイイキ | 妹的圣域 | My Little Sister's Special Place"
     },
+    "Imouto no Seiiki [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 278,
+        "Offset": 561,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "AgAEAwUB",
+        "EvenBranchOrder": "AQAFAgQGAwc=",
+        "IndexKey1": {
+            "Key": "K2EqxODU10hoRKqldSGFJENrfQYBlpUqZzlYoh90V6c=",
+            "Nonce": "UDUZ91Uxj3Fjs8sQ8lYR0A=="
+        },
+        "IndexKey2": {
+            "Key": "90yheWbHPG3fCuhFAPRuDptMeFa2AqN6tVgH0EAGADg=",
+            "Nonce": "hp4Va5Ob6TFw1rM5BvAi7A=="
+        },
+        "FilterKey": 15541106825778549259,
+        "ControlBlockName": "imouto_no_seiiki.bin",
+        "Title": "妹のセイイキ [Steam] | 妹的圣域 [Steam] | My Little Sister's Special Place [Steam]"
+    },
     "Imouto Shokushu Rape": {
         "$type": "HashCrypt",
         "Title": "妹触手レイプ ～復讐の処女貫通～"
@@ -1309,6 +1328,25 @@
         "$type": "FlyingShineCrypt",
         "Title": "完熟☆さくらん棒ッ！ ～ヒキオタ達の姉妹交換～"
     },
+    "Kanojo no Seiiki [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 370,
+        "Offset": 742,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AAQCAwUB",
+        "EvenBranchOrder": "AAEFBAMCBgc=",
+        "IndexKey1": {
+            "Key": "qir15o7xqdIOXX3B7VDV7VbJpc1FkGHDsvadezFkz8I=",
+            "Nonce": "EWEtNnRO8fpfw2vimAU87Q=="
+        },
+        "IndexKey2": {
+            "Key": "zwXhUYI786KuhNhtc9fhFmL6vc47/RtwdspjbjR1qVA=",
+            "Nonce": "Oc0k3IC3FK44RNDeWjEtnQ=="
+        },
+        "FilterKey": 8075976896737559784,
+        "ControlBlockName": "kanojo.bin",
+        "Title": "彼女のセイイキ [Steam] | 她的圣域 [Steam] | My Girlfriend’s Special Place [Steam]"
+    },
     "Kanojo-tachi no Taboo": {
         "$type": "FlyingShineCrypt",
         "Title": "彼女たちの禁忌"
@@ -1356,6 +1394,26 @@
         "EvenBranchOrder": "BwAFAwECBgQ=",
         "ControlBlockName": "karenai_dl.bin",
         "Title": "枯れない世界と終わる花  ダウンロード版 | 永不枯萎的世界与终焉之花 下载版 | 不败世界与终焉之花 下载版 | 永不枯萎的世界与终结之花 下载版"
+    },
+    "Karenai Sekai to Owaru Hana [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 677,
+        "Offset": 164,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AwQCAQUA",
+        "EvenBranchOrder": "AwYBAgcABQQ=",
+        "IndexKey1": {
+            "Key": "LHWF9uCXwlvjHgcZnILV/pi2aa/TxZ4JGBNUiLtniSM=",
+            "Nonce": "IZlab+1A+41FFuIsXJDDLg=="
+        },
+        "IndexKey2": {
+            "Key": "wgAUHDsy4lImUxaZIyFYDgmw3bhKGdSkU32EPQel380=",
+            "Nonce": "qPYnDhhjpa6T2qGv0FuBrg=="
+        },
+        "FilterKey": 6346107963787534757,
+        "RandomType": 1,
+        "ControlBlockName": "karenai_steam.bin",
+        "Title": "枯れない世界と終わる花 [Steam] | 永不枯萎的世界与终焉之花 [Steam] | 不败世界与终焉之花 [Steam] | 永不枯萎的世界与终结之花 [Steam]"
     },
     "Kareshi ni Naisho de Kairaku Ochi": {
         "$type": "HashCrypt",
