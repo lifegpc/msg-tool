@@ -1805,6 +1805,44 @@
         "ControlBlockName": "heapps.bin",
         "Title": "吹弹！丰盈！波涛汹涌 超情色APP学院"
     },
+    "Motto! Haramase! Honoo no Oppai Isekai Chou Ero ♥ Succubus Gakuen! [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 654,
+        "Offset": 122,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "BQAEAgMB",
+        "EvenBranchOrder": "BwUEBgMBAgA=",
+        "IndexKey1": {
+            "Key": "i1ctYviZ5XkpQhaHMprz36/5UaA9h7nQOCyKH8PWh98=",
+            "Nonce": "0iIEHKSQKWK6Uz/NSV85ng=="
+        },
+        "IndexKey2": {
+            "Key": "WHw/D4lgpKS2LNUrQxUTscFm3dj9WbNDxfdiw9A0UBY=",
+            "Nonce": "yJr/Yp3kjTsb2YaoBJMBGQ=="
+        },
+        "FilterKey": 13118974354489149403,
+        "ControlBlockName": "hsuc_steam.bin",
+        "Title": "もっと！孕ませ！炎のおっぱい異世界超エロ♥サキュバス学園！ [Steam] | 吹弹！丰盈！波涛汹涌！异世界魅魔学园！ [Steam]"
+    },
+    "Motto! Haramase! Honoo no Oppai Isekai Oppai Maid Gakuen!": {
+        "$type": "HxCrypt",
+        "Mask": 286,
+        "Offset": 294,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AwIABQEE",
+        "EvenBranchOrder": "BAIBBwMGBQA=",
+        "IndexKey1": {
+            "Key": "OVOMqVVUZnvvWJU4JZNwFbx2ki6lrWNmiARZj64Iln8=",
+            "Nonce": "AqCXRx8EFAvyLgcm0npE+Q=="
+        },
+        "IndexKey2": {
+            "Key": "B2XiVHBHX0fU7uh4A8jPJS9JIzsn/8pVWZA4frhR3Io=",
+            "Nonce": "oInrG+15PUT6xsyUn6CIBg=="
+        },
+        "FilterKey": 13526430537022616377,
+        "ControlBlockName": "hmaid.bin",
+        "Title": "もっと！孕ませ！炎のおっぱい異世界おっぱいメイド学園！ | 吹弹！丰盈！波涛汹涌！异世界女仆学园！"
+    },
     "Muchimuchi Dekapai Mara Gui Maou-sama": {
         "$type": "PoringSoftCrypt",
         "Title": "ムチムチデカパイマラ喰い魔王様とおんぼろ四畳半同棲生活 | 与爆乳魔王的同居生活"
