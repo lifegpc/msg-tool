@@ -2573,6 +2573,26 @@
         "ControlBlockName": "shiniyuku.bin",
         "Title": "死に逝く君、館に芽吹く憎悪 | 濒死轮回的卿于馆中萌生的憎恶"
     },
+    "Shirokoi Sakura * Gram LF": {
+        "$type": "HxCrypt",
+        "Mask": 674,
+        "Offset": 740,
+        "PrologOrder": "AgAB",
+        "OddBranchOrder": "AAMEBQEC",
+        "EvenBranchOrder": "AgEDAAcFBgQ=",
+        "IndexKey1": {
+            "Key": "gOksCLZ4SlCXM0TfMTjN1KhLjuxGZ2XcFDlpsJJfYTc=",
+            "Nonce": "MoiinS0Up9bY8HJJz4XnXw=="
+        },
+        "IndexKey2": {
+            "Key": "CCVy5iU0jI19gk6RxVCAOz3dsWrhYVsvJxLfISL817M=",
+            "Nonce": "v8fK5ZGaCcqAK7phOxFGvw=="
+        },
+        "FilterKey": 15155486706323991924,
+        "RandomType": 1,
+        "ControlBlockName": "shirokoi.bin",
+        "Title": "白恋サクラ＊グラムＬＦ"
+    },
     "Shirouto Yanmama, Kosatsu AV Debut": {
         "$type": "HashCrypt",
         "Title": "素人ヤンママ、個撮AVデビュー ～見てな、女はド胸だぜ！～"
