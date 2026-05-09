@@ -1755,6 +1755,26 @@
         "ControlBlockName": "limelight.bin",
         "Title": "ライムライト・レモネードジャム | 聚光灯下的青柠恋曲 | 橘光柠水随想曲"
     },
+    "Limelight Lemonade Jam [Trial]": {
+        "$type": "HxCrypt",
+        "Mask": 430,
+        "Offset": 117,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BAIDAAUB",
+        "EvenBranchOrder": "BgUAAQQCAwc=",
+        "IndexKey1": {
+            "Key": "ocNsSeq68XOYJS1FB/nZrfQRAi2IJQnRaK5+lRhMccM=",
+            "Nonce": "v58U8g+7bl/4vA2uHXzoLA=="
+        },
+        "IndexKey2": {
+            "Key": "G/KSIrp6QoDc3jIRhjiWz5+M3iGGLv1yyA5BNTeMWCc=",
+            "Nonce": "gMBXsw0WbpfZddY2y6AejQ=="
+        },
+        "FilterKey": 1791903277670846263,
+        "RandomType": 1,
+        "ControlBlockName": "tenshi_souzou.bin",
+        "Title": "ライムライト・レモネードジャム [Trial]"
+    },
     "Little Hole": {
         "$type": "HashCrypt",
         "Title": "りとるほーる ～俺の娘がこんなに……なハズがない | Littlehole～我的女儿不可能这么……"
@@ -2016,6 +2036,25 @@
         "FilterKey": 13118974354489149403,
         "ControlBlockName": "hsuc_steam.bin",
         "Title": "もっと！孕ませ！炎のおっぱい異世界超エロ♥サキュバス学園！ [Steam] | 吹弹！丰盈！波涛汹涌！异世界魅魔学园！ [Steam]"
+    },
+    "Motto! Haramase! Honoo no Oppai Isekai Oppai Bunny Gakuen!": {
+        "$type": "HxCrypt",
+        "Mask": 286,
+        "Offset": 294,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "AwIABQEE",
+        "EvenBranchOrder": "BAIBBwMGBQA=",
+        "IndexKey1": {
+            "Key": "OVOMqVVUZnvvWJU4JZNwFbx2ki6lrWNmiARZj64Iln8=",
+            "Nonce": "AqCXRx8EFAvyLgcm0npE+Q=="
+        },
+        "IndexKey2": {
+            "Key": "B2XiVHBHX0fU7uh4A8jPJS9JIzsn/8pVWZA4frhR3Io=",
+            "Nonce": "oInrG+15PUT6xsyUn6CIBg=="
+        },
+        "FilterKey": 13526430537022616377,
+        "ControlBlockName": "hmaid.bin",
+        "Title": "もっと！孕ませ！炎のおっぱい異世界おっぱいバニー学園！ | 吹弹！丰盈！波涛汹涌！异世界兔女郎学园！"
     },
     "Motto! Haramase! Honoo no Oppai Isekai Oppai Maid Gakuen!": {
         "$type": "HxCrypt",
