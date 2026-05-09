@@ -1522,7 +1522,7 @@ dependencies = [
 
 [[package]]
 name = "msg_tool"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.2"
 dependencies = [
  "adler",
  "aes",
@@ -1588,7 +1588,9 @@ dependencies = [
 
 [[package]]
 name = "msg_tool_build"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8386042ba7f224865098b365961d45df240b4f43ac6c8e279d16616ae25188ae"
 dependencies = [
  "json",
  "zstd",
@@ -1606,7 +1608,9 @@ dependencies = [
 
 [[package]]
 name = "msg_tool_xp3data"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2406845429faea2b0e50e5ab0e5b58e10758cdd24de5dc0b372fb021f9596448"
 dependencies = [
  "msg_tool_build",
  "zstd",
