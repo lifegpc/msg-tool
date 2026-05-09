@@ -1340,6 +1340,25 @@
         "ControlBlockName": "kakenuke.bin",
         "Title": "かけぬけ★青春スパーキング！ | 闪耀青春追逐记 | 绽放★青春全力向前冲！"
     },
+    "Kakenuke★Seishun Sparking! [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 542,
+        "Offset": 321,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AwQFAQAC",
+        "EvenBranchOrder": "BAcBAgYABQM=",
+        "IndexKey1": {
+            "Key": "Hx286czQYm3v49xtEKAJDVhJRXFFzyLgEBMxIyN+aU4=",
+            "Nonce": "cuV+DmRI0BoQxlMWbaG2Tw=="
+        },
+        "IndexKey2": {
+            "Key": "WVhAiax1KnmSIZ2nFYEkHxzTA9CuWdYNtYFfTYkLEHY=",
+            "Nonce": "tTAeQEUpp79EMp3dLsw89Q=="
+        },
+        "FilterKey": 11274333183157951907,
+        "ControlBlockName": "kakenuke_steam.bin",
+        "Title": "かけぬけ★青春スパーキング！ [Steam] | 闪耀青春追逐记 [Steam] | 绽放★青春全力向前冲！ [Steam]"
+    },
     "Kamaitachi no Yoru": {
         "$type": "AkabeiCrypt",
         "Seed": 3854429322,
@@ -1530,6 +1549,26 @@
         "EvenBranchOrder": "BQQBAAcGAgM=",
         "ControlBlockName": "kinomino.bin",
         "Title": "きのみの～コスプレ研へようこそ～"
+    },
+    "Kin'iro Loveriche -Golden Time- [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 320,
+        "Offset": 535,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AAMFAQIE",
+        "EvenBranchOrder": "AgMABAYHBQE=",
+        "IndexKey1": {
+            "Key": "zXBLgAxQ3T9uOESJlg3M2sGsbS5Y13+yi88ErKdbZBw=",
+            "Nonce": "KyK+CT22FG+JEaJuwN9w5w=="
+        },
+        "IndexKey2": {
+            "Key": "l7QxbOQVHs9sSt06uV0HtHAIVFEwBXNghqZBdGlyQbs=",
+            "Nonce": "QYy5usMOnkLL72yJteL2yA=="
+        },
+        "FilterKey": 3850758355569151235,
+        "RandomType": 1,
+        "ControlBlockName": "kinkoi.bin",
+        "Title": "金色ラブリッチェ-Golden Time- [Steam] | 金辉恋曲四重奏 -Golden Time- [Steam] | 金輝戀曲四重奏 -Golden Time- [Steam] | Kinkoi: Golden Time [Steam]"
     },
     "Kioku no Kenban": {
         "$type": "HxCrypt",
