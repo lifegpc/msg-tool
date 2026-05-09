@@ -169,7 +169,7 @@
         "FilterKey": 375708990042069900,
         "RandomType": 1,
         "ControlBlockName": "amb.bin",
-        "Title": "AMBITIOUS MISSION After Episode 1 | AMBITIOUS MISSION アフターエピソード1 かぐや＆あてな | Ambitious Mission FD1"
+        "Title": "AMBITIOUS MISSION After Episode 1 | AMBITIOUS MISSION アフターエピソード1 かぐや＆あてな | Ambitious Mission FD1 | AMBITIOUS MISSION After Episode 2 | AMBITIOUS MISSION アフターエピソード2 弥栄＆虹夢＆シャル | Ambitious Mission FD2"
     },
     "Anata no Milk Kudasai na": {
         "$type": "HashCrypt",
@@ -447,6 +447,25 @@
         "EvenBranchOrder": "AgUGBAEDBwA=",
         "ControlBlockName": "cross_concerto.bin",
         "Title": "クロスコンチェルト | 交汇协奏曲 | 交匯協奏曲"
+    },
+    "Cross Concerto [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 419,
+        "Offset": 672,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "BQMCBAAB",
+        "EvenBranchOrder": "BAYFAwEHAAI=",
+        "IndexKey1": {
+            "Key": "4zkCZXjuoZjkGC/cFYMe6Z+ug02zzTTZKyR4oD1ueFo=",
+            "Nonce": "5qt4TN36tMGmEBMI/DfW4g=="
+        },
+        "IndexKey2": {
+            "Key": "M5ZSQqpL6iNu7/U1HgwibnxYeZl91RTqDFIYCjJzAkw=",
+            "Nonce": "jpC7jZU94OXGvolnsYsv/A=="
+        },
+        "FilterKey": 13075187967257391719,
+        "ControlBlockName": "cross_concerto_steam.bin",
+        "Title": "クロスコンチェルト [Steam] | 交汇协奏曲 [Steam] | 交匯協奏曲 [Steam]"
     },
     "Custom Reido 4/4+/V": {
         "$type": "HashCrypt",
