@@ -862,6 +862,9 @@ pub enum Command {
         input: String,
         /// Output directory
         output: Option<String>,
+        #[arg(short = 's', long)]
+        /// Skip unpack if file already exists
+        skip_existed: bool,
     },
     /// Create a new script file
     Create {

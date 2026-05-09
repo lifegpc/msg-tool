@@ -2736,6 +2736,7 @@ pub fn unpack_archive(
     config: std::sync::Arc<types::ExtraConfig>,
     output: &Option<String>,
     root_dir: Option<&std::path::Path>,
+    skip_existed: bool,
 ) -> anyhow::Result<types::ScriptResult> {
     eprintln!("Unpacking {}", filename);
     let script = parse_script(filename, arg, config)?.0;
@@ -2785,6 +2786,10 @@ pub fn unpack_archive(
                 continue;
             }
         };
+        let out_path = std::path::PathBuf::from(&odir).join(&filename);
+        if skip_existed && out_path.exists() {
+            continue;
+        }
         let mut f = match script.open_file(index) {
             Ok(f) => f,
             Err(e) => {
@@ -2796,7 +2801,6 @@ pub fn unpack_archive(
                 continue;
             }
         };
-        let out_path = std::path::PathBuf::from(&odir).join(f.name());
         match utils::files::make_sure_dir_exists(&out_path) {
             Ok(_) => {}
             Err(e) => {
@@ -3689,7 +3693,11 @@ fn main() {
                 eprintln!("Error packing archive: {}", e);
             }
         }
-        args::Command::Unpack { input, output } => {
+        args::Command::Unpack {
+            input,
+            output,
+            skip_existed,
+        } => {
             let (scripts, is_dir) = utils::files::collect_arc_files(input, arg.recursive).unwrap();
             if is_dir {
                 match &output {
@@ -3715,7 +3723,8 @@ fn main() {
                 None
             };
             for script in scripts.iter() {
-                let re = unpack_archive(&script, &arg, cfg.clone(), output, root_dir);
+                let re =
+                    unpack_archive(&script, &arg, cfg.clone(), output, root_dir, *skip_existed);
                 match re {
                     Ok(s) => {
                         COUNTER.inc(s);
