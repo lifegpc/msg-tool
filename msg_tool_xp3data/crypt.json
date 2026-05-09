@@ -488,6 +488,26 @@
         "Key": 118,
         "Title": "ダウニャーさんと飼い主くん"
     },
+    "D.C. ~Da Capo~ Re:tune": {
+        "$type": "HxCrypt",
+        "Mask": 627,
+        "Offset": 376,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "AwQAAQIF",
+        "EvenBranchOrder": "AgYDAQAEBQc=",
+        "IndexKey1": {
+            "Key": "DlqoF4maM1Z8MKSdByvIHc3Sh1ljPpdFIkSgxmsDrNs=",
+            "Nonce": "RVTs4yTOcWEYtU5xmya3AQ=="
+        },
+        "IndexKey2": {
+            "Key": "szigb8ErozYQ5+RCjIOJygNCtBiuanflKH42B+Qf5ls=",
+            "Nonce": "7GaPx+/184hhLrVvHm1Nbw=="
+        },
+        "FilterKey": 8149033040054710094,
+        "RandomType": 1,
+        "ControlBlockName": "dc_re.bin",
+        "Title": "D.C. Re:tune ～ダ・カーポ～"
+    },
     "D.C.5 ~Da Capo 5~": {
         "$type": "HxCrypt",
         "Mask": 742,
