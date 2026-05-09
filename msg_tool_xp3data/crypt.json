@@ -1729,6 +1729,26 @@
         "$type": "HashCrypt",
         "Title": "黒ギャル娘との淫欲相姦～翻弄される父親の性欲～"
     },
+    "Lilja to Natsuka no Junpaku na Uso": {
+        "$type": "HxCrypt",
+        "Mask": 296,
+        "Offset": 707,
+        "PrologOrder": "AgEA",
+        "OddBranchOrder": "AwIEBQEA",
+        "EvenBranchOrder": "AgMAAQYEBwU=",
+        "IndexKey1": {
+            "Key": "pKdWyFnCIIobpC2EpB7ijyA7z5qED1w8/2DJPioBvPY=",
+            "Nonce": "imwvII7w8Hg4Hfe4ytmgXQ=="
+        },
+        "IndexKey2": {
+            "Key": "QRajy2T7LUMrPJGixAGJrx9Bd/axwbsq7KXm/9CnS/0=",
+            "Nonce": "F+cF29yBB36PA0A3xwRL/g=="
+        },
+        "FilterKey": 16559096895271528110,
+        "RandomType": 1,
+        "ControlBlockName": "lilja.bin",
+        "Title": "リルヤとナツカの純白な嘘 | 丽露娅与夏夏的纯白谎言"
+    },
     "Limelight Lemonade Jam": {
         "$type": "HxCrypt",
         "Mask": 738,
@@ -1774,6 +1794,25 @@
         "RandomType": 1,
         "ControlBlockName": "tenshi_souzou.bin",
         "Title": "ライムライト・レモネードジャム [Trial]"
+    },
+    "Lip lipples": {
+        "$type": "HxCrypt",
+        "Mask": 404,
+        "Offset": 636,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AwECBQQA",
+        "EvenBranchOrder": "AgEABwUEBgM=",
+        "IndexKey1": {
+            "Key": "RnsoWUSxYbh9m0rk3/lXTnV/ykHAn8F0ZoRpfw/1Fj8=",
+            "Nonce": "P8Y46Npe3ujwvPmIBqFMKA=="
+        },
+        "IndexKey2": {
+            "Key": "74rmu1sZemZBNL+nKFhCp24wzeFAbIB01FNgCd5axKI=",
+            "Nonce": "AgawkUEt1hFMYM0qq90/pg=="
+        },
+        "FilterKey": 2172929777402632173,
+        "ControlBlockName": "lip_lipples.bin",
+        "Title": "リップリップルズ | 唇心絮语"
     },
     "Little Hole": {
         "$type": "HashCrypt",

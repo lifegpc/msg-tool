@@ -2003,6 +2003,7 @@ impl PathHash {
 }
 
 #[derive(Clone, Deserialize)]
+#[allow(unused)]
 struct KeyPackage {
     description: String,
     sku: String,
@@ -2015,11 +2016,13 @@ struct CxdecDb {
     file_hash_salt: String,
     /// xp3 filename -> path hash -> file hash -> file name
     file_list: HashMap<String, HashMap<PathHash, HashMap<FileHash, Option<String>>>>,
+    #[allow(unused)]
     #[serde(default)]
     key_packages: Vec<KeyPackage>,
     #[allow(unused)]
     path_hash_salt: String,
     path_mapping: HashMap<PathHash, Option<String>>,
+    #[allow(unused)]
     project_name: String,
 }
 
