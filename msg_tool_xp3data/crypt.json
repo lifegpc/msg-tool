@@ -762,6 +762,25 @@
         "ControlBlockName": "gakuen.bin",
         "Title": "学園特救ホトケンサー"
     },
+    "Gaman ga Dekinai Doutei Aniki to, Sunao ni Narenai Hankou Imouto": {
+        "$type": "HxCrypt",
+        "Mask": 449,
+        "Offset": 343,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "BQMABAEC",
+        "EvenBranchOrder": "AAIGBwMEBQE=",
+        "IndexKey1": {
+            "Key": "99v+5SncyYee3mNqFd6H2GpDl8do5wBEt/C9zsjFCgs=",
+            "Nonce": "RT13HdErjynGD4h2PVR3hw=="
+        },
+        "IndexKey2": {
+            "Key": "KLFpmsYFungwTrpejRgOd9p41AxwG8HW3voKMCF1ypQ=",
+            "Nonce": "H1MHXQlZqY/KLNUWtbuSIA=="
+        },
+        "FilterKey": 4740279370725804885,
+        "ControlBlockName": "gaman_ga.bin",
+        "Title": "ガマンができない童貞兄キと、スナオになれない反抗妹 | 无法忍耐的处男哥哥和不直率的叛逆妹妹"
+    },
     "Ganki Tengoku": {
         "$type": "DieselmineCrypt",
         "Title": "顔騎天国"
@@ -923,6 +942,25 @@
         "FilterKey": 3973740848023794385,
         "ControlBlockName": "hanataba.bin",
         "Title": "花束を君に贈ろう-Kinsenka- | 将花朵献与你-Kinsenka-"
+    },
+    "Hana no No ni Saku Utakata no [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 419,
+        "Offset": 672,
+        "PrologOrder": "AQAC",
+        "OddBranchOrder": "BQMCBAAB",
+        "EvenBranchOrder": "BAYFAwEHAAI=",
+        "IndexKey1": {
+            "Key": "4zkCZXjuoZjkGC/cFYMe6Z+ug02zzTTZKyR4oD1ueFo=",
+            "Nonce": "5qt4TN36tMGmEBMI/DfW4g=="
+        },
+        "IndexKey2": {
+            "Key": "Ywj/m6IqgrXKCpre5vFcQ0TBvuqV3bady9f7IQcwn4s=",
+            "Nonce": "zaoJjNJ6BxznFOp9UA2/Sw=="
+        },
+        "FilterKey": 499580805522791939,
+        "ControlBlockName": "cross_concerto_steam.bin",
+        "Title": "花の野に咲くうたかたの [Steam] | 五色浮影绽放于花之海洋 [Steam] | 五色浮影綻放於花之海洋[Steam]"
     },
     "Haniwari! Sayaka Ojou-sama": {
         "$type": "FlyingShineCrypt",
@@ -2304,6 +2342,26 @@
         "ControlBlockName": "otome.bin",
         "Title": "オトメ＊ドメイン | 少女＊领域 | 少女领域"
     },
+    "Otome Sekai no Arukikata": {
+        "$type": "HxCrypt",
+        "Mask": 690,
+        "Offset": 55,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AAQDBQIB",
+        "EvenBranchOrder": "BwMABAUBAgY=",
+        "IndexKey1": {
+            "Key": "nusw7LIiDz9Q2agtWea5YcTjTe4xmEQTJndWEjIebBA=",
+            "Nonce": "9YYQEqJeapFVVDHCe83Aww=="
+        },
+        "IndexKey2": {
+            "Key": "iDsP8jNEVHet/Ah2B4GRj9DH36U2vIEtlLorh95xHF0=",
+            "Nonce": "TfgM+JX5aUWonK4JTYeL6A=="
+        },
+        "FilterKey": 7642681189590852662,
+        "RandomType": 1,
+        "ControlBlockName": "otome_sekai.bin",
+        "Title": "オトメ世界の歩き方 | 少女世界的生存之道"
+    },
     "Otto ni Ienai Gifu to no Kan'in": {
         "$type": "HashCrypt",
         "Title": "夫に言えない義父との姦淫 ～嫌なのに忘れられなくなりそう～"
@@ -2544,6 +2602,25 @@
     "Riding Incubus": {
         "$type": "PoringSoftCrypt",
         "Title": "らいでぃんぐ いんきゅばす"
+    },
+    "Role player: Ikura Shimai no Nenmaku Portrait - Gurigucha LIVE!": {
+        "$type": "HxCrypt",
+        "Mask": 582,
+        "Offset": 192,
+        "PrologOrder": "AQIA",
+        "OddBranchOrder": "BAUAAgMB",
+        "EvenBranchOrder": "AwUBBwAEBgI=",
+        "IndexKey1": {
+            "Key": "ue3tGpxBGry+5Xa8tSqqO/7L5GtSTQGmyc2HG7RUJws=",
+            "Nonce": "iJbSlU6BBR8lhGm7YrhaWA=="
+        },
+        "IndexKey2": {
+            "Key": "Kk8Gg6jU8dF5YJKLbZyZP/4Fftqli2nZm2WiZWtO570=",
+            "Nonce": "fjo9r+/F9zdcn+XhLij2+Q=="
+        },
+        "FilterKey": 8786738454613012343,
+        "ControlBlockName": "role_player_ikura.bin",
+        "Title": "Role player：いくら姉妹の粘膜ポトレ ぐりぐちゃLIVE！"
     },
     "Role Player: Okayu Shimai no Nenmaku Portrait - Gurigucha Live!": {
         "$type": "AkabeiCrypt",
