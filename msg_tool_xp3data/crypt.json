@@ -1711,6 +1711,26 @@
         "$type": "HighRunningCrypt",
         "Title": "こづくり温泉～いっぱいつくって一族繁栄!?～"
     },
+    "Kugayama Shiori no Shinizama Techou": {
+        "$type": "HxCrypt",
+        "Mask": 723,
+        "Offset": 641,
+        "PrologOrder": "AAIB",
+        "OddBranchOrder": "BQEDAAIE",
+        "EvenBranchOrder": "AAIEBwUBAwY=",
+        "IndexKey1": {
+            "Key": "8YK7zRlK04icgaH6eJ+FYBNnScyhV39JXxMJTZJyzBo=",
+            "Nonce": "NZE/aLWseaowIVXhYcVIJw=="
+        },
+        "IndexKey2": {
+            "Key": "pVjZcw7W+57FOA2d9yM5JVuzRJ8IIv6o5Un+X0qGXQM=",
+            "Nonce": "RiByogGKLfoxKV9hkF2CUw=="
+        },
+        "FilterKey": 10225107430212255604,
+        "RandomType": 1,
+        "ControlBlockName": "kugayama.bin",
+        "Title": "久我山栞の死様手帖 | 久我山栞的死亡手账"
+    },
     "Kurano-kunchi no Futago Jijou": {
         "$type": "SourireCrypt",
         "Title": "倉野くんちのふたご事情 | 仓野家的双胞胎故事"
