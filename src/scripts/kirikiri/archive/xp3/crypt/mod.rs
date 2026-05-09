@@ -503,6 +503,7 @@ impl Schema {
                 file_list_name.as_ref().map(|s| s.as_str()),
                 config.xp3_file_list_path.as_ref().map(|s| s.as_str()),
                 filename,
+                config,
             )?),
         })
     }

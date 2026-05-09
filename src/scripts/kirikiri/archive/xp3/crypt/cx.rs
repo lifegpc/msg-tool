@@ -1,3 +1,4 @@
+use super::super::{FileHashOption, PathHashOption};
 use super::*;
 use crate::ext::atomic::AtomicQuick;
 use crate::ext::mutex::MutexExt;
@@ -2041,6 +2042,8 @@ pub struct HxCrypt {
     file_mapping: HashMap<FileHash, String>,
     path_mapping: HashMap<PathHash, String>,
     info_map: Mutex<HashMap<String, HxEntry>>,
+    file_hash: FileHashOption,
+    path_hash: PathHashOption,
 }
 
 #[derive(Clone)]
@@ -2145,6 +2148,7 @@ impl HxCrypt {
         file_list_name: Option<&str>,
         file_list_path: Option<&str>,
         filename: &str,
+        config: &ExtraConfig,
     ) -> Result<Self> {
         let p = std::path::Path::new(filename);
         let b = p
@@ -2185,6 +2189,8 @@ impl HxCrypt {
             file_mapping: file_map,
             path_mapping: path_map,
             info_map: Mutex::new(HashMap::new()),
+            file_hash: config.xp3_cxdec_file_hash,
+            path_hash: config.xp3_cxdec_path_hash,
         })
     }
 
@@ -2476,7 +2482,11 @@ impl Crypt for HxCrypt {
                     if info.is_garbage {
                         continue;
                     }
-                    entry.name = format!("{}{}", info.path, info.name);
+                    if self.path_hash == PathHashOption::Both || !info.path_is_hash {
+                        entry.name = format!("{}{}", info.path, info.name);
+                    } else {
+                        entry.name = info.name.clone();
+                    }
                     let info = info.clone();
                     entry.extra = Some(Arc::new(Box::new(info)))
                 }
@@ -2484,6 +2494,23 @@ impl Crypt for HxCrypt {
             archive.entries.retain(|x| {
                 x.extra.is_some() || !info_map.get(&x.name).is_some_and(|x| x.is_garbage)
             });
+            if self.file_hash == FileHashOption::WithName {
+                archive.entries.retain(|x| {
+                    !(x.extra.as_ref().is_some_and(|x| {
+                        x.as_any()
+                            .downcast_ref::<HxEntry>()
+                            .is_some_and(|x| x.name_is_hash)
+                    }))
+                });
+            } else if self.file_hash == FileHashOption::WithoutName {
+                archive.entries.retain(|x| {
+                    x.extra.as_ref().is_some_and(|x| {
+                        x.as_any()
+                            .downcast_ref::<HxEntry>()
+                            .is_some_and(|x| x.name_is_hash)
+                    })
+                });
+            }
         }
         archive.extras.retain(|x| x.tag != "Hxv4");
         Ok(())

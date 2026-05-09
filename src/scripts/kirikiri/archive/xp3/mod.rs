@@ -11,6 +11,7 @@ use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use anyhow::Result;
+use clap::ValueEnum;
 use consts::ZSTD_SIGNATURE;
 use crypt::Crypt;
 pub use crypt::get_supported_games;
@@ -70,6 +71,37 @@ pub fn parse_segmenter_config(str: &str) -> Result<SegmenterConfig> {
             Ok(SegmenterConfig::Fixed(size as usize))
         }
         _ => Err(anyhow::anyhow!("Unknown segmenter type: {}", parts[0])),
+    }
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+/// Control file extract behavior
+pub enum FileHashOption {
+    /// Extract all files
+    Both,
+    /// Extract files that have name
+    WithName,
+    /// Extract files that don't have name
+    WithoutName,
+}
+
+impl Default for FileHashOption {
+    fn default() -> Self {
+        Self::Both
+    }
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PathHashOption {
+    /// Append both hash and normal path name to file name
+    Both,
+    /// Append only normal path name to file name
+    NameOnly,
+}
+
+impl Default for PathHashOption {
+    fn default() -> Self {
+        Self::Both
     }
 }
 

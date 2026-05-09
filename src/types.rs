@@ -657,6 +657,12 @@ pub struct ExtraConfig {
     /// The path to the file list for Kirikiri XP3 archive. This is used to recover file names from hashed values.
     /// Only works with some encyrption methods.
     pub xp3_file_list_path: Option<String>,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Control the behavior to how to extract files from Cxdec3/4(Hxv4) protected archives.
+    pub xp3_cxdec_file_hash: crate::scripts::kirikiri::archive::xp3::FileHashOption,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Control the behavior to how to append path name to files from Cxdec3/4(Hxv4) protected archives.
+    pub xp3_cxdec_path_hash: crate::scripts::kirikiri::archive::xp3::PathHashOption,
 }
 
 #[cfg(feature = "artemis")]

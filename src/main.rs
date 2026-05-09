@@ -3403,6 +3403,10 @@ fn main() {
         emote_pimg_psd_no_diff: arg.emote_pimg_psd_no_diff,
         #[cfg(feature = "kirikiri-arc")]
         xp3_file_list_path: arg.xp3_file_list_path.clone(),
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_cxdec_file_hash: arg.xp3_cxdec_file_hash,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_cxdec_path_hash: arg.xp3_cxdec_path_hash,
     });
     match &arg.command {
         args::Command::Export { input, output } => {
