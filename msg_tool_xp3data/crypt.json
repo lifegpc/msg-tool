@@ -151,7 +151,7 @@
         "TpmFileName": "plugin/AmairoIsleNauts.tpm",
         "Title": "天色＊アイルノーツ | 天色幻想岛"
     },
-    "AMBITIOUS MISSION After Episode 1": {
+    "AMBITIOUS MISSION": {
         "$type": "HxCrypt",
         "Mask": 454,
         "Offset": 656,
@@ -168,8 +168,8 @@
         },
         "FilterKey": 375708990042069900,
         "RandomType": 1,
-        "ControlBlockName": "amb_after_ep1.bin",
-        "Title": "AMBITIOUS MISSION アフターエピソード1 かぐや＆あてな | Ambitious Mission FD1"
+        "ControlBlockName": "amb.bin",
+        "Title": "AMBITIOUS MISSION After Episode 1 | AMBITIOUS MISSION アフターエピソード1 かぐや＆あてな | Ambitious Mission FD1"
     },
     "Anata no Milk Kudasai na": {
         "$type": "HashCrypt",
@@ -689,6 +689,25 @@
         "$type": "NekoWorksCrypt",
         "Key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "Title": "フタマタ恋愛 結愛＆煌ミニアフターストーリー | 恋爱成双 结爱&煌 mini小剧场"
+    },
+    "Gakkou no Seiiki [Steam]": {
+        "$type": "HxCrypt",
+        "Mask": 753,
+        "Offset": 428,
+        "PrologOrder": "AAEC",
+        "OddBranchOrder": "AgMEBQEA",
+        "EvenBranchOrder": "AgMFBgEHAAQ=",
+        "IndexKey1": {
+            "Key": "iTz/5n5lK5ajvlWHbpgYasZIqHbWW/VSaWA7KeMTzAg=",
+            "Nonce": "+ao9aKjzxlQFmw/n5NPltA=="
+        },
+        "IndexKey2": {
+            "Key": "DDAGO4jAgIm2vHPRf2wmrodSt8WIqnKrhmiykaccp6E=",
+            "Nonce": "46O4VcpmRBNU9VNZ3OPnIw=="
+        },
+        "FilterKey": 2695047786783876508,
+        "ControlBlockName": "gakkou.bin",
+        "Title": "学校のセイイキ [Steam] | 学校的圣域 [Steam] | My Academy's Special Place [Steam]"
     },
     "Gakuen Butou no Folklore": {
         "$type": "NephriteCrypt",
