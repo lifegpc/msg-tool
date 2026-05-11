@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 def filter_name(name):
-    if name == 'zig':
+    if name == 'zig' or name == 'private':
         return False
     if name.startswith("utils-"):
         return False

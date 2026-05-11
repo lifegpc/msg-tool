@@ -13,15 +13,17 @@ impl<'a> Xp3Archive<'a> {
         config: &ExtraConfig,
         filename: &str,
     ) -> Result<Self> {
-        let crypt: Box<dyn Crypt + Send + Sync> = if let Some(game_title) = &config.xp3_game_title {
-            query_crypt_schema(game_title)
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Unsupported game title for XP3 archive: {}", game_title)
-                })?
-                .create_crypt(filename, config)?
-        } else {
-            Box::new(NoCrypt::new())
-        };
+        #[allow(unused_mut)]
+        let mut crypt: Box<dyn Crypt + Send + Sync> =
+            if let Some(game_title) = &config.xp3_game_title {
+                query_crypt_schema(game_title)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Unsupported game title for XP3 archive: {}", game_title)
+                    })?
+                    .create_crypt(filename, config)?
+            } else {
+                Box::new(NoCrypt::new())
+            };
         let mut stream = Box::new(stream);
         let base_offset = 0;
         if base_offset != 0 {
@@ -160,10 +162,20 @@ impl<'a> Xp3Archive<'a> {
                     entries.push(entry);
                 } else {
                     let data = index_stream.read_exact_vec(size as usize)?;
-                    extras.push(ExtraProp {
-                        tag: sig.into(),
-                        data,
-                    });
+                    let tag = sig.into();
+                    #[cfg(feature = "private")]
+                    if config.xp3_game_title.is_none() && tag == "Hxv4" {
+                        match Hxv4Crypt::new(filename, config) {
+                            Ok(c) => {
+                                crypt = Box::new(c);
+                            }
+                            Err(e) => {
+                                eprintln!("WARNING: Failed to load filelist.json: {}", e);
+                                crate::COUNTER.inc_warning();
+                            }
+                        }
+                    }
+                    extras.push(ExtraProp { tag, data });
                 }
             }
         }

@@ -91,15 +91,6 @@ impl CxEncryption {
         filename: &str,
         program_builder: Box<dyn ICxProgramBuilder + Send + Sync>,
     ) -> Result<Self> {
-        if schema.prolog_order.len() != 3 {
-            return Err(anyhow::anyhow!("Prolog order must have 3 elements"));
-        }
-        if schema.odd_branch_order.len() != 6 {
-            return Err(anyhow::anyhow!("Odd branch order must have 6 elements"));
-        }
-        if schema.even_branch_order.len() != 8 {
-            return Err(anyhow::anyhow!("Even branch order must have 8 elements"));
-        }
         let control_block = if let Some(tpm_path) = &schema.tpm_file_name {
             Self::read_tpm(tpm_path, filename)?
         } else if let Some(control_block_name) = &schema.control_block_name {
@@ -117,6 +108,24 @@ impl CxEncryption {
                 "TPM file name or control block is required in schema"
             ));
         };
+        Self::new_inner2(base, schema, program_builder, control_block)
+    }
+
+    fn new_inner2(
+        base: BaseSchema,
+        schema: &CxSchema,
+        program_builder: Box<dyn ICxProgramBuilder + Send + Sync>,
+        control_block: Vec<u32>,
+    ) -> Result<Self> {
+        if schema.prolog_order.len() != 3 {
+            return Err(anyhow::anyhow!("Prolog order must have 3 elements"));
+        }
+        if schema.odd_branch_order.len() != 6 {
+            return Err(anyhow::anyhow!("Odd branch order must have 6 elements"));
+        }
+        if schema.even_branch_order.len() != 8 {
+            return Err(anyhow::anyhow!("Even branch order must have 8 elements"));
+        }
         let control_block = Arc::new(control_block);
         let programs = Vec::with_capacity(0x80);
         let mut obj = Self {
@@ -2003,10 +2012,53 @@ impl PathHash {
     }
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
+#[allow(unused)]
+#[serde(rename_all = "camelCase")]
+struct KeyData {
+    boot_strap: String,
+    warning: String,
+    #[serde(with = "hex_vec")]
+    params: Vec<u8>,
+    archive_unique_key: String,
+    #[serde(rename = "seed", with = "hex_vec_optional", default)]
+    upper_key: Option<Vec<u8>>,
+}
+
+#[allow(unused)]
+mod hex_vec {
+    use serde::{Deserialize, Deserializer};
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        hex::decode(s).map_err(serde::de::Error::custom)
+    }
+}
+
+#[allow(unused)]
+mod hex_vec_optional {
+    use serde::{Deserialize, Deserializer};
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: Option<String> = Option::deserialize(deserializer)?;
+        match s {
+            Some(hex_str) => hex::decode(hex_str)
+                .map(Some)
+                .map_err(serde::de::Error::custom),
+            None => Ok(None),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[allow(unused)]
 struct KeyPackage {
     description: String,
+    key: KeyData,
     sku: String,
 }
 
@@ -2039,8 +2091,8 @@ pub struct HxCrypt {
     key1: IndexKey,
     key2: IndexKeys,
     filter_key: AtomicU64,
-    file_mapping: HashMap<FileHash, String>,
-    path_mapping: HashMap<PathHash, String>,
+    file_mapping: Arc<HashMap<FileHash, String>>,
+    path_mapping: Arc<HashMap<PathHash, String>>,
     info_map: Mutex<HashMap<String, HxEntry>>,
     file_hash: FileHashOption,
     path_hash: PathHashOption,
@@ -2186,8 +2238,39 @@ impl HxCrypt {
             key1: index_key1.clone(),
             key2: index_key2.clone(),
             filter_key: AtomicU64::new(filter_key),
-            file_mapping: file_map,
-            path_mapping: path_map,
+            file_mapping: Arc::new(file_map),
+            path_mapping: Arc::new(path_map),
+            info_map: Mutex::new(HashMap::new()),
+            file_hash: config.xp3_cxdec_file_hash,
+            path_hash: config.xp3_cxdec_path_hash,
+        })
+    }
+
+    #[allow(unused)]
+    fn new_inner(
+        base: BaseSchema,
+        cx: &CxSchema,
+        index_key1: IndexKey,
+        index_key2: IndexKeys,
+        filter_key: u64,
+        random_type: i32,
+        config: &ExtraConfig,
+        file_mapping: Arc<HashMap<FileHash, String>>,
+        path_mapping: Arc<HashMap<PathHash, String>>,
+        control_block: Vec<u32>,
+    ) -> Result<Self> {
+        Ok(Self {
+            base: CxEncryption::new_inner2(
+                base,
+                cx,
+                Box::new(HxProgramBuilder::new(random_type)),
+                control_block,
+            )?,
+            key1: index_key1,
+            key2: index_key2,
+            filter_key: AtomicU64::new(filter_key),
+            file_mapping,
+            path_mapping,
             info_map: Mutex::new(HashMap::new()),
             file_hash: config.xp3_cxdec_file_hash,
             path_hash: config.xp3_cxdec_path_hash,
@@ -3070,6 +3153,343 @@ fn calculate_path_hash(pathname: &str, path_hash_salt: &str) -> PathHash {
     let data = hasher.finish().to_ne_bytes();
     PathHash(u64::from_be_bytes(data))
 }
+
+#[cfg(feature = "private")]
+mod private {
+    use super::*;
+    use chacha20::cipher::array::Array;
+    use chacha20::hchacha;
+    use msg_tool_macro::MyDebug;
+    include!(concat!(env!("OUT_DIR"), "/cxdec3_params/capi.rs"));
+
+    const RANDOM_TYPE_FLAG: u8 = 0x80;
+
+    fn hxkeys_new(
+        bootstrap: &str,
+        warning: &str,
+        param: &[u8],
+        uniq: &str,
+        upper_key: Option<[u8; 8]>,
+    ) -> Result<(HxKeys, CxParams)> {
+        let bootstrap = encode_string(Encoding::Utf16LE, bootstrap, true)?;
+        let warning = encode_string(Encoding::Utf16LE, warning, true)?;
+        let uniq = encode_string(Encoding::Utf16LE, uniq, true)?;
+        let (upper_key, upper_key_len) = match upper_key.as_ref() {
+            Some(key) => (key.as_ptr(), key.len()),
+            None => (std::ptr::null(), 0),
+        };
+        let key = unsafe {
+            cxdec3_hxkeys_new(
+                bootstrap.as_ptr(),
+                bootstrap.len(),
+                warning.as_ptr(),
+                warning.len(),
+                param.as_ptr(),
+                param.len(),
+                uniq.as_ptr(),
+                uniq.len(),
+                upper_key,
+                upper_key_len,
+            )
+        };
+        if key.is_null() {
+            anyhow::bail!("Failed to create hx keys.");
+        }
+        let nkey = unsafe { ((*key).keys.clone(), (*key).params.clone()) };
+        unsafe { cxdec3_hxkeys_free(key) };
+        Ok(nkey)
+    }
+
+    fn map_key_to_garbro(cx: &mut CxParams) {
+        const S3: [u8; 3] = [0, 1, 2];
+        const S6: [u8; 6] = [2, 5, 3, 4, 1, 0];
+        const S8: [u8; 8] = [0, 2, 3, 1, 5, 6, 7, 4];
+        let mut o3 = [0; 3];
+        let mut o6 = [0; 6];
+        let mut o8 = [0; 8];
+        for i in 0..3 {
+            o3[cx.prologue_perm[i] as usize] = S3[i];
+        }
+        for i in 0..6 {
+            o6[cx.odd_branch_perm[i] as usize] = S6[i];
+        }
+        for i in 0..8 {
+            o8[cx.even_branch_perm[i] as usize] = S8[i];
+        }
+        cx.prologue_perm.copy_from_slice(&o3);
+        cx.odd_branch_perm.copy_from_slice(&o6);
+        cx.even_branch_perm.copy_from_slice(&o8);
+    }
+
+    fn gen_index_keys(key: &HxKeys) -> Result<(IndexKey, IndexKey)> {
+        let subkeya =
+            hchacha::<chacha20::R20>(&key.key.into(), &Array::try_from(&key.nonce_a[0..16])?);
+        let subkeyb =
+            hchacha::<chacha20::R20>(&key.key.into(), &Array::try_from(&key.nonce_b[0..16])?);
+        Ok((
+            IndexKey {
+                key: subkeya.into(),
+                nonce: (&key.nonce_a[16..]).try_into()?,
+                filter_key: None,
+            },
+            IndexKey {
+                key: subkeyb.into(),
+                nonce: (&key.nonce_b[16..]).try_into()?,
+                filter_key: None,
+            },
+        ))
+    }
+
+    #[derive(MyDebug)]
+    pub struct Hxv4Crypt {
+        base: Mutex<Option<HxCrypt>>,
+        file_mapping: Arc<HashMap<FileHash, String>>,
+        path_mapping: Arc<HashMap<PathHash, String>>,
+        key_packages: Vec<KeyPackage>,
+        project: String,
+        #[skip_fmt]
+        config: ExtraConfig,
+    }
+
+    impl Hxv4Crypt {
+        pub fn new(filename: &str, config: &ExtraConfig) -> Result<Self> {
+            let p = std::path::Path::new(filename);
+            let b = p
+                .file_name()
+                .ok_or_else(|| anyhow::anyhow!("Failed to get file name from path."))?;
+            let s: &str = &b.to_string_lossy();
+            let pdir = p.parent().map(|s| s.to_owned()).unwrap_or_default();
+            let filep = get_ignorecase_path(&pdir.join("filelist.json"))?;
+            let data = std::fs::read(&filep)?;
+            let data = decode_to_string(Encoding::Utf8, &data, true)?;
+            let manifest = serde_json::from_str::<CxdecDb>(&data)?;
+            let mut path_map: HashMap<_, _> = manifest
+                .path_mapping
+                .iter()
+                .filter_map(|(k, v)| match v {
+                    Some(v) => Some((k.clone(), v.clone())),
+                    None => None,
+                })
+                .collect();
+            let file_map: HashMap<_, _> = if let Some(s) = manifest.file_list.get(s) {
+                s.iter()
+                    .map(|s| s.1)
+                    .flatten()
+                    .filter_map(|(k, v)| match v {
+                        Some(v) => Some((k.clone(), v.clone())),
+                        None => None,
+                    })
+                    .collect()
+            } else {
+                HashMap::new()
+            };
+            eprintln!(
+                "Read {} file entries, {} directory entries and {} key packages from filelist {}.",
+                file_map.len(),
+                path_map.len(),
+                manifest.key_packages.len(),
+                filep.display()
+            );
+            let default_path_hash = calculate_path_hash("", "xp3hnp");
+            if !path_map.contains_key(&default_path_hash) {
+                path_map.insert(default_path_hash, String::new());
+            }
+            Ok(Self {
+                base: Mutex::new(None),
+                file_mapping: Arc::new(file_map),
+                path_mapping: Arc::new(path_map),
+                key_packages: manifest.key_packages,
+                project: manifest.project_name,
+                config: config.clone(),
+            })
+        }
+
+        fn load_package(&self, pack: &KeyPackage, archive: &mut Xp3Archive) -> Result<HxCrypt> {
+            eprintln!("try key {} for {}", pack.sku, self.project);
+            let upper_key = match &pack.key.upper_key {
+                Some(key) => Some(key.as_slice().try_into()?),
+                None => None,
+            };
+            let (key, mut params) = hxkeys_new(
+                &pack.key.boot_strap,
+                &pack.key.warning,
+                &pack.key.params,
+                &pack.key.archive_unique_key,
+                upper_key,
+            )?;
+            map_key_to_garbro(&mut params);
+            let (key1, key2) = gen_index_keys(&key)?;
+            let base = BaseSchema {
+                hash_after_crypt: false,
+                startup_tjs_not_encrypted: false,
+                obfuscated_index: false,
+            };
+            let cx = CxSchema {
+                mask: params.mask as u32,
+                offset: params.offset as u32,
+                prolog_order: Base64Bytes {
+                    bytes: params.prologue_perm.to_vec(),
+                },
+                odd_branch_order: Base64Bytes {
+                    bytes: params.odd_branch_perm.to_vec(),
+                },
+                even_branch_order: Base64Bytes {
+                    bytes: params.even_branch_perm.to_vec(),
+                },
+                control_block_name: None,
+                tpm_file_name: None,
+            };
+            let key2 = IndexKeys(vec![key2]);
+            let filter_key = u64::from_le_bytes(key.filter);
+            let random_type = if params.flags & RANDOM_TYPE_FLAG != 0 {
+                1
+            } else {
+                0
+            };
+            let mut control_block = Vec::with_capacity(0x400);
+            let mut reader = MemReaderRef::new(&key.ctrlblk);
+            for _ in 0..0x400 {
+                control_block.push(!reader.read_u32()?);
+            }
+            let crypt = HxCrypt::new_inner(
+                base,
+                &cx,
+                key1,
+                key2,
+                filter_key,
+                random_type,
+                &self.config,
+                self.file_mapping.clone(),
+                self.path_mapping.clone(),
+                control_block,
+            )?;
+            crypt.init(archive)?;
+            Ok(crypt)
+        }
+    }
+
+    impl Crypt for Hxv4Crypt {
+        fn startup_tjs_not_encrypted(&self) -> bool {
+            false
+        }
+        fn obfuscated_index(&self) -> bool {
+            false
+        }
+        fn hash_after_crypt(&self) -> bool {
+            false
+        }
+        fn init(&self, archive: &mut Xp3Archive) -> Result<()> {
+            if self.key_packages.len() == 0 {
+                eprintln!("WARNING: No key package specifed. Decrypt not works.");
+                crate::COUNTER.inc_warning();
+                return Ok(());
+            }
+            for package in self.key_packages.iter() {
+                if let Ok(crypt) = self.load_package(package, archive) {
+                    let mut c = self.base.lock_blocking();
+                    c.replace(crypt);
+                    return Ok(());
+                }
+            }
+            Err(anyhow::anyhow!("Failed to decrypt index."))
+        }
+        fn decrypt_supported(&self) -> bool {
+            true
+        }
+        fn decrypt_seek_supported(&self) -> bool {
+            true
+        }
+        fn decrypt<'a>(
+            &self,
+            entry: &Xp3Entry,
+            cur_seg: &Segment,
+            stream: Box<dyn Read + Send + Sync + 'a>,
+        ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+            if self.key_packages.len() == 0 {
+                return Ok(Box::new(CopyStream::new(stream)));
+            }
+            let c = self.base.lock_blocking();
+            let crypt = c
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Archive not inited."))?;
+            crypt.decrypt(entry, cur_seg, stream)
+        }
+        fn decrypt_with_seek<'a>(
+            &self,
+            entry: &Xp3Entry,
+            cur_seg: &Segment,
+            stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+        ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+            if self.key_packages.len() == 0 {
+                return Ok(stream);
+            }
+            let c = self.base.lock_blocking();
+            let crypt = c
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Archive not inited."))?;
+            crypt.decrypt_with_seek(entry, cur_seg, stream)
+        }
+    }
+
+    #[test]
+    fn test_gen_keys() {
+        let keys = hxkeys_new("BOOTSTRAPbootstrap0123456789", "WARNINGwarning0123456789", b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a", "ArchiveUniqueKey0123456789", Some(*b"\x00\x11\x22\x33\x44\x55\x66\x77")).unwrap();
+        let expected_key: [u8; 32] =
+            hex::decode("4fb07f17eb1d7d0f14fba645e067d5d90a973494f4161da962ee49ccfc9ad237")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let expected_nonce_a: [u8; 24] =
+            hex::decode("c84f47adef9093396d421105bd8893c925b3853aef22d346")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let expected_nonce_b: [u8; 24] =
+            hex::decode("98d9fc0c47eb2684aad17ca33ee8cb1aed30812ee8990500")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        assert_eq!(keys.0.key, expected_key);
+        assert_eq!(&keys.0.nonce_a[..24], &expected_nonce_a);
+        assert_eq!(&keys.0.nonce_b[..24], &expected_nonce_b);
+    }
+
+    #[test]
+    fn test_real_keys() {
+        let (key, mut params) = hxkeys_new("LimeLightRemonadeJam (C)YUZUSOFT/JUNOS INC. All Rights Reserved.", "Warning! Extracting this game data may infringe on author's rights.", b"\x02\x00\x06\x05\x01\x04\x03\x07\x01\x05\x03\x02\x00\x04\x01\x00\x02\x01\xe2\x02\x83\x02", "{EnaAnjTukRirMikNay}", Some(*b"\xbf\x22\x36\x8a\x48\x21\x02\x06")).unwrap();
+        map_key_to_garbro(&mut params);
+        assert_eq!(params.mask, 738);
+        assert_eq!(params.offset, 643);
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD;
+        assert_eq!(b64.encode(params.prologue_perm), "AQAC");
+        assert_eq!(b64.encode(params.odd_branch_perm), "AQIEAwAF");
+        assert_eq!(b64.encode(params.even_branch_perm), "AgUABwYBAwQ=");
+        assert_eq!(u64::from_le_bytes(key.filter), 13089994567570788352);
+        let (ind1, ind2) = gen_index_keys(&key).unwrap();
+        assert_eq!(
+            b64.encode(&ind1.key),
+            "fMktWafCUSPGVDvR/8LUx9f+yh3Y+PIq90XmzJ6xZhI="
+        );
+        assert_eq!(b64.encode(&ind1.nonce), "aDnPYFowPzhVdOsfJweaYA==");
+        assert_eq!(
+            b64.encode(&ind2.key),
+            "kHMdDweFjeDFVTwQA10XQAPUAOfXzKp2ukygeLzGzHg="
+        );
+        assert_eq!(b64.encode(&ind2.nonce), "CSBjzSXQNTioPhDp710WCQ==");
+        assert!((params.flags & RANDOM_TYPE_FLAG) == 0);
+        let expected_cb = CX_CB_TABLE.get("limelight.bin").unwrap();
+        let mut cb = Vec::with_capacity(0x400);
+        let mut reader = MemReaderRef::new(&key.ctrlblk);
+        for _ in 0..0x400 {
+            cb.push(!reader.read_u32().unwrap());
+        }
+        assert_eq!(&cb, expected_cb);
+    }
+}
+
+#[cfg(feature = "private")]
+pub use private::Hxv4Crypt;
 
 #[test]
 fn test_filehash_deserialize() {

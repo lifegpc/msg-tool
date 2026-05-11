@@ -1,0 +1,6 @@
+# Define private source (now closed source) package
+[dependencies]
+cxdec3_params = { git = "https://github.com/nextgal/cxdec3_params", commit = "77221aafc7d26bca3449fa009a0d9710f2783b57" }
+
+[features]
+kirikiri-arc = ["cxdec3_params"]
