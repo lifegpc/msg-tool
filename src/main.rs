@@ -3225,7 +3225,7 @@ fn main() {
         #[cfg(feature = "bgi-arc")]
         bgi_compress_file: arg.bgi_compress_file,
         #[cfg(feature = "bgi-arc")]
-        bgi_compress_min_len: arg.bgi_compress_min_len,
+        bgi_compress_level: arg.bgi_compress_level,
         #[cfg(feature = "emote-img")]
         emote_pimg_overlay: arg.emote_pimg_overlay,
         #[cfg(feature = "artemis-arc")]

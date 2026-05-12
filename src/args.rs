@@ -318,9 +318,9 @@ pub struct Arg {
     /// Whether to compress files in BGI archive when packing BGI archive.
     pub bgi_compress_file: bool,
     #[cfg(feature = "bgi-arc")]
-    #[arg(long, global = true, default_value_t = 3, value_parser = crate::scripts::bgi::archive::dsc::parse_min_length)]
-    /// Minimum length of match size for DSC compression. Possible values are 2-256.
-    pub bgi_compress_min_len: usize,
+    #[arg(long, global = true, default_value_t = 9, value_parser = crate::scripts::bgi::archive::dsc::parse_compress_level)]
+    /// Compress level for BGI Dsc file. 0 means store, 9 mean best compression.
+    pub bgi_compress_level: u8,
     #[cfg(feature = "emote-img")]
     #[arg(long, global = true)]
     /// Whether to overlay PIMG images. (By default, true if all layers are not group layers.)
