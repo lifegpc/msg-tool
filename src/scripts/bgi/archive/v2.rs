@@ -723,7 +723,8 @@ impl<'a, T: Write + Seek> Seek for BgiArchiveFileWithDsc<'a, T> {
 impl<'a, T: Write + Seek> Drop for BgiArchiveFileWithDsc<'a, T> {
     fn drop(&mut self) {
         let buf = self.buf.as_slice();
-        let encoder = DscEncoder::new(&mut self.writer, self.compress_level);
+        let mut writer = std::io::BufWriter::new(&mut self.writer);
+        let encoder = DscEncoder::new(&mut writer, self.compress_level);
         if let Err(e) = encoder.pack(&buf) {
             eprintln!("Failed to write DSC data: {}", e);
             crate::COUNTER.inc_error();

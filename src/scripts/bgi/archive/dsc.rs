@@ -7,8 +7,7 @@ use crate::utils::bit_stream::*;
 use crate::utils::num_range::*;
 use anyhow::Result;
 use rand::RngExt;
-
-use std::io::{Seek, Write};
+use std::io::{BufWriter, Seek, Write};
 
 #[derive(Debug)]
 struct HuffmanCode {
@@ -410,6 +409,30 @@ fn generate_canonical_codes(depths: &[u8]) -> Vec<Option<(u16, u8)>> {
 }
 
 #[inline(always)]
+fn get_match_length(a: &[u8], b: &[u8]) -> usize {
+    let max = a.len().min(b.len());
+    let mut len = 0;
+
+    // 每次比较 8 个字节，极大提升长文本或连续 0 的匹配效率
+    while len + 8 <= max {
+        let a_chunk = u64::from_le_bytes(a[len..len + 8].try_into().unwrap());
+        let b_chunk = u64::from_le_bytes(b[len..len + 8].try_into().unwrap());
+        if a_chunk != b_chunk {
+            let diff = a_chunk ^ b_chunk;
+            // 找出第一个不同的字节位置
+            return len + (diff.trailing_zeros() / 8) as usize;
+        }
+        len += 8;
+    }
+
+    // 比较剩余的尾部字节
+    while len < max && a[len] == b[len] {
+        len += 1;
+    }
+    len
+}
+
+#[inline(always)]
 fn find_match(
     data: &[u8],
     pos: usize,
@@ -417,29 +440,35 @@ fn find_match(
     prev: &[i32],
     config: &CompressConfig,
 ) -> (usize, usize) {
+    // 如果是 Store 或者连 2 个字节的匹配空间都不够了，直接返回
     if config.mode == MatchMode::Store || pos + 2 > data.len() {
         return (0, 0);
     }
 
     let max_len = (data.len() - pos).min(257);
 
-    // 低等级 RLE: 仅扫描由于格式限制的最小可用距离 (pos - 2)
+    // 针对 RLE 路径的极速优化
     if config.mode == MatchMode::Rle {
-        let mut best_len = 0;
         if pos >= 2 {
-            while best_len < max_len && data.get(pos + best_len) == data.get(pos - 2 + best_len) {
-                best_len += 1;
+            // 极速前置检查：由于格式要求匹配至少2个字节，
+            // 只有当最前面的 2 个字节完全相同时，我们才进行切片和后续耗时的 SWAR 比对。
+            // 这排除了 99% 的无效调用。
+            if data[pos] == data[pos - 2] && data[pos + 1] == data[pos - 1] {
+                let src_slice = &data[pos..pos + max_len];
+                let match_slice = &data[pos - 2..pos - 2 + max_len];
+                let best_len = get_match_length(src_slice, match_slice);
+                return (best_len, 2);
             }
-        }
-        if best_len >= 2 {
-            return (best_len, 2);
         }
         return (0, 0);
     }
 
+    let src_slice = &data[pos..pos + max_len];
     let limit = pos.saturating_sub(4097);
-    let key = ((data[pos] as u16) << 8) | (data[pos + 1] as u16);
-    let mut match_pos_i32 = head[key as usize];
+
+    // Level 3~9: 基于哈希字典进行跳跃搜索
+    let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
+    let mut match_pos_i32 = head[key];
     let mut chain_length = config.max_chain;
 
     let mut best_len = 0;
@@ -458,21 +487,19 @@ fn find_match(
             continue;
         }
 
-        // 快速剪枝优化
-        if best_len < max_len {
-            if data.get(match_pos + best_len) != data.get(pos + best_len) {
+        let match_slice = &data[match_pos..match_pos + max_len];
+
+        // 高速剪枝：如果已知最长长度 best_len 处的那一个字节对不上，
+        // 说明这条链条再怎么强也不可能突破当前的 best_len，直接跳过整个字符串比对
+        if best_len > 0 && best_len < max_len {
+            if match_slice[best_len] != src_slice[best_len] {
                 match_pos_i32 = prev[match_pos];
                 chain_length -= 1;
                 continue;
             }
         }
 
-        let mut current_len = 0;
-        while current_len < max_len
-            && data.get(pos + current_len) == data.get(match_pos + current_len)
-        {
-            current_len += 1;
-        }
+        let current_len = get_match_length(src_slice, match_slice);
 
         if current_len > best_len {
             best_len = current_len;
@@ -498,7 +525,7 @@ fn find_match(
 
 /// Encoder for Buriko General Interpreter/Ethornell compressed files (DSC format).
 pub struct DscEncoder<'a, T: Write + Seek> {
-    stream: MsbBitWriter<'a, T>,
+    stream: MsbBitWriter<'a, BufWriter<T>>,
     magic: u32,
     key: u32,
     dec_count: u32,
@@ -507,7 +534,7 @@ pub struct DscEncoder<'a, T: Write + Seek> {
 
 impl<'a, T: Write + Seek> DscEncoder<'a, T> {
     /// Creates a new DscEncoder with the given writer and compression level (0-9).
-    pub fn new(writer: &'a mut T, level: u8) -> Self {
+    pub fn new(writer: &'a mut BufWriter<T>, level: u8) -> Self {
         let stream = MsbBitWriter::new(writer);
         DscEncoder {
             stream,
@@ -524,16 +551,10 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
         let mut pos = 0;
         let config = &COMPRESS_CONFIGS[self.level as usize];
 
-        let mut head: Vec<i32> = vec![-1; 1 << 16];
-        let mut prev: Vec<i32> = vec![-1; data.len()];
-
-        let insert_dict = |p: usize, head: &mut [i32], prev: &mut [i32]| {
-            if config.mode != MatchMode::Rle && p + 1 < data.len() {
-                let key = ((data[p] as u16) << 8) | (data[p + 1] as u16);
-                prev[p] = head[key as usize];
-                head[key as usize] = p as i32;
-            }
-        };
+        // 预分配哈希表，65536 对应 2 bytes 的所有可能
+        let mut head = vec![-1i32; 1 << 16];
+        let mut prev = vec![-1i32; data.len()];
+        let insert_limit = data.len().saturating_sub(1); // 防止 data[p + 1] 越界
 
         while pos < data.len() {
             if config.mode == MatchMode::Store {
@@ -547,12 +568,17 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
             if match_len >= 2 {
                 let mut lazy_match = false;
 
-                // 延迟匹配逻辑
+                // 延迟匹配逻辑 (Lazy Evaluation)
                 if config.mode == MatchMode::Lazy
                     && match_len <= config.max_lazy
                     && pos + 1 < data.len()
                 {
-                    insert_dict(pos, &mut head, &mut prev);
+                    // 为下一次尝试预先将当前 pos 插入字典
+                    if pos < insert_limit {
+                        let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
+                        prev[pos] = head[key];
+                        head[key] = pos as i32;
+                    }
 
                     let (next_len, _) = find_match(data, pos + 1, &head, &prev, config);
 
@@ -576,18 +602,30 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
                     && match_len <= config.max_lazy
                     && pos + 1 < data.len()
                 {
-                    1 // 如果进行了延迟检查，pos 已被插入
+                    1 // 如果进行了延迟检查，pos 已被插入，从 1 开始
                 } else {
                     0
                 };
 
-                for i in start_insert..match_len {
-                    insert_dict(pos + i, &mut head, &mut prev);
+                // 批量插入字典，使用 usize 强制类型，移除闭包产生的隐式开销
+                if config.mode != MatchMode::Rle {
+                    for i in start_insert..match_len {
+                        let p = pos + i;
+                        if p < insert_limit {
+                            let key = ((data[p] as usize) << 8) | (data[p + 1] as usize);
+                            prev[p] = head[key];
+                            head[key] = p as i32;
+                        }
+                    }
                 }
                 pos += match_len;
             } else {
                 ops.push(LzssOp::Literal(data[pos]));
-                insert_dict(pos, &mut head, &mut prev);
+                if config.mode != MatchMode::Rle && pos < insert_limit {
+                    let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
+                    prev[pos] = head[key];
+                    head[key] = pos as i32;
+                }
                 pos += 1;
             }
         }
@@ -713,6 +751,7 @@ impl ScriptBuilder for DscBuilder {
         _file_encoding: Encoding,
         config: &ExtraConfig,
     ) -> Result<()> {
+        let mut writer = std::io::BufWriter::new(&mut writer);
         let encoder = DscEncoder::new(&mut writer, config.bgi_compress_level);
         let data = crate::utils::files::read_file(filename)?;
         encoder.pack(&data)?;
@@ -775,6 +814,7 @@ impl Script for Dsc {
         _encoding: Encoding,
         _output_encoding: Encoding,
     ) -> Result<()> {
+        let mut file = std::io::BufWriter::new(&mut file);
         let encoder = DscEncoder::new(&mut file, self.level);
         let data = crate::utils::files::read_file(custom_filename)?;
         encoder.pack(&data)?;
