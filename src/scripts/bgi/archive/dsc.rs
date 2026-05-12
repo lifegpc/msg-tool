@@ -7,7 +7,7 @@ use crate::utils::bit_stream::*;
 use crate::utils::num_range::*;
 use anyhow::Result;
 use rand::RngExt;
-use std::collections::BinaryHeap;
+
 use std::io::{Seek, Write};
 
 #[derive(Debug)]
@@ -221,152 +221,84 @@ enum LzssOp {
     Match { len: u16, offset: u16 },
 }
 
-#[derive(Debug)]
-struct FreqNode {
-    freq: u32,
-    symbol: Option<u16>,
-    left: Option<Box<FreqNode>>,
-    right: Option<Box<FreqNode>>,
-}
-impl PartialEq for FreqNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.freq == other.freq
+/// Computes optimal length-limited Huffman code depths using the Package-Merge algorithm.
+///
+/// The Package-Merge algorithm solves the length-limited Huffman coding problem
+/// optimally in O(nL) time, where n is the number of symbols and L is the maximum
+/// code length.
+fn package_merge(freqs: &[u32], max_len: u8) -> Vec<u8> {
+    let max_len = max_len as usize;
+    let mut depths = vec![0u8; freqs.len()];
+
+    // 1. 收集非零频率的符号
+    // 注意：权重使用 u64 以防止多层打包导致的加法溢出 (u32 最大 42亿，对于大文件可能会溢出)
+    let mut symbols: Vec<(u64, Vec<usize>)> = freqs
+        .iter()
+        .enumerate()
+        .filter(|&(_, &f)| f > 0)
+        .map(|(i, &f)| (f as u64, vec![i]))
+        .collect();
+
+    let n = symbols.len();
+    if n == 0 {
+        return depths;
     }
-}
-impl Eq for FreqNode {}
-impl PartialOrd for FreqNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    if n == 1 {
+        // 如果只有一个符号，分配 1 位深
+        depths[symbols[0].1[0]] = 1;
+        return depths;
     }
-}
-impl Ord for FreqNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.freq.cmp(&self.freq)
+
+    // 按权重升序排序
+    symbols.sort_by_key(|x| x.0);
+
+    // 2. 迭代构建 Package 列表
+    let mut prev_list = symbols.clone();
+
+    for _ in 1..max_len {
+        let mut current_list = symbols.clone(); // 每一层都要混入基础叶子节点
+
+        // 将前一层列表中的元素两两打包 (Package)
+        for p in 0..(prev_list.len() / 2) {
+            let left = &prev_list[p * 2];
+            let right = &prev_list[p * 2 + 1];
+            
+            let combined_weight = left.0 + right.0;
+            
+            // 合并符号：保留重复项，绝对不能用 dedup()！
+            // 因为被选中的包会使其内部所有符号的树深 +1
+            let mut combined_indices = Vec::with_capacity(left.1.len() + right.1.len());
+            combined_indices.extend_from_slice(&left.1);
+            combined_indices.extend_from_slice(&right.1);
+
+            current_list.push((combined_weight, combined_indices));
+        }
+
+        // 按权重重新排序（Rust 的 sort_by_key 是稳定排序，满足要求）
+        current_list.sort_by_key(|x| x.0);
+        prev_list = current_list;
     }
+
+    // 3. Merge 选择阶段
+    // 根据硬币收集模型，一棵有 n 个叶子的合法二叉树，必须恰好选中 2n-2 个节点/包
+    let items_to_select = (2 * n).saturating_sub(2);
+    
+    // 安全检查，正常情况下 L 足够大时，列表长度必然 >= 2n-2
+    let take_count = std::cmp::min(items_to_select, prev_list.len());
+
+    // 统计各符号在被选中的前 2n-2 个包中出现的次数，次数就是它的深度
+    for i in 0..take_count {
+        for &sym in &prev_list[i].1 {
+            depths[sym] += 1;
+        }
+    }
+
+    depths
 }
 
 fn calculate_huffman_depths(freqs: &[u32]) -> Vec<u8> {
     const MAX_DEPTH: u8 = 9;
-
-    // 收集所有非零频率的符号
-    let mut symbols_with_freq: Vec<(u16, u32)> = freqs
-        .iter()
-        .enumerate()
-        .filter_map(|(symbol, &freq)| {
-            if freq > 0 {
-                Some((symbol as u16, freq))
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    let mut depths = vec![0u8; 512];
-
-    if symbols_with_freq.is_empty() {
-        return depths;
-    }
-
-    if symbols_with_freq.len() == 1 {
-        depths[symbols_with_freq[0].0 as usize] = 1;
-        return depths;
-    }
-
-    // 使用受限Huffman算法
-    loop {
-        let current_depths = build_huffman_tree(&symbols_with_freq);
-        let max_depth = current_depths.iter().max().copied().unwrap_or(0);
-
-        if max_depth <= MAX_DEPTH {
-            // 将深度映射回原始数组
-            for &(symbol, _) in &symbols_with_freq {
-                let symbol_index = symbols_with_freq
-                    .iter()
-                    .position(|(s, _)| *s == symbol)
-                    .unwrap();
-                depths[symbol as usize] = current_depths[symbol_index];
-            }
-            break;
-        }
-
-        // 如果深度超限，调整频率
-        adjust_frequencies_for_depth_limit(&mut symbols_with_freq);
-    }
-
-    depths
-}
-
-fn build_huffman_tree(symbols_with_freq: &[(u16, u32)]) -> Vec<u8> {
-    let mut heap = BinaryHeap::new();
-
-    // 添加所有叶子节点
-    for &(symbol, freq) in symbols_with_freq {
-        heap.push(FreqNode {
-            freq,
-            symbol: Some(symbol),
-            left: None,
-            right: None,
-        });
-    }
-
-    // 构建Huffman树
-    while heap.len() > 1 {
-        let node1 = heap.pop().unwrap();
-        let node2 = heap.pop().unwrap();
-        let new_node = FreqNode {
-            freq: node1.freq + node2.freq,
-            symbol: None,
-            left: Some(Box::new(node1)),
-            right: Some(Box::new(node2)),
-        };
-        heap.push(new_node);
-    }
-
-    // 计算深度
-    let mut depths = vec![0u8; symbols_with_freq.len()];
-    if let Some(root) = heap.pop() {
-        calculate_depths(&root, 0, symbols_with_freq, &mut depths);
-    }
-
-    depths
-}
-
-fn calculate_depths(
-    node: &FreqNode,
-    depth: u8,
-    symbols_with_freq: &[(u16, u32)],
-    depths: &mut [u8],
-) {
-    if let Some(symbol) = node.symbol {
-        let symbol_index = symbols_with_freq
-            .iter()
-            .position(|(s, _)| *s == symbol)
-            .unwrap();
-        depths[symbol_index] = if depth == 0 { 1 } else { depth };
-    } else {
-        if let Some(ref left) = node.left {
-            calculate_depths(left, depth + 1, symbols_with_freq, depths);
-        }
-        if let Some(ref right) = node.right {
-            calculate_depths(right, depth + 1, symbols_with_freq, depths);
-        }
-    }
-}
-
-fn adjust_frequencies_for_depth_limit(symbols_with_freq: &mut [(u16, u32)]) {
-    // 按频率排序
-    symbols_with_freq.sort_by(|a, b| a.1.cmp(&b.1));
-
-    // 使用Package-Merge算法的简化版本
-    // 这里使用一个启发式方法：增加低频符号的频率
-    let min_freq = symbols_with_freq[0].1;
-    let adjustment = (min_freq as f64 * 0.1).max(1.0) as u32;
-
-    // 找到频率最低的几个符号并调整它们的频率
-    let num_to_adjust = (symbols_with_freq.len() / 4).max(1);
-    for i in 0..num_to_adjust.min(symbols_with_freq.len()) {
-        symbols_with_freq[i].1 += adjustment;
-    }
+    package_merge(freqs, MAX_DEPTH)
 }
 
 fn generate_canonical_codes(depths: &[u8]) -> Vec<Option<(u16, u8)>> {
