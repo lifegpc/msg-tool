@@ -12,6 +12,7 @@ impl<'a> Xp3Archive<'a> {
         stream: T,
         config: &ExtraConfig,
         filename: &str,
+        base_offset: u64,
     ) -> Result<Self> {
         #[allow(unused_mut)]
         let mut crypt: Box<dyn Crypt + Send + Sync> =
@@ -25,7 +26,6 @@ impl<'a> Xp3Archive<'a> {
                 Box::new(NoCrypt::new())
             };
         let mut stream = Box::new(stream);
-        let base_offset = 0;
         if base_offset != 0 {
             stream.seek(SeekFrom::Start(base_offset))?;
         }

@@ -2,6 +2,7 @@ mod archive;
 #[allow(dead_code)]
 mod consts;
 mod crypt;
+mod pe;
 mod read;
 mod reader;
 mod segmenter;
@@ -134,10 +135,15 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script + Send + Sync>> {
+        let mut base_offset = 0;
+        if buf.starts_with(b"MZ") {
+            base_offset = pe::get_base_offset(&buf)?;
+        }
         Ok(Box::new(Xp3Archive::new(
             MemReader::new(buf),
             config,
             filename,
+            base_offset,
         )?))
     }
 
@@ -149,24 +155,47 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script + Send + Sync>> {
-        let file = std::fs::File::open(filename)?;
-        Ok(Box::new(Xp3Archive::new(file, config, filename)?))
+        let mut file = std::fs::File::open(filename)?;
+        let mut base_offset = 0;
+        if file.peek_and_equal(b"MZ").is_ok() {
+            let mp = pelite::FileMap::open(filename)?;
+            base_offset = pe::get_base_offset(&mp)?;
+        }
+        Ok(Box::new(Xp3Archive::new(
+            file,
+            config,
+            filename,
+            base_offset,
+        )?))
     }
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
+        mut reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         filename: &str,
         _encoding: Encoding,
         _archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
-        Ok(Box::new(Xp3Archive::new(reader, config, filename)?))
+        let mut base_offset = 0;
+        if reader.peek_and_equal(b"MZ").is_ok() {
+            let mut data = Vec::new();
+            let pos = reader.stream_position()?;
+            reader.read_to_end(&mut data)?;
+            reader.seek(SeekFrom::Start(pos))?;
+            base_offset = pe::get_base_offset(&data)?;
+        }
+        Ok(Box::new(Xp3Archive::new(
+            reader,
+            config,
+            filename,
+            base_offset,
+        )?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["xp3", "bin", "dat"]
+        &["xp3", "bin", "dat", "exe"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
@@ -187,9 +216,19 @@ impl ScriptBuilder for Xp3ArchiveBuilder {
         Ok(Box::new(Xp3ArchiveWriter::new(filename, files, config)?))
     }
 
-    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+    fn is_this_format(&self, filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
         if buf_len >= 11 && buf.starts_with(consts::XP3_MAGIC) {
             return Some(100);
+        }
+        if buf_len >= 2 && buf.starts_with(b"MZ") {
+            let p = std::path::Path::new(filename);
+            if p.exists() {
+                if let Ok(file) = pelite::FileMap::open(p) {
+                    if pe::get_base_offset(&file).is_ok() {
+                        return Some(100);
+                    }
+                }
+            }
         }
         None
     }
@@ -210,8 +249,9 @@ impl<'a> Xp3Archive<'a> {
         stream: T,
         config: &ExtraConfig,
         filename: &str,
+        base_offset: u64,
     ) -> Result<Self> {
-        let mut archive = archive::Xp3Archive::new(stream, config, filename)?;
+        let mut archive = archive::Xp3Archive::new(stream, config, filename, base_offset)?;
         if config.xp3_debug_archive {
             println!("Debug info for {}:\n{:#?}", filename, archive);
             // Try flush stdout.
