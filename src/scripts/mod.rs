@@ -34,6 +34,8 @@ pub mod softpal;
 pub mod will_plus;
 #[cfg(feature = "yaneurao")]
 pub mod yaneurao;
+#[cfg(feature = "yuris")]
+pub mod yuris;
 
 pub use base::{Script, ScriptBuilder};
 
@@ -174,6 +176,8 @@ lazy_static::lazy_static! {
         Box::new(qlie::image::dpng::DpngImageBuilder::new()),
         #[cfg(feature = "qlie-img")]
         Box::new(qlie::image::abmp10::Abmp10ImageBuilder::new()),
+        #[cfg(feature = "yuris")]
+        Box::new(yuris::yscm::YSCMBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

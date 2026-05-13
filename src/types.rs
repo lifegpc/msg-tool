@@ -908,6 +908,9 @@ pub enum ScriptType {
     #[value(alias("itufuru-arc"))]
     /// Yaneurao Itufuru script archive
     YaneuraoItufuruArc,
+    #[cfg(feature = "yuris")]
+    /// Yu-Ris YSCM(opcodes metadata) file (.ybn)
+    YurisYSCM,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

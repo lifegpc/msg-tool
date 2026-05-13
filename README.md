@@ -262,3 +262,8 @@ msg-tool create -t <script-type> <input> <output>
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
 | `yaneurao-itufuru-arc`/`itufuru-arc` | `yaneurao-itufuru-arc` | Yaneurao Itufuru Archive File (.scd) | ✔️ | ✔️ | |
+
+### Yu-Ris
+| Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `yuris-yscm` | `yuris` | Yu-Ris YSCM(opcodes metadata) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |
