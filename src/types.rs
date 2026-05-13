@@ -914,6 +914,9 @@ pub enum ScriptType {
     #[cfg(feature = "yuris")]
     /// Yu-Ris YSER(error message) file (.ybn)
     YurisYSER,
+    #[cfg(feature = "yuris")]
+    /// Yu-Ris YSCFG(config) file (.ybn)
+    YurisYSCFG,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

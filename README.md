@@ -267,4 +267,5 @@ msg-tool create -t <script-type> <input> <output>
 | Script Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Custom Export | Custom Import | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `yuris-yscm` | `yuris` | Yu-Ris YSCM(opcodes metadata) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |
-| `yuris-yser` | `yuris` | Yu-Ris YSER(error message) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | | 
+| `yuris-yser` | `yuris` | Yu-Ris YSER(error message) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |
+| `yuris-yscfg` | `yuris` | Yu-Ris YSCFG(config) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |
