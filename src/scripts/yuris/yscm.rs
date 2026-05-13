@@ -55,7 +55,40 @@ impl ScriptBuilder for YSCMBuilder {
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct YSCMData {
     pub engine: u32,
+    pub opcode_length: u32,
+    pub unk: u32,
     pub opcodes: Vec<CodeMeta>,
+    pub errmsgs: Vec<String>,
+    pub unk_tbl: Vec<u8>,
+}
+
+impl StructUnpack for YSCMData {
+    fn unpack<R: Read + Seek>(
+        reader: &mut R,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<Self> {
+        let engine = u32::unpack(reader, big, encoding, info)?;
+        let opcode_length = u32::unpack(reader, big, encoding, info)?;
+        let unk = u32::unpack(reader, big, encoding, info)?;
+        let opcodes = reader.read_struct_vec(opcode_length as usize, big, encoding, info)?;
+        let target_len = reader.stream_length()? - 0x100;
+        let mut errmsgs = Vec::new();
+        while reader.stream_position()? < target_len {
+            let s = reader.read_cstring()?;
+            errmsgs.push(decode_to_string(encoding, s.as_bytes(), true)?);
+        }
+        let unk_tbl = reader.read_exact_vec(0x100)?;
+        Ok(Self {
+            engine,
+            opcode_length,
+            unk,
+            opcodes,
+            errmsgs,
+            unk_tbl,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -75,15 +108,9 @@ impl YSCM {
         if &sig != b"YSCM" {
             anyhow::bail!("Unsupported YSCM file.");
         }
-        let engine = reader.read_u32()?;
-        let opcode_count = reader.read_u32()?;
-        reader.skip(4)?;
-        let mut opcodes = Vec::with_capacity(opcode_count as usize);
-        for _ in 0..opcode_count {
-            opcodes.push(CodeMeta::unpack(&mut reader, false, encoding, &None)?);
-        }
+        let data = YSCMData::unpack(&mut reader, false, encoding, &None)?;
         Ok(Self {
-            data: YSCMData { engine, opcodes },
+            data,
             custom_yaml: config.custom_yaml,
         })
     }
