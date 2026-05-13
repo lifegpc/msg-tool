@@ -178,6 +178,8 @@ lazy_static::lazy_static! {
         Box::new(qlie::image::abmp10::Abmp10ImageBuilder::new()),
         #[cfg(feature = "yuris")]
         Box::new(yuris::yscm::YSCMBuilder::new()),
+        #[cfg(feature = "yuris")]
+        Box::new(yuris::yser::YSERBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =
