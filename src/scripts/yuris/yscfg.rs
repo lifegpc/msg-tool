@@ -50,6 +50,27 @@ impl ScriptBuilder for YSCFGBuilder {
     fn script_type(&self) -> &'static ScriptType {
         &ScriptType::YurisYSCFG
     }
+
+    fn can_create_file(&self) -> bool {
+        true
+    }
+
+    fn create_file<'a>(
+        &'a self,
+        filename: &'a str,
+        writer: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        file_encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<()> {
+        create_file(
+            filename,
+            writer,
+            encoding,
+            file_encoding,
+            config.custom_yaml,
+        )
+    }
 }
 
 #[derive(Debug, StructPack, StructUnpack, Deserialize, Serialize)]
@@ -141,4 +162,39 @@ impl Script for YSCFG {
         writer.flush()?;
         Ok(())
     }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        create_file(
+            custom_filename,
+            file,
+            encoding,
+            output_encoding,
+            self.custom_yaml,
+        )
+    }
+}
+
+fn create_file<'a>(
+    custom_filename: &'a str,
+    mut writer: Box<dyn WriteSeek + 'a>,
+    encoding: Encoding,
+    output_encoding: Encoding,
+    yaml: bool,
+) -> Result<()> {
+    let input = crate::utils::files::read_file(custom_filename)?;
+    let s = decode_to_string(output_encoding, &input, true)?;
+    let data: YSCFGData = if yaml {
+        serde_yaml_ng::from_str(&s).map_err(|e| anyhow::anyhow!("Failed to parse YAML: {}", e))?
+    } else {
+        serde_json::from_str(&s).map_err(|e| anyhow::anyhow!("Failed to parse JSON: {}", e))?
+    };
+    writer.write_all(b"YSCF")?;
+    data.pack(&mut writer, false, encoding, &None)?;
+    Ok(())
 }
