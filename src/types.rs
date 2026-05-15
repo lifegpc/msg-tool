@@ -663,6 +663,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "kirikiri-arc")]
     /// Control the behavior to how to append path name to files from Cxdec3/4(Hxv4) protected archives.
     pub xp3_cxdec_path_hash: crate::scripts::kirikiri::archive::xp3::PathHashOption,
+    #[cfg(feature = "yuris")]
+    /// Path to the ysc.ybn file
+    pub yuris_ysc_path: Option<String>,
 }
 
 #[cfg(feature = "artemis")]
@@ -917,6 +920,9 @@ pub enum ScriptType {
     #[cfg(feature = "yuris")]
     /// Yu-Ris YSCFG(config) file (.ybn)
     YurisYSCFG,
+    #[cfg(feature = "yuris")]
+    /// Yu-Ris YSTB(compiled script) file (.ybn)
+    YurisYSTB,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

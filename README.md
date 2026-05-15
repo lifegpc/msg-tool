@@ -269,3 +269,4 @@ msg-tool create -t <script-type> <input> <output>
 | `yuris-yscm` | `yuris` | Yu-Ris YSCM(opcodes metadata) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |
 | `yuris-yser` | `yuris` | Yu-Ris YSER(error message) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 | `yuris-yscfg` | `yuris` | Yu-Ris YSCFG(config) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
+| `yuris-ystb` | `yuris` | Yu-Ris YSTB(compiled script) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |

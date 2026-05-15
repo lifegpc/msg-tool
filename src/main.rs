@@ -3411,6 +3411,8 @@ fn main() {
         xp3_cxdec_file_hash: arg.xp3_cxdec_file_hash,
         #[cfg(feature = "kirikiri-arc")]
         xp3_cxdec_path_hash: arg.xp3_cxdec_path_hash,
+        #[cfg(feature = "yuris")]
+        yuris_ysc_path: arg.yuris_ysc_path.clone(),
     });
     match &arg.command {
         args::Command::Export { input, output } => {

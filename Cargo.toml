@@ -117,7 +117,7 @@ will-plus = ["utils-str"]
 will-plus-img = ["will-plus", "image"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao", "utils-xored-stream"]
-yuris = []
+yuris = ["hex", "utils-xored-stream"]
 # basic feature
 image = ["png"]
 image-jpg = ["mozjpeg"]
