@@ -461,7 +461,7 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
                                     let e = zstd::stream::Encoder::new(
                                         &mut *file,
                                         zstd_compression_level,
-                                    )?;
+                                    )?.auto_finish();
                                     Box::new(e) as Box<dyn Write>
                                 } else {
                                     let e = flate2::write::ZlibEncoder::new(
