@@ -923,6 +923,9 @@ pub enum ScriptType {
     #[cfg(feature = "yuris")]
     /// Yu-Ris YSTB(compiled script) file (.ybn)
     YurisYSTB,
+    #[cfg(feature = "yuris")]
+    /// Yu-Ris scenario text file (.txt)
+    YurisTxt,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
