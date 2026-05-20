@@ -554,6 +554,7 @@ pub struct Arg {
     /// none segmenter - none
     /// fastcdc segmenter - cdc:<min>:<avg>:<max>
     /// fixed segmenter - fixed:<size>
+    /// custom segmenter - custom:<json_path>
     pub xp3_segmenter: crate::scripts::kirikiri::archive::xp3::SegmenterConfig,
     #[cfg(feature = "kirikiri-arc")]
     #[arg(long, global = true)]

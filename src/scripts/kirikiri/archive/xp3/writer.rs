@@ -101,7 +101,7 @@ impl Xp3ArchiveWriter<std::io::BufWriter<std::fs::File>> {
             };
             items.insert(file.to_string(), item);
         }
-        let segmenter = create_segmenter(config.xp3_segmenter).map(|s| Arc::new(s));
+        let segmenter = create_segmenter(&config.xp3_segmenter).map(|s| Arc::new(s));
         file.write_all(XP3_MAGIC)?;
         file.write_u64(0)?; // Placeholder for index offset
         Ok(Self {
@@ -244,12 +244,13 @@ impl<T: Write + Seek + Sync + Send + 'static> Archive for Xp3ArchiveWriter<T> {
             #[cfg(feature = "zopfli")]
             let zopfli_maximum_block_splits = self.zopfli_maximum_block_splits;
             let zstd_compression_level = self.zstd_compression_level;
+            let name = name.to_owned();
             self.runner.execute(
                 move |_| {
                     let mut reader = reader;
                     let mut offset_in_file = 0u64;
                     if let Some(segmenter) = segmenter {
-                        for seg in segmenter.segment(&mut reader) {
+                        for seg in segmenter.segment(&mut reader, &name) {
                             let seg = seg?;
                             let hash: [u8; 32] = Sha256::digest(&seg).into();
                             let seg_offset_in_file = offset_in_file;

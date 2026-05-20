@@ -71,6 +71,16 @@ pub fn parse_segmenter_config(str: &str) -> Result<SegmenterConfig> {
             }
             Ok(SegmenterConfig::Fixed(size as usize))
         }
+        "custom" => {
+            if parts.len() != 2 {
+                return Err(anyhow::anyhow!(
+                    "Invalid Fixed segmenter config. Expected format: custom:json_path"
+                ));
+            }
+            let json_path = parts[1];
+            let data = std::fs::read_to_string(json_path)?;
+            Ok(SegmenterConfig::Custom(serde_json::from_str(&data)?))
+        }
         _ => Err(anyhow::anyhow!("Unknown segmenter type: {}", parts[0])),
     }
 }

@@ -4,6 +4,7 @@ use std::io::{PipeReader, Read};
 pub struct Reader {
     inner: PipeReader,
     adler: Adler32,
+    readed: u64,
 }
 
 impl Reader {
@@ -11,11 +12,16 @@ impl Reader {
         Self {
             inner,
             adler: Adler32::new(),
+            readed: 0,
         }
     }
 
     pub fn into_checksum(self) -> u32 {
         self.adler.checksum()
+    }
+
+    pub fn total_readed(&self) -> u64 {
+        self.readed
     }
 }
 
@@ -23,6 +29,7 @@ impl Read for Reader {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let n = self.inner.read(buf)?;
         self.adler.write_slice(&buf[..n]);
+        self.readed += n as u64;
         Ok(n)
     }
 }

@@ -3320,7 +3320,7 @@ fn main() {
         #[cfg(feature = "kirikiri-arc")]
         xp3_mdf_decompress: !arg.xp3_no_mdf_decompress,
         #[cfg(feature = "kirikiri-arc")]
-        xp3_segmenter: arg.xp3_segmenter,
+        xp3_segmenter: arg.xp3_segmenter.clone(),
         #[cfg(feature = "kirikiri-arc")]
         xp3_compress_files: !arg.xp3_no_compress_files,
         #[cfg(feature = "kirikiri-arc")]
