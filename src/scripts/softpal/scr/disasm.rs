@@ -241,7 +241,7 @@ const TEXT_CAT: u16 = 0x0099;
 pub const CODE_OFFSET: u32 = 0xC;
 const BIN_XOR: u16 = 0x0008;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Operand {
     offset: u32,
     raw_value: u32,
@@ -309,10 +309,16 @@ struct UserMessageFunction {
     message_arg_index: u32,
 }
 
+struct UserChoiceFunction {
+    num_args: u32,
+    choice_arg_indexs: Vec<u32>,
+}
+
 pub struct Disasm<'a> {
     reader: MemReaderRef<'a>,
     label_offsets: Vec<u32>,
     user_message_functions: HashMap<u32, UserMessageFunction>,
+    user_choice_functions: HashMap<u32, UserChoiceFunction>,
     variables: HashMap<u32, Operand>,
     stack: Vec<Operand>,
     strs: Vec<PalString>,
@@ -359,6 +365,7 @@ impl<'a> Disasm<'a> {
             reader,
             label_offsets: label_offsets.to_vec(),
             user_message_functions: HashMap::new(),
+            user_choice_functions: HashMap::new(),
             variables: HashMap::new(),
             stack: Vec::new(),
             strs: Vec::new(),
@@ -373,7 +380,7 @@ impl<'a> Disasm<'a> {
         mut self,
         mut writer: Option<&mut W>,
     ) -> Result<Vec<PalString>> {
-        self.find_user_message_functions()?;
+        self.find_user_functions()?;
         self.reader.pos = CODE_OFFSET as usize;
         let len = self.reader.data.len();
         while self.reader.pos < len {
@@ -513,9 +520,10 @@ impl<'a> Disasm<'a> {
         Ok(())
     }
 
-    fn find_user_message_functions(&mut self) -> Result<()> {
+    fn find_user_functions(&mut self) -> Result<()> {
         let mut current_func_args = None;
         self.reader.pos = CODE_OFFSET as usize;
+        let mut choice_indexes = Vec::new();
         let len = self.reader.data.len();
         while self.reader.pos < len {
             let instr = self.read_instruction()?;
@@ -543,12 +551,34 @@ impl<'a> Disasm<'a> {
                 self.stack.clear();
                 // self.variables.clear();
                 continue;
+            } else if instr.opcode == SYSCALL && instr.operands[0].raw_value == 0x60002 {
+                let choice = self
+                    .stack
+                    .pop()
+                    .ok_or_else(|| anyhow::anyhow!("No choice for choice sys call"))?;
+                if choice.typ() == OperandType::Argument {
+                    choice_indexes.push(choice.value() - 1);
+                }
+                self.stack.clear();
+                if !choice_indexes.is_empty() {
+                    if let Some((func_offset, func_num_args)) = current_func_args {
+                        self.user_choice_functions.insert(
+                            func_offset,
+                            UserChoiceFunction {
+                                num_args: func_num_args,
+                                choice_arg_indexs: choice_indexes.clone(),
+                            },
+                        );
+                    }
+                }
+                continue;
             }
             match instr.opcode {
                 ENTER => {
                     current_func_args = Some((instr.offset, instr.operands[0].value()));
                     self.stack.clear();
                     self.variables.clear(); // Safe to clear here, entering a new function frame
+                    choice_indexes.clear();
                 }
                 MOV => {
                     self.handle_mov_instruction(instr)?;
@@ -560,6 +590,7 @@ impl<'a> Disasm<'a> {
                     current_func_args = None;
                     self.stack.clear();
                     self.variables.clear(); // Safe to clear here, leaving function frame
+                    choice_indexes.clear();
                 }
                 _ => {
                     self.stack.clear();
@@ -635,6 +666,26 @@ impl<'a> Disasm<'a> {
             return Ok(());
         }
         let target_offset = self.label_offsets[instr.operands[0].value() as usize - 1];
+        if let Some(func) = self.user_choice_functions.get(&target_offset) {
+            if self.stack.len() < func.num_args as usize {
+                return Ok(());
+            }
+            let mut args = Vec::new();
+            for _ in 0..func.num_args {
+                args.push(self.stack.pop().unwrap());
+            }
+            args.reverse();
+            for ind in &func.choice_arg_indexs {
+                let arg = &args[*ind as usize];
+                if arg.typ() == OperandType::Literal {
+                    self.strs.push(PalString {
+                        offset: arg.offset,
+                        typ: StringType::Message,
+                    });
+                }
+            }
+            return Ok(());
+        }
         let message_func = match self.user_message_functions.get(&target_offset) {
             Some(func) => func,
             None => return Ok(()),
