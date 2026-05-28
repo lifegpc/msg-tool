@@ -271,3 +271,7 @@ msg-tool create -t <script-type> <input> <output>
 | `yuris-yscfg` | `yuris` | Yu-Ris YSCFG(config) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 | `yuris-ystb` | `yuris` | Yu-Ris YSTB(compiled script) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |
 | `yuris-txt` | `yuris` | Yu-Ris scenario text file (.txt) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
+
+| Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
+|---|---|---|---|---|---|---|---|---|
+| `yuris-ydg` | `yuris-img` | YU-RIS compressed image file (.ydg) | ✔️ | ✔️ | ❌ | ❌ | ✔️ |  |

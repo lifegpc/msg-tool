@@ -525,6 +525,65 @@ pub fn load_jpg<R: std::io::Read>(data: R) -> Result<ImageData> {
     })
 }
 
+#[cfg(feature = "webp")]
+pub fn load_webp<R: std::io::Read>(mut data: R) -> Result<ImageData> {
+    use std::io::Read;
+    let mut header = [0; 12];
+    data.read_exact(&mut header)?;
+    if !header.starts_with(b"RIFF") || !header.ends_with(b"WEBP") {
+        anyhow::bail!("File is not a webp image.");
+    }
+    let file_size = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
+    let mut da = Vec::with_capacity(file_size as usize + 8);
+    da.extend_from_slice(&header);
+    data.take(file_size as u64 - 4).read_to_end(&mut da)?;
+    let decoder = webp::Decoder::new(&da);
+    let image = decoder
+        .decode()
+        .ok_or(anyhow::anyhow!("Failed to decode WebP image"))?;
+    let color_type = if image.is_alpha() {
+        ImageColorType::Rgba
+    } else {
+        ImageColorType::Rgb
+    };
+    let width = image.width();
+    let height = image.height();
+    let stride = width as usize * color_type.bpp(8) as usize / 8;
+    let mut data = vec![0; stride * height as usize];
+    if image.len() != data.len() {
+        return Err(anyhow::anyhow!(
+            "WebP image data size mismatch: expected {}, got {}",
+            data.len(),
+            image.len()
+        ));
+    }
+    data.copy_from_slice(&image);
+    Ok(ImageData {
+        width,
+        height,
+        depth: 8,
+        color_type,
+        data,
+    })
+}
+
+#[cfg(feature = "qoi")]
+pub fn load_qoi<R: std::io::Read>(data: R) -> Result<ImageData> {
+    let mut decoder = qoi::Decoder::from_stream(data)?;
+    let data = decoder.decode_to_vec()?;
+    let header = decoder.header();
+    Ok(ImageData {
+        width: header.width,
+        height: header.height,
+        color_type: match header.channels {
+            qoi::Channels::Rgb => ImageColorType::Rgb,
+            qoi::Channels::Rgba => ImageColorType::Rgba,
+        },
+        depth: 8,
+        data,
+    })
+}
+
 /// Decodes an image from the specified file path and returns its data.
 ///
 /// * `typ` - The type of the image to decode.

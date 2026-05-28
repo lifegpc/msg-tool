@@ -926,6 +926,9 @@ pub enum ScriptType {
     #[cfg(feature = "yuris")]
     /// Yu-Ris scenario text file (.txt)
     YurisTxt,
+    #[cfg(feature = "yuris-img")]
+    /// YU-RIS compressed image file (.ydg)
+    YurisYDG,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
