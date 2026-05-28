@@ -146,15 +146,37 @@ struct YSTBArgData<'a>(&'a [u8], Encoding);
 
 impl<'a> std::fmt::Debug for YSTBArgData<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.0.len() >= 5 && self.0.starts_with(b"M") {
-            let len = u16::from_le_bytes([self.0[1], self.0[2]]);
-            if len as usize == self.0.len() - 3 {
-                if let Ok(s) = decode_to_string(self.1, &self.0[3..], true) {
+        let data = self.0;
+        // 6-byte local variable reference: [48 03 00 40] [var_id]
+        if data.len() == 6 && &data[0..4] == b"\x48\x03\x00\x40" {
+            let id = u16::from_le_bytes([data[4], data[5]]);
+            return write!(f, "var[{:04x}]", id);
+        }
+        // 6-byte string variable reference: [48 03 00 24] [var_id]
+        if data.len() == 6 && &data[0..4] == b"\x48\x03\x00\x24" {
+            let id = u16::from_le_bytes([data[4], data[5]]);
+            return write!(f, "str[{:04x}]", id);
+        }
+        // Structured variable ref with embedded M-string label
+        // Pattern: [48 03 00 24] [2-byte var_id] [4D len content...] [padding]
+        if data.len() >= 9 && &data[0..4] == b"\x48\x03\x00\x24" && data[6] == b'M' {
+            let len = u16::from_le_bytes([data[7], data[8]]) as usize;
+            if len + 9 <= data.len() {
+                if let Ok(s) = decode_to_string(self.1, &data[9..9 + len], true) {
                     return f.write_str(&s);
                 }
             }
         }
-        write!(f, "{}", &hex::encode(self.0))
+        // M-string format
+        if data.len() >= 5 && data.starts_with(b"M") {
+            let len = u16::from_le_bytes([data[1], data[2]]);
+            if len as usize == data.len() - 3 {
+                if let Ok(s) = decode_to_string(self.1, &data[3..], true) {
+                    return f.write_str(&s);
+                }
+            }
+        }
+        write!(f, "{}", &hex::encode(data))
     }
 }
 
