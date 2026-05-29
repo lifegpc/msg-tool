@@ -2747,7 +2747,7 @@ pub fn unpack_archive(
         Some(output) => {
             let mut pb = std::path::PathBuf::from(output);
             let filename = std::path::PathBuf::from(filename);
-            if let Some(root_dir) = root_dir {
+            if let Some(root_dir) = root_dir.as_ref() {
                 let rpath = utils::files::relative_path(root_dir, &filename);
                 if let Some(parent) = rpath.parent() {
                     pb.push(parent);
@@ -2757,8 +2757,10 @@ pub fn unpack_archive(
                 }
             }
             pb.set_extension("");
-            if let Some(ext) = script.archive_output_ext() {
-                pb.set_extension(ext);
+            if root_dir.is_some() {
+                if let Some(ext) = script.archive_output_ext() {
+                    pb.set_extension(ext);
+                }
             }
             pb.to_string_lossy().into_owned()
         }
