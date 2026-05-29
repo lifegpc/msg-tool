@@ -392,8 +392,8 @@ impl<'a> Parser<'a> {
 
     fn parse_command(&mut self) -> Result<CommandNode> {
         let c = self
-            .next_char()
-            .ok_or_else(|| self.error("Unexpected end of line"))?;
+            .next_char_with_line()
+            .ok_or_else(|| self.error("Unexpected end of file"))?;
         if c != "\\" {
             return Err(self.error("Unexpected command start token"));
         }
@@ -427,8 +427,8 @@ impl<'a> Parser<'a> {
         }
         loop {
             let c = self
-                .next_char()
-                .ok_or_else(|| self.error("Unexpected end of line when parsing command"))?;
+                .next_char_with_line()
+                .ok_or_else(|| self.error("Unexpected end of file when parsing command"))?;
             if in_quote {
                 if c == "\"" {
                     in_quote = false;
@@ -437,6 +437,9 @@ impl<'a> Parser<'a> {
             } else {
                 if c == "\"" {
                     in_quote = true;
+                    continue;
+                }
+                if c == "\n" || c == "\r\n" {
                     continue;
                 }
                 if c == " " || c == "\t" {
@@ -456,6 +459,15 @@ impl<'a> Parser<'a> {
                         }
                     }
                     continue;
+                }
+                if c == "\\" {
+                    args.push(arg);
+                    self.cur_pos -= 1;
+                    return Ok(CommandNode {
+                        name: name.trim_matches(' ').trim_matches('\t').to_owned(),
+                        args,
+                        has_args: true,
+                    });
                 }
                 if c == "," {
                     args.push(arg);
@@ -509,6 +521,18 @@ impl<'a> Parser<'a> {
             self.cur_pos += 1;
         }
         t
+    }
+
+    fn next_char_with_line(&mut self) -> Option<&'a str> {
+        let t = self.cur_line_chars.get(self.cur_pos).map(|s| *s);
+        if t.is_some() {
+            self.cur_pos += 1;
+            return t;
+        }
+        if self.add_next_line().is_err() {
+            return None;
+        }
+        self.next_char()
     }
 }
 
@@ -752,6 +776,52 @@ mod tests {
                 )),
                 LineNode::Text(TextNode("Test".into())),
             ])]
+        );
+    }
+    #[test]
+    fn test_parse6() {
+        let data = r"\S.D(HASIRA
+)";
+        assert_eq!(
+            Parser::new(data).parse().unwrap(),
+            vec![Line::Line(vec![LineNode::Command(CommandNode {
+                name: "S.D".into(),
+                args: vec!["HASIRA".into()],
+                has_args: true
+            })])],
+        );
+    }
+    #[test]
+    fn test_parse7() {
+        let data = r"\S.CLXYZ(d,500,0,-40,0,1,1
+
+\VO(KAG_0_ALL_4010_0016)【カグヤ】「皆さんっ、すぐそうやって！　ひとつしかない大切な身体なんですから今日みたいなことは……」";
+        assert_eq!(
+            Parser::new(data).parse().unwrap(),
+            vec![
+                Line::Line(vec![
+                    LineNode::Command(CommandNode {
+                        name: "S.CLXYZ".into(),
+                        args: vec![
+                            "d".into(),
+                            "500".into(),
+                            "0".into(),
+                            "-40".into(),
+                            "0".into(),
+                            "1".into(),
+                            "1".into()
+                        ],
+                        has_args: true
+                    }),
+                    LineNode::Command(CommandNode {
+                        name: "VO".into(),
+                        args: vec!["KAG_0_ALL_4010_0016".into()],
+                        has_args: true,
+                    }),
+                    LineNode::Name(NameNode("カグヤ".into())),
+                    LineNode::Text(TextNode("「皆さんっ、すぐそうやって！　ひとつしかない大切な身体なんですから今日みたいなことは……」".into())),
+                ])
+            ],
         );
     }
 }
