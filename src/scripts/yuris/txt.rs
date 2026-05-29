@@ -356,9 +356,8 @@ impl<'a> Parser<'a> {
             }
             // command
             if c == "\\" {
-                // check \R
-                if self.peek_char_offset(1).is_some_and(|c| c == "R") {
-                    self.cur_pos += 2;
+                let cmd = self.parse_command()?;
+                if !cmd.has_args && cmd.name == "R" {
                     text.push_str("\\R");
                     continue;
                 }
@@ -367,7 +366,7 @@ impl<'a> Parser<'a> {
                     line.push(LineNode::Text(TextNode(ctext.to_owned())));
                     text.clear();
                 }
-                line.push(LineNode::Command(self.parse_command()?));
+                line.push(LineNode::Command(cmd));
                 continue;
             }
             // name
@@ -822,6 +821,18 @@ mod tests {
                     LineNode::Text(TextNode("「皆さんっ、すぐそうやって！　ひとつしかない大切な身体なんですから今日みたいなことは……」".into())),
                 ])
             ],
+        );
+    }
+    #[test]
+    fn test_parse8() {
+        let data = r"\RP.END(SCENE_ETC_H04)";
+        assert_eq!(
+            Parser::new(data).parse().unwrap(),
+            vec![Line::Line(vec![LineNode::Command(CommandNode {
+                name: "RP.END".into(),
+                args: vec!["SCENE_ETC_H04".into()],
+                has_args: true
+            })])],
         );
     }
 }
