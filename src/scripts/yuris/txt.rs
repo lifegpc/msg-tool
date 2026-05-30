@@ -112,7 +112,7 @@ impl INode for CommandNode {
             } else {
                 s.push_str(", ");
             }
-            if arg.contains(" ") || arg.contains(",") {
+            if arg.contains(" ") || arg.contains(",") || arg.contains("=") {
                 s.push_str(&format!("\"{}\"", arg));
             } else {
                 s.push_str(arg);
