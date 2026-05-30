@@ -21,6 +21,12 @@ impl DerefMut for Base64Bytes {
     }
 }
 
+impl From<Vec<u8>> for Base64Bytes {
+    fn from(value: Vec<u8>) -> Self {
+        Self { bytes: value }
+    }
+}
+
 impl Serialize for Base64Bytes {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

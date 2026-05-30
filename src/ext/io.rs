@@ -1443,6 +1443,16 @@ pub trait WriteAt {
     fn write_cstring_at(&mut self, offset: u64, value: &CString) -> Result<()> {
         self.write_all_at(offset, value.as_bytes_with_nul())
     }
+
+    /// Write a struct at a specific offset.
+    fn write_struct_at<V: StructPack>(
+        &mut self,
+        offset: u64,
+        value: &V,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()>;
 }
 
 impl<T: Write + Seek> WriteAt for T {
@@ -1458,6 +1468,23 @@ impl<T: Write + Seek> WriteAt for T {
         let current_pos = self.stream_position()?;
         self.seek(SeekFrom::Start(offset as u64))?;
         self.write_all(buf)?;
+        self.seek(SeekFrom::Start(current_pos))?;
+        Ok(())
+    }
+
+    fn write_struct_at<V: StructPack>(
+        &mut self,
+        offset: u64,
+        value: &V,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
+        let current_pos = self.stream_position()?;
+        self.seek(SeekFrom::Start(offset as u64))?;
+        value
+            .pack(self, big, encoding, info)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         self.seek(SeekFrom::Start(current_pos))?;
         Ok(())
     }

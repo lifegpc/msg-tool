@@ -4,21 +4,28 @@ use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
+use crate::utils::serde_base64bytes::*;
 use crate::utils::struct_pack::*;
 use crate::utils::xored_stream::*;
 use anyhow::Result;
 use msg_tool_macro::*;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::ops::{Deref, DerefMut};
 
-#[derive(Clone, Debug, StructUnpack, StructPack)]
+#[derive(Clone, Debug, StructUnpack, StructPack, Deserialize, Serialize)]
 struct YSTBHeader {
     version: u32,
+    #[serde(skip)]
     inst_entry_count: u32,
+    #[serde(skip)]
     inst_index_size: u32,
+    #[serde(skip)]
     args_index_size: u32,
+    #[serde(skip)]
     args_data_size: u32,
+    #[serde(skip)]
     line_numbers_size: u32,
     reserve0: u32,
 }
@@ -34,10 +41,12 @@ struct YSTBHeaderV2 {
     reserved2: u32,
 }
 
+#[derive(Deserialize, Serialize)]
 struct YSTBData {
+    #[serde(flatten)]
     header: YSTBHeader,
     insts: Vec<YSTBInst>,
-    line_numbers: Vec<u8>,
+    line_numbers: Base64Bytes,
 }
 
 impl std::fmt::Debug for YSTBData {
@@ -45,7 +54,7 @@ impl std::fmt::Debug for YSTBData {
         f.debug_struct("YSTBData")
             .field("header", &self.header)
             .field("insts", &self.insts)
-            .field("line_numbers", &hex::encode(&self.line_numbers))
+            .field("line_numbers", &hex::encode(&self.line_numbers.bytes))
             .finish()
     }
 }
@@ -88,19 +97,22 @@ impl StructUnpack for YSTBData {
         Ok(Self {
             header,
             insts,
-            line_numbers,
+            line_numbers: line_numbers.into(),
         })
     }
 }
 
-#[derive(Debug, StructUnpack, StructPack)]
+#[derive(Debug, StructUnpack, StructPack, Deserialize, Serialize)]
 struct YSTBInstBase {
     opcode: u8,
+    #[serde(skip)]
     arg_count: u8,
     unk: u16,
 }
 
+#[derive(Deserialize, Serialize)]
 struct YSTBInst {
+    #[serde(flatten)]
     base: YSTBInstBase,
     args: Vec<YSTBArg>,
 }
@@ -129,10 +141,11 @@ impl std::fmt::Debug for YSTBInst {
     }
 }
 
-#[derive(Debug, StructUnpack, StructPack)]
+#[derive(Clone, Debug, StructUnpack, StructPack, Deserialize, Serialize)]
 struct YSTBArgBase {
     id: u16,
     typ: u16,
+    #[serde(skip)]
     size: u32,
 }
 
@@ -140,6 +153,88 @@ struct YSTBArg {
     base: YSTBArgBase,
     data: Vec<u8>,
     encoding: Encoding,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "t")]
+enum YSTBArgDat {
+    Raw { data: Base64Bytes },
+    MString { s: String },
+}
+
+impl TryFrom<YSTBArgTmp> for YSTBArg {
+    type Error = anyhow::Error;
+    fn try_from(value: YSTBArgTmp) -> Result<Self> {
+        let data = match value.data {
+            YSTBArgDat::Raw { data } => data.bytes,
+            YSTBArgDat::MString { s } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'M')?;
+                let d = encode_string(value.encoding, &s, true)?;
+                m.write_u16(d.len() as u16)?;
+                m.write_all(&d)?;
+                m.into_inner()
+            }
+        };
+        Ok(Self {
+            base: value.base,
+            data,
+            encoding: value.encoding,
+        })
+    }
+}
+
+impl<'a> TryFrom<&'a YSTBArg> for YSTBArgTmp {
+    type Error = anyhow::Error;
+    fn try_from(value: &'a YSTBArg) -> Result<Self> {
+        if value.data.len() >= 5 && value.data.starts_with(b"M") {
+            let len = u16::from_le_bytes([value.data[1], value.data[2]]);
+            if len as usize == value.data.len() - 3 {
+                if let Ok(s) = decode_to_string(value.encoding, &value.data[3..], true) {
+                    return Ok(Self {
+                        base: value.base.clone(),
+                        data: YSTBArgDat::MString { s },
+                        encoding: value.encoding,
+                    });
+                }
+            }
+        }
+        Ok(Self {
+            base: value.base.clone(),
+            data: YSTBArgDat::Raw {
+                data: value.data.clone().into(),
+            },
+            encoding: value.encoding,
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+struct YSTBArgTmp {
+    #[serde(flatten)]
+    base: YSTBArgBase,
+    data: YSTBArgDat,
+    encoding: Encoding,
+}
+
+impl<'de> Deserialize<'de> for YSTBArg {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let tmp = YSTBArgTmp::deserialize(deserializer)?;
+        tmp.try_into().map_err(serde::de::Error::custom)
+    }
+}
+
+impl Serialize for YSTBArg {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let tmp: YSTBArgTmp = self.try_into().map_err(serde::ser::Error::custom)?;
+        tmp.serialize(serializer)
+    }
 }
 
 struct YSTBArgData<'a>(&'a [u8], Encoding);
@@ -286,8 +381,9 @@ impl ScriptBuilder for YSTBBuilder {
 pub struct YSTB {
     data: YSTBData,
     com: YSCMData,
-    #[allow(unused)]
     xor_key: Option<u32>,
+    disasm: bool,
+    custom_yaml: bool,
 }
 
 impl YSTB {
@@ -340,7 +436,13 @@ impl YSTB {
         let mut reader = MemReader::new(yscm);
         reader.pos = 4;
         let com = YSCMData::unpack(&mut reader, false, encoding, &None)?;
-        Ok(Self { data, com, xor_key })
+        Ok(Self {
+            data,
+            com,
+            xor_key,
+            disasm: config.yuris_ystb_disasm,
+            custom_yaml: config.custom_yaml,
+        })
     }
 
     fn get_xor_key<T: Read + Seek>(reader: &mut T) -> Result<u32> {
@@ -370,7 +472,7 @@ impl YSTB {
     ) -> Result<()> {
         let key = xor_key.to_le_bytes();
         reader.seek(SeekFrom::Start(4))?;
-        writer.write_all(b"YSCM")?;
+        writer.write_all(b"YSTB")?;
         let version = reader.peek_u32()?;
         if matches!(version, 201..300) {
             let header: YSTBHeaderV2 = reader.read_struct(false, Encoding::Cp932, &None)?;
@@ -435,10 +537,27 @@ impl Script for YSTB {
     }
 
     fn custom_output_extension(&self) -> &'static str {
-        "txt"
+        if self.disasm {
+            "txt"
+        } else if self.custom_yaml {
+            "yaml"
+        } else {
+            "json"
+        }
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
+        if !self.disasm {
+            let s = if self.custom_yaml {
+                serde_yaml_ng::to_string(&self.data)?
+            } else {
+                serde_json::to_string_pretty(&self.data)?
+            };
+            let mut f = std::fs::File::create(filename)?;
+            let encoded = encode_string(encoding, &s, true)?;
+            f.write_all(&encoded)?;
+            return Ok(());
+        }
         let mut file = MemWriter::new();
         let mut indent = String::new();
         for code in self.data.insts.iter() {
@@ -501,6 +620,73 @@ impl Script for YSTB {
             let encoded = encode_string(encoding, &s, true)?;
             f.write_all(&encoded)?;
         }
+        Ok(())
+    }
+
+    fn custom_import<'a>(
+        &'a self,
+        custom_filename: &'a str,
+        mut file: Box<dyn WriteSeek + 'a>,
+        encoding: Encoding,
+        output_encoding: Encoding,
+    ) -> Result<()> {
+        if self.disasm {
+            anyhow::bail!("Import is not supported for disasm mode.");
+        }
+        let mut f = MemWriter::new();
+        let data = crate::utils::files::read_file(custom_filename)?;
+        let data = decode_to_string(output_encoding, &data, true)?;
+        let mut data: YSTBData = if self.custom_yaml {
+            serde_yaml_ng::from_str(&data)?
+        } else {
+            serde_json::from_str(&data)?
+        };
+        f.write_all(b"YSTB")?;
+        data.header.line_numbers_size = data.line_numbers.len() as u32;
+        data.header.inst_entry_count = data.insts.len() as u32;
+        data.header.inst_index_size = data.header.inst_entry_count * 4;
+        data.header.pack(&mut f, false, encoding, &None)?;
+        for i in data.insts.iter_mut() {
+            i.base.arg_count = i.args.len() as u8;
+            i.base.pack(&mut f, false, encoding, &None)?;
+        }
+        let arg_count = data.insts.iter().fold(0, |c, i| c + i.args.len());
+        data.header.args_index_size = arg_count as u32 * 0xC;
+        let mut cpos = f.pos as u64;
+        f.pos += data.header.args_index_size as usize;
+        let bpos = f.pos as u32;
+        for i in data.insts.iter_mut() {
+            let meta =
+                self.com.opcodes.get(i.opcode as usize).ok_or_else(|| {
+                    anyhow::anyhow!("Failed to find op {:x}'s metadata", i.opcode)
+                })?;
+            for arg in i.args.iter_mut() {
+                arg.base.size = arg.data.len() as u32;
+                f.write_struct_at(cpos, &arg.base, false, encoding, &None)?;
+                cpos += 8;
+                if arg.base.size == 0
+                    || (meta.name == "RETURNCODE" && arg.base.size == 1 && arg.data[0] == b'M')
+                {
+                    f.write_u32_at(cpos, 0)?;
+                    cpos += 4;
+                    continue;
+                }
+                let offset = f.pos as u32 - bpos;
+                f.write_u32_at(cpos, offset)?;
+                cpos += 4;
+                f.write_all(&arg.data)?;
+            }
+        }
+        data.header.args_data_size = f.pos as u32 - bpos;
+        f.write_all(&data.line_numbers)?;
+        f.pos = 4;
+        data.header.pack(&mut f, false, encoding, &None)?;
+        if let Some(xor) = self.xor_key {
+            let mut r = MemReader::new(f.into_inner());
+            f = MemWriter::new();
+            Self::xor(&mut r, &mut f, xor)?;
+        }
+        file.write_all(&f.data)?;
         Ok(())
     }
 }

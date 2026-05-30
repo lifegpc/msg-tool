@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-#[serde(untagged, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 /// Text Encoding
 pub enum Encoding {
     /// Automatically detect encoding
@@ -666,6 +666,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "yuris")]
     /// Path to the ysc.ybn file
     pub yuris_ysc_path: Option<String>,
+    #[cfg(feature = "yuris")]
+    /// Disasm Yu-RIS YSTB (.ybn) file
+    pub yuris_ystb_disasm: bool,
 }
 
 #[cfg(feature = "artemis")]

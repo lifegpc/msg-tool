@@ -3415,6 +3415,8 @@ fn main() {
         xp3_cxdec_path_hash: arg.xp3_cxdec_path_hash,
         #[cfg(feature = "yuris")]
         yuris_ysc_path: arg.yuris_ysc_path.clone(),
+        #[cfg(feature = "yuris")]
+        yuris_ystb_disasm: arg.yuris_ystb_disasm,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

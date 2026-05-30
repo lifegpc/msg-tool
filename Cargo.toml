@@ -118,7 +118,7 @@ will-plus = ["utils-str"]
 will-plus-img = ["will-plus", "image"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao", "utils-xored-stream"]
-yuris = ["dep:hex", "utils-xored-stream"]
+yuris = ["dep:hex", "utils-serde-base64bytes", "utils-xored-stream"]
 yuris-img = ["yuris", "image", "qoi", "webp"]
 # basic feature
 image = ["dep:png"]
