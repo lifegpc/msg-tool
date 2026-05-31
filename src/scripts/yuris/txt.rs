@@ -112,7 +112,10 @@ impl INode for CommandNode {
             } else {
                 s.push_str(", ");
             }
-            if arg.contains(" ") || arg.contains(",") || arg.contains("=") {
+            if (arg.contains(" ") && !arg.chars().all(|s| s.is_ascii_digit() || s == ' '))
+                || arg.contains(",")
+                || arg.contains("=")
+            {
                 s.push_str(&format!("\"{}\"", arg));
             } else {
                 s.push_str(arg);
@@ -833,6 +836,18 @@ mod tests {
                 args: vec!["SCENE_ETC_H04".into()],
                 has_args: true
             })])],
+        );
+    }
+    #[test]
+    fn test_ser1() {
+        assert_eq!(
+            (CommandNode {
+                name: "EV.CMXYZ".into(),
+                args: vec!["0  474".into(), "54".into(), "-58".into()],
+                has_args: true,
+            })
+            .serialize(),
+            r"\EV.CMXYZ(0  474, 54, -58)"
         );
     }
 }
