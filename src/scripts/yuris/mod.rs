@@ -6,5 +6,6 @@ mod types;
 pub mod yscfg;
 pub mod yscm;
 pub mod yser;
+pub mod yslb;
 pub mod ystb;
 pub mod ystl;
