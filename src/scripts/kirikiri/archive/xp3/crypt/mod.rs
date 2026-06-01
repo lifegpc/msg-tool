@@ -298,6 +298,10 @@ enum CryptType {
         #[serde(default)]
         file_list_name: Option<String>,
     },
+    #[serde(rename_all = "PascalCase")]
+    Hxv4Crypt {
+        key_packages: Vec<cx::KeyPackage>,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -504,6 +508,12 @@ impl Schema {
                 *random_type,
                 file_list_name.as_ref().map(|s| s.as_str()),
                 config.xp3_file_list_path.as_ref().map(|s| s.as_str()),
+                filename,
+                config,
+            )?),
+            CryptType::Hxv4Crypt { key_packages } => Box::new(cx::Hxv4Crypt::new2(
+                &key_packages,
+                config.xp3_game_title.as_deref().unwrap_or_default(),
                 filename,
                 config,
             )?),

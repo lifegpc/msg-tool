@@ -1740,8 +1740,6 @@ dependencies = [
 [[package]]
 name = "msg_tool_xp3data"
 version = "0.4.0-alpha.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2406845429faea2b0e50e5ab0e5b58e10758cdd24de5dc0b372fb021f9596448"
 dependencies = [
  "msg_tool_build",
  "zstd",

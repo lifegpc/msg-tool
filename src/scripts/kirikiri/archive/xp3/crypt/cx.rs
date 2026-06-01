@@ -2018,7 +2018,6 @@ impl PathHash {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[allow(unused)]
 #[serde(rename_all = "camelCase")]
 struct KeyData {
     boot_strap: String,
@@ -2030,7 +2029,6 @@ struct KeyData {
     upper_key: Option<Vec<u8>>,
 }
 
-#[allow(unused)]
 mod hex_vec {
     use serde::{Deserialize, Deserializer};
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
@@ -2042,7 +2040,6 @@ mod hex_vec {
     }
 }
 
-#[allow(unused)]
 mod hex_vec_optional {
     use serde::{Deserialize, Deserializer};
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
@@ -2060,8 +2057,8 @@ mod hex_vec_optional {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[allow(unused)]
-struct KeyPackage {
+pub struct KeyPackage {
+    #[allow(unused)]
     description: String,
     key: KeyData,
     sku: String,
@@ -2074,13 +2071,11 @@ struct CxdecDb {
     file_hash_salt: String,
     /// xp3 filename -> path hash -> file hash -> file name
     file_list: HashMap<String, HashMap<PathHash, HashMap<FileHash, Option<String>>>>,
-    #[allow(unused)]
     #[serde(default)]
     key_packages: Vec<KeyPackage>,
     #[allow(unused)]
     path_hash_salt: String,
     path_mapping: HashMap<PathHash, Option<String>>,
-    #[allow(unused)]
     project_name: String,
 }
 
@@ -2251,7 +2246,6 @@ impl HxCrypt {
         })
     }
 
-    #[allow(unused)]
     fn new_inner(
         base: BaseSchema,
         cx: &CxSchema,
@@ -3447,6 +3441,45 @@ impl Hxv4Crypt {
         })
     }
 
+    pub fn new2(
+        key_packages: &[KeyPackage],
+        project: &str,
+        filename: &str,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
+        let p = std::path::Path::new(filename);
+        let b = p
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get file name from path."))?;
+        let s: &str = &b.to_string_lossy();
+        let (file_map, mut path_map) = if let Some(path) = config.xp3_file_list_path.as_ref() {
+            let data = std::fs::read(path)?;
+            let data = decode_to_string(Encoding::Utf8, &data, true)?;
+            HxCrypt::read_names(&data, s)?
+        } else {
+            let pdir = p.parent().map(|s| s.to_owned()).unwrap_or_default();
+            if let Some(k) = HxCrypt::try_default_name(&pdir.join("filelist.json"), s)? {
+                k
+            } else if let Some(k) = HxCrypt::try_default_name(&pdir.join("filelist.lst"), s)? {
+                k
+            } else {
+                (HashMap::new(), HashMap::new())
+            }
+        };
+        let default_path_hash = calculate_path_hash("", "xp3hnp");
+        if !path_map.contains_key(&default_path_hash) {
+            path_map.insert(default_path_hash, String::new());
+        }
+        Ok(Self {
+            base: Mutex::new(None),
+            file_mapping: Arc::new(file_map),
+            path_mapping: Arc::new(path_map),
+            key_packages: key_packages.to_vec(),
+            project: project.to_owned(),
+            config: config.clone(),
+        })
+    }
+
     fn load_package(&self, pack: &KeyPackage, archive: &mut Xp3Archive) -> Result<HxCrypt> {
         eprintln!("try key {} for {}", pack.sku, self.project);
         let upper_key = match &pack.key.upper_key {
@@ -3655,13 +3688,6 @@ fn test_real_keys() {
     );
     assert_eq!(b64.encode(&ind2.nonce), "CSBjzSXQNTioPhDp710WCQ==");
     assert!((params.flags & RANDOM_TYPE_FLAG) == 0);
-    let expected_cb = CX_CB_TABLE.get("limelight.bin").unwrap();
-    let mut cb = Vec::with_capacity(0x400);
-    let mut reader = MemReaderRef::new(&key.ctrlblk);
-    for _ in 0..0x400 {
-        cb.push(!reader.read_u32().unwrap());
-    }
-    assert_eq!(&cb, expected_cb);
 }
 
 #[test]

@@ -152,23 +152,19 @@
         "Title": "天色＊アイルノーツ | 天色幻想岛"
     },
     "AMBITIOUS MISSION": {
-        "$type": "HxCrypt",
-        "Mask": 454,
-        "Offset": 656,
-        "PrologOrder": "AAEC",
-        "OddBranchOrder": "BAMCBQAB",
-        "EvenBranchOrder": "AAIHAwQBBgU=",
-        "IndexKey1": {
-            "Key": "qITmTKxWdz7SPxrMP5zAJcLDiPpIBHzgCBCK5wtPUgw=",
-            "Nonce": "n+1KapDnHLI8hC3q3fxK/g=="
-        },
-        "IndexKey2": {
-            "Key": "Wa7phHMk/a0hEztfLDpfcWbN1n7e0DYitcdCV1m/2EQ=",
-            "Nonce": "DDEouJ4BezmeMVKZf7WVqA=="
-        },
-        "FilterKey": 375708990042069900,
-        "RandomType": 1,
-        "ControlBlockName": "amb.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{Kaguya|Yae|Nijimu|Atena|Charl|Kallis}",
+                    "bootStrap": "AMBITIOUS_MISSION/Copyright_(C)SAGA_PLANETS./All_Rights_Reserved.",
+                    "params": "000103050706020402030100050400010280c6019002",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "AMBITIOUS MISSION After Episode 1 | AMBITIOUS MISSION アフターエピソード1 かぐや＆あてな | Ambitious Mission FD1 | AMBITIOUS MISSION After Episode 2 | AMBITIOUS MISSION アフターエピソード2 弥栄＆虹夢＆シャル | Ambitious Mission FD2"
     },
     "Anata no Milk Kudasai na": {
@@ -331,22 +327,20 @@
         "Title": "喫茶ステラと死神の蝶 | 星光咖啡馆与死神之蝶 | 星光咖啡館與死神之蝶"
     },
     "Café Stella to Shinigami no Chou [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 486,
-        "Offset": 101,
-        "PrologOrder": "AgAB",
-        "OddBranchOrder": "BAEFAAMC",
-        "EvenBranchOrder": "BgMBAgQFAAc=",
-        "IndexKey1": {
-            "Key": "9lU4Kgw+IvRM3Zm0ubsa161RAxURD9ghXmSvYH7f/VE=",
-            "Nonce": "r5eGhOPufNjqgZMwtggGhg=="
-        },
-        "IndexKey2": {
-            "Key": "sd8wA9myXvbA4ATJnq6JYia3V5otV84MkuSiW4aYOog=",
-            "Nonce": "HXJsNtEkHsOPDBcx/QODdQ=="
-        },
-        "FilterKey": 9413765695581088110,
-        "ControlBlockName": "cafe_stella_steam.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "Steam",
+                "description": "Steam version",
+                "key": {
+                    "bootStrap": "Cafe Stella and the Reapers Butterflies (C)YUZUSOFT/JUNOS INC. All Rights Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "060301020500070405020400010301020001e6016500",
+                    "archiveUniqueKey": "{Kanna+Natsume+Nozomi+Mei+Suzune}",
+                    "upperKey": "79d53d8b5f13ab6d"
+                }
+            }
+        ],
         "Title": "喫茶ステラと死神の蝶 [Steam] | 星光咖啡馆与死神之蝶 [Steam] | 星光咖啡館與死神之蝶 [Steam]"
     },
     "CharaBration!": {
@@ -415,23 +409,19 @@
         "Title": "コミュ - 黒い竜と優しい王国 - | Co:μ-黑龙与温柔的王国"
     },
     "Criminal Border": {
-        "$type": "HxCrypt",
-        "Mask": 453,
-        "Offset": 604,
-        "PrologOrder": "AAEC",
-        "OddBranchOrder": "AwACBQQB",
-        "EvenBranchOrder": "BQACAwQHBgE=",
-        "IndexKey1": {
-            "Key": "L+SmM7G1i3DzVn8WfJw0rKYncCc0eO9NV4pNnLD/3Zw=",
-            "Nonce": "x1bUUghkqzH/wBfctS+Bqw=="
-        },
-        "IndexKey2": {
-            "Key": "uRtOr9x1duMO9oSmzmVjyfRbVR13WqudlAMAw4JB9Lw=",
-            "Nonce": "bldfTzJ3TE8Kocn8akGzsA=="
-        },
-        "FilterKey": 18385003206934157155,
-        "RandomType": 1,
-        "ControlBlockName": "criminal_border.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{Hina-Kotoko-Meryl-Rin}",
+                    "bootStrap": "Criminal_Border/Copyright_Purple_software_All_Rights_Reserved.",
+                    "params": "010203070006050402030004050100010281c5015c02",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "クリミナルボーダー | クリミナルボーダー 1st offence | クリミナルボーダー 2nd"
     },
     "Crime Rhyme series": {
@@ -449,22 +439,20 @@
         "Title": "クロスコンチェルト | 交汇协奏曲 | 交匯協奏曲"
     },
     "Cross Concerto [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 419,
-        "Offset": 672,
-        "PrologOrder": "AQAC",
-        "OddBranchOrder": "BQMCBAAB",
-        "EvenBranchOrder": "BAYFAwEHAAI=",
-        "IndexKey1": {
-            "Key": "4zkCZXjuoZjkGC/cFYMe6Z+ug02zzTTZKyR4oD1ueFo=",
-            "Nonce": "5qt4TN36tMGmEBMI/DfW4g=="
-        },
-        "IndexKey2": {
-            "Key": "M5ZSQqpL6iNu7/U1HgwibnxYeZl91RTqDFIYCjJzAkw=",
-            "Nonce": "jpC7jZU94OXGvolnsYsv/A=="
-        },
-        "FilterKey": 13075187967257391719,
-        "ControlBlockName": "cross_concerto_steam.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "HanaNoNoNiSakuUtakataNo/CopyrightApplique/AllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "060703040201050002000103050401000201a301a002",
+                    "archiveUniqueKey": "{Ruri*Kyouka*Mirai*Touko*Aya*Mika}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "クロスコンチェルト [Steam] | 交汇协奏曲 [Steam] | 交匯協奏曲 [Steam]"
     },
     "Custom Reido 4/4+/V": {
@@ -489,42 +477,37 @@
         "Title": "ダウニャーさんと飼い主くん"
     },
     "D.C. ~Da Capo~ Re:tune": {
-        "$type": "HxCrypt",
-        "Mask": 627,
-        "Offset": 376,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AwQAAQIF",
-        "EvenBranchOrder": "AgYDAQAEBQc=",
-        "IndexKey1": {
-            "Key": "DlqoF4maM1Z8MKSdByvIHc3Sh1ljPpdFIkSgxmsDrNs=",
-            "Nonce": "RVTs4yTOcWEYtU5xmya3AQ=="
-        },
-        "IndexKey2": {
-            "Key": "szigb8ErozYQ5+RCjIOJygNCtBiuanflKH42B+Qf5ls=",
-            "Nonce": "7GaPx+/184hhLrVvHm1Nbw=="
-        },
-        "FilterKey": 8149033040054710094,
-        "RandomType": 1,
-        "ControlBlockName": "dc_re.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "D.C.Re (C)CIRCUS （C）bushiroad",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "04000203060107050405000103020002018173027801",
+                    "archiveUniqueKey": "{nem.skr.ktr.moe.mak}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "D.C. Re:tune ～ダ・カーポ～"
     },
     "D.C.5 ~Da Capo 5~": {
-        "$type": "HxCrypt",
-        "Mask": 742,
-        "Offset": 183,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AAEDBAUC",
-        "EvenBranchOrder": "AAIEBwEDBQY=",
-        "IndexKey1": {
-            "Key": "2+qfpN7+FNCJA82aDwKn+Bl6W1lsp6ZRmDwtghduU5U=",
-            "Nonce": "28WWa+SxnONuANYPjybnWg=="
-        },
-        "IndexKey2": {
-            "Key": "4ozUw00nStHvknH8ECpqL1BVC9nOrpdryY4wHKtBTFE=",
-            "Nonce": "pjhv8KmiW/gnbdoy6c5J6Q=="
-        },
-        "FilterKey": 12271333071625965214,
-        "ControlBlockName": "dc5.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{mzh.mna.ykn.aik.kak}",
+                    "bootStrap": "D.C.5 (C)CIRCUS All Rights Reserved.",
+                    "params": "000105040607030205040203010000020101e602b700",
+                    "upperKey": "0000000000000000",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "D.C.5 ～ダ・カーポ5～ | 初音岛5 | D.C.5 Plus Happiness ～ダ・カーポ5～プラスハピネス | D.C.5 ~Da Capo 5~ Future Link | D.C.5 Future Link ～ダ・カーポ5～ フューチャーリンク | D.C.5 Sweet Happiness ～ダ・カーポ5～スイートハピネス"
     },
     "Deatte 5-fun wa Ore no Mono!": {
@@ -568,79 +551,63 @@
         "TpmFileName": "plugin/dracuriot.tpm"
     },
     "Dracu-Riot! [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 650,
-        "Offset": 85,
-        "PrologOrder": "AAEC",
-        "OddBranchOrder": "AwIBAAQF",
-        "EvenBranchOrder": "BwQDAAEGAgU=",
-        "IndexKey1": {
-            "Key": "72RWfeyDtW7ZPE8BgPlbmzBTzW4hHj/vst3GsROA/1s=",
-            "Nonce": "xyThhownJns+GPNvPp95DA=="
-        },
-        "IndexKey2": {
-            "Key": "9uNRehQDCpnjkdawm9PlobiMBXsp5EImKyPZuLBs1MM=",
-            "Nonce": "XNEvlGm1qv9ds2qohh/rxQ=="
-        },
-        "FilterKey": 3503864232240089825,
-        "ControlBlockName": "dracu_steam.bin"
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "Steam",
+                "key": {
+                    "archiveUniqueKey": "{Miu_Azu_Rio_Eri_Nic}",
+                    "bootStrap": "DRACU-RIOT! (C)YUZUSOFT/JUNOS INC. All Rights Reserved.",
+                    "params": "0306020407050001010500040203000102008a025500",
+                    "seed": "4c70dd71913c029d",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "STEAM"
+            }
+        ]
     },
     "Ecchi de Ichizu na Doinaka Nii-sama to, Koshikiyukashii Byoujaku Imouto": {
-        "$type": "HxCrypt",
-        "Mask": 499,
-        "Offset": 199,
-        "PrologOrder": "AAEC",
-        "OddBranchOrder": "AwACBQQB",
-        "EvenBranchOrder": "AwUEAQYHAgA=",
-        "IndexKey1": {
-            "Key": "czFQF5kGeukdZTOaRDx621TZdJwTVKvOpVfa4z0EgY4=",
-            "Nonce": "MRYfhyOuVxlAa+0qzMYwaw=="
-        },
-        "IndexKey2": {
-            "Key": "5pJDCVjQvyFlbn6snEnC6jUh5TloMEJROliOqikf3Jo=",
-            "Nonce": "LZuC3q1jPsdYJkjeR7+rPA=="
-        },
-        "FilterKey": 4345841408798405444,
-        "ControlBlockName": "ecchi_imouto.bin",
-        "Title": "エッチで一途なド田舎兄さまと、古式ゆかしい病弱妹 | 痴情哥哥与病弱妹妹的乡间生活"
-    },
-    "Ecchi de Ichizu na Doinaka Nii-sama to, Koshikiyukashii Byoujaku Imouto [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 754,
-        "Offset": 709,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AgUBAAQD",
-        "EvenBranchOrder": "BwYBBAAFAgM=",
-        "IndexKey1": {
-            "Key": "XEBDiHjIxqdKYhsmEYrW6HWEExqmaoUdh0MU0TEXu9I=",
-            "Nonce": "Ao6sO0C4PQjgiFbh16BXJQ=="
-        },
-        "IndexKey2": {
-            "Key": "6poloFNp7vPdnXskiZFFUogE5RE9YERgJNk6NACuUwc=",
-            "Nonce": "0iImxiZEb8Kk/HB1ukgiug=="
-        },
-        "FilterKey": 7438181844168039831,
-        "ControlBlockName": "ecchi_imouto_steam.bin",
-        "Title": "ド田舎兄妹 | エッチで一途なド田舎兄さまと、古式ゆかしい病弱妹 [Steam] | 痴情哥哥与病弱妹妹的乡间生活 [Steam]"
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "DL",
+                "description": "DLsite version",
+                "key": {
+                    "bootStrap": "DoinakaKyoudai|Copyright(C)SisterPosition|AllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "070600030104050202030004050100010200f301c700",
+                    "archiveUniqueKey": "{Asumi@Sensei@Oniichan}",
+                    "upperKey": "0000000000000000"
+                }
+            },
+            {
+                "sku": "Steam",
+                "description": "Steam version",
+                "key": {
+                    "bootStrap": "DoinakaKyoudai//Copyright(C)SisterPosition|AllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "040607020501000300010504020300020100f202c502",
+                    "archiveUniqueKey": "{Asumi_Sensei_Oniichan}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
+        "Title": "ド田舎兄妹 | エッチで一途なド田舎兄さまと、古式ゆかしい病弱妹 | 痴情哥哥与病弱妹妹的乡间生活"
     },
     "Ego's Spark": {
-        "$type": "HxCrypt",
-        "Mask": 746,
-        "Offset": 432,
-        "PrologOrder": "AgEA",
-        "OddBranchOrder": "AQMABQQC",
-        "EvenBranchOrder": "AQcCBAADBQY=",
-        "IndexKey1": {
-            "Key": "BXE/oxim+42qXaa3cQ5BW71fhLQaKgGvaocGX6/TWVw=",
-            "Nonce": "w9jcw0SBoZOsHZXajTuqaA=="
-        },
-        "IndexKey2": {
-            "Key": "D8g75/RBtvYo4axQTQh8vV7TAhHx1PyP6NFUkdSeDHg=",
-            "Nonce": "oV8p/Bs1dw72ucbGJWW4qA=="
-        },
-        "FilterKey": 16190459816224924970,
-        "RandomType": 1,
-        "ControlBlockName": "ego_spark.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{HAJIMExEGO@E-5}",
+                    "bootStrap": "KissEgo_CopyRigight_Satsuki_AllRightsReserved.",
+                    "params": "040205000607010305030104000202010081ea02b001",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "キスからはじめるエゴイズム | 从Kiss开始的自我主义～EGOISM～ | 从亲吻开始的「紫梧」主义"
     },
     "Ero Mangaka-san to Binbou Shimai": {
@@ -730,22 +697,20 @@
         "Title": "フタマタ恋愛 結愛＆煌ミニアフターストーリー | 恋爱成双 结爱&煌 mini小剧场"
     },
     "Gakkou no Seiiki [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 753,
-        "Offset": 428,
-        "PrologOrder": "AAEC",
-        "OddBranchOrder": "AgMEBQEA",
-        "EvenBranchOrder": "AgMFBgEHAAQ=",
-        "IndexKey1": {
-            "Key": "iTz/5n5lK5ajvlWHbpgYasZIqHbWW/VSaWA7KeMTzAg=",
-            "Nonce": "+ao9aKjzxlQFmw/n5NPltA=="
-        },
-        "IndexKey2": {
-            "Key": "DDAGO4jAgIm2vHPRf2wmrodSt8WIqnKrhmiykaccp6E=",
-            "Nonce": "46O4VcpmRBNU9VNZ3OPnIw=="
-        },
-        "FilterKey": 2695047786783876508,
-        "ControlBlockName": "gakkou.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "Gakkou no Seiiki/(C)feng All Rights Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "060001040203050700030102040500010200f102ac01",
+                    "archiveUniqueKey": "{Tw4enx5lz9k3oXDD}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "学校のセイイキ [Steam] | 学校的圣域 [Steam] | My Academy's Special Place [Steam]"
     },
     "Gakuen Butou no Folklore": {
@@ -763,22 +728,19 @@
         "Title": "学園特救ホトケンサー"
     },
     "Gaman ga Dekinai Doutei Aniki to, Sunao ni Narenai Hankou Imouto": {
-        "$type": "HxCrypt",
-        "Mask": 449,
-        "Offset": 343,
-        "PrologOrder": "AAEC",
-        "OddBranchOrder": "BQMABAEC",
-        "EvenBranchOrder": "AAIGBwMEBQE=",
-        "IndexKey1": {
-            "Key": "99v+5SncyYee3mNqFd6H2GpDl8do5wBEt/C9zsjFCgs=",
-            "Nonce": "RT13HdErjynGD4h2PVR3hw=="
-        },
-        "IndexKey2": {
-            "Key": "KLFpmsYFungwTrpejRgOd9p41AxwG8HW3voKMCF1ypQ=",
-            "Nonce": "H1MHXQlZqY/KLNUWtbuSIA=="
-        },
-        "FilterKey": 4740279370725804885,
-        "ControlBlockName": "gaman_ga.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{Chie*9typeImouto+Navi}",
+                    "bootStrap": "DouteiKyoudai|Copyright(C)SisterPosition|AllRightsReserved.",
+                    "params": "000104070602030505000103040200010200c1015701",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "ガマンができない童貞兄キと、スナオになれない反抗妹 | 无法忍耐的处男哥哥和不直率的叛逆妹妹"
     },
     "Ganki Tengoku": {
@@ -786,23 +748,20 @@
         "Title": "顔騎天国"
     },
     "GINKA": {
-        "$type": "HxCrypt",
-        "Mask": 409,
-        "Offset": 390,
-        "PrologOrder": "AQAC",
-        "OddBranchOrder": "BAUCAQMA",
-        "EvenBranchOrder": "AgYFAwQABwE=",
-        "IndexKey1": {
-            "Key": "KXxLtr3hOcflZK22CpmUGIl+/LeIbjXZ/DUbdbjffXY=",
-            "Nonce": "I60dFT7SiTOoqZzBVomC9g=="
-        },
-        "IndexKey2": {
-            "Key": "Cjdq+Es3nUvYJ6oERjMuuFrPw/wKP17JezkioEOOl5A=",
-            "Nonce": "MTOid9bj199PWAz3dYU9PQ=="
-        },
-        "FilterKey": 4637060952903284183,
-        "RandomType": 1,
-        "ControlBlockName": "ginka.bin"
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "Steam",
+                "description": "Steam version",
+                "key": {
+                    "bootStrap": "GINKA (C)Frontwing",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "05000307020106040201040003050100028099018601",
+                    "archiveUniqueKey": "{GinkaHimawariRinNazuna}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ]
     },
     "Gisobo, Choukyou Chuu": {
         "$type": "HashCrypt",
@@ -906,60 +865,53 @@
         "Title": "ハメ撮り実況中継！兄妹初エッチ12時間"
     },
     "Hanagane Kanade * Gram": {
-        "$type": "HxCrypt",
-        "Mask": 286,
-        "Offset": 498,
-        "PrologOrder": "AgEA",
-        "OddBranchOrder": "AAECBQME",
-        "EvenBranchOrder": "BQQAAQYHAgM=",
-        "IndexKey1": {
-            "Key": "Vnbq70VOkeTm9z+CFn87TWCtW4yjlw2G/XZhABDZESg=",
-            "Nonce": "4DrhHSEEbjB1KIHwxeB6QA=="
-        },
-        "IndexKey2": {
-            "Key": "Vd6niXkTdIrWYCsl2YX9+1D3YZkobqypm+vGg2r2gqI=",
-            "Nonce": "l6Iz9qaAgPkq4DVbz41Wyg=="
-        },
-        "FilterKey": 16663009093760992250,
-        "ControlBlockName": "hanagane.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "PKG/DL ver.",
+                "key": {
+                    "archiveUniqueKey": "{Yui*Sumire*Kotona*Ayase}",
+                    "bootStrap": "HANAGANE KANADE*GRAM (C)NanaWind All Rights Reserved.",
+                    "params": "0206070300040501020304050100020100001e01f201",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "Universal"
+            }
+        ],
         "Title": "花鐘カナデ＊グラム | 花钟Kanade＊Gram | 花鐘カナデ＊グラム Chapter:1 小桜結 | 钟Kanade＊Gram 第一章：小樱结 | 花鐘カナデ＊グラム Chapter:2 花ノ香澄玲 | 花钟Kanade＊Gram 第二章：花埜香澄玲 | 花鐘カナデ＊グラム Chapter:3 星泉コトナ | 花钟Kanade＊Gram 第三章：星泉琴凪 | 花鐘カナデ＊グラム Chapter:4 綾世奏 -最終章- | 花钟Kanade＊Gram 第四章： 绫世奏 -最终章-"
     },
     "Hanataba o Kimi ni Okurou -Kinsenka-": {
-        "$type": "HxCrypt",
-        "Mask": 709,
-        "Offset": 142,
-        "PrologOrder": "AQIA",
-        "OddBranchOrder": "BAUBAgAD",
-        "EvenBranchOrder": "BAADAgYBBQc=",
-        "IndexKey1": {
-            "Key": "G/XgzYa0RLT0OCMnjLqSeO/jMK4jyu1uaiAHr40Y3Ys=",
-            "Nonce": "cc3UONtGw78QAKoouq0l1w=="
-        },
-        "IndexKey2": {
-            "Key": "MBiFRC04c2eAL5WkRO1cp5UywQ3btfv1vyn8NxvrGMU=",
-            "Nonce": "M4811NIGo5ULRTNHwZr/cQ=="
-        },
-        "FilterKey": 3973740848023794385,
-        "ControlBlockName": "hanataba.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{BenioMatsuriHitodenashi}",
+                    "bootStrap": "hanakimi-kinsenka (C)Frontwing",
+                    "params": "010302050604070003010500020402000100c5028e00",
+                    "upperKey": "0000000000000000",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "花束を君に贈ろう-Kinsenka- | 将花朵献与你-Kinsenka-"
     },
     "Hana no No ni Saku Utakata no [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 419,
-        "Offset": 672,
-        "PrologOrder": "AQAC",
-        "OddBranchOrder": "BQMCBAAB",
-        "EvenBranchOrder": "BAYFAwEHAAI=",
-        "IndexKey1": {
-            "Key": "4zkCZXjuoZjkGC/cFYMe6Z+ug02zzTTZKyR4oD1ueFo=",
-            "Nonce": "5qt4TN36tMGmEBMI/DfW4g=="
-        },
-        "IndexKey2": {
-            "Key": "Ywj/m6IqgrXKCpre5vFcQ0TBvuqV3bady9f7IQcwn4s=",
-            "Nonce": "zaoJjNJ6BxznFOp9UA2/Sw=="
-        },
-        "FilterKey": 499580805522791939,
-        "ControlBlockName": "cross_concerto_steam.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "HanaNoNoNiSakuUtakataNo/CopyrightApplique/AllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "060703040201050002000103050401000201a301a002",
+                    "archiveUniqueKey": "{Ouka@Shione@Reina@Ryouko@Shizuku}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "花の野に咲くうたかたの [Steam] | 五色浮影绽放于花之海洋 [Steam] | 五色浮影綻放於花之海洋[Steam]"
     },
     "Haniwari! Sayaka Ojou-sama": {
@@ -1215,22 +1167,20 @@
         "Title": "妹のセイイキ | 妹的圣域 | My Little Sister's Special Place"
     },
     "Imouto no Seiiki [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 278,
-        "Offset": 561,
-        "PrologOrder": "AQIA",
-        "OddBranchOrder": "AgAEAwUB",
-        "EvenBranchOrder": "AQAFAgQGAwc=",
-        "IndexKey1": {
-            "Key": "K2EqxODU10hoRKqldSGFJENrfQYBlpUqZzlYoh90V6c=",
-            "Nonce": "UDUZ91Uxj3Fjs8sQ8lYR0A=="
-        },
-        "IndexKey2": {
-            "Key": "90yheWbHPG3fCuhFAPRuDptMeFa2AqN6tVgH0EAGADg=",
-            "Nonce": "hp4Va5Ob6TFw1rM5BvAi7A=="
-        },
-        "FilterKey": 15541106825778549259,
-        "ControlBlockName": "imouto_no_seiiki.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "Imouto no Seiiki/(C)feng All Rights Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "01030600020507040004030205010200010116013102",
+                    "archiveUniqueKey": "{uJe3zT1xQv7NnMyD}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "妹のセイイキ [Steam] | 妹的圣域 [Steam] | My Little Sister's Special Place [Steam]"
     },
     "Imouto Shokushu Rape": {
@@ -1379,22 +1329,20 @@
         "Title": "かけぬけ★青春スパーキング！ | 闪耀青春追逐记 | 绽放★青春全力向前冲！"
     },
     "Kakenuke★Seishun Sparking! [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 542,
-        "Offset": 321,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AwQFAQAC",
-        "EvenBranchOrder": "BAcBAgYABQM=",
-        "IndexKey1": {
-            "Key": "Hx286czQYm3v49xtEKAJDVhJRXFFzyLgEBMxIyN+aU4=",
-            "Nonce": "cuV+DmRI0BoQxlMWbaG2Tw=="
-        },
-        "IndexKey2": {
-            "Key": "WVhAiax1KnmSIZ2nFYEkHxzTA9CuWdYNtYFfTYkLEHY=",
-            "Nonce": "tTAeQEUpp79EMp3dLsw89Q=="
-        },
-        "FilterKey": 11274333183157951907,
-        "ControlBlockName": "kakenuke_steam.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "KakenukeSSP/Copyright_(C)SAGA_PLANETS./All_Rights_Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0503070206040100050200010304000201001e024101",
+                    "archiveUniqueKey": "{Hibiki-Riri-Shiori-Nagiko-Kikka-Ritsu}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "かけぬけ★青春スパーキング！ [Steam] | 闪耀青春追逐记 [Steam] | 绽放★青春全力向前冲！ [Steam]"
     },
     "Kamaitachi no Yoru": {
@@ -1417,23 +1365,20 @@
         "Title": "カミナリっ娘注意報！～未来の予報はヨメのちハラみ!?～"
     },
     "KANADE": {
-        "$type": "HxCrypt",
-        "Mask": 474,
-        "Offset": 723,
-        "PrologOrder": "AgAB",
-        "OddBranchOrder": "AgUDAAQB",
-        "EvenBranchOrder": "BgAHAgEFBAM=",
-        "IndexKey1": {
-            "Key": "qBj/86jQ7f1PjerOWScVHSgZMe4uGQv5iNhiVyQGEQo=",
-            "Nonce": "gQgIhtDT/a6wNiTtscVZjg=="
-        },
-        "IndexKey2": {
-            "Key": "S54kI8pc9UJscHL5HwUvpXOiB/+jBoYsnuNuVnnT69M=",
-            "Nonce": "4wxtVvw7QxL2GdKGIUCO7w=="
-        },
-        "FilterKey": 1844611658351213130,
-        "RandomType": 1,
-        "ControlBlockName": "kanade.bin"
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "KANADE (C)Frontwing",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "010307040500020600010204050301020081da01d302",
+                    "archiveUniqueKey": "{KanadeIoriMinoriAki}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ]
     },
     "Kanae to Meguri to no Sonogo ga Icha Love Sugite Yabai.": {
         "$type": "SourireCrypt",
@@ -1444,22 +1389,20 @@
         "Title": "完熟☆さくらん棒ッ！ ～ヒキオタ達の姉妹交換～"
     },
     "Kanojo no Seiiki [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 370,
-        "Offset": 742,
-        "PrologOrder": "AgAB",
-        "OddBranchOrder": "AAQCAwUB",
-        "EvenBranchOrder": "AAEFBAMCBgc=",
-        "IndexKey1": {
-            "Key": "qir15o7xqdIOXX3B7VDV7VbJpc1FkGHDsvadezFkz8I=",
-            "Nonce": "EWEtNnRO8fpfw2vimAU87Q=="
-        },
-        "IndexKey2": {
-            "Key": "zwXhUYI786KuhNhtc9fhFmL6vc47/RtwdspjbjR1qVA=",
-            "Nonce": "Oc0k3IC3FK44RNDeWjEtnQ=="
-        },
-        "FilterKey": 8075976896737559784,
-        "ControlBlockName": "kanojo.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "Kanojo no Seiiki/(C)feng All Rights Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0005040102060703020403010500010200007201e602",
+                    "archiveUniqueKey": "{MeNgq6WdKlDd55f9}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "彼女のセイイキ [Steam] | 她的圣域 [Steam] | My Girlfriend’s Special Place [Steam]"
     },
     "Kanojo-tachi no Taboo": {
@@ -1511,23 +1454,20 @@
         "Title": "枯れない世界と終わる花  ダウンロード版 | 永不枯萎的世界与终焉之花 下载版 | 不败世界与终焉之花 下载版 | 永不枯萎的世界与终结之花 下载版"
     },
     "Karenai Sekai to Owaru Hana [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 677,
-        "Offset": 164,
-        "PrologOrder": "AgEA",
-        "OddBranchOrder": "AwQCAQUA",
-        "EvenBranchOrder": "AwYBAgcABQQ=",
-        "IndexKey1": {
-            "Key": "LHWF9uCXwlvjHgcZnILV/pi2aa/TxZ4JGBNUiLtniSM=",
-            "Nonce": "IZlab+1A+41FFuIsXJDDLg=="
-        },
-        "IndexKey2": {
-            "Key": "wgAUHDsy4lImUxaZIyFYDgmw3bhKGdSkU32EPQel380=",
-            "Nonce": "qPYnDhhjpa6T2qGv0FuBrg=="
-        },
-        "FilterKey": 6346107963787534757,
-        "RandomType": 1,
-        "ControlBlockName": "karenai_steam.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "SWEETandTEA_AllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "050300020601040702040001030502010081a502a400",
+                    "archiveUniqueKey": "{Haru@Kotose@Yukina@Ren}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "枯れない世界と終わる花 [Steam] | 永不枯萎的世界与终焉之花 [Steam] | 不败世界与终焉之花 [Steam] | 永不枯萎的世界与终结之花 [Steam]"
     },
     "Kareshi ni Naisho de Kairaku Ochi": {
@@ -1589,43 +1529,37 @@
         "Title": "きのみの～コスプレ研へようこそ～"
     },
     "Kin'iro Loveriche -Golden Time- [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 320,
-        "Offset": 535,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AAMFAQIE",
-        "EvenBranchOrder": "AgMABAYHBQE=",
-        "IndexKey1": {
-            "Key": "zXBLgAxQ3T9uOESJlg3M2sGsbS5Y13+yi88ErKdbZBw=",
-            "Nonce": "KyK+CT22FG+JEaJuwN9w5w=="
-        },
-        "IndexKey2": {
-            "Key": "l7QxbOQVHs9sSt06uV0HtHAIVFEwBXNghqZBdGlyQbs=",
-            "Nonce": "QYy5usMOnkLL72yJteL2yA=="
-        },
-        "FilterKey": 3850758355569151235,
-        "RandomType": 1,
-        "ControlBlockName": "kinkoi.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "KinkoiGT/Copyright_(C)SAGA_PLANETS./All_Rights_Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "02000107060405030402010503000002018140011702",
+                    "archiveUniqueKey": "{Sylvy-Reina-Heroina-Ria-Akane-Ayaka}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "金色ラブリッチェ-Golden Time- [Steam] | 金辉恋曲四重奏 -Golden Time- [Steam] | 金輝戀曲四重奏 -Golden Time- [Steam] | Kinkoi: Golden Time [Steam]"
     },
     "Kioku no Kenban": {
-        "$type": "HxCrypt",
-        "Mask": 727,
-        "Offset": 373,
-        "PrologOrder": "AgEA",
-        "OddBranchOrder": "BQIEAQMA",
-        "EvenBranchOrder": "AgQAAQcDBgU=",
-        "IndexKey1": {
-            "Key": "3wLIJOY+GHYkKW3stTumP6k2AqyV+JR5qq5MMoOq57M=",
-            "Nonce": "p2MbWZ7u1itf1p4F9juu+A=="
-        },
-        "IndexKey2": {
-            "Key": "S9GGRHYyW0S1sfgGG1+2UelPxwYe1v/sb+lZlj5exFY=",
-            "Nonce": "drZ/9I7F6EYeiBcMhcoDGA=="
-        },
-        "FilterKey": 5169252572216286810,
-        "RandomType": 1,
-        "ControlBlockName": "kioku.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "Kioku no Kenban (C)Laplacian All Rights Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "020005030706040101000402030502010080d7027501",
+                    "archiveUniqueKey": "{Sari@Eri@Anzy@Alt}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "記憶の鍵盤 | 记忆的琴键 | 記憶的琴鍵"
     },
     "Koakuma-chan no Yuuwaku!": {
@@ -1712,23 +1646,20 @@
         "Title": "こづくり温泉～いっぱいつくって一族繁栄!?～"
     },
     "Kugayama Shiori no Shinizama Techou": {
-        "$type": "HxCrypt",
-        "Mask": 723,
-        "Offset": 641,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "BQEDAAIE",
-        "EvenBranchOrder": "AAIEBwUBAwY=",
-        "IndexKey1": {
-            "Key": "8YK7zRlK04icgaH6eJ+FYBNnScyhV39JXxMJTZJyzBo=",
-            "Nonce": "NZE/aLWseaowIVXhYcVIJw=="
-        },
-        "IndexKey2": {
-            "Key": "pVjZcw7W+57FOA2d9yM5JVuzRJ8IIv6o5Un+X0qGXQM=",
-            "Nonce": "RiByogGKLfoxKV9hkF2CUw=="
-        },
-        "FilterKey": 10225107430212255604,
-        "RandomType": 1,
-        "ControlBlockName": "kugayama.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "KugayamaShiori no ShinizamaTechou (C)Laplacian All Rights Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "000106050407030204000205010300020181d3028102",
+                    "archiveUniqueKey": "{Shiori.Gal.Shisho.Reiko}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "久我山栞の死様手帖 | 久我山栞的死亡手账"
     },
     "Kurano-kunchi no Futago Jijou": {
@@ -1750,88 +1681,76 @@
         "Title": "黒ギャル娘との淫欲相姦～翻弄される父親の性欲～"
     },
     "Lilja to Natsuka no Junpaku na Uso": {
-        "$type": "HxCrypt",
-        "Mask": 296,
-        "Offset": 707,
-        "PrologOrder": "AgEA",
-        "OddBranchOrder": "AwIEBQEA",
-        "EvenBranchOrder": "AgMAAQYEBwU=",
-        "IndexKey1": {
-            "Key": "pKdWyFnCIIobpC2EpB7ijyA7z5qED1w8/2DJPioBvPY=",
-            "Nonce": "imwvII7w8Hg4Hfe4ytmgXQ=="
-        },
-        "IndexKey2": {
-            "Key": "QRajy2T7LUMrPJGixAGJrx9Bd/axwbsq7KXm/9CnS/0=",
-            "Nonce": "F+cF29yBB36PA0A3xwRL/g=="
-        },
-        "FilterKey": 16559096895271528110,
-        "RandomType": 1,
-        "ControlBlockName": "lilja.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "lilja-natsuka (C)Frontwing",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0200010307040605010300020405020100812801c302",
+                    "archiveUniqueKey": "{LiljaMeriUtsugiNatsuka}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "リルヤとナツカの純白な嘘 | 丽露娅与夏夏的纯白谎言"
     },
     "Limelight Lemonade Jam": {
-        "$type": "HxCrypt",
-        "Mask": 738,
-        "Offset": 643,
-        "PrologOrder": "AQAC",
-        "OddBranchOrder": "AQIEAwAF",
-        "EvenBranchOrder": "AgUABwYBAwQ=",
-        "IndexKey1": {
-            "Key": "fMktWafCUSPGVDvR/8LUx9f+yh3Y+PIq90XmzJ6xZhI=",
-            "Nonce": "aDnPYFowPzhVdOsfJweaYA=="
-        },
-        "IndexKey2": [
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
             {
-                "Key": "/IZHSi5vZTrAxMC4OyQ/+yminq7Uz5yotLa47H1QGI4=",
-                "Nonce": "GiXPX9XR1GyQIMCSLOIy5w=="
+                "description": "Package",
+                "key": {
+                    "archiveUniqueKey": "{ena_anj_tuk_rir_mik_nay}",
+                    "bootStrap": "LimeLightRemonadeJam (C)YUZUSOFT/JUNOS INC. All Rights Reserved.",
+                    "params": "020006050104030701050302000401000201e2028302",
+                    "seed": "560d42b9cab3dca4",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "PKG"
             },
             {
-                "Key": "kHMdDweFjeDFVTwQA10XQAPUAOfXzKp2ukygeLzGzHg=",
-                "Nonce": "CSBjzSXQNTioPhDp710WCQ==",
-                "FilterKey": 13089994567570788352
+                "description": "Download",
+                "key": {
+                    "archiveUniqueKey": "{EnaAnjTukRirMikNay}",
+                    "bootStrap": "LimeLightRemonadeJam (C)YUZUSOFT/JUNOS INC. All Rights Reserved.",
+                    "params": "020006050104030701050302000401000201e2028302",
+                    "seed": "bf22368a48210206",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "DL"
+            },
+            {
+                "description": "Trial",
+                "key": {
+                    "archiveUniqueKey": "{ena-anj-tuk-rir-mik-nay}",
+                    "bootStrap": "TenshiSouzouReBoot! (C)YUZUSOFT/JUNOS INC. All Rights Reserved.",
+                    "params": "020506030100070401040200050302000181ae017500",
+                    "seed": "cab3dca4560d42b9",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TR"
             }
         ],
-        "FilterKey": 8093658935271803197,
-        "ControlBlockName": "limelight.bin",
         "Title": "ライムライト・レモネードジャム | 聚光灯下的青柠恋曲 | 橘光柠水随想曲"
     },
-    "Limelight Lemonade Jam [Trial]": {
-        "$type": "HxCrypt",
-        "Mask": 430,
-        "Offset": 117,
-        "PrologOrder": "AQIA",
-        "OddBranchOrder": "BAIDAAUB",
-        "EvenBranchOrder": "BgUAAQQCAwc=",
-        "IndexKey1": {
-            "Key": "ocNsSeq68XOYJS1FB/nZrfQRAi2IJQnRaK5+lRhMccM=",
-            "Nonce": "v58U8g+7bl/4vA2uHXzoLA=="
-        },
-        "IndexKey2": {
-            "Key": "G/KSIrp6QoDc3jIRhjiWz5+M3iGGLv1yyA5BNTeMWCc=",
-            "Nonce": "gMBXsw0WbpfZddY2y6AejQ=="
-        },
-        "FilterKey": 1791903277670846263,
-        "RandomType": 1,
-        "ControlBlockName": "tenshi_souzou.bin",
-        "Title": "ライムライト・レモネードジャム [Trial]"
-    },
     "Lip lipples": {
-        "$type": "HxCrypt",
-        "Mask": 404,
-        "Offset": 636,
-        "PrologOrder": "AAEC",
-        "OddBranchOrder": "AwECBQQA",
-        "EvenBranchOrder": "AgEABwUEBgM=",
-        "IndexKey1": {
-            "Key": "RnsoWUSxYbh9m0rk3/lXTnV/ykHAn8F0ZoRpfw/1Fj8=",
-            "Nonce": "P8Y46Npe3ujwvPmIBqFMKA=="
-        },
-        "IndexKey2": {
-            "Key": "74rmu1sZemZBNL+nKFhCp24wzeFAbIB01FNgCd5axKI=",
-            "Nonce": "AgawkUEt1hFMYM0qq90/pg=="
-        },
-        "FilterKey": 2172929777402632173,
-        "ControlBlockName": "lip_lipples.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "LipLipples/Copyright_Purple_software_All_Rights_Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "02000701040603050203000401050001020194017c02",
+                    "archiveUniqueKey": "{KrSzkNnHbnMtrMmRn}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "リップリップルズ | 唇心絮语"
     },
     "Little Hole": {
@@ -1942,30 +1861,30 @@
         "Title": "愛娘は、マゾ性隷 ～娘だからって遠慮しないでね？～"
     },
     "Mashiro-iro Symphony": {
-        "$type": "HxCrypt",
-        "Mask": 284,
-        "Offset": 389,
-        "PrologOrder": "AQIA",
-        "OddBranchOrder": "BQABBAID",
-        "EvenBranchOrder": "AQYFAAcCBAM=",
-        "IndexKey1": {
-            "Key": "pWVnGBsl5MFeR3EH2yJwHx2ZvHkWDxQhIhODqqdxMMo=",
-            "Nonce": "JClYlfgFkP8dN6oa3iOrAw=="
-        },
-        "IndexKey2": [
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
             {
-                "Key": "q0lPvHOK7Qa4OM615uOvyTInTJf8aYpS/jcpM1uNnuo=",
-                "Nonce": "1KoS7cnIicdp1hZ0bjlduw=="
+                "description": "Remake FHD version",
+                "key": {
+                    "archiveUniqueKey": "{Mashiro_ARSKAGMUSNPN}",
+                    "bootStrap": "(C)CLEARRAVE/PALETTE AllRightsReserved.",
+                    "params": "0305070002010406040005030201020001801c018501",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "RE"
             },
             {
-                "Key": "kUUY3z8D94i85yssB5xRBZmSiKRNABPPAl88Qtf7Ix0=",
-                "Nonce": "+Hg91OLLC9E4ET7YbHMHsA==",
-                "FilterKey": 14361241883570560968
+                "sku": "Sana Edition",
+                "description": "SANA",
+                "key": {
+                    "bootStrap": "(C)CLEARRAVE/PALETTE AllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0305070002010406040005030201020001801c018501",
+                    "archiveUniqueKey": "{MASHIRO@ArSkAgMuSnPn}",
+                    "upperKey": "0000000000000000"
+                }
             }
         ],
-        "FilterKey": 1449527129867772322,
-        "RandomType": 1,
-        "ControlBlockName": "mashiro.bin",
         "Title": "Mashiro-iro Symphony -Love is pure white- Remake for FHD | Mashiro-iro Symphony: Sana Edition | ましろ色シンフォニー -Love is pure white- Remake for FHD | 纯白交响曲 -Love is pure white- HD Remake | 純白交響曲 -Love is pure white- HD Remake | ましろ色シンフォニー SANA EDITION | 纯白交响曲 SANA EDITION | 純白交響曲 SANA EDITION"
     },
     "Me ga Sametara Seieki ga 100 Bai...": {
@@ -2048,23 +1967,20 @@
         "Title": "桃尻インストラクター寝取りレッスン ～競泳水着でえろざんまい～"
     },
     "MOON GHOST": {
-        "$type": "HxCrypt",
-        "Mask": 707,
-        "Offset": 656,
-        "PrologOrder": "AgEA",
-        "OddBranchOrder": "AAMEAgUB",
-        "EvenBranchOrder": "BQcCBAADBgE=",
-        "IndexKey1": {
-            "Key": "cGLWGPK24wo5n6Zgbk+naf1Rf2mBe1WX3EFccPCbzq4=",
-            "Nonce": "7u0GMRtBmLatRQbL4mFTIA=="
-        },
-        "IndexKey2": {
-            "Key": "jx9YAQjwPvMMOaPFEP9I3pUACVmb+7LP8e+kGdPULaU=",
-            "Nonce": "jsxDDvgPa0l8Ga7phbGGvg=="
-        },
-        "FilterKey": 8931968892599732121,
-        "RandomType": 1,
-        "ControlBlockName": "moon_ghost.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "Moon_Ghost/Copyright_Purple_software_All_Rights_Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "040205070006010303040102050002010081c3029002",
+                    "archiveUniqueKey": "{Binah-Dart-Himeko-Maria}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "ムーン・ゴースト | 月乡幽灵"
     },
     "Motto Haramase Honoo no Oppai Chou Ero Appli Gakuen [Offical Chinese-Eng Ver]": {
@@ -2078,60 +1994,54 @@
         "Title": "吹弹！丰盈！波涛汹涌 超情色APP学院"
     },
     "Motto! Haramase! Honoo no Oppai Isekai Chou Ero ♥ Succubus Gakuen! [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 654,
-        "Offset": 122,
-        "PrologOrder": "AgEA",
-        "OddBranchOrder": "BQAEAgMB",
-        "EvenBranchOrder": "BwUEBgMBAgA=",
-        "IndexKey1": {
-            "Key": "i1ctYviZ5XkpQhaHMprz36/5UaA9h7nQOCyKH8PWh98=",
-            "Nonce": "0iIEHKSQKWK6Uz/NSV85ng=="
-        },
-        "IndexKey2": {
-            "Key": "WHw/D4lgpKS2LNUrQxUTscFm3dj9WbNDxfdiw9A0UBY=",
-            "Nonce": "yJr/Yp3kjTsb2YaoBJMBGQ=="
-        },
-        "FilterKey": 13118974354489149403,
-        "ControlBlockName": "hsuc_steam.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "HSUC/Copyright(C)MilkFactoryAllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0706040501030002030004020501020100008e027a00",
+                    "archiveUniqueKey": "{k0HDyiZ1xwefYufz}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "もっと！孕ませ！炎のおっぱい異世界超エロ♥サキュバス学園！ [Steam] | 吹弹！丰盈！波涛汹涌！异世界魅魔学园！ [Steam]"
     },
     "Motto! Haramase! Honoo no Oppai Isekai Oppai Bunny Gakuen!": {
-        "$type": "HxCrypt",
-        "Mask": 286,
-        "Offset": 294,
-        "PrologOrder": "AQAC",
-        "OddBranchOrder": "AwIABQEE",
-        "EvenBranchOrder": "BAIBBwMGBQA=",
-        "IndexKey1": {
-            "Key": "OVOMqVVUZnvvWJU4JZNwFbx2ki6lrWNmiARZj64Iln8=",
-            "Nonce": "AqCXRx8EFAvyLgcm0npE+Q=="
-        },
-        "IndexKey2": {
-            "Key": "B2XiVHBHX0fU7uh4A8jPJS9JIzsn/8pVWZA4frhR3Io=",
-            "Nonce": "oInrG+15PUT6xsyUn6CIBg=="
-        },
-        "FilterKey": 13526430537022616377,
-        "ControlBlockName": "hmaid.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "HMAID/Copyright(C)MilkFactoryAllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0701040206050300010300050402010002011e012601",
+                    "archiveUniqueKey": "{OUSUMQRPTP_PUQSOTQRTS}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "もっと！孕ませ！炎のおっぱい異世界おっぱいバニー学園！ | 吹弹！丰盈！波涛汹涌！异世界兔女郎学园！"
     },
     "Motto! Haramase! Honoo no Oppai Isekai Oppai Maid Gakuen!": {
-        "$type": "HxCrypt",
-        "Mask": 286,
-        "Offset": 294,
-        "PrologOrder": "AQAC",
-        "OddBranchOrder": "AwIABQEE",
-        "EvenBranchOrder": "BAIBBwMGBQA=",
-        "IndexKey1": {
-            "Key": "OVOMqVVUZnvvWJU4JZNwFbx2ki6lrWNmiARZj64Iln8=",
-            "Nonce": "AqCXRx8EFAvyLgcm0npE+Q=="
-        },
-        "IndexKey2": {
-            "Key": "B2XiVHBHX0fU7uh4A8jPJS9JIzsn/8pVWZA4frhR3Io=",
-            "Nonce": "oInrG+15PUT6xsyUn6CIBg=="
-        },
-        "FilterKey": 13526430537022616377,
-        "ControlBlockName": "hmaid.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "HMAID/Copyright(C)MilkFactoryAllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0701040206050300010300050402010002011e012601",
+                    "archiveUniqueKey": "{OUSUMQRPTP_PUQSOTQRTS}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "もっと！孕ませ！炎のおっぱい異世界おっぱいメイド学園！ | 吹弹！丰盈！波涛汹涌！异世界女仆学园！"
     },
     "Muchimuchi Dekapai Mara Gui Maou-sama": {
@@ -2157,23 +2067,19 @@
         "Title": "なかだし孕メイド | なかだし孕メイド2"
     },
     "Nanagane Gakuen -Ryokou Bu-": {
-        "$type": "HxCrypt",
-        "Mask": 338,
-        "Offset": 517,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AQIFAwQA",
-        "EvenBranchOrder": "BAUBBgACBwM=",
-        "IndexKey1": {
-            "Key": "CBN5fBSsGLZ2iLCy9hDgWsbekzTuYddEQFtpvSIe4MA=",
-            "Nonce": "Kg2ggv+mS8LVlpf6KWPVaw=="
-        },
-        "IndexKey2": {
-            "Key": "q7YHH8xlh5hNEKYr1iJjqt+VArIMAOA4BRC9hWMPkw8=",
-            "Nonce": "WLk+apNvhRbzQtHg2vbCZg=="
-        },
-        "FilterKey": 11316787120640952725,
-        "RandomType": 1,
-        "ControlBlockName": "nanagane.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{Alicia*Renka*Yuzuki*Lilyma*Torin}",
+                    "bootStrap": "NanaganeGakuenTravelClub (C)+LunaSystem All Rights Reserved.",
+                    "params": "04050702010306000102030400050002018152010502",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "七ヶ音学園 -旅行部- | 七音学园-旅行部- | 七ヶ音学園 旅行部 -Tour:01 伊香保編- | 七ヶ音学園 旅行部 -Tour:02 Hakone編- | 七ヶ音学園 旅行部 -Tour:02 箱根編- | 七ヶ音学園 旅行部 -Tour:03 Kinugawa編- | 七ヶ音学園 旅行部 -Tour:03 鬼怒川編- | 七ヶ音学園 旅行部 -Tour:04 Kusatsu編-"
     },
     "Nantai Lesson": {
@@ -2329,22 +2235,20 @@
         "Title": "如月真綾の誘惑 | 如月真绫的指导"
     },
     "One Room -Yui Hanasaka Memorial-": {
-        "$type": "HxCrypt",
-        "Mask": 587,
-        "Offset": 239,
-        "PrologOrder": "AQAC",
-        "OddBranchOrder": "AwUEAQIA",
-        "EvenBranchOrder": "AwECAAQGBwU=",
-        "IndexKey1": {
-            "Key": "GMdE+58BMd/ziJKurBxST5M02R7yrgey9d3rTIo9X9s=",
-            "Nonce": "L1Cb7dAUKnO2FJpxr/RFRA=="
-        },
-        "IndexKey2": {
-            "Key": "+9Dzus/2sl9Sc8mgtCNKmxZrAHfAJO5YXop2bA+b6aI=",
-            "Nonce": "/RuYJjyWDUaiZzwaVh3YMg=="
-        },
-        "FilterKey": 13306018283334067101,
-        "ControlBlockName": "one_room.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{YuiSpecialEpisode}",
+                    "bootStrap": "OneRoom (C)SMIRAL/One Room Production committee All Rights Reserved.",
+                    "params": "0302000107050604040100020305010002014b02ef00",
+                    "upperKey": "0000000000000000",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "One Room ー花坂結衣メモリアルー | One Room ー花坂结衣 回忆篇ー | One Room ー花坂結衣 回憶篇ー"
     },
     "Oni no Wakusei": {
@@ -2441,23 +2345,20 @@
         "Title": "オトメ＊ドメイン | 少女＊领域 | 少女领域"
     },
     "Otome Sekai no Arukikata": {
-        "$type": "HxCrypt",
-        "Mask": 690,
-        "Offset": 55,
-        "PrologOrder": "AAEC",
-        "OddBranchOrder": "AAQDBQIB",
-        "EvenBranchOrder": "BwMABAUBAgY=",
-        "IndexKey1": {
-            "Key": "nusw7LIiDz9Q2agtWea5YcTjTe4xmEQTJndWEjIebBA=",
-            "Nonce": "9YYQEqJeapFVVDHCe83Aww=="
-        },
-        "IndexKey2": {
-            "Key": "iDsP8jNEVHet/Ah2B4GRj9DH36U2vIEtlLorh95xHF0=",
-            "Nonce": "TfgM+JX5aUWonK4JTYeL6A=="
-        },
-        "FilterKey": 7642681189590852662,
-        "RandomType": 1,
-        "ControlBlockName": "otome_sekai.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "OtomeSekai_CopyRight_Orthros_AllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "020601050407000304030201050000010280b2023700",
+                    "archiveUniqueKey": "{Yui+Akari+Miku+Yaeka+Rin+Ruriko+Mayumi}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "オトメ世界の歩き方 | 少女世界的生存之道"
     },
     "Otto ni Ienai Gifu to no Kan'in": {
@@ -2702,22 +2603,20 @@
         "Title": "らいでぃんぐ いんきゅばす"
     },
     "Role player: Ikura Shimai no Nenmaku Portrait - Gurigucha LIVE!": {
-        "$type": "HxCrypt",
-        "Mask": 582,
-        "Offset": 192,
-        "PrologOrder": "AQIA",
-        "OddBranchOrder": "BAUAAgMB",
-        "EvenBranchOrder": "AwUBBwAEBgI=",
-        "IndexKey1": {
-            "Key": "ue3tGpxBGry+5Xa8tSqqO/7L5GtSTQGmyc2HG7RUJws=",
-            "Nonce": "iJbSlU6BBR8lhGm7YrhaWA=="
-        },
-        "IndexKey2": {
-            "Key": "Kk8Gg6jU8dF5YJKLbZyZP/4Fftqli2nZm2WiZWtO570=",
-            "Nonce": "fjo9r+/F9zdcn+XhLij2+Q=="
-        },
-        "FilterKey": 8786738454613012343,
-        "ControlBlockName": "role_player_ikura.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "roleplayer3_CopyrightHendingAllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0407000201060305030104000502020001004602c000",
+                    "archiveUniqueKey": "{kar+rin}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "Role player：いくら姉妹の粘膜ポトレ ぐりぐちゃLIVE！"
     },
     "Role Player: Okayu Shimai no Nenmaku Portrait - Gurigucha Live!": {
@@ -2778,23 +2677,20 @@
         "Title": "サノバウィッチ [English] | 魔女的夜宴 [English]"
     },
     "Sabbat of the Witch [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 550,
-        "Offset": 456,
-        "PrologOrder": "AgAB",
-        "OddBranchOrder": "BQABAgQD",
-        "EvenBranchOrder": "AQYDBwAEAgU=",
-        "IndexKey1": {
-            "Key": "bK10kg/GukoedZMLuTe126j/PQaio6CafBLYKzyl094=",
-            "Nonce": "k20dSjrgCJCb6T7uesj8Pg=="
-        },
-        "IndexKey2": {
-            "Key": "5mYupLUMzQg9VuE+C9Uu86dQSAUszHfVfRvFqHPgvxQ=",
-            "Nonce": "/v6CC1cGDlC3zCWA2wTZkw=="
-        },
-        "FilterKey": 11597933590262878937,
-        "RandomType": 1,
-        "ControlBlockName": "sabbat_steam.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "Sabbat_of_the_Witch (C)YUZUSOFT/JUNOS INC. All Rights Reserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0406020007010305030005040201010200802602c801",
+                    "archiveUniqueKey": "{NENeMEGURuTSUMUGiTOUKoWAKANa}",
+                    "upperKey": "a4e08d9b7e4b96dd"
+                }
+            }
+        ],
         "Title": "サノバウィッチ [Steam] | 魔女的夜宴 [Steam]"
     },
     "Saikyou Chikan Densha": {
@@ -2924,43 +2820,37 @@
         "Title": "死に逝く君、館に芽吹く憎悪 | 濒死轮回的卿于馆中萌生的憎恶"
     },
     "Shiniyuku Kishi, Isekai ni Hibiku Danmatsuma": {
-        "$type": "HxCrypt",
-        "Mask": 284,
-        "Offset": 389,
-        "PrologOrder": "AQIA",
-        "OddBranchOrder": "BQABBAID",
-        "EvenBranchOrder": "AQYFAAcCBAM=",
-        "IndexKey1": {
-            "Key": "pWVnGBsl5MFeR3EH2yJwHx2ZvHkWDxQhIhODqqdxMMo=",
-            "Nonce": "JClYlfgFkP8dN6oa3iOrAw=="
-        },
-        "IndexKey2": {
-            "Key": "kUUY3z8D94i85yssB5xRBZmSiKRNABPPAl88Qtf7Ix0=",
-            "Nonce": "+Hg91OLLC9E4ET7YbHMHsA=="
-        },
-        "FilterKey": 14361241883570560968,
-        "RandomType": 1,
-        "ControlBlockName": "mashiro.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "DL",
+                "description": "DL",
+                "key": {
+                    "bootStrap": "(C)CLEARRAVE/PALETTE AllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "0305070002010406040005030201020001801c018501",
+                    "archiveUniqueKey": "{MASHIRO@ArSkAgMuSnPn}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "死に逝く騎士、異世界に響く断末魔 | 濒死的骑士，于异世界中响彻的绝唱"
     },
     "Shirokoi Sakura * Gram LF": {
-        "$type": "HxCrypt",
-        "Mask": 674,
-        "Offset": 740,
-        "PrologOrder": "AgAB",
-        "OddBranchOrder": "AAMEBQEC",
-        "EvenBranchOrder": "AgEDAAcFBgQ=",
-        "IndexKey1": {
-            "Key": "gOksCLZ4SlCXM0TfMTjN1KhLjuxGZ2XcFDlpsJJfYTc=",
-            "Nonce": "MoiinS0Up9bY8HJJz4XnXw=="
-        },
-        "IndexKey2": {
-            "Key": "CCVy5iU0jI19gk6RxVCAOz3dsWrhYVsvJxLfISL817M=",
-            "Nonce": "v8fK5ZGaCcqAK7phOxFGvw=="
-        },
-        "FilterKey": 15155486706323991924,
-        "RandomType": 1,
-        "ControlBlockName": "shirokoi.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "ShirokoiSakura*GramLF(C)NanawindAllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "030002010506040705030102040001020080a202e402",
+                    "archiveUniqueKey": "{YUURI+KAZUHA+KOZUE+ASAHI+NONOKA+MAORI}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "白恋サクラ＊グラムＬＦ"
     },
     "Shirouto Yanmama, Kosatsu AV Debut": {
@@ -3000,23 +2890,20 @@
         "Title": "触手王子の肉嫁探し～母と姉弟の終わらない絶頂地獄～"
     },
     "Shoujo☆Kageki Revue Starlight Butai Souzougeki Harukanaru El Dorado": {
-        "$type": "HxCrypt",
-        "Mask": 735,
-        "Offset": 524,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AAMBBAUC",
-        "EvenBranchOrder": "AQUEAAIGBwM=",
-        "IndexKey1": {
-            "Key": "Kz+Cx+uFfBos3Hi9Hcktkejh2G3aVOaMaHwTDAz8+pI=",
-            "Nonce": "cKQOo+wFBZesrRS8iXB8Dw=="
-        },
-        "IndexKey2": {
-            "Key": "Kvre1P6r/gIU+b9L6jccmTv2TG6I3YnmPA+9evAuSc8=",
-            "Nonce": "AxpVAnZnnlq3l1qJX8qYsA=="
-        },
-        "FilterKey": 5722300531391807285,
-        "RandomType": 1,
-        "ControlBlockName": "revue_starlight.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "RevueStarlight (C)BushiroadGames/Frontwing",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "030407000105060205040103020000020181df020c02",
+                    "archiveUniqueKey": "{kar.hik.may.jun.mah.nan.kro.fut.kao}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "少女☆歌劇 レヴュースタァライト　舞台奏像劇　遥かなるエルドラド | 少女☆歌剧 Revue Starlight 舞台奏像剧 遥远的黄金国 | 少女☆歌劇 Revue Starlight 舞台奏像劇 遙遠的黃金國"
     },
     "Shoujo to Toshi no Sa, Futamawari.": {
@@ -3233,43 +3120,37 @@
         "Title": "天神乱漫 LUCKY or UNLUCKY!? | 天神乱漫 Happy Go Lucky!!"
     },
     "Tenshi☆Souzou RE-BOOT!": {
-        "$type": "HxCrypt",
-        "Mask": 430,
-        "Offset": 117,
-        "PrologOrder": "AQIA",
-        "OddBranchOrder": "BAIDAAUB",
-        "EvenBranchOrder": "BgUAAQQCAwc=",
-        "IndexKey1": {
-            "Key": "ocNsSeq68XOYJS1FB/nZrfQRAi2IJQnRaK5+lRhMccM=",
-            "Nonce": "v58U8g+7bl/4vA2uHXzoLA=="
-        },
-        "IndexKey2": {
-            "Key": "oGfomfn8IVns4rpMZLwYgCg/4RbpO3RTjs15oxLg8Lk=",
-            "Nonce": "sNKsP1P0fx4fUnbsk+dCDw=="
-        },
-        "FilterKey": 943460468367187513,
-        "RandomType": 1,
-        "ControlBlockName": "tenshi_souzou.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "Package",
+                "key": {
+                    "archiveUniqueKey": "{NoaAmaKurKagOriFum}",
+                    "bootStrap": "TenshiSouzouReBoot! (C)YUZUSOFT/JUNOS INC. All Rights Reserved.",
+                    "params": "020506030100070401040200050302000181ae017500",
+                    "seed": "24b1ebdec80b6ddb",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "PKG"
+            }
+        ],
         "Title": "天使☆騒々 RE-BOOT! | 天使☆纷扰 RE-BOOT!"
     },
     "Tenshi☆Souzou RE-BOOT! [Steam]": {
-        "$type": "HxCrypt",
-        "Mask": 476,
-        "Offset": 661,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "BAEAAwUC",
-        "EvenBranchOrder": "AwQBAgYABwU=",
-        "IndexKey1": {
-            "Key": "FqO3qONnzpBU5/v8BwrF0GjlAyqv5S13X1yOaRySM0w=",
-            "Nonce": "BnLxK6kr3r0ypcrlHVPnzw=="
-        },
-        "IndexKey2": {
-            "Key": "ck3EgecQJMU+2e4qFnTznK7EDg1V/7EeYP5uH33MQSg=",
-            "Nonce": "Ui8g0KjkQuhaHotN6tKNow=="
-        },
-        "FilterKey": 963735915407649977,
-        "RandomType": 1,
-        "ControlBlockName": "tenshi_souzou_steam.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "Stram / HF Store, multilang",
+                "key": {
+                    "archiveUniqueKey": "{Noa=Ama=Kur=Kag=Ori=Fum}",
+                    "bootStrap": "TenshiSouzouReBoot! (C)YUZUSOFT/JUNOS/Nekonyan/HikariField INC. All Rights Reserved.",
+                    "params": "050300020704060105040300010200020181dc019502",
+                    "seed": "a151fe126bc534ef",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "STEAM"
+            }
+        ],
         "Title": "天使☆騒々 RE-BOOT! [Steam] | 天使☆嚣嚣 RE-BOOT! | Angelic☆Chaos RE-BOOT! | 天使☆囂囂 RE-BOOT!"
     },
     "Tettei Anal Chiiku": {
@@ -3334,23 +3215,20 @@
         "Title": "妻と息子にバレてはいけない背徳の媚熱 ～あやまちの密愛2～"
     },
     "Tsumugi no Hanayome": {
-        "$type": "HxCrypt",
-        "Mask": 432,
-        "Offset": 527,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AAEDBAUC",
-        "EvenBranchOrder": "AQUHBAMABgI=",
-        "IndexKey1": {
-            "Key": "eazfOWWl+lau8amud39rXVnn2pYhOaRA3PbJV5xWQqM=",
-            "Nonce": "9pqMYePsq382dCBwbU7akA=="
-        },
-        "IndexKey2": {
-            "Key": "Z8fwb+amqGZYsmc6afAhoRHaqVuK7N4xCYY///fwyBk=",
-            "Nonce": "gob4bQ6Y1aH8/PU1w/A49A=="
-        },
-        "FilterKey": 6247673544962084162,
-        "RandomType": 1,
-        "ControlBlockName": "tsumugi.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "sku": "TBD",
+                "description": "TBD",
+                "key": {
+                    "bootStrap": "TsumugiNoHanayome_CopyrightHendingAllRightsReserved.",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights.",
+                    "params": "050704000106020305040203010000020181b0010f02",
+                    "archiveUniqueKey": "{kirei_yamabuki_x_mashro_aoi}",
+                    "upperKey": "0000000000000000"
+                }
+            }
+        ],
         "Title": "紬の花嫁"
     },
     "Tsundere Itoko to Koakuma ...": {
@@ -3584,22 +3462,19 @@
         "Title": "ずっとすきしてたくさんすきして | 挚爱随行_倾慕相伴"
     },
     "Zwei Trigger": {
-        "$type": "HxCrypt",
-        "Mask": 737,
-        "Offset": 261,
-        "PrologOrder": "AAIB",
-        "OddBranchOrder": "AQUABAMC",
-        "EvenBranchOrder": "AwYHAgAFAQQ=",
-        "IndexKey1": {
-            "Key": "D2cNmNovMSogaZlKIY5hKTuE3sMryluc6JE1qDeK0s0=",
-            "Nonce": "rvFLPxRYKVIVdF9GhssHFQ=="
-        },
-        "IndexKey2": {
-            "Key": "l3/tREcnVAwCHjxdGJ2lPLrJi9sm1WkPWxzkLWFgAfI=",
-            "Nonce": "MhBpPc/mQ1l2sqrv+xzbqA=="
-        },
-        "FilterKey": 13797005803164086474,
-        "ControlBlockName": "zwei.bin",
+        "$type": "Hxv4Crypt",
+        "KeyPackages": [
+            {
+                "description": "TBD",
+                "key": {
+                    "archiveUniqueKey": "{Kaname+Yuna-Touka+Kikka}",
+                    "bootStrap": "ZweiTrigger_CopyRight_Orthros_AllRightsReserved.",
+                    "params": "040300060501020705010403000200020101e1020501",
+                    "warning": "Warning! Extracting this game data may infringe on author's rights."
+                },
+                "sku": "TBD"
+            }
+        ],
         "Title": "ツヴァイトリガー"
     }
 }
