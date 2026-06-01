@@ -667,6 +667,9 @@ pub struct ExtraConfig {
     /// Path to the ysc.ybn file
     pub yuris_ysc_path: Option<String>,
     #[cfg(feature = "yuris")]
+    /// Path to the ysl.ybn file
+    pub yuris_ysl_path: Option<String>,
+    #[cfg(feature = "yuris")]
     /// Disasm Yu-RIS YSTB (.ybn) file
     pub yuris_ystb_disasm: bool,
 }

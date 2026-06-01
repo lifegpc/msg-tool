@@ -10,19 +10,19 @@ use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
 
 #[derive(Debug, StructUnpack, StructPack, Deserialize, Serialize)]
-struct Label {
+pub(super) struct Label {
     #[pstring(u8)]
-    name: String,
-    id: u32,
-    offset: u32,
-    script_index: u16,
+    pub name: String,
+    pub id: u32,
+    pub offset: u32,
+    pub script_index: u16,
     #[serde(skip)]
     padding: u16,
 }
 
 #[derive(Debug, StructUnpack, StructPack, Deserialize, Serialize)]
-struct YSLBData {
-    version: u32,
+pub(super) struct YSLBData {
+    pub version: u32,
     #[serde(skip)]
     num_labels: u32,
     #[fvec = 0x100]
@@ -31,7 +31,7 @@ struct YSLBData {
     label_range_start_indexes: Vec<u32>,
     #[pack_vec_len(self.num_labels)]
     #[unpack_vec_len(num_labels)]
-    labels: Vec<Label>,
+    pub labels: Vec<Label>,
 }
 
 #[derive(Debug)]
@@ -100,7 +100,7 @@ impl ScriptBuilder for YSLBBuilder {
 
 #[derive(Debug)]
 pub struct YSLB {
-    data: YSLBData,
+    pub(super) data: YSLBData,
     custom_yaml: bool,
 }
 

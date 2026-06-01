@@ -3416,6 +3416,8 @@ fn main() {
         #[cfg(feature = "yuris")]
         yuris_ysc_path: arg.yuris_ysc_path.clone(),
         #[cfg(feature = "yuris")]
+        yuris_ysl_path: arg.yuris_ysl_path.clone(),
+        #[cfg(feature = "yuris")]
         yuris_ystb_disasm: arg.yuris_ystb_disasm,
     });
     match &arg.command {

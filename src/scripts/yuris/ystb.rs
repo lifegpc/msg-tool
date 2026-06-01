@@ -1,5 +1,6 @@
 //! Yu-Ris YSTB files
 use super::yscm::YSCMData;
+use super::yslb::{Label, YSLBData};
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -11,6 +12,7 @@ use anyhow::Result;
 use msg_tool_macro::*;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::ops::{Deref, DerefMut};
 
@@ -239,39 +241,252 @@ impl Serialize for YSTBArg {
 
 struct YSTBArgData<'a>(&'a [u8], Encoding);
 
+// [opcode] (1 byte) [data size] (2 byte little endian) [data]
+const NOTEQUAL_TYPE: &[u8] = b"!\0\0";
+const MOD_TYPE: &[u8] = b"%\0\0";
+const LOGAND_TYPE: &[u8] = b"&\0\0";
+const PERFORMVARINDEXATION_TYPE: &[u8] = b")\x01\0\0";
+const MUL_TYPE: &[u8] = b"*\0\0";
+const ADD_TYPE: &[u8] = b"+\0\0";
+const NOP_TYPE: &[u8] = b",\0\0";
+const SUB_TYPE: &[u8] = b"-\0\0";
+const DIV_TYPE: &[u8] = b"/\0\0";
+const EQUAL_TYPE: &[u8] = b"=\0\0";
+const LESS_TYPE: &[u8] = b"<\0\0";
+const GREATER_TYPE: &[u8] = b">\0\0";
+const BINAND_TYPE: &[u8] = b"A\0\0";
+/// then one byte data
+const PUSHINT8_TYPE: &[u8] = b"B\x01\0";
+/// then eight byte data
+const PUSHDOUBLE_TYPE: &[u8] = b"F\x08\0";
+const PUSHSCALARVAR_VAR_TYPE: &[u8] = b"H\x03\0$";
+const PUSHSCALARVAR_STR_TYPE: &[u8] = b"H\x03\0@";
+const PUSHINT32_TYPE: &[u8] = b"I\x04\0";
+const PUSHINT64_TYPE: &[u8] = b"L\x08\0";
+const PUSHSTRING_TYPE: &[u8] = b"M";
+const BINOR_TYPE: &[u8] = b"O\0\0";
+const CHANGESIGN_TYPE: &[u8] = b"R\0\0";
+const LE_TYPE: &[u8] = b"S\0\0";
+const PREPAREVARINDEXATION_VAR_TYPE: &[u8] = b"V\x03\0$";
+const PREPAREVARINDEXATION_STR_TYPE: &[u8] = b"V\x03\0@";
+const PUSHINT16_TYPE: &[u8] = b"W\x02\0";
+const GE_TYPE: &[u8] = b"Z\0\0";
+const BINXOR_TYPE: &[u8] = b"^\0\0";
+const TONUMBER_TYPE: &[u8] = b"i\0\0";
+const TOSTRING_TYPE: &[u8] = b"s\0\0";
+const PUSHARRAYVAR_VAR_TYPE: &[u8] = b"v\x03\0$";
+const PUSHARRAYVAR_STR_TYPE: &[u8] = b"v\x03\0@";
+const LOGOR_TYPE: &[u8] = b"|\0\0";
+
 impl<'a> std::fmt::Debug for YSTBArgData<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let data = self.0;
-        // 6-byte local variable reference: [48 03 00 40] [var_id]
-        if data.len() == 6 && &data[0..4] == b"\x48\x03\x00\x40" {
-            let id = u16::from_le_bytes([data[4], data[5]]);
-            return write!(f, "var[{:04x}]", id);
-        }
-        // 6-byte string variable reference: [48 03 00 24] [var_id]
-        if data.len() == 6 && &data[0..4] == b"\x48\x03\x00\x24" {
-            let id = u16::from_le_bytes([data[4], data[5]]);
-            return write!(f, "str[{:04x}]", id);
-        }
-        // Structured variable ref with embedded M-string label
-        // Pattern: [48 03 00 24] [2-byte var_id] [4D len content...] [padding]
-        if data.len() >= 9 && &data[0..4] == b"\x48\x03\x00\x24" && data[6] == b'M' {
-            let len = u16::from_le_bytes([data[7], data[8]]) as usize;
-            if len + 9 <= data.len() {
-                if let Ok(s) = decode_to_string(self.1, &data[9..9 + len], true) {
-                    return f.write_str(&s);
+        let mut data = self.0;
+        let mut first = true;
+        loop {
+            if data.is_empty() {
+                break;
+            }
+            if first {
+                first = false;
+            } else {
+                f.write_str(" ")?;
+            }
+            if data.starts_with(NOTEQUAL_TYPE) {
+                f.write_str("notequal")?;
+                data = &data[3..];
+            } else if data.starts_with(MOD_TYPE) {
+                f.write_str("mod")?;
+                data = &data[3..];
+            } else if data.starts_with(LOGAND_TYPE) {
+                f.write_str("logand")?;
+                data = &data[3..];
+            } else if data.starts_with(PERFORMVARINDEXATION_TYPE) {
+                f.write_str("performvarindexation")?;
+                data = &data[4..];
+            } else if data.starts_with(MUL_TYPE) {
+                f.write_str("mul")?;
+                data = &data[3..];
+            } else if data.starts_with(ADD_TYPE) {
+                f.write_str("add")?;
+                data = &data[3..];
+            } else if data.starts_with(NOP_TYPE) {
+                f.write_str("nop")?;
+                data = &data[3..];
+            } else if data.starts_with(SUB_TYPE) {
+                f.write_str("sub")?;
+                data = &data[3..];
+            } else if data.starts_with(DIV_TYPE) {
+                f.write_str("div")?;
+                data = &data[3..];
+            } else if data.starts_with(EQUAL_TYPE) {
+                f.write_str("equal")?;
+                data = &data[3..];
+            } else if data.starts_with(LESS_TYPE) {
+                f.write_str("less")?;
+                data = &data[3..];
+            } else if data.starts_with(GREATER_TYPE) {
+                f.write_str("greater")?;
+                data = &data[3..];
+            } else if data.starts_with(BINAND_TYPE) {
+                f.write_str("binand")?;
+                data = &data[3..];
+            } else if data.starts_with(PUSHINT8_TYPE) {
+                if data.len() < 4 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
                 }
+                f.write_fmt(format_args!("pushint8({})", i8::from_le_bytes([data[3]])))?;
+                data = &data[4..];
+            } else if data.starts_with(PUSHDOUBLE_TYPE) {
+                if data.len() < 11 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "pushdouble({})",
+                    f64::from_le_bytes([
+                        data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10]
+                    ])
+                ))?;
+                data = &data[11..];
+            } else if data.starts_with(PUSHSCALARVAR_VAR_TYPE) {
+                if data.len() < 6 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "pushscalarvar(var[{}])",
+                    u16::from_le_bytes([data[4], data[5]])
+                ))?;
+                data = &data[6..];
+            } else if data.starts_with(PUSHSCALARVAR_STR_TYPE) {
+                if data.len() < 6 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "pushscalarvar(str[{}])",
+                    u16::from_le_bytes([data[4], data[5]])
+                ))?;
+                data = &data[6..];
+            } else if data.starts_with(PUSHINT32_TYPE) {
+                if data.len() < 7 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "pushint32({})",
+                    i32::from_le_bytes([data[3], data[4], data[5], data[6]])
+                ))?;
+                data = &data[7..];
+            } else if data.starts_with(PUSHINT64_TYPE) {
+                if data.len() < 11 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "pushint64({})",
+                    i64::from_le_bytes([
+                        data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10]
+                    ])
+                ))?;
+                data = &data[11..];
+            } else if data.starts_with(PUSHSTRING_TYPE) {
+                if data.len() < 3 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                let len = u16::from_le_bytes([data[1], data[2]]) as usize;
+                if data.len() < 3 + len {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                if let Ok(s) = decode_to_string(self.1, &data[3..3 + len], true) {
+                    f.write_str(&s)?;
+                } else {
+                    f.write_str(&hex::encode(&data[..3 + len]))?;
+                }
+                data = &data[3 + len..];
+            } else if data.starts_with(BINOR_TYPE) {
+                f.write_str("binor")?;
+                data = &data[3..];
+            } else if data.starts_with(CHANGESIGN_TYPE) {
+                f.write_str("changesign")?;
+                data = &data[3..];
+            } else if data.starts_with(LE_TYPE) {
+                f.write_str("le")?;
+                data = &data[3..];
+            } else if data.starts_with(PREPAREVARINDEXATION_VAR_TYPE) {
+                if data.len() < 6 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "preparevarindexation(var[{}])",
+                    u16::from_le_bytes([data[4], data[5]])
+                ))?;
+                data = &data[6..];
+            } else if data.starts_with(PREPAREVARINDEXATION_STR_TYPE) {
+                if data.len() < 6 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "preparevarindexation(str[{}])",
+                    u16::from_le_bytes([data[4], data[5]])
+                ))?;
+                data = &data[6..];
+            } else if data.starts_with(PUSHINT16_TYPE) {
+                if data.len() < 5 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "pushint16({})",
+                    i16::from_le_bytes([data[3], data[4]])
+                ))?;
+                data = &data[5..];
+            } else if data.starts_with(GE_TYPE) {
+                f.write_str("ge")?;
+                data = &data[3..];
+            } else if data.starts_with(BINXOR_TYPE) {
+                f.write_str("binxor")?;
+                data = &data[3..];
+            } else if data.starts_with(TONUMBER_TYPE) {
+                f.write_str("tonumber")?;
+                data = &data[3..];
+            } else if data.starts_with(TOSTRING_TYPE) {
+                f.write_str("tostring")?;
+                data = &data[3..];
+            } else if data.starts_with(PUSHARRAYVAR_VAR_TYPE) {
+                if data.len() < 6 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "pusharrayvar(var[{}])",
+                    u16::from_le_bytes([data[4], data[5]])
+                ))?;
+                data = &data[6..];
+            } else if data.starts_with(PUSHARRAYVAR_STR_TYPE) {
+                if data.len() < 6 {
+                    f.write_str(&hex::encode(data))?;
+                    break;
+                }
+                f.write_fmt(format_args!(
+                    "pusharrayvar(str[{}])",
+                    u16::from_le_bytes([data[4], data[5]])
+                ))?;
+                data = &data[6..];
+            } else if data.starts_with(LOGOR_TYPE) {
+                f.write_str("logor")?;
+                data = &data[3..];
+            } else {
+                f.write_str(&hex::encode(data))?;
+                break;
             }
         }
-        // M-string format
-        if data.len() >= 5 && data.starts_with(b"M") {
-            let len = u16::from_le_bytes([data[1], data[2]]);
-            if len as usize == data.len() - 3 {
-                if let Ok(s) = decode_to_string(self.1, &data[3..], true) {
-                    return f.write_str(&s);
-                }
-            }
-        }
-        write!(f, "{}", &hex::encode(data))
+        Ok(())
     }
 }
 
@@ -384,6 +599,7 @@ pub struct YSTB {
     xor_key: Option<u32>,
     disasm: bool,
     custom_yaml: bool,
+    labels: BTreeMap<u32, Label>,
 }
 
 impl YSTB {
@@ -422,7 +638,7 @@ impl YSTB {
             let path = std::path::Path::new(filename);
             let pdir = path.parent().unwrap_or_else(|| std::path::Path::new(""));
             let fp = pdir.join("ysc.ybn");
-            if let Some(archive) = archive {
+            if let Some(archive) = &archive {
                 let mut file = archive.open_file_by_name(&fp.to_string_lossy(), true)?;
                 file.data()?
             } else {
@@ -436,13 +652,77 @@ impl YSTB {
         let mut reader = MemReader::new(yscm);
         reader.pos = 4;
         let com = YSCMData::unpack(&mut reader, false, encoding, &None)?;
+        let labels = if config.yuris_ystb_disasm {
+            match Self::try_load_yslb(filename, &archive, config, encoding) {
+                Ok(labels) => labels,
+                Err(e) => {
+                    eprintln!("WARNING: Failed to load ysl.bin file: {}", e);
+                    crate::COUNTER.inc_warning();
+                    BTreeMap::new()
+                }
+            }
+        } else {
+            BTreeMap::new()
+        };
         Ok(Self {
             data,
             com,
             xor_key,
             disasm: config.yuris_ystb_disasm,
             custom_yaml: config.custom_yaml,
+            labels,
         })
+    }
+
+    fn try_load_yslb(
+        filename: &str,
+        archive: &Option<&Box<dyn Script>>,
+        config: &ExtraConfig,
+        encoding: Encoding,
+    ) -> Result<BTreeMap<u32, Label>> {
+        let yslb = if let Some(path) = config.yuris_ysl_path.as_ref() {
+            crate::utils::files::read_file(path)?
+        } else {
+            let path = std::path::Path::new(filename);
+            let pdir = path.parent().unwrap_or_else(|| std::path::Path::new(""));
+            let fp = pdir.join("ysl.ybn");
+            if let Some(archive) = &archive {
+                let mut file = archive.open_file_by_name(&fp.to_string_lossy(), true)?;
+                file.data()?
+            } else {
+                let p = crate::utils::files::get_ignorecase_path(&fp)?;
+                crate::utils::files::read_file(&p)?
+            }
+        };
+        if !yslb.starts_with(b"YSLB") {
+            anyhow::bail!("Unsupported YSLB file. (ysl.ybn)");
+        }
+        let mut reader = MemReader::new(yslb);
+        reader.pos = 4;
+        let labels = YSLBData::unpack(&mut reader, false, encoding, &None)?;
+        let path = std::path::Path::new(filename);
+        let filename = path
+            .file_stem()
+            .ok_or_else(|| anyhow::anyhow!("No filename"))?
+            .to_string_lossy()
+            .into_owned();
+        let script_idx_name = String::from_iter(
+            filename
+                .chars()
+                .rev()
+                .take(5)
+                .collect::<Vec<_>>()
+                .iter()
+                .rev(),
+        );
+        let script_idx: u16 = script_idx_name.parse()?;
+        let mut map = BTreeMap::new();
+        for label in labels.labels {
+            if label.script_index == script_idx {
+                map.insert(label.offset, label);
+            }
+        }
+        Ok(map)
     }
 
     fn get_xor_key<T: Read + Seek>(reader: &mut T) -> Result<u32> {
@@ -560,11 +840,17 @@ impl Script for YSTB {
         }
         let mut file = MemWriter::new();
         let mut indent = String::new();
-        for code in self.data.insts.iter() {
+        let mut unused_labels = BTreeSet::from_iter(self.labels.keys().cloned());
+        for (i, code) in self.data.insts.iter().enumerate() {
+            let offset = i as u32;
             let meta =
                 self.com.opcodes.get(code.opcode as usize).ok_or_else(|| {
                     anyhow::anyhow!("Failed to find op {:x}'s metadata", code.opcode)
                 })?;
+            if let Some(lab) = self.labels.get(&offset) {
+                writeln!(file, "#{}", lab.name)?;
+                unused_labels.remove(&offset);
+            }
             if meta.name == "IFEND" || meta.name == "IFBLEND" || meta.name == "LOOPEND" {
                 indent.pop();
                 indent.pop();
@@ -619,6 +905,10 @@ impl Script for YSTB {
             let s = decode_to_string(Encoding::Utf8, &file.data, true)?;
             let encoded = encode_string(encoding, &s, true)?;
             f.write_all(&encoded)?;
+        }
+        if !unused_labels.is_empty() {
+            eprintln!("WARNING: Some labels not used: {:?}", unused_labels);
+            crate::COUNTER.inc_warning();
         }
         Ok(())
     }

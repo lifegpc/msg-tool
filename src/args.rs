@@ -762,6 +762,10 @@ pub struct Arg {
     pub yuris_ysc_path: Option<String>,
     #[cfg(feature = "yuris")]
     #[arg(long, global = true)]
+    /// Path to the ysl.ybn file
+    pub yuris_ysl_path: Option<String>,
+    #[cfg(feature = "yuris")]
+    #[arg(long, global = true)]
     /// Disasm Yu-RIS YSTB (.ybn) file
     pub yuris_ystb_disasm: bool,
     #[command(subcommand)]
