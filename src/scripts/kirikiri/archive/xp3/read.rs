@@ -163,7 +163,6 @@ impl<'a> Xp3Archive<'a> {
                 } else {
                     let data = index_stream.read_exact_vec(size as usize)?;
                     let tag = sig.into();
-                    #[cfg(feature = "private")]
                     if config.xp3_game_title.is_none() && tag == "Hxv4" {
                         match Hxv4Crypt::new(filename, config) {
                             Ok(c) => {

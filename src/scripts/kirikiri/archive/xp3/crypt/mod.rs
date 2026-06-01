@@ -19,7 +19,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 
-#[cfg(feature = "private")]
 pub use cx::Hxv4Crypt;
 
 type CIS = CaseInsensitiveStr;
