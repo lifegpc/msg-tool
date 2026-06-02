@@ -10,8 +10,8 @@ use chacha20::cipher::array::Array;
 use chacha20::hchacha;
 use msg_tool_macro::{MyDebug, StructUnpack};
 use serde::{Deserializer, de};
-use sha3::digest::XofReader;
-use sha3::{Sha3_224, Shake256};
+use sha3::Sha3_224;
+use shake::Shake256;
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut, Index};
 use std::path::PathBuf;
@@ -3244,6 +3244,7 @@ impl HxKeys {
         use anyhow::Error;
         use argon2::{self, Algorithm, Argon2, Version};
         use sha3::Digest;
+        use shake::digest::XofReader;
         // workaround for seed = defaults (if cxdec:word_10081744 == 'f')
         // consider make .keyPackages[].key.seed nullable
         //
@@ -3298,8 +3299,8 @@ impl HxKeys {
         let mut ctrlblk_pa = vec![0u8; 0x1000]; // cx->ControlBlock, partA
         let mut ctrlblk_pb = vec![0u8; 0x1000]; // cx->ControlBlock, partB
         let mut state = Shake256::default();
-        sha3::digest::Update::update(&mut state, &lower_key_full);
-        let mut reader = sha3::digest::ExtendableOutput::finalize_xof(state);
+        shake::digest::Update::update(&mut state, &lower_key_full);
+        let mut reader = shake::digest::ExtendableOutput::finalize_xof(state);
         reader.read(&mut ctrlblk_pa);
         reader.read(&mut ctrlblk_pb);
         if (params.flags & 1) == 1 {
