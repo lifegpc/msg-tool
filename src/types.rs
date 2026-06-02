@@ -938,6 +938,9 @@ pub enum ScriptType {
     #[cfg(feature = "yuris")]
     /// Yu-Ris YSLB(labels) file (.ybn)
     YurisYSLB,
+    #[cfg(feature = "yuris")]
+    /// Yu-Ris YSVR(Variables) file (.ybn)
+    YurisYSVR,
     #[cfg(feature = "yuris-img")]
     /// YU-RIS compressed image file (.ydg)
     YurisYDG,

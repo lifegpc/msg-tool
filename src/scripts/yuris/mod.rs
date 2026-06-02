@@ -9,3 +9,4 @@ pub mod yser;
 pub mod yslb;
 pub mod ystb;
 pub mod ystl;
+pub mod ysvr;

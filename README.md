@@ -273,6 +273,7 @@ msg-tool create -t <script-type> <input> <output>
 | `yuris-txt` | `yuris` | Yu-Ris scenario text file (.txt) | ✔️ | ✔️ | ❌ | ❌ | ❌ | ❌ | ❌ | |
 | `yuris-ystl` | `yuris` | Yu-Ris YSTL(file list) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 | `yuris-yslb` | `yuris` | Yu-Ris YSLB(labels) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
+| `yuris-ysvr` | `yuris` | Yu-Ris YSVR(Variables) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
