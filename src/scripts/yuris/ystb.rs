@@ -161,23 +161,173 @@ struct YSTBArg {
 #[serde(tag = "t")]
 enum YSTBArgDat {
     Raw { data: Base64Bytes },
+    NotEqual,
+    Mod,
+    LogAnd,
+    PerformVarIndexAtion,
+    Mul,
+    Add,
+    Nop,
+    Sub,
+    Div,
+    Equal,
+    Less,
+    Greater,
+    BinAnd,
+    PushInt8 { value: i8 },
+    PushDouble { value: f64 },
+    PushScalarVarVar { index: u16 },
+    PushScalarVarStr { index: u16 },
+    PushInt32 { value: i32 },
+    PushInt64 { value: i64 },
     MString { s: String },
+    BinOr,
+    ChangeSign,
+    Le,
+    PrepareVarIndexationVar { index: u16 },
+    PrepareVarIndexationStr { index: u16 },
+    PushInt16 { value: i16 },
+    Ge,
+    BinXor,
+    ToNumber,
+    ToString,
+    PushArrayVarVar { index: u16 },
+    PushArrayVarStr { index: u16 },
+    LogOr,
+    Array { data: Vec<YSTBArgDat> },
+}
+
+impl YSTBArgDat {
+    fn to_data(self, encoding: Encoding) -> Result<Vec<u8>> {
+        Ok(match self {
+            YSTBArgDat::Raw { data } => data.bytes,
+            YSTBArgDat::NotEqual => NOTEQUAL_TYPE.into(),
+            YSTBArgDat::Mod => MOD_TYPE.into(),
+            YSTBArgDat::LogAnd => LOGAND_TYPE.into(),
+            YSTBArgDat::PerformVarIndexAtion => PERFORMVARINDEXATION_TYPE.into(),
+            YSTBArgDat::Mul => MUL_TYPE.into(),
+            YSTBArgDat::Add => ADD_TYPE.into(),
+            YSTBArgDat::Nop => NOP_TYPE.into(),
+            YSTBArgDat::Sub => SUB_TYPE.into(),
+            YSTBArgDat::Div => DIV_TYPE.into(),
+            YSTBArgDat::Equal => EQUAL_TYPE.into(),
+            YSTBArgDat::Less => LESS_TYPE.into(),
+            YSTBArgDat::Greater => GREATER_TYPE.into(),
+            YSTBArgDat::BinAnd => BINAND_TYPE.into(),
+            YSTBArgDat::PushInt8 { value } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'B')?;
+                m.write_u16(1)?;
+                m.write_i8(value)?;
+                m.into_inner()
+            }
+            YSTBArgDat::PushDouble { value } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'F')?;
+                m.write_u16(8)?;
+                m.write_f64(value)?;
+                m.into_inner()
+            }
+            YSTBArgDat::PushScalarVarVar { index } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'H')?;
+                m.write_u16(3)?;
+                m.write_u8(b'$')?;
+                m.write_u16(index)?;
+                m.into_inner()
+            }
+            YSTBArgDat::PushScalarVarStr { index } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'H')?;
+                m.write_u16(3)?;
+                m.write_u8(b'@')?;
+                m.write_u16(index)?;
+                m.into_inner()
+            }
+            YSTBArgDat::PushInt32 { value } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'I')?;
+                m.write_u16(4)?;
+                m.write_i32(value)?;
+                m.into_inner()
+            }
+            YSTBArgDat::PushInt64 { value } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'L')?;
+                m.write_u16(8)?;
+                m.write_i64(value)?;
+                m.into_inner()
+            }
+            YSTBArgDat::MString { s } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'M')?;
+                let d = encode_string(encoding, &s, true)?;
+                m.write_u16(d.len() as u16)?;
+                m.write_all(&d)?;
+                m.into_inner()
+            }
+            YSTBArgDat::BinOr => BINOR_TYPE.into(),
+            YSTBArgDat::ChangeSign => CHANGESIGN_TYPE.into(),
+            YSTBArgDat::Le => LE_TYPE.into(),
+            YSTBArgDat::PrepareVarIndexationVar { index } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'V')?;
+                m.write_u16(3)?;
+                m.write_u8(b'$')?;
+                m.write_u16(index)?;
+                m.into_inner()
+            }
+            YSTBArgDat::PrepareVarIndexationStr { index } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'V')?;
+                m.write_u16(3)?;
+                m.write_u8(b'@')?;
+                m.write_u16(index)?;
+                m.into_inner()
+            }
+            YSTBArgDat::PushInt16 { value } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'W')?;
+                m.write_u16(2)?;
+                m.write_i16(value)?;
+                m.into_inner()
+            }
+            YSTBArgDat::Ge => GE_TYPE.into(),
+            YSTBArgDat::BinXor => BINXOR_TYPE.into(),
+            YSTBArgDat::ToNumber => TONUMBER_TYPE.into(),
+            YSTBArgDat::ToString => TOSTRING_TYPE.into(),
+            YSTBArgDat::PushArrayVarVar { index } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'v')?;
+                m.write_u16(3)?;
+                m.write_u8(b'$')?;
+                m.write_u16(index)?;
+                m.into_inner()
+            }
+            YSTBArgDat::PushArrayVarStr { index } => {
+                let mut m = MemWriter::new();
+                m.write_u8(b'v')?;
+                m.write_u16(3)?;
+                m.write_u8(b'@')?;
+                m.write_u16(index)?;
+                m.into_inner()
+            }
+            YSTBArgDat::LogOr => LOGOR_TYPE.into(),
+            YSTBArgDat::Array { data } => {
+                let mut m = MemWriter::new();
+                for d in data {
+                    m.write_all(&d.to_data(encoding)?)?;
+                }
+                m.into_inner()
+            }
+        })
+    }
 }
 
 impl TryFrom<YSTBArgTmp> for YSTBArg {
     type Error = anyhow::Error;
     fn try_from(value: YSTBArgTmp) -> Result<Self> {
-        let data = match value.data {
-            YSTBArgDat::Raw { data } => data.bytes,
-            YSTBArgDat::MString { s } => {
-                let mut m = MemWriter::new();
-                m.write_u8(b'M')?;
-                let d = encode_string(value.encoding, &s, true)?;
-                m.write_u16(d.len() as u16)?;
-                m.write_all(&d)?;
-                m.into_inner()
-            }
-        };
+        let data = value.data.to_data(value.encoding)?;
         Ok(Self {
             base: value.base,
             data,
@@ -189,17 +339,242 @@ impl TryFrom<YSTBArgTmp> for YSTBArg {
 impl<'a> TryFrom<&'a YSTBArg> for YSTBArgTmp {
     type Error = anyhow::Error;
     fn try_from(value: &'a YSTBArg) -> Result<Self> {
-        if value.data.len() >= 5 && value.data.starts_with(b"M") {
-            let len = u16::from_le_bytes([value.data[1], value.data[2]]);
-            if len as usize == value.data.len() - 3 {
-                if let Ok(s) = decode_to_string(value.encoding, &value.data[3..], true) {
-                    return Ok(Self {
-                        base: value.base.clone(),
-                        data: YSTBArgDat::MString { s },
-                        encoding: value.encoding,
+        let mut list = Vec::new();
+        let mut data = value.data.as_slice();
+        loop {
+            if data.is_empty() {
+                break;
+            }
+            if data.starts_with(NOTEQUAL_TYPE) {
+                list.push(YSTBArgDat::NotEqual);
+                data = &data[3..];
+            } else if data.starts_with(MOD_TYPE) {
+                list.push(YSTBArgDat::Mod);
+                data = &data[3..];
+            } else if data.starts_with(LOGAND_TYPE) {
+                list.push(YSTBArgDat::LogAnd);
+                data = &data[3..];
+            } else if data.starts_with(PERFORMVARINDEXATION_TYPE) {
+                list.push(YSTBArgDat::PerformVarIndexAtion);
+                data = &data[4..];
+            } else if data.starts_with(MUL_TYPE) {
+                list.push(YSTBArgDat::Mul);
+                data = &data[3..];
+            } else if data.starts_with(ADD_TYPE) {
+                list.push(YSTBArgDat::Add);
+                data = &data[3..];
+            } else if data.starts_with(NOP_TYPE) {
+                list.push(YSTBArgDat::Nop);
+                data = &data[3..];
+            } else if data.starts_with(SUB_TYPE) {
+                list.push(YSTBArgDat::Sub);
+                data = &data[3..];
+            } else if data.starts_with(DIV_TYPE) {
+                list.push(YSTBArgDat::Div);
+                data = &data[3..];
+            } else if data.starts_with(EQUAL_TYPE) {
+                list.push(YSTBArgDat::Equal);
+                data = &data[3..];
+            } else if data.starts_with(LESS_TYPE) {
+                list.push(YSTBArgDat::Less);
+                data = &data[3..];
+            } else if data.starts_with(GREATER_TYPE) {
+                list.push(YSTBArgDat::Greater);
+                data = &data[3..];
+            } else if data.starts_with(BINAND_TYPE) {
+                list.push(YSTBArgDat::BinAnd);
+                data = &data[3..];
+            } else if data.starts_with(PUSHINT8_TYPE) {
+                if data.len() < 4 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushInt8 {
+                    value: i8::from_le_bytes([data[3]]),
+                });
+                data = &data[4..];
+            } else if data.starts_with(PUSHDOUBLE_TYPE) {
+                if data.len() < 11 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushDouble {
+                    value: f64::from_le_bytes([
+                        data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10],
+                    ]),
+                });
+                data = &data[11..];
+            } else if data.starts_with(PUSHSCALARVAR_VAR_TYPE) {
+                if data.len() < 6 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushScalarVarVar {
+                    index: u16::from_le_bytes([data[4], data[5]]),
+                });
+                data = &data[6..];
+            } else if data.starts_with(PUSHSCALARVAR_STR_TYPE) {
+                if data.len() < 6 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushScalarVarStr {
+                    index: u16::from_le_bytes([data[4], data[5]]),
+                });
+                data = &data[6..];
+            } else if data.starts_with(PUSHINT32_TYPE) {
+                if data.len() < 7 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushInt32 {
+                    value: i32::from_le_bytes([data[3], data[4], data[5], data[6]]),
+                });
+                data = &data[7..];
+            } else if data.starts_with(PUSHINT64_TYPE) {
+                if data.len() < 11 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushInt64 {
+                    value: i64::from_le_bytes([
+                        data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10],
+                    ]),
+                });
+                data = &data[11..];
+            } else if data.starts_with(PUSHSTRING_TYPE) {
+                if data.len() < 3 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                let len = u16::from_le_bytes([data[1], data[2]]) as usize;
+                if data.len() < 3 + len {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                if let Ok(s) = decode_to_string(value.encoding, &data[3..3 + len], true) {
+                    list.push(YSTBArgDat::MString { s });
+                } else {
+                    list.push(YSTBArgDat::Raw {
+                        data: data[..3 + len].to_vec().into(),
                     });
                 }
+                data = &data[3 + len..];
+            } else if data.starts_with(BINOR_TYPE) {
+                list.push(YSTBArgDat::BinOr);
+                data = &data[3..];
+            } else if data.starts_with(CHANGESIGN_TYPE) {
+                list.push(YSTBArgDat::ChangeSign);
+                data = &data[3..];
+            } else if data.starts_with(LE_TYPE) {
+                list.push(YSTBArgDat::Le);
+                data = &data[3..];
+            } else if data.starts_with(PREPAREVARINDEXATION_VAR_TYPE) {
+                if data.len() < 6 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PrepareVarIndexationVar {
+                    index: u16::from_le_bytes([data[4], data[5]]),
+                });
+                data = &data[6..];
+            } else if data.starts_with(PREPAREVARINDEXATION_STR_TYPE) {
+                if data.len() < 6 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PrepareVarIndexationStr {
+                    index: u16::from_le_bytes([data[4], data[5]]),
+                });
+                data = &data[6..];
+            } else if data.starts_with(PUSHINT16_TYPE) {
+                if data.len() < 5 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushInt16 {
+                    value: i16::from_le_bytes([data[3], data[4]]),
+                });
+                data = &data[5..];
+            } else if data.starts_with(GE_TYPE) {
+                list.push(YSTBArgDat::Ge);
+                data = &data[3..];
+            } else if data.starts_with(BINXOR_TYPE) {
+                list.push(YSTBArgDat::BinXor);
+                data = &data[3..];
+            } else if data.starts_with(TONUMBER_TYPE) {
+                list.push(YSTBArgDat::ToNumber);
+                data = &data[3..];
+            } else if data.starts_with(TOSTRING_TYPE) {
+                list.push(YSTBArgDat::ToString);
+                data = &data[3..];
+            } else if data.starts_with(PUSHARRAYVAR_VAR_TYPE) {
+                if data.len() < 6 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushArrayVarVar {
+                    index: u16::from_le_bytes([data[4], data[5]]),
+                });
+                data = &data[6..];
+            } else if data.starts_with(PUSHARRAYVAR_STR_TYPE) {
+                if data.len() < 6 {
+                    list.push(YSTBArgDat::Raw {
+                        data: data.to_vec().into(),
+                    });
+                    break;
+                }
+                list.push(YSTBArgDat::PushArrayVarStr {
+                    index: u16::from_le_bytes([data[4], data[5]]),
+                });
+                data = &data[6..];
+            } else if data.starts_with(LOGOR_TYPE) {
+                list.push(YSTBArgDat::LogOr);
+                data = &data[3..];
+            } else {
+                list.push(YSTBArgDat::Raw {
+                    data: data.to_vec().into(),
+                });
+                break;
             }
+        }
+        if list.len() > 1 {
+            return Ok(Self {
+                base: value.base.clone(),
+                data: YSTBArgDat::Array { data: list },
+                encoding: value.encoding,
+            });
+        }
+        if let Some(data) = list.pop() {
+            return Ok(Self {
+                base: value.base.clone(),
+                data,
+                encoding: value.encoding,
+            });
         }
         Ok(Self {
             base: value.base.clone(),
