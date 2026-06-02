@@ -91,7 +91,7 @@ fn check_chinese_word_is_break(segs: &[&str], pos: usize, jieba: &Jieba) -> bool
     let mut breaked = jieba
         .cut(&s, false)
         .iter()
-        .map(|s| s.graphemes(true).count())
+        .map(|s| s.word.graphemes(true).count())
         .collect::<Vec<_>>();
     let mut sum = 0;
     for i in breaked.iter_mut() {
@@ -483,7 +483,7 @@ impl FixedFormatter {
                         let mut breaked = jieba
                             .cut(&s, false)
                             .iter()
-                            .map(|s| s.graphemes(true).count())
+                            .map(|s| s.word.graphemes(true).count())
                             .collect::<Vec<_>>();
                         let mut sum = 0;
                         for i in breaked.iter_mut() {
