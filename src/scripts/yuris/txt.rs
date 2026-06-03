@@ -3,7 +3,9 @@ use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
 use anyhow::Result;
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
@@ -27,10 +29,10 @@ impl ScriptBuilder for YurisTxtBuilder {
         _filename: &str,
         encoding: Encoding,
         _archive_encoding: Encoding,
-        _config: &ExtraConfig,
+        config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script + Send + Sync>> {
-        Ok(Box::new(YurisTxt::new(&buf, encoding)?))
+        Ok(Box::new(YurisTxt::new(&buf, encoding, config)?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -542,13 +544,22 @@ impl<'a> Parser<'a> {
 pub struct YurisTxt {
     data: Vec<Line>,
     bom: BomType,
+    tips_map: Option<Arc<HashMap<String, String>>>,
 }
 
 impl YurisTxt {
-    pub fn new<D: AsRef<[u8]> + ?Sized>(data: &D, encoding: Encoding) -> Result<Self> {
+    pub fn new<D: AsRef<[u8]> + ?Sized>(
+        data: &D,
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
         let (text, bom) = decode_with_bom_detect(encoding, data.as_ref(), true)?;
         let data = Parser::new(&text).parse()?;
-        Ok(Self { data, bom })
+        Ok(Self {
+            data,
+            bom,
+            tips_map: config.yuris_tips_map.clone(),
+        })
     }
 }
 
@@ -627,6 +638,20 @@ impl Script for YurisTxt {
                                     }
                                 }
                                 *arg = m;
+                            }
+                        } else if cmd.name == "TIPS.SET" {
+                            if cmd.args.len() >= 1 {
+                                if let Some(tips) = self.tips_map.as_ref() {
+                                    if let Some(data) = tips.get(&cmd.args[0]) {
+                                        let mut m = data.to_owned();
+                                        if let Some(rep) = replacement {
+                                            for (k, v) in &rep.map {
+                                                m = m.replace(k, v);
+                                            }
+                                        }
+                                        cmd.args[0] = m;
+                                    }
+                                }
                             }
                         }
                     }

@@ -768,6 +768,10 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Disasm Yu-RIS YSTB (.ybn) file
     pub yuris_ystb_disasm: bool,
+    #[cfg(feature = "yuris")]
+    #[arg(long, global = true)]
+    /// Path to YuRis Tips json map. Used to replace tip name in YuRis scenario file
+    pub yuris_tips_map: Option<String>,
     #[command(subcommand)]
     /// Command
     pub command: Command,
@@ -1100,6 +1104,18 @@ pub fn load_kirikiri_chat_json(
                     .collect(),
             )));
         }
+    }
+    Ok(None)
+}
+
+#[cfg(feature = "yuris")]
+pub fn load_yuris_tips_map(
+    arg: &Arg,
+) -> anyhow::Result<Option<std::sync::Arc<std::collections::HashMap<String, String>>>> {
+    if let Some(path) = &arg.yuris_tips_map {
+        let data = crate::utils::files::read_file(path)?;
+        let result = serde_json::from_slice(&data)?;
+        return Ok(Some(std::sync::Arc::new(result)));
     }
     Ok(None)
 }

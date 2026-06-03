@@ -672,6 +672,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "yuris")]
     /// Disasm Yu-RIS YSTB (.ybn) file
     pub yuris_ystb_disasm: bool,
+    #[cfg(feature = "yuris")]
+    /// YuRis Tips map. Used to replace tip name in YuRis scenario file
+    pub yuris_tips_map: Option<std::sync::Arc<std::collections::HashMap<String, String>>>,
 }
 
 #[cfg(feature = "artemis")]
