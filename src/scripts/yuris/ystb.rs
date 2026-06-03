@@ -1027,17 +1027,13 @@ impl YSTB {
         let mut reader = MemReader::new(yscm);
         reader.pos = 4;
         let com = YSCMData::unpack(&mut reader, false, encoding, &None)?;
-        let labels = if config.yuris_ystb_disasm {
-            match Self::try_load_yslb(filename, &archive, config, encoding) {
-                Ok(labels) => labels,
-                Err(e) => {
-                    eprintln!("WARNING: Failed to load ysl.bin file: {}", e);
-                    crate::COUNTER.inc_warning();
-                    BTreeMap::new()
-                }
+        let labels = match Self::try_load_yslb(filename, &archive, config, encoding) {
+            Ok(labels) => labels,
+            Err(e) => {
+                eprintln!("WARNING: Failed to load ysl.bin file: {}", e);
+                crate::COUNTER.inc_warning();
+                BTreeMap::new()
             }
-        } else {
-            BTreeMap::new()
         };
         Ok(Self {
             data,
@@ -1178,6 +1174,93 @@ impl YSTB {
     }
 }
 
+struct YSTBDataSer<'a> {
+    data: &'a YSTBData,
+    com: &'a YSCMData,
+    labels: &'a BTreeMap<u32, Label>,
+}
+
+impl<'a> serde::Serialize for YSTBDataSer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let h = &self.data.header;
+        let mut s = serializer.serialize_struct("YSTBData", 4)?;
+        s.serialize_field("version", &h.version)?;
+        s.serialize_field("reserve0", &h.reserve0)?;
+        s.serialize_field(
+            "insts",
+            &YSTBInstSliceSer {
+                insts: &self.data.insts,
+                com: self.com,
+                labels: self.labels,
+            },
+        )?;
+        s.serialize_field("line_numbers", &self.data.line_numbers)?;
+        s.end()
+    }
+}
+
+struct YSTBInstSliceSer<'a> {
+    insts: &'a [YSTBInst],
+    com: &'a YSCMData,
+    labels: &'a BTreeMap<u32, Label>,
+}
+
+impl<'a> serde::Serialize for YSTBInstSliceSer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(self.insts.len()))?;
+        for (i, inst) in self.insts.iter().enumerate() {
+            let offset = i as u32;
+            let opcode_name = self
+                .com
+                .opcodes
+                .get(inst.opcode as usize)
+                .map(|m| m.name.as_str());
+            let label = self.labels.get(&offset);
+            seq.serialize_element(&YSTBInstSer {
+                inst,
+                opcode_name,
+                label,
+            })?;
+        }
+        seq.end()
+    }
+}
+
+struct YSTBInstSer<'a> {
+    inst: &'a YSTBInst,
+    opcode_name: Option<&'a str>,
+    label: Option<&'a Label>,
+}
+
+impl<'a> serde::Serialize for YSTBInstSer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let nfields = 3 + self.opcode_name.is_some() as usize + self.label.is_some() as usize;
+        let mut s = serializer.serialize_struct("YSTBInst", nfields)?;
+        s.serialize_field("opcode", &self.inst.opcode)?;
+        if let Some(name) = self.opcode_name {
+            s.serialize_field("opcode_name", name)?;
+        }
+        s.serialize_field("unk", &self.inst.unk)?;
+        s.serialize_field("args", &self.inst.args)?;
+        if let Some(label) = self.label {
+            s.serialize_field("label", &label.name)?;
+        }
+        s.end()
+    }
+}
+
 impl Script for YSTB {
     fn default_output_script_type(&self) -> OutputScriptType {
         OutputScriptType::Custom
@@ -1203,10 +1286,15 @@ impl Script for YSTB {
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
         if !self.disasm {
+            let wrapper = YSTBDataSer {
+                data: &self.data,
+                com: &self.com,
+                labels: &self.labels,
+            };
             let s = if self.custom_yaml {
-                serde_yaml_ng::to_string(&self.data)?
+                serde_yaml_ng::to_string(&wrapper)?
             } else {
-                serde_json::to_string_pretty(&self.data)?
+                serde_json::to_string_pretty(&wrapper)?
             };
             let mut f = std::fs::File::create(filename)?;
             let encoded = encode_string(encoding, &s, true)?;
