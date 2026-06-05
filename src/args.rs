@@ -319,7 +319,8 @@ pub struct Arg {
     pub bgi_compress_file: bool,
     #[cfg(feature = "bgi-arc")]
     #[arg(long, global = true, default_value_t = 9, value_parser = crate::scripts::bgi::archive::dsc::parse_compress_level)]
-    /// Compress level for BGI Dsc file. 0 means store, 9 mean best compression.
+    /// Compress level for BGI Dsc file. 0 means store, 10 mean best compression.
+    /// 10 will use zopfli like compression method, this may cost a lot of time.
     pub bgi_compress_level: u8,
     #[cfg(feature = "emote-img")]
     #[arg(long, global = true)]

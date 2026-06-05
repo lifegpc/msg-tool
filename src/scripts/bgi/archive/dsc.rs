@@ -226,6 +226,7 @@ pub enum MatchMode {
     Rle,
     NonLazy,
     Lazy,
+    Optimal, // 新增：最优解析模式
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -237,7 +238,7 @@ pub struct CompressConfig {
     pub mode: MatchMode,
 }
 
-pub const COMPRESS_CONFIGS: [CompressConfig; 10] = [
+pub const COMPRESS_CONFIGS: [CompressConfig; 11] = [
     // 0: Store (No compression)
     CompressConfig {
         good_length: 0,
@@ -317,6 +318,14 @@ pub const COMPRESS_CONFIGS: [CompressConfig; 10] = [
         nice_length: 258,
         max_chain: 4096,
         mode: MatchMode::Lazy,
+    },
+    // 10: Optimal (Zopfli-like) - 穷举所有可能以找到最优解
+    CompressConfig {
+        good_length: 258,
+        max_lazy: 258,
+        nice_length: 258,
+        max_chain: 4096,
+        mode: MatchMode::Optimal,
     },
 ];
 
@@ -466,7 +475,7 @@ fn find_match(
     let src_slice = &data[pos..pos + max_len];
     let limit = pos.saturating_sub(4097);
 
-    // Level 3~9: 基于哈希字典进行跳跃搜索
+    // Level 3~10: 基于哈希字典进行跳跃搜索
     let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
     let mut match_pos_i32 = head[key];
     let mut chain_length = config.max_chain;
@@ -523,6 +532,112 @@ fn find_match(
     }
 }
 
+/// Zopfli-like Optimal Parsing
+/// 通过多次迭代动态规划，寻找全局最优的 LZSS 匹配路径
+fn optimal_parse(data: &[u8], config: &CompressConfig) -> Vec<LzssOp> {
+    let n = data.len();
+    if n == 0 {
+        return vec![];
+    }
+
+    // 预先计算每个位置的最长匹配，避免在 DP 迭代中重复搜索
+    let mut longest_matches = vec![(0usize, 0usize); n];
+    let mut head = vec![-1i32; 1 << 16];
+    let mut prev = vec![-1i32; n];
+    let insert_limit = n.saturating_sub(1);
+
+    for pos in 0..n {
+        let (best_len, best_offset) = find_match(data, pos, &head, &prev, config);
+        longest_matches[pos] = (best_len, best_offset);
+
+        if pos < insert_limit {
+            let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
+            prev[pos] = head[key];
+            head[key] = pos as i32;
+        }
+    }
+
+    // 初始代价：假设所有符号的 Huffman 编码长度均为 9 bits
+    let mut sym_costs = vec![9u32; 512];
+    let mut best_ops = vec![];
+
+    const NUM_ITERATIONS: usize = 4;
+    for iter in 0..NUM_ITERATIONS {
+        let mut costs = vec![u32::MAX; n + 1];
+        let mut links = vec![None; n + 1];
+        costs[0] = 0;
+
+        // 动态规划寻找最短路径
+        for i in 0..n {
+            let current_cost = costs[i];
+            if current_cost == u32::MAX {
+                continue;
+            }
+
+            // 1. 尝试字面量 (Literal)
+            let lit_sym = data[i] as usize;
+            let lit_cost = current_cost + sym_costs[lit_sym];
+            if lit_cost < costs[i + 1] {
+                costs[i + 1] = lit_cost;
+                links[i + 1] = Some(LzssOp::Literal(data[i]));
+            }
+
+            // 2. 尝试匹配 (Match)
+            let (max_len, offset) = longest_matches[i];
+            for len in 2..=max_len {
+                let match_sym = 256 + (len - 2);
+                // 匹配的代价 = 当前代价 + 长度符号的 Huffman 代价 + 固定的 12 bits 偏移量代价
+                let match_cost = current_cost + sym_costs[match_sym] + 12;
+                if match_cost < costs[i + len] {
+                    costs[i + len] = match_cost;
+                    links[i + len] = Some(LzssOp::Match {
+                        len: len as u16,
+                        offset: offset as u16,
+                    });
+                }
+            }
+        }
+
+        // 回溯构建操作序列
+        let mut ops = vec![];
+        let mut curr = n;
+        while curr > 0 {
+            let op = links[curr].unwrap();
+            ops.push(op);
+            curr -= match op {
+                LzssOp::Literal(_) => 1,
+                LzssOp::Match { len, .. } => len as usize,
+            };
+        }
+        ops.reverse();
+
+        if iter == NUM_ITERATIONS - 1 {
+            best_ops = ops;
+            break;
+        }
+
+        // 统计频率并更新 Huffman 树代价
+        let mut freqs = vec![0u32; 512];
+        for op in &ops {
+            match op {
+                LzssOp::Literal(b) => freqs[*b as usize] += 1,
+                LzssOp::Match { len, .. } => freqs[256 + (*len - 2) as usize] += 1,
+            }
+        }
+
+        let depths = calculate_huffman_depths(&freqs);
+        for i in 0..512 {
+            sym_costs[i] = if depths[i] > 0 {
+                depths[i] as u32
+            } else {
+                9 // 对于未使用的符号，赋予一个平均惩罚代价
+            };
+        }
+    }
+
+    best_ops
+}
+
 /// Encoder for Buriko General Interpreter/Ethornell compressed files (DSC format).
 pub struct DscEncoder<'a, T: Write + Seek> {
     stream: MsbBitWriter<'a, BufWriter<T>>,
@@ -533,7 +648,7 @@ pub struct DscEncoder<'a, T: Write + Seek> {
 }
 
 impl<'a, T: Write + Seek> DscEncoder<'a, T> {
-    /// Creates a new DscEncoder with the given writer and compression level (0-9).
+    /// Creates a new DscEncoder with the given writer and compression level (0-10).
     pub fn new(writer: &'a mut BufWriter<T>, level: u8) -> Self {
         let stream = MsbBitWriter::new(writer);
         DscEncoder {
@@ -541,94 +656,99 @@ impl<'a, T: Write + Seek> DscEncoder<'a, T> {
             magic: 0x5344 << 16, // "DS"
             key: rand::rng().random(),
             dec_count: 0,
-            level: level.min(9),
+            level: level.min(10),
         }
     }
 
     /// Packs the given data into the DSC format using configured LZSS compression.
     pub fn pack(mut self, data: &[u8]) -> Result<()> {
-        let mut ops = vec![];
-        let mut pos = 0;
         let config = &COMPRESS_CONFIGS[self.level as usize];
 
-        // 预分配哈希表，65536 对应 2 bytes 的所有可能
-        let mut head = vec![-1i32; 1 << 16];
-        let mut prev = vec![-1i32; data.len()];
-        let insert_limit = data.len().saturating_sub(1); // 防止 data[p + 1] 越界
+        let ops = if config.mode == MatchMode::Optimal {
+            optimal_parse(data, config)
+        } else {
+            let mut ops = vec![];
+            let mut pos = 0;
+            // 预分配哈希表，65536 对应 2 bytes 的所有可能
+            let mut head = vec![-1i32; 1 << 16];
+            let mut prev = vec![-1i32; data.len()];
+            let insert_limit = data.len().saturating_sub(1); // 防止 data[p + 1] 越界
 
-        while pos < data.len() {
-            if config.mode == MatchMode::Store {
-                ops.push(LzssOp::Literal(data[pos]));
-                pos += 1;
-                continue;
-            }
-
-            let (match_len, match_offset) = find_match(data, pos, &head, &prev, config);
-
-            if match_len >= 2 {
-                let mut lazy_match = false;
-
-                // 延迟匹配逻辑 (Lazy Evaluation)
-                if config.mode == MatchMode::Lazy
-                    && match_len <= config.max_lazy
-                    && pos + 1 < data.len()
-                {
-                    // 为下一次尝试预先将当前 pos 插入字典
-                    if pos < insert_limit {
-                        let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
-                        prev[pos] = head[key];
-                        head[key] = pos as i32;
-                    }
-
-                    let (next_len, _) = find_match(data, pos + 1, &head, &prev, config);
-
-                    if next_len > match_len {
-                        lazy_match = true;
-                    }
-                }
-
-                if lazy_match {
+            while pos < data.len() {
+                if config.mode == MatchMode::Store {
                     ops.push(LzssOp::Literal(data[pos]));
                     pos += 1;
                     continue;
                 }
 
-                ops.push(LzssOp::Match {
-                    len: match_len as u16,
-                    offset: match_offset as u16,
-                });
+                let (match_len, match_offset) = find_match(data, pos, &head, &prev, config);
 
-                let start_insert = if config.mode == MatchMode::Lazy
-                    && match_len <= config.max_lazy
-                    && pos + 1 < data.len()
-                {
-                    1 // 如果进行了延迟检查，pos 已被插入，从 1 开始
-                } else {
-                    0
-                };
+                if match_len >= 2 {
+                    let mut lazy_match = false;
 
-                // 批量插入字典，使用 usize 强制类型，移除闭包产生的隐式开销
-                if config.mode != MatchMode::Rle {
-                    for i in start_insert..match_len {
-                        let p = pos + i;
-                        if p < insert_limit {
-                            let key = ((data[p] as usize) << 8) | (data[p + 1] as usize);
-                            prev[p] = head[key];
-                            head[key] = p as i32;
+                    // 延迟匹配逻辑 (Lazy Evaluation)
+                    if config.mode == MatchMode::Lazy
+                        && match_len <= config.max_lazy
+                        && pos + 1 < data.len()
+                    {
+                        // 为下一次尝试预先将当前 pos 插入字典
+                        if pos < insert_limit {
+                            let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
+                            prev[pos] = head[key];
+                            head[key] = pos as i32;
+                        }
+
+                        let (next_len, _) = find_match(data, pos + 1, &head, &prev, config);
+
+                        if next_len > match_len {
+                            lazy_match = true;
                         }
                     }
+
+                    if lazy_match {
+                        ops.push(LzssOp::Literal(data[pos]));
+                        pos += 1;
+                        continue;
+                    }
+
+                    ops.push(LzssOp::Match {
+                        len: match_len as u16,
+                        offset: match_offset as u16,
+                    });
+
+                    let start_insert = if config.mode == MatchMode::Lazy
+                        && match_len <= config.max_lazy
+                        && pos + 1 < data.len()
+                    {
+                        1 // 如果进行了延迟检查，pos 已被插入，从 1 开始
+                    } else {
+                        0
+                    };
+
+                    // 批量插入字典，使用 usize 强制类型，移除闭包产生的隐式开销
+                    if config.mode != MatchMode::Rle {
+                        for i in start_insert..match_len {
+                            let p = pos + i;
+                            if p < insert_limit {
+                                let key = ((data[p] as usize) << 8) | (data[p + 1] as usize);
+                                prev[p] = head[key];
+                                head[key] = p as i32;
+                            }
+                        }
+                    }
+                    pos += match_len;
+                } else {
+                    ops.push(LzssOp::Literal(data[pos]));
+                    if config.mode != MatchMode::Rle && pos < insert_limit {
+                        let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
+                        prev[pos] = head[key];
+                        head[key] = pos as i32;
+                    }
+                    pos += 1;
                 }
-                pos += match_len;
-            } else {
-                ops.push(LzssOp::Literal(data[pos]));
-                if config.mode != MatchMode::Rle && pos < insert_limit {
-                    let key = ((data[pos] as usize) << 8) | (data[pos + 1] as usize);
-                    prev[pos] = head[key];
-                    head[key] = pos as i32;
-                }
-                pos += 1;
             }
-        }
+            ops
+        };
 
         let symbols: Vec<u16> = ops
             .iter()
@@ -824,5 +944,5 @@ impl Script for Dsc {
 
 /// Parses the compression level for LZSS compression from a string.
 pub fn parse_compress_level(level: &str) -> Result<u8, String> {
-    number_range(level, 0, 9).map(|v| v as u8)
+    number_range(level, 0, 10).map(|v| v as u8)
 }

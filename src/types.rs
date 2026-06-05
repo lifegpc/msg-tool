@@ -350,7 +350,8 @@ pub struct ExtraConfig {
     pub bgi_compress_file: bool,
     #[cfg(feature = "bgi-arc")]
     #[default(9)]
-    /// Compress level for BGI Dsc file. 0 means store, 9 mean best compression.
+    /// Compress level for BGI Dsc file. 0 means store, 10 mean best compression.
+    /// 10 will use zopfli like compression method, this may cost a lot of time.
     pub bgi_compress_level: u8,
     #[cfg(feature = "emote-img")]
     /// Whether to overlay PIMG images. (By default, true if all layers are not group layers.)
