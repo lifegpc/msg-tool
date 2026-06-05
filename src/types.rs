@@ -676,6 +676,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "yuris")]
     /// YuRis Tips map. Used to replace tip name in YuRis scenario file
     pub yuris_tips_map: Option<std::sync::Arc<std::collections::HashMap<String, String>>>,
+    #[cfg(feature = "bgi-arc")]
+    #[default(num_cpus::get())]
+    /// Workers count for compress files in BGI archive when creating in parallel. Default is CPU cores count.
+    pub bgi_arc_workers: usize,
 }
 
 #[cfg(feature = "artemis")]

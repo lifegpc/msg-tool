@@ -322,6 +322,10 @@ pub struct Arg {
     /// Compress level for BGI Dsc file. 0 means store, 10 mean best compression.
     /// 10 will use zopfli like compression method, this may cost a lot of time.
     pub bgi_compress_level: u8,
+    #[cfg(feature = "bgi-arc")]
+    #[arg(long, global = true, default_value_t = num_cpus::get())]
+    /// Workers count for compress files in BGI archive when creating in parallel. Default is CPU cores count.
+    pub bgi_arc_workers: usize,
     #[cfg(feature = "emote-img")]
     #[arg(long, global = true)]
     /// Whether to overlay PIMG images. (By default, true if all layers are not group layers.)

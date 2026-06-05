@@ -2,14 +2,17 @@
 use super::bse::*;
 use super::dsc::*;
 use crate::ext::io::*;
+use crate::ext::mutex::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::encode_string;
 use crate::utils::struct_pack::*;
+use crate::utils::threadpool::*;
 use anyhow::Result;
 use msg_tool_macro::*;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -528,13 +531,14 @@ fn detect_script_type_sysgrp(
     Some(&ScriptType::BGIImg)
 }
 
-/// BGI Archive Writer
+/// BGI Archive Writer for Version 1
 pub struct BgiArchiveWriter<T: Write + Seek> {
-    writer: T,
-    headers: HashMap<String, BgiFileHeader>,
+    writer: Arc<Mutex<T>>,
+    headers: Arc<Mutex<HashMap<String, BgiFileHeader>>>,
     compress_file: bool,
     encoding: Encoding,
     compress_level: u8,
+    runner: ThreadPool<Result<()>>,
 }
 
 impl<T: Write + Seek> BgiArchiveWriter<T> {
@@ -565,78 +569,145 @@ impl<T: Write + Seek> BgiArchiveWriter<T> {
             headers.insert(file.to_string(), header);
         }
         Ok(BgiArchiveWriter {
-            writer,
-            headers,
+            writer: Arc::new(Mutex::new(writer)),
+            headers: Arc::new(Mutex::new(headers)),
             compress_file: config.bgi_compress_file,
             encoding,
             compress_level: config.bgi_compress_level,
+            runner: ThreadPool::new(
+                if config.bgi_compress_file {
+                    config.bgi_arc_workers
+                } else {
+                    1
+                },
+                Some("bgi-arc-writer"),
+                false,
+            )?,
         })
     }
 }
 
-impl<T: Write + Seek> Archive for BgiArchiveWriter<T> {
+impl<T: Write + Seek + Send + Sync + 'static> Archive for BgiArchiveWriter<T> {
     fn new_file<'a>(
         &'a mut self,
         name: &str,
-        _size: Option<u64>,
+        size: Option<u64>,
     ) -> Result<Box<dyn WriteSeek + 'a>> {
-        let entry = self
+        let mut entry = self
             .headers
-            .get_mut(name)
-            .ok_or_else(|| anyhow::anyhow!("File '{}' not found in archive", name))?;
-        if entry.offset != 0 || entry.size != 0 {
-            return Err(anyhow::anyhow!("File '{}' already exists in archive", name));
-        }
-        self.writer.seek(SeekFrom::End(0))?;
-        entry.offset = self.writer.stream_position()? as u32;
-        let file = BgiArchiveFile {
-            header: entry,
-            writer: &mut self.writer,
-            pos: 0,
-        };
-        Ok(if self.compress_file {
-            Box::new(BgiArchiveFileWithDsc::new(file, self.compress_level))
+            .lock_blocking()
+            .get(name)
+            .ok_or_else(|| anyhow::anyhow!("File '{}' not found in archive", name))?
+            .clone();
+        if self.compress_file {
+            let inner = self.new_file_non_seek(name, size)?;
+            Ok(Box::new(Writer {
+                inner,
+                mem: MemWriter::new(),
+            }))
         } else {
-            Box::new(file)
-        })
+            let mut writer = self.writer.lock_blocking();
+            let offset = writer.seek(SeekFrom::End(0))?;
+            entry.offset = offset as u32;
+            Ok(Box::new(BgiArchiveFile {
+                header: entry,
+                writer: self.writer.clone(),
+                pos: 0,
+                headers: self.headers.clone(),
+                name: name.to_owned(),
+            }))
+        }
+    }
+
+    fn new_file_non_seek<'a>(
+        &'a mut self,
+        name: &str,
+        _size: Option<u64>,
+    ) -> Result<Box<dyn Write + 'a>> {
+        if !self.compress_file {
+            return Ok(Box::new(self.new_file(name, _size)?));
+        }
+        for err in self.runner.take_results() {
+            err?;
+        }
+        let mut entry = self
+            .headers
+            .lock_blocking()
+            .get(name)
+            .ok_or_else(|| anyhow::anyhow!("File '{}' not found in archive", name))?
+            .clone();
+        let (reader, writer) = std::io::pipe()?;
+        let file = self.writer.clone();
+        let headers = self.headers.clone();
+        let compress_level = self.compress_level;
+        let name = name.to_owned();
+        self.runner.execute(
+            move |_| {
+                let mut reader = reader;
+                let mut data = Vec::new();
+                reader.read_to_end(&mut data)?;
+                let mut buf = MemWriter::new();
+                {
+                    let mut b = std::io::BufWriter::new(&mut buf);
+                    DscEncoder::new(&mut b, compress_level).pack(&data)?;
+                }
+                let mut writer = file.lock_blocking();
+                let offset = writer.seek(SeekFrom::End(0))?;
+                entry.offset = offset as u32;
+                writer.write_all(&buf.data)?;
+                entry.size = buf.data.len() as u32;
+                headers.lock_blocking().insert(name, entry);
+                Ok(())
+            },
+            true,
+        )?;
+        Ok(Box::new(writer))
     }
 
     fn write_header(&mut self) -> Result<()> {
-        self.writer.seek(SeekFrom::Start(0x10))?;
-        let base_offset = self.headers.len() as u32 * 0x20 + 16;
-        let mut files = self.headers.iter_mut().map(|(_, d)| d).collect::<Vec<_>>();
+        self.runner.join();
+        for err in self.runner.take_results() {
+            err?;
+        }
+        let mut writer = self.writer.lock_blocking();
+        let mut headers = self.headers.lock_blocking();
+        writer.seek(SeekFrom::Start(0x10))?;
+        let base_offset = headers.len() as u32 * 0x20 + 16;
+        let mut files = headers.iter_mut().map(|(_, d)| d).collect::<Vec<_>>();
         files.sort_by_key(|f| f.offset);
         for file in files {
             file.offset -= base_offset;
-            file.pack(&mut self.writer, false, self.encoding, &None)?;
+            file.pack(writer.deref_mut(), false, self.encoding, &None)?;
         }
         Ok(())
     }
 }
 
 /// BGI Archive File Writer (Not compressed)
-pub struct BgiArchiveFile<'a, T: Write + Seek> {
-    header: &'a mut BgiFileHeader,
-    writer: &'a mut T,
+pub struct BgiArchiveFile<T: Write + Seek> {
+    header: BgiFileHeader,
+    writer: Arc<Mutex<T>>,
     pos: usize,
+    headers: Arc<Mutex<HashMap<String, BgiFileHeader>>>,
+    name: String,
 }
 
-impl<'a, T: Write + Seek> Write for BgiArchiveFile<'a, T> {
+impl<T: Write + Seek> Write for BgiArchiveFile<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.writer
-            .seek(SeekFrom::Start(self.header.offset as u64 + self.pos as u64))?;
-        let bytes_written = self.writer.write(buf)?;
+        let mut writer = self.writer.lock_blocking();
+        writer.seek(SeekFrom::Start(self.header.offset as u64 + self.pos as u64))?;
+        let bytes_written = writer.write(buf)?;
         self.pos += bytes_written;
         self.header.size = self.header.size.max(self.pos as u32);
         Ok(bytes_written)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.writer.flush()
+        self.writer.lock_blocking().flush()
     }
 }
 
-impl<'a, T: Write + Seek> Seek for BgiArchiveFile<'a, T> {
+impl<T: Write + Seek> Seek for BgiArchiveFile<T> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(offset) => offset as usize,
@@ -672,59 +743,52 @@ impl<'a, T: Write + Seek> Seek for BgiArchiveFile<'a, T> {
     }
 }
 
-/// BGI Archive File Writer with DSC compression
-pub struct BgiArchiveFileWithDsc<'a, T: Write + Seek> {
-    writer: BgiArchiveFile<'a, T>,
-    buf: MemWriter,
-    compress_level: u8,
-}
-
-impl<'a, T: Write + Seek> BgiArchiveFileWithDsc<'a, T> {
-    /// Creates a new BGI Archive File Writer with DSC compression.
-    ///
-    /// * `writer` - The writer to write the archive file to.
-    /// * `min_len` - The minimum length for LZSS compression.
-    pub fn new(writer: BgiArchiveFile<'a, T>, compress_level: u8) -> Self {
-        BgiArchiveFileWithDsc {
-            writer,
-            buf: MemWriter::new(),
-            compress_level,
-        }
+impl<T: Write + Seek> Drop for BgiArchiveFile<T> {
+    fn drop(&mut self) {
+        self.headers
+            .lock_blocking()
+            .insert(self.name.clone(), self.header.clone());
     }
 }
 
-impl<'a, T: Write + Seek> Write for BgiArchiveFileWithDsc<'a, T> {
+struct Writer<'a> {
+    inner: Box<dyn Write + 'a>,
+    mem: MemWriter,
+}
+
+impl std::fmt::Debug for Writer<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Writer").field("mem", &self.mem).finish()
+    }
+}
+
+impl<'a> Write for Writer<'a> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.buf.write(buf)
+        self.mem.write(buf)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.buf.flush()
+        self.mem.flush()
     }
 }
 
-impl<'a, T: Write + Seek> Seek for BgiArchiveFileWithDsc<'a, T> {
-    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-        self.buf.seek(pos)
+impl<'a> Seek for Writer<'a> {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.mem.seek(pos)
     }
 
     fn stream_position(&mut self) -> std::io::Result<u64> {
-        self.buf.stream_position()
+        self.mem.stream_position()
     }
 
     fn rewind(&mut self) -> std::io::Result<()> {
-        self.buf.rewind()
+        self.mem.rewind()
     }
 }
 
-impl<'a, T: Write + Seek> Drop for BgiArchiveFileWithDsc<'a, T> {
+impl<'a> Drop for Writer<'a> {
     fn drop(&mut self) {
-        let buf = self.buf.as_slice();
-        let mut writer = std::io::BufWriter::new(&mut self.writer);
-        let encoder = DscEncoder::new(&mut writer, self.compress_level);
-        if let Err(e) = encoder.pack(&buf) {
-            eprintln!("Failed to write DSC data: {}", e);
-            crate::COUNTER.inc_error();
-        }
+        let _ = self.inner.write_all(&self.mem.data);
+        let _ = self.inner.flush();
     }
 }

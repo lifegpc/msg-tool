@@ -2347,7 +2347,7 @@ impl<T: Read + Seek> Read for MutexWrapper<T> {
     }
 }
 
-impl<T: Read + Seek> Seek for MutexWrapper<T> {
+impl<T: Seek> Seek for MutexWrapper<T> {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         let mut lock = self.inner.lock().map_err(|_| {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
@@ -2377,6 +2377,27 @@ impl<T: Read + Seek> Seek for MutexWrapper<T> {
     fn rewind(&mut self) -> Result<()> {
         self.pos = 0;
         Ok(())
+    }
+}
+
+impl<T: Seek + Write> Write for MutexWrapper<T> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        let mut lock = self.inner.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+        })?;
+        lock.seek(SeekFrom::Start(self.pos))?;
+        let writed = lock.write(buf)?;
+        self.pos += writed as u64;
+        Ok(writed)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        self.inner
+            .lock()
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+            })?
+            .flush()
     }
 }
 

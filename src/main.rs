@@ -3421,6 +3421,8 @@ fn main() {
         yuris_ystb_disasm: arg.yuris_ystb_disasm,
         #[cfg(feature = "yuris")]
         yuris_tips_map: args::load_yuris_tips_map(&arg).unwrap(),
+        #[cfg(feature = "bgi-arc")]
+        bgi_arc_workers: arg.bgi_arc_workers,
     });
     match &arg.command {
         args::Command::Export { input, output } => {
