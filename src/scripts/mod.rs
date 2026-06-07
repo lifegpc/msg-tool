@@ -196,6 +196,8 @@ lazy_static::lazy_static! {
         Box::new(yuris::ysvr::YSVRBuilder::new()),
         #[cfg(feature = "yuris")]
         Box::new(yuris::ystd::YSTDBuilder::new()),
+        #[cfg(feature = "yuris-arc")]
+        Box::new(yuris::arc::ypf::YpfBuilder::new()),
     ];
     /// A list of all script extensions.
     pub static ref ALL_EXTS: Vec<String> =

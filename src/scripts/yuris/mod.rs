@@ -1,4 +1,6 @@
 //! Yu-Ris Engine Scripts
+#[cfg(feature = "yuris-arc")]
+pub mod arc;
 #[cfg(feature = "yuris-img")]
 pub mod img;
 pub mod txt;

@@ -3423,6 +3423,12 @@ fn main() {
         yuris_tips_map: args::load_yuris_tips_map(&arg).unwrap(),
         #[cfg(feature = "bgi-arc")]
         bgi_arc_workers: arg.bgi_arc_workers,
+        #[cfg(feature = "yuris-arc")]
+        yuris_name_hash_type: arg.yuris_name_hash_type,
+        #[cfg(feature = "yuris-arc")]
+        yuris_data_hash_type: arg.yuris_data_hash_type,
+        #[cfg(feature = "yuris")]
+        yuris_check_hash: arg.yuris_check_hash,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

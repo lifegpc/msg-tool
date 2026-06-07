@@ -276,6 +276,10 @@ msg-tool create -t <script-type> <input> <output>
 | `yuris-ysvr` | `yuris` | Yu-Ris YSVR(Variables) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 | `yuris-ystd` | `yuris` | Yu-Ris YSTD(Global counts) file (.ybn) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
 
+| Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
+|---|---|---|---|---|---|
+| `yuris-ypf` | `yuris-arc` | Yu-Ris Archive (.ypf) | ✔️ | ❌ | |
+
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|
 | `yuris-ydg` | `yuris-img` | YU-RIS compressed image file (.ydg) | ✔️ | ✔️ | ❌ | ❌ | ✔️ |  |

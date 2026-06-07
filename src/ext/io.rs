@@ -2014,7 +2014,7 @@ impl Write for MemWriterRef<'_> {
 }
 
 /// A region of a stream that can be read/write and seeked within a specified range.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct StreamRegion<T: Seek> {
     stream: T,
     start_pos: u64,
@@ -2326,6 +2326,15 @@ impl<R: Read + Seek, W: Write + Seek, A: Fn(u64) -> Result<u64>, O: Fn(u64) -> R
 pub struct MutexWrapper<T> {
     inner: Arc<Mutex<T>>,
     pos: u64,
+}
+
+impl<T> Clone for MutexWrapper<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+            pos: self.pos,
+        }
+    }
 }
 
 impl<T> MutexWrapper<T> {

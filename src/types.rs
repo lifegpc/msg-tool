@@ -680,6 +680,15 @@ pub struct ExtraConfig {
     #[default(num_cpus::get())]
     /// Workers count for compress files in BGI archive when creating in parallel. Default is CPU cores count.
     pub bgi_arc_workers: usize,
+    #[cfg(feature = "yuris-arc")]
+    /// Name hash type in the Yu-RIS archive (.ypf)
+    pub yuris_name_hash_type: crate::scripts::yuris::arc::ypf::NameHashType,
+    #[cfg(feature = "yuris-arc")]
+    /// Data hash type in the Yu-RIS archive (.ypf)
+    pub yuris_data_hash_type: crate::scripts::yuris::arc::ypf::DataHashType,
+    #[cfg(feature = "yuris-arc")]
+    /// Check hash when unpack Yu-RIS archive (.ypf)
+    pub yuris_check_hash: bool,
 }
 
 #[cfg(feature = "artemis")]
@@ -952,6 +961,9 @@ pub enum ScriptType {
     #[cfg(feature = "yuris")]
     /// Yu-Ris YSTD(Global counts) file (.ybn)
     YurisYSTD,
+    #[cfg(feature = "yuris-arc")]
+    /// Yu-Ris Archive (.ypf)
+    YurisYPF,
     #[cfg(feature = "yuris-img")]
     /// YU-RIS compressed image file (.ydg)
     YurisYDG,

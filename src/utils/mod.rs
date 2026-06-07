@@ -29,6 +29,8 @@ pub mod lzss;
 mod macros;
 #[cfg(feature = "utils-mmx")]
 pub mod mmx;
+#[cfg(feature = "utils-murmur2")]
+pub mod murmur2;
 pub mod name_replacement;
 pub mod num_range;
 #[cfg(feature = "utils-pcm")]

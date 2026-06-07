@@ -777,6 +777,18 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Path to YuRis Tips json map. Used to replace tip name in YuRis scenario file
     pub yuris_tips_map: Option<String>,
+    #[cfg(feature = "yuris-arc")]
+    #[arg(long, global = true, value_enum, default_value_t = Default::default())]
+    /// Name hash type in the Yu-RIS archive (.ypf)
+    pub yuris_name_hash_type: crate::scripts::yuris::arc::ypf::NameHashType,
+    #[cfg(feature = "yuris-arc")]
+    #[arg(long, global = true, value_enum, default_value_t = Default::default())]
+    /// Data hash type in the Yu-RIS archive (.ypf)
+    pub yuris_data_hash_type: crate::scripts::yuris::arc::ypf::DataHashType,
+    #[cfg(feature = "yuris-arc")]
+    #[arg(long, global = true)]
+    /// Check hash when unpack Yu-RIS archive (.ypf)
+    pub yuris_check_hash: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,
