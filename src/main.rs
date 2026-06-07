@@ -3427,8 +3427,10 @@ fn main() {
         yuris_name_hash_type: arg.yuris_name_hash_type,
         #[cfg(feature = "yuris-arc")]
         yuris_data_hash_type: arg.yuris_data_hash_type,
-        #[cfg(feature = "yuris")]
+        #[cfg(feature = "yuris-arc")]
         yuris_check_hash: arg.yuris_check_hash,
+        #[cfg(feature = "yuris-arc")]
+        yuris_debug_archive: arg.yuris_debug_archive,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

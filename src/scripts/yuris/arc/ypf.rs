@@ -8,7 +8,7 @@ use anyhow::{Result, anyhow, bail};
 use clap::ValueEnum;
 use int_enum::IntEnum;
 use std::hash::Hasher;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -150,12 +150,13 @@ impl Default for NameHashType {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-// #TODO: Whirlpool Relirium has another hash type
 pub enum DataHashType {
     /// Adler32
     Adler32,
     /// Murmur2
     Murmur2,
+    /// Xxhash32
+    Xxh32,
 }
 
 impl Default for DataHashType {
@@ -224,6 +225,7 @@ fn detect_data_hash<T: Read + Seek>(
 ) -> Result<DataHashType> {
     let mut murmur2_hasher = StreamingMurmur2::new(0, size);
     let mut adler32_hasher = adler::Adler32::new();
+    let mut xxh32_hasher = Xxh32::new(0);
     let mut buf = [0; 1024];
     loop {
         let readed = stream.read(&mut buf)?;
@@ -233,12 +235,16 @@ fn detect_data_hash<T: Read + Seek>(
         let b = &buf[..readed];
         murmur2_hasher.write(b);
         adler32_hasher.write(b);
+        xxh32_hasher.write(b);
     }
     if murmur2_hasher.finish() as u32 == expected {
         return Ok(DataHashType::Murmur2);
     }
     if adler32_hasher.finish() as u32 == expected {
         return Ok(DataHashType::Adler32);
+    }
+    if xxh32_hasher.finish() as u32 == expected {
+        return Ok(DataHashType::Xxh32);
     }
     bail!("Unknown hash type or checksum/data is invalid/broken")
 }
@@ -327,6 +333,10 @@ impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> YPF<'b, T> {
                 })
             }
         }
+        if config.yuris_debug_archive {
+            println!("Entries in yuris YPF: {:#?}", entries);
+            let _ = std::io::stdout().flush();
+        }
         if config.yuris_check_hash {
             let mut data_hash_type = None;
             for entry in &entries {
@@ -345,6 +355,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> YPF<'b, T> {
                         DataHashType::Murmur2 => {
                             Box::new(StreamingMurmur2::new(0, entry.compressed_size))
                         }
+                        DataHashType::Xxh32 => Box::new(Xxh32::new(0)),
                     };
                     let mut buf = [0; 1024];
                     loop {
@@ -568,5 +579,26 @@ impl<'a, T: Read + Seek + std::fmt::Debug + Send + Sync + 'a> Seek for Entry<'a,
         } else {
             self.stream.stream_position()
         }
+    }
+}
+
+pub struct Xxh32 {
+    inner: xxhash_rust::xxh32::Xxh32,
+}
+
+impl Xxh32 {
+    pub fn new(seed: u32) -> Self {
+        Self {
+            inner: xxhash_rust::xxh32::Xxh32::new(seed),
+        }
+    }
+}
+
+impl Hasher for Xxh32 {
+    fn write(&mut self, bytes: &[u8]) {
+        self.inner.update(bytes);
+    }
+    fn finish(&self) -> u64 {
+        self.inner.digest() as u64
     }
 }

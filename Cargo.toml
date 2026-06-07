@@ -70,6 +70,7 @@ url = { version = "2.5", optional = true }
 utf16string = "0.2"
 webp = { version = "0.3", default-features = false, optional = true }
 xml5ever = { version = "0.38", optional = true }
+xxhash-rust = { version = "0.8", optional = true }
 zopfli = { version = "0.8", optional = true }
 zstd = { version = "0.13", optional = true }
 
@@ -123,7 +124,7 @@ will-plus-img = ["will-plus", "image"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao", "utils-xored-stream"]
 yuris = ["dep:chrono", "dep:hex", "utils-serde-base64bytes", "utils-xored-stream"]
-yuris-arc = ["yuris", "dep:adler", "dep:crc32fast", "flate2", "dep:int-enum", "utils-murmur2"]
+yuris-arc = ["yuris", "dep:adler", "dep:crc32fast", "flate2", "dep:int-enum", "utils-murmur2", "dep:xxhash-rust", "xxhash-rust/xxh32"]
 yuris-img = ["yuris", "image", "qoi", "webp"]
 # basic feature
 image = ["dep:png"]

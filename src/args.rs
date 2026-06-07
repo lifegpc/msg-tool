@@ -789,6 +789,11 @@ pub struct Arg {
     #[arg(long, global = true)]
     /// Check hash when unpack Yu-RIS archive (.ypf)
     pub yuris_check_hash: bool,
+    #[cfg(feature = "yuris-arc")]
+    #[arg(long, global = true)]
+    /// Print debug information for Yu-RIS archive (.ypf) when extracting archive to stdout.
+    /// This is used to find correct configuration for Yu-RIS archives.
+    pub yuris_debug_archive: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

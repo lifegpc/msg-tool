@@ -689,6 +689,10 @@ pub struct ExtraConfig {
     #[cfg(feature = "yuris-arc")]
     /// Check hash when unpack Yu-RIS archive (.ypf)
     pub yuris_check_hash: bool,
+    #[cfg(feature = "yuris-arc")]
+    /// Print debug information for Yu-RIS archive (.ypf) when extracting archive to stdout.
+    /// This is used to find correct configuration for Yu-RIS archives.
+    pub yuris_debug_archive: bool,
 }
 
 #[cfg(feature = "artemis")]
