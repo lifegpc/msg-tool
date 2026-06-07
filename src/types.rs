@@ -693,6 +693,20 @@ pub struct ExtraConfig {
     /// Print debug information for Yu-RIS archive (.ypf) when extracting archive to stdout.
     /// This is used to find correct configuration for Yu-RIS archives.
     pub yuris_debug_archive: bool,
+    #[cfg(feature = "yuris-arc")]
+    /// Yu-RIS YPF engine version. Used when pack files into Yu-RIS archive.
+    pub yuris_ypf_version: Option<u32>,
+    #[cfg(feature = "yuris-arc")]
+    #[default(true)]
+    /// Compress file when packing files into Yu-RIS archive.
+    pub yuris_ypf_compress_file: bool,
+    #[cfg(feature = "yuris-arc")]
+    /// Use zopfli to compress files in Yu-RIS archive.
+    pub yuris_ypf_zopfli: bool,
+    #[cfg(feature = "yuris-arc")]
+    #[default(num_cpus::get())]
+    /// Workers count for compress files in Yu-RIS archive when creating in parallel. Default is CPU cores count.
+    pub yuris_ypf_workers: usize,
 }
 
 #[cfg(feature = "artemis")]

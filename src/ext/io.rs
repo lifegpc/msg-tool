@@ -2803,3 +2803,38 @@ impl<const A: usize, T: Write> Drop for AlignedWriter<A, T> {
         }
     }
 }
+
+pub struct HashStream<'a, T, H: std::hash::Hasher> {
+    inner: T,
+    hasher: &'a mut H,
+}
+
+impl<'a, T, H: std::hash::Hasher> HashStream<'a, T, H> {
+    pub fn new(inner: T, hasher: &'a mut H) -> Self {
+        Self { inner, hasher }
+    }
+
+    pub fn digest(&self) -> u64 {
+        self.hasher.finish()
+    }
+}
+
+impl<'a, T: Read, H: std::hash::Hasher> Read for HashStream<'a, T, H> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let readed = self.inner.read(buf)?;
+        std::hash::Hasher::write(self.hasher, &buf[..readed]);
+        Ok(readed)
+    }
+}
+
+impl<'a, T: Write, H: std::hash::Hasher> Write for HashStream<'a, T, H> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        let written = self.inner.write(buf)?;
+        std::hash::Hasher::write(self.hasher, &buf[..written]);
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        self.inner.flush()
+    }
+}

@@ -1,14 +1,21 @@
 //! Yu-Ris Archive (.ypf)
 use crate::ext::io::*;
+use crate::ext::mutex::*;
 use crate::scripts::base::*;
 use crate::types::*;
 use crate::utils::encoding::*;
 use crate::utils::murmur2::*;
+use crate::utils::struct_pack::*;
+use crate::utils::threadpool::*;
 use anyhow::{Result, anyhow, bail};
 use clap::ValueEnum;
 use int_enum::IntEnum;
+use std::any::Any;
+use std::collections::HashMap;
 use std::hash::Hasher;
 use std::io::{Read, Seek, SeekFrom, Write};
+use std::num::NonZeroU64;
+use std::ops::DerefMut;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -97,10 +104,24 @@ impl ScriptBuilder for YpfBuilder {
     fn is_archive(&self) -> bool {
         true
     }
+
+    fn create_archive(
+        &self,
+        filename: &str,
+        files: &[&str],
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Box<dyn Archive>> {
+        let f = std::fs::File::create(filename)?;
+        let writer = std::io::BufWriter::new(f);
+        Ok(Box::new(YPFArchiveWriter::new(
+            writer, files, encoding, config,
+        )?))
+    }
 }
 
 #[repr(u8)]
-#[derive(Debug, IntEnum)]
+#[derive(Debug, IntEnum, Clone, Copy)]
 enum ResourceType {
     Default,
     BMP,
@@ -123,8 +144,9 @@ impl Default for ResourceType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct YPFEntry {
+    name_hash: u32,
     name: String,
     #[allow(unused)]
     typ: ResourceType,
@@ -133,6 +155,67 @@ struct YPFEntry {
     compressed_size: u32,
     offset: u64,
     hash: Option<u32>,
+}
+
+fn get_info_as_version(info: &Option<Box<dyn Any>>) -> Result<u32> {
+    Ok(*info
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("info not found"))?
+        .downcast_ref()
+        .ok_or_else(|| anyhow::anyhow!("not YSTBHeader"))?)
+}
+
+impl StructPack for YPFEntry {
+    fn pack<W: Write>(
+        &self,
+        writer: &mut W,
+        big: bool,
+        encoding: Encoding,
+        info: &Option<Box<dyn std::any::Any>>,
+    ) -> Result<()> {
+        let version = get_info_as_version(info)?;
+        self.name_hash.pack(writer, big, encoding, info)?;
+        let table = if version < 500 {
+            &NAME_DEFAULT_TABLE
+        } else {
+            &NAME_V500_TABLE
+        };
+        let mut name = encode_string(encoding, &self.name, true)?;
+        if name.len() > 0xFF {
+            bail!("File name can not longer than 255 bytes.");
+        }
+        let name_len = name.len() as u8;
+        let name_len = (table
+            .iter()
+            .position(|s| *s == name_len)
+            .ok_or_else(|| anyhow!("No suitable len found in table"))?
+            as u8)
+            ^ 0xFF;
+        name_len.pack(writer, big, encoding, info)?;
+        for num in name.iter_mut() {
+            *num ^= match version {
+                290 => 64,
+                500 => 54,
+                _ => 0,
+            };
+            *num = !(*num);
+        }
+        writer.write_all(&name)?;
+        (self.typ as u8).pack(writer, big, encoding, info)?;
+        self.compressed.pack(writer, big, encoding, info)?;
+        self.size.pack(writer, big, encoding, info)?;
+        self.compressed_size.pack(writer, big, encoding, info)?;
+        if version >= 480 {
+            self.offset.pack(writer, big, encoding, info)?;
+        } else {
+            (self.offset as u32).pack(writer, big, encoding, info)?;
+        };
+        if version >= 473 {
+            let hash = self.hash.ok_or_else(|| anyhow!("hash not specified."))?;
+            hash.pack(writer, big, encoding, info)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -312,6 +395,7 @@ impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> YPF<'b, T> {
                 }
                 let name = decode_to_string(archive_encoding, &name, true)?;
                 entries.push(YPFEntry {
+                    name_hash: hash,
                     name: name.clone(),
                     typ: index
                         .read_u8()?
@@ -600,5 +684,316 @@ impl Hasher for Xxh32 {
     }
     fn finish(&self) -> u64 {
         self.inner.digest() as u64
+    }
+}
+
+pub struct YPFArchiveWriter<T: Write + Seek> {
+    writer: Arc<Mutex<T>>,
+    headers: Arc<Mutex<HashMap<String, YPFEntry>>>,
+    version: u32,
+    compress: bool,
+    zopfli: bool,
+    compress_level: u32,
+    zopfli_iteration_count: NonZeroU64,
+    zopfli_iterations_without_improvement: NonZeroU64,
+    zopfli_maximum_block_splits: u16,
+    runner: ThreadPool<Result<()>>,
+    data_hash: DataHashType,
+    encoding: Encoding,
+}
+
+impl<T: Write + Seek> YPFArchiveWriter<T> {
+    /// Creates a new YPF Archive Writer.
+    ///
+    /// * `writer` - The writer to write the archive to.
+    /// * `files` - The list of files to include in the archive.
+    /// * `encoding` - The encoding used for the archive.
+    /// * `config` - Extra configuration options.
+    pub fn new(
+        mut writer: T,
+        files: &[&str],
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
+        writer.write_all(b"YPF\0")?;
+        let version = config.yuris_ypf_version.ok_or_else(|| {
+            anyhow!("Version is required. Use --yuris-ypf-version to specify version.")
+        })?;
+        writer.write_u32(version)?;
+        let file_count = files.len() as u32;
+        writer.write_u32(file_count)?;
+        writer.write_u32(0)?; // placeholder for header size
+        writer.write_u128(0)?; // unused
+        let mut headers = HashMap::new();
+        let info = &Some(Box::new(version) as Box<dyn Any>);
+        for file in files {
+            let name = encode_string(encoding, file, true)?;
+            let mut hasher: Box<dyn Hasher> = match config.yuris_name_hash_type {
+                NameHashType::Crc32 => Box::new(crc32fast::Hasher::new()),
+                NameHashType::Murmur2 => Box::new(StreamingMurmur2::new(0, name.len() as u32)),
+            };
+            hasher.write(&name);
+            let header = YPFEntry {
+                name_hash: hasher.finish() as u32,
+                name: file.to_string(),
+                typ: ResourceType::Default,
+                compressed: config.yuris_ypf_compress_file,
+                size: 0,
+                compressed_size: 0,
+                offset: 0,
+                hash: if version >= 473 { Some(0) } else { None },
+            };
+            header.pack(&mut writer, false, encoding, info)?;
+            headers.insert(file.to_string(), header);
+        }
+        let header_size = writer.stream_position()?;
+        writer.write_u32_at(12, header_size as u32)?;
+        Ok(Self {
+            writer: Arc::new(Mutex::new(writer)),
+            headers: Arc::new(Mutex::new(headers)),
+            version,
+            compress: config.yuris_ypf_compress_file,
+            zopfli: config.yuris_ypf_zopfli,
+            compress_level: config.zlib_compression_level,
+            zopfli_iteration_count: config.zopfli_iteration_count,
+            zopfli_iterations_without_improvement: config.zopfli_iterations_without_improvement,
+            zopfli_maximum_block_splits: config.zopfli_maximum_block_splits,
+            runner: ThreadPool::new(
+                if config.yuris_ypf_compress_file {
+                    config.yuris_ypf_workers
+                } else {
+                    1
+                },
+                Some("yuris-ypf-writer"),
+                false,
+            )?,
+            encoding,
+            data_hash: config.yuris_data_hash_type,
+        })
+    }
+
+    fn create_hasher(&self, length: u32) -> Box<dyn Hasher + Send + Sync> {
+        match self.data_hash {
+            DataHashType::Adler32 => Box::new(adler::Adler32::new()),
+            DataHashType::Murmur2 => Box::new(StreamingMurmur2::new(0, length)),
+            DataHashType::Xxh32 => Box::new(Xxh32::new(0)),
+        }
+    }
+
+    fn create_hasher2(&self) -> Box<dyn Hasher + Send + Sync> {
+        match self.data_hash {
+            DataHashType::Adler32 => Box::new(adler::Adler32::new()),
+            DataHashType::Murmur2 => Box::new(Murmur2::new(0)),
+            DataHashType::Xxh32 => Box::new(Xxh32::new(0)),
+        }
+    }
+}
+
+impl<T: Write + Seek + Send + Sync + 'static> Archive for YPFArchiveWriter<T> {
+    fn new_file<'a>(
+        &'a mut self,
+        name: &str,
+        size: Option<u64>,
+    ) -> Result<Box<dyn WriteSeek + 'a>> {
+        let inner = self.new_file_non_seek(name, size)?;
+        Ok(Box::new(Writer {
+            inner,
+            mem: MemWriter::new(),
+        }))
+    }
+
+    fn new_file_non_seek<'a>(
+        &'a mut self,
+        name: &str,
+        size: Option<u64>,
+    ) -> Result<Box<dyn Write + 'a>> {
+        let mut entry = self
+            .headers
+            .lock_blocking()
+            .get(name)
+            .ok_or_else(|| anyhow::anyhow!("File '{}' not found in archive", name))?
+            .clone();
+        if self.compress {
+            let (reader, writer) = std::io::pipe()?;
+            let file = self.writer.clone();
+            let headers = self.headers.clone();
+            let compress_level = self.compress_level;
+            let name = name.to_owned();
+            let zopfli = self.zopfli;
+            let iteration_count = self.zopfli_iteration_count;
+            let iterations_without_improvement = self.zopfli_iterations_without_improvement;
+            let maximum_block_splits = self.zopfli_maximum_block_splits;
+            let data_hash = self.data_hash;
+            self.runner.execute(
+                move |_| {
+                    let mut tsize = 0;
+                    let mut reader = TrackStream::new(reader, &mut tsize);
+                    let mut data = Vec::new();
+                    if entry.compressed {
+                        let mut compressed = MemWriter::new();
+                        compressed.write_all(b"x\xDA")?;
+                        if zopfli {
+                            let mut encoder = zopfli::DeflateEncoder::new(
+                                zopfli::Options {
+                                    iteration_count,
+                                    iterations_without_improvement,
+                                    maximum_block_splits,
+                                },
+                                zopfli::BlockType::Dynamic,
+                                &mut compressed,
+                            );
+                            std::io::copy(&mut reader, &mut encoder)?;
+                            encoder.finish()?;
+                        } else {
+                            let mut encoder = flate2::write::DeflateEncoder::new(
+                                &mut compressed,
+                                flate2::Compression::new(compress_level),
+                            );
+                            std::io::copy(&mut reader, &mut encoder)?;
+                            encoder.finish()?;
+                        }
+                        data = compressed.into_inner();
+                    } else {
+                        reader.read_to_end(&mut data)?;
+                    }
+                    entry.size = tsize as u32;
+                    entry.compressed_size = data.len() as u32;
+                    if let Some(hash) = entry.hash.as_mut() {
+                        let mut hasher: Box<dyn Hasher> = match data_hash {
+                            DataHashType::Adler32 => Box::new(adler::Adler32::new()),
+                            DataHashType::Murmur2 => {
+                                Box::new(StreamingMurmur2::new(0, entry.compressed_size))
+                            }
+                            DataHashType::Xxh32 => Box::new(Xxh32::new(0)),
+                        };
+                        hasher.write(&data);
+                        *hash = hasher.finish() as u32;
+                    }
+                    let mut writer = file.lock_blocking();
+                    entry.offset = writer.seek(SeekFrom::End(0))?;
+                    writer.write_all(&data)?;
+                    headers.lock_blocking().insert(name, entry);
+                    Ok(())
+                },
+                true,
+            )?;
+            Ok(Box::new(writer))
+        } else {
+            let mut writer = self.writer.lock_blocking();
+            entry.offset = writer.seek(SeekFrom::End(0))?;
+            Ok(Box::new(YPFArchiveFile {
+                entry,
+                writer: self.writer.clone(),
+                pos: 0,
+                headers: self.headers.clone(),
+                hasher: if let Some(size) = size {
+                    self.create_hasher(size as u32)
+                } else {
+                    self.create_hasher2()
+                },
+            }))
+        }
+    }
+
+    fn write_header(&mut self) -> Result<()> {
+        self.runner.join();
+        for err in self.runner.take_results() {
+            err?;
+        }
+        let mut writer = self.writer.lock_blocking();
+        let headers = self.headers.lock_blocking();
+        writer.seek(SeekFrom::Start(0x20))?;
+        let mut files = headers.iter().map(|(_, d)| d).collect::<Vec<_>>();
+        files.sort_by_key(|f| f.offset);
+        let info = &Some(Box::new(self.version) as Box<dyn Any>);
+        for file in files {
+            file.pack(writer.deref_mut(), false, self.encoding, info)?;
+        }
+        Ok(())
+    }
+}
+
+struct YPFArchiveFile<T: Write + Seek> {
+    entry: YPFEntry,
+    writer: Arc<Mutex<T>>,
+    pos: usize,
+    headers: Arc<Mutex<HashMap<String, YPFEntry>>>,
+    hasher: Box<dyn Hasher + Send + Sync>,
+}
+
+impl<T: Write + Seek> Write for YPFArchiveFile<T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut writer = self.writer.lock().map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+        })?;
+        writer.seek(SeekFrom::Start(self.entry.offset + self.pos as u64))?;
+        let bytes_written = writer.write(buf)?;
+        self.pos += bytes_written;
+        self.entry.size = self.entry.size.max(self.pos as u32);
+        self.hasher.write(&buf[..bytes_written]);
+        Ok(bytes_written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer
+            .lock()
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::Other, "Failed to lock the mutex")
+            })?
+            .flush()
+    }
+}
+
+impl<T: Write + Seek> Drop for YPFArchiveFile<T> {
+    fn drop(&mut self) {
+        self.entry.compressed_size = self.entry.size;
+        if let Some(hash) = self.entry.hash.as_mut() {
+            *hash = self.hasher.finish() as u32;
+        }
+        self.headers
+            .lock_blocking()
+            .insert(self.entry.name.clone(), self.entry.clone());
+    }
+}
+
+struct Writer<'a> {
+    inner: Box<dyn Write + 'a>,
+    mem: MemWriter,
+}
+
+impl std::fmt::Debug for Writer<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Writer").field("mem", &self.mem).finish()
+    }
+}
+
+impl<'a> Write for Writer<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.mem.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.mem.flush()
+    }
+}
+
+impl<'a> Seek for Writer<'a> {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.mem.seek(pos)
+    }
+
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        self.mem.stream_position()
+    }
+
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.mem.rewind()
+    }
+}
+
+impl<'a> Drop for Writer<'a> {
+    fn drop(&mut self) {
+        let _ = self.inner.write_all(&self.mem.data);
+        let _ = self.inner.flush();
     }
 }

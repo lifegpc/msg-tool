@@ -278,7 +278,7 @@ msg-tool create -t <script-type> <input> <output>
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |
 |---|---|---|---|---|---|
-| `yuris-ypf` | `yuris-arc` | Yu-Ris Archive (.ypf) | ✔️ | ❌ | |
+| `yuris-ypf` | `yuris-arc` | Yu-Ris Archive (.ypf) | ✔️ | ✔️ | |
 
 | Image Type | Feature Name | Name | Export | Import | Export Multiple | Import Multiple | Create | Remarks |
 |---|---|---|---|---|---|---|---|---|

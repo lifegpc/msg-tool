@@ -124,7 +124,7 @@ will-plus-img = ["will-plus", "image"]
 yaneurao = []
 yaneurao-itufuru = ["yaneurao", "utils-xored-stream"]
 yuris = ["dep:chrono", "dep:hex", "utils-serde-base64bytes", "utils-xored-stream"]
-yuris-arc = ["yuris", "dep:adler", "dep:crc32fast", "flate2", "dep:int-enum", "utils-murmur2", "dep:xxhash-rust", "xxhash-rust/xxh32"]
+yuris-arc = ["yuris", "dep:adler", "dep:crc32fast", "flate2", "dep:int-enum", "utils-murmur2", "dep:xxhash-rust", "xxhash-rust/xxh32", "zopfli"]
 yuris-img = ["yuris", "image", "qoi", "webp"]
 # basic feature
 image = ["dep:png"]

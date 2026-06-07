@@ -3431,6 +3431,14 @@ fn main() {
         yuris_check_hash: arg.yuris_check_hash,
         #[cfg(feature = "yuris-arc")]
         yuris_debug_archive: arg.yuris_debug_archive,
+        #[cfg(feature = "yuris-arc")]
+        yuris_ypf_version: arg.yuris_ypf_version,
+        #[cfg(feature = "yuris-arc")]
+        yuris_ypf_compress_file: !arg.yuris_ypf_no_compress_file,
+        #[cfg(feature = "yuris-arc")]
+        yuris_ypf_zopfli: arg.yuris_ypf_zopfli,
+        #[cfg(feature = "yuris-arc")]
+        yuris_ypf_workers: arg.yuris_ypf_workers,
     });
     match &arg.command {
         args::Command::Export { input, output } => {
