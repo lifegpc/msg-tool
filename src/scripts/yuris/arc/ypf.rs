@@ -670,8 +670,7 @@ impl<'a, T: Read + Seek + std::fmt::Debug + Send + Sync + 'a> Read for Entry<'a,
                 return Ok(readed);
             }
             self.stream.rewind()?;
-            self.stream.read_and_equal(b"x\xDA")?;
-            let mut cache = Box::new(flate2::read::DeflateDecoder::new(self.stream.clone()))
+            let mut cache = Box::new(flate2::read::ZlibDecoder::new(self.stream.clone()))
                 as Box<dyn ReadDebug + Send + Sync + 'a>;
             if self.pos > 0 {
                 cache.skip(self.pos)?;
@@ -912,11 +911,11 @@ impl<T: Write + Seek + Send + Sync + 'static> Archive for YPFArchiveWriter<T> {
                     let mut tsize = 0;
                     let mut reader = TrackStream::new(reader, &mut tsize);
                     let mut data = Vec::new();
+                    reader.read_to_end(&mut data)?;
                     if entry.compressed {
                         let mut compressed = MemWriter::new();
-                        compressed.write_all(b"x\xDA")?;
                         if zopfli {
-                            let mut encoder = zopfli::DeflateEncoder::new(
+                            let mut encoder = zopfli::ZlibEncoder::new(
                                 zopfli::Options {
                                     iteration_count,
                                     iterations_without_improvement,
@@ -924,20 +923,20 @@ impl<T: Write + Seek + Send + Sync + 'static> Archive for YPFArchiveWriter<T> {
                                 },
                                 zopfli::BlockType::Dynamic,
                                 &mut compressed,
-                            );
-                            std::io::copy(&mut reader, &mut encoder)?;
+                            )?;
+                            // std::io::copy(&mut reader, &mut encoder)?;
+                            encoder.write_all(&data)?;
                             encoder.finish()?;
                         } else {
-                            let mut encoder = flate2::write::DeflateEncoder::new(
+                            let mut encoder = flate2::write::ZlibEncoder::new(
                                 &mut compressed,
                                 flate2::Compression::new(compress_level),
                             );
-                            std::io::copy(&mut reader, &mut encoder)?;
+                            // std::io::copy(&mut reader, &mut encoder)?;
+                            encoder.write_all(&data)?;
                             encoder.finish()?;
                         }
                         data = compressed.into_inner();
-                    } else {
-                        reader.read_to_end(&mut data)?;
                     }
                     entry.size = tsize as u32;
                     entry.compressed_size = data.len() as u32;
