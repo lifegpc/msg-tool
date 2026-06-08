@@ -559,7 +559,7 @@ impl<'a> TryFrom<&'a YSTBArg> for YSTBArgTmp {
                 data = &data[3..];
             } else {
                 if list.is_empty() {
-                    if let Ok(s) = decode_to_string(value.encoding, data, true) {
+                    if !data.contains(&0) && let Ok(s) = decode_to_string(value.encoding, data, true) {
                         list.push(YSTBArgDat::String { s });
                         break;
                     }
@@ -867,7 +867,7 @@ impl<'a> std::fmt::Debug for YSTBArgData<'a> {
                 data = &data[3..];
             } else {
                 if is_first {
-                    if let Ok(s) = decode_to_string(self.1, &data, true) {
+                    if !data.contains(&0) && let Ok(s) = decode_to_string(self.1, &data, true) {
                         f.write_str(&s)?;
                         break;
                     }
