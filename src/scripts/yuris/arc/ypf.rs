@@ -1,4 +1,5 @@
 //! Yu-Ris Archive (.ypf)
+use super::pe;
 use crate::ext::io::*;
 use crate::ext::mutex::*;
 use crate::scripts::base::*;
@@ -45,10 +46,15 @@ impl ScriptBuilder for YpfBuilder {
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script + Send + Sync>> {
+        let mut base_offset = 0;
+        if data.starts_with(b"MZ") {
+            base_offset = pe::get_base_offset(&data)?;
+        }
         Ok(Box::new(YPF::new(
             MemReader::new(data),
             archive_encoding,
             config,
+            base_offset,
         )?))
     }
 
@@ -62,41 +68,68 @@ impl ScriptBuilder for YpfBuilder {
     ) -> Result<Box<dyn Script + Send + Sync>> {
         if filename == "-" {
             let data = crate::utils::files::read_file(filename)?;
+            let mut base_offset = 0;
+            if data.starts_with(b"MZ") {
+                base_offset = pe::get_base_offset(&data)?;
+            }
             Ok(Box::new(YPF::new(
                 MemReader::new(data),
                 archive_encoding,
                 config,
+                base_offset,
             )?))
         } else {
-            let f = std::fs::File::open(filename)?;
-            let reader = std::io::BufReader::new(f);
-            Ok(Box::new(YPF::new(reader, archive_encoding, config)?))
+            let mut file = std::fs::File::open(filename)?;
+            let mut base_offset = 0;
+            if file.peek_and_equal(b"MZ").is_ok() {
+                let mp = pelite::FileMap::open(filename)?;
+                base_offset = pe::get_base_offset(&mp)?;
+            }
+            Ok(Box::new(YPF::new(file, archive_encoding, config, base_offset)?))
         }
     }
 
     fn build_script_from_reader<'a>(
         &self,
-        reader: Box<dyn ReadSeek + Send + Sync + 'a>,
+        mut reader: Box<dyn ReadSeek + Send + Sync + 'a>,
         _filename: &str,
         _encoding: Encoding,
         archive_encoding: Encoding,
         config: &ExtraConfig,
         _archive: Option<&Box<dyn Script>>,
     ) -> Result<Box<dyn Script + Send + Sync + 'a>> {
-        Ok(Box::new(YPF::new(reader, archive_encoding, config)?))
+        let mut base_offset = 0;
+        if reader.peek_and_equal(b"MZ").is_ok() {
+            let mut data = Vec::new();
+            let pos = reader.stream_position()?;
+            reader.read_to_end(&mut data)?;
+            reader.seek(SeekFrom::Start(pos))?;
+            base_offset = pe::get_base_offset(&data)?;
+        }
+        Ok(Box::new(YPF::new(reader, archive_encoding, config, base_offset)?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
-        &["ypf"]
+        &["ypf", "exe"]
     }
 
     fn script_type(&self) -> &'static ScriptType {
         &ScriptType::YurisYPF
     }
 
-    fn is_this_format(&self, _filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
+    fn is_this_format(&self, filename: &str, buf: &[u8], buf_len: usize) -> Option<u8> {
         if buf_len >= 4 && buf.starts_with(b"YPF\0") {
             return Some(20);
+        }
+        if buf_len >= 2 && buf.starts_with(b"MZ") {
+            let p = std::path::Path::new(filename);
+            if p.exists() {
+                if let Ok(file) = pelite::FileMap::open(p) {
+                    if pe::get_base_offset(&file).is_ok() {
+                        return Some(20);
+                    }
+                }
+            }
         }
         None
     }
@@ -344,7 +377,15 @@ fn cal_name_hash(name: &[u8], typ: NameHashType) -> u32 {
 }
 
 impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> YPF<'b, T> {
-    pub fn new(mut reader: T, archive_encoding: Encoding, config: &ExtraConfig) -> Result<Self> {
+    pub fn new(
+        mut reader: T,
+        archive_encoding: Encoding,
+        config: &ExtraConfig,
+        base_offset: u64,
+    ) -> Result<Self> {
+        if base_offset > 0 {
+            reader.seek(SeekFrom::Start(base_offset))?;
+        }
         let mut header = [0u8; 4];
         reader.read_exact(&mut header)?;
         if &header != b"YPF\0" {
