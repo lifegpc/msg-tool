@@ -104,7 +104,7 @@ impl StructUnpack for YSTBData {
     }
 }
 
-#[derive(Debug, StructUnpack, StructPack, Deserialize, Serialize)]
+#[derive(Clone, Debug, StructUnpack, StructPack, Deserialize, Serialize)]
 struct YSTBInstBase {
     opcode: u8,
     #[serde(skip)]
@@ -195,6 +195,7 @@ enum YSTBArgDat {
     PushArrayVarStr { index: u16 },
     LogOr,
     Array { data: Vec<YSTBArgDat> },
+    String { s: String },
 }
 
 impl YSTBArgDat {
@@ -320,6 +321,7 @@ impl YSTBArgDat {
                 }
                 m.into_inner()
             }
+            YSTBArgDat::String { s } => encode_string(encoding, &s, true)?,
         })
     }
 }
@@ -556,6 +558,12 @@ impl<'a> TryFrom<&'a YSTBArg> for YSTBArgTmp {
                 list.push(YSTBArgDat::LogOr);
                 data = &data[3..];
             } else {
+                if list.is_empty() {
+                    if let Ok(s) = decode_to_string(value.encoding, data, true) {
+                        list.push(YSTBArgDat::String { s });
+                        break;
+                    }
+                }
                 list.push(YSTBArgDat::Raw {
                     data: data.to_vec().into(),
                 });
@@ -661,6 +669,7 @@ impl<'a> std::fmt::Debug for YSTBArgData<'a> {
             if data.is_empty() {
                 break;
             }
+            let is_first = first;
             if first {
                 first = false;
             } else {
@@ -857,6 +866,12 @@ impl<'a> std::fmt::Debug for YSTBArgData<'a> {
                 f.write_str("logor")?;
                 data = &data[3..];
             } else {
+                if is_first {
+                    if let Ok(s) = decode_to_string(self.1, &data, true) {
+                        f.write_str(&s)?;
+                        break;
+                    }
+                }
                 f.write_str(&hex::encode(data))?;
                 break;
             }
@@ -1263,11 +1278,11 @@ impl<'a> serde::Serialize for YSTBInstSer<'a> {
 
 impl Script for YSTB {
     fn default_output_script_type(&self) -> OutputScriptType {
-        OutputScriptType::Custom
+        OutputScriptType::Json
     }
 
-    fn is_output_supported(&self, output: OutputScriptType) -> bool {
-        matches!(output, OutputScriptType::Custom)
+    fn is_output_supported(&self, _output: OutputScriptType) -> bool {
+        true
     }
 
     fn default_format_type(&self) -> FormatOptions {
@@ -1282,6 +1297,325 @@ impl Script for YSTB {
         } else {
             "json"
         }
+    }
+
+    fn extract_messages(&self) -> Result<Vec<Message>> {
+        let mut mes = Vec::new();
+        for code in self.data.insts.iter() {
+            let meta =
+                self.com.opcodes.get(code.opcode as usize).ok_or_else(|| {
+                    anyhow::anyhow!("Failed to find op {:x}'s metadata", code.opcode)
+                })?;
+            if meta.name == "WORD" {
+                if code.arg_count != 1 {
+                    anyhow::bail!("Bad argument count for WORD.");
+                }
+                let arg = &code.args[0];
+                if arg.typ == 0 && arg.size > 0 {
+                    let mut data = decode_to_string(arg.encoding, &arg.data, true)?;
+                    let name = if data.starts_with("【")
+                        && let Some(end_pos) = data.find("】")
+                    {
+                        let n = data[3..end_pos].to_owned();
+                        data = data[end_pos + 3..].to_owned();
+                        Some(n)
+                    } else {
+                        None
+                    };
+                    mes.push(Message::new(data, name));
+                }
+            } else if meta.name == "_"
+                && meta.arguments.len() > 0
+                && code.arg_count == 1
+                && meta.arguments[0].data == 3
+            {
+                let arg = &code.args[0];
+                if arg.data.starts_with(PUSHSTRING_TYPE) {
+                    let len = u16::from_le_bytes([arg.data[1], arg.data[2]]);
+                    if len as u32 + 3 == arg.size {
+                        let data = decode_to_string(
+                            arg.encoding,
+                            &arg.data[4..arg.size as usize - 1],
+                            true,
+                        )?;
+                        mes.push(Message::new(data, None));
+                    }
+                }
+            } else if meta.name == "GOSUB" && code.arg_count >= 2 {
+                let arg0 = &code.args[0];
+                let name = format!("{:?}", &YSTBArgData(&arg0.data, arg0.encoding)).trim_matches('"').to_lowercase();
+                if name == "es.sel.set" {
+                    for arg in &code.args[1..] {
+                        if arg.data.starts_with(PUSHSTRING_TYPE) {
+                            let len = u16::from_le_bytes([arg.data[1], arg.data[2]]);
+                            if len as u32 + 3 == arg.size {
+                                let data = decode_to_string(
+                                    arg.encoding,
+                                    &arg.data[4..arg.size as usize - 1],
+                                    true,
+                                )?;
+                                if !data.is_empty() {
+                                    mes.push(Message::new(data, None));
+                                }
+                            }
+                        }
+                    }
+                } else if name == "es.char.name" && code.arg_count >= 3 {
+                    let arg = &code.args[2];
+                    if arg.data.starts_with(PUSHSTRING_TYPE) {
+                        let len = u16::from_le_bytes([arg.data[1], arg.data[2]]);
+                        if len as u32 + 3 == arg.size {
+                            let data = decode_to_string(
+                                arg.encoding,
+                                &arg.data[4..arg.size as usize - 1],
+                                true,
+                            )?;
+                            mes.push(Message::new(data, None));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(mes)
+    }
+
+    fn import_messages<'a>(
+        &'a self,
+        messages: Vec<Message>,
+        mut file: Box<dyn WriteSeek + 'a>,
+        _filename: &str,
+        encoding: Encoding,
+        replacement: Option<&'a ReplacementTable>,
+    ) -> Result<()> {
+        let mut messages_iter = messages.into_iter();
+
+        // Build modified instruction data: (YSTBInstBase, Vec<(YSTBArgBase, Vec<u8>)>)
+        let mut inst_data: Vec<(YSTBInstBase, Vec<(YSTBArgBase, Vec<u8>)>)> = Vec::new();
+
+        for code in self.data.insts.iter() {
+            let meta = self.com.opcodes.get(code.opcode as usize).ok_or_else(|| {
+                anyhow::anyhow!("Failed to find op {:x}'s metadata", code.opcode)
+            })?;
+
+            // Default: copy all args as-is
+            let mut new_args: Vec<(YSTBArgBase, Vec<u8>)> = code
+                .args
+                .iter()
+                .map(|arg| (arg.base.clone(), arg.data.clone()))
+                .collect();
+
+            if meta.name == "WORD" {
+                if code.arg_count == 1 {
+                    let arg = &code.args[0];
+                    if arg.typ == 0 && arg.size > 0 {
+                        let mut msg = messages_iter.next().ok_or_else(|| {
+                            anyhow::anyhow!("No more messages to import")
+                        })?;
+                        if let Some(table) = replacement {
+                            for (from, to) in &table.map {
+                                msg.message = msg.message.replace(from, to);
+                            }
+                            if let Some(ref name) = msg.name {
+                                let mut new_name = name.clone();
+                                for (from, to) in &table.map {
+                                    new_name = new_name.replace(from, to);
+                                }
+                                msg.name = Some(new_name);
+                            }
+                        }
+                        let mut text = msg.message;
+                        if let Some(name) = msg.name {
+                            text = format!("【{}】{}", name, text);
+                        }
+                        let encoded = encode_string(encoding, &text, true)?;
+                        new_args[0].1 = encoded;
+                        new_args[0].0.size = new_args[0].1.len() as u32;
+                    }
+                }
+            } else if meta.name == "_"
+                && !meta.arguments.is_empty()
+                && code.arg_count == 1
+                && meta.arguments[0].data == 3
+            {
+                let arg = &code.args[0];
+                if arg.data.starts_with(PUSHSTRING_TYPE) {
+                    let len = u16::from_le_bytes([arg.data[1], arg.data[2]]);
+                    if len as u32 + 3 == arg.size {
+                        let mut msg = messages_iter.next().ok_or_else(|| {
+                            anyhow::anyhow!("No more messages to import")
+                        })?;
+                        if let Some(table) = replacement {
+                            for (from, to) in &table.map {
+                                msg.message = msg.message.replace(from, to);
+                            }
+                        }
+                        let d = encode_string(encoding, &msg.message, true)?;
+                        let mut new_data = Vec::with_capacity(3 + d.len());
+                        new_data.push(b'M');
+                        new_data.extend_from_slice(&(d.len() as u16).to_le_bytes());
+                        new_data.extend_from_slice(&d);
+                        new_args[0].1 = new_data;
+                        new_args[0].0.size = new_args[0].1.len() as u32;
+                    }
+                }
+            } else if meta.name == "GOSUB" && code.arg_count >= 2 {
+                let arg0 = &code.args[0];
+                let name = format!(
+                    "{:?}",
+                    &YSTBArgData(&arg0.data, arg0.encoding)
+                )
+                .trim_matches('"')
+                .to_lowercase();
+                if name == "es.sel.set" {
+                    for arg_pair in new_args.iter_mut().skip(1) {
+                        let data = &arg_pair.1;
+                        if data.starts_with(PUSHSTRING_TYPE) {
+                            let slen = u16::from_le_bytes([data[1], data[2]]);
+                            if slen as u32 + 3 == arg_pair.0.size {
+                                let mut msg = messages_iter.next().ok_or_else(|| {
+                                    anyhow::anyhow!("No more messages to import")
+                                })?;
+                                if let Some(table) = replacement {
+                                    for (from, to) in &table.map {
+                                        msg.message = msg.message.replace(from, to);
+                                    }
+                                }
+                                if !msg.message.is_empty() {
+                                    let d = encode_string(encoding, &msg.message, true)?;
+                                    let mut new_data = Vec::with_capacity(3 + d.len());
+                                    new_data.push(b'M');
+                                    new_data.extend_from_slice(
+                                        &(d.len() as u16).to_le_bytes(),
+                                    );
+                                    new_data.extend_from_slice(&d);
+                                    arg_pair.1 = new_data;
+                                    arg_pair.0.size = arg_pair.1.len() as u32;
+                                }
+                            }
+                        }
+                    }
+                } else if name == "es.char.name" && code.arg_count >= 3 {
+                    // Re-encode arg[1] from original encoding to target encoding
+                    let arg1 = &code.args[1];
+                    if arg1.data.starts_with(PUSHSTRING_TYPE) {
+                        let slen = u16::from_le_bytes([arg1.data[1], arg1.data[2]]);
+                        if slen as u32 + 3 == arg1.size {
+                            let decoded = decode_to_string(
+                                arg1.encoding,
+                                &arg1.data[3..arg1.size as usize - 1],
+                                true,
+                            )?;
+                            let d = encode_string(encoding, &decoded, true)?;
+                            let mut new_data = Vec::with_capacity(3 + d.len());
+                            new_data.push(b'M');
+                            new_data.extend_from_slice(&(d.len() as u16).to_le_bytes());
+                            new_data.extend_from_slice(&d);
+                            new_args[1].1 = new_data;
+                            new_args[1].0.size = new_args[1].1.len() as u32;
+                        }
+                    }
+                    // Patch arg[2] with message
+                    let arg2 = &code.args[2];
+                    if arg2.data.starts_with(PUSHSTRING_TYPE) {
+                        let slen = u16::from_le_bytes([arg2.data[1], arg2.data[2]]);
+                        if slen as u32 + 3 == arg2.size {
+                            let mut msg = messages_iter.next().ok_or_else(|| {
+                                anyhow::anyhow!("No more messages to import")
+                            })?;
+                            if let Some(table) = replacement {
+                                for (from, to) in &table.map {
+                                    msg.message = msg.message.replace(from, to);
+                                }
+                            }
+                            let d = encode_string(encoding, &msg.message, true)?;
+                            let mut new_data = Vec::with_capacity(3 + d.len());
+                            new_data.push(b'M');
+                            new_data.extend_from_slice(&(d.len() as u16).to_le_bytes());
+                            new_data.extend_from_slice(&d);
+                            new_args[2].1 = new_data;
+                            new_args[2].0.size = new_args[2].1.len() as u32;
+                        }
+                    }
+                }
+            }
+
+            inst_data.push((code.base.clone(), new_args));
+        }
+
+        // Write binary output (same structure as custom_import)
+        let mut f = MemWriter::new();
+        f.write_all(b"YSTB")?;
+
+        let inst_entry_count = inst_data.len() as u32;
+        let inst_index_size = inst_entry_count * 4;
+        let arg_count: usize = inst_data.iter().map(|(_, args)| args.len()).sum();
+        let args_index_size = arg_count as u32 * 0xC;
+
+        let mut header = self.data.header.clone();
+        header.inst_entry_count = inst_entry_count;
+        header.inst_index_size = inst_index_size;
+        header.args_index_size = args_index_size;
+        header.line_numbers_size = self.data.line_numbers.len() as u32;
+
+        // Pack header (will update args_data_size later)
+        header.pack(&mut f, false, encoding, &None)?;
+
+        // Pack instruction bases with correct arg_counts
+        for (base, args) in inst_data.iter() {
+            let mut b = base.clone();
+            b.arg_count = args.len() as u8;
+            b.pack(&mut f, false, encoding, &None)?;
+        }
+
+        // Pack arg index table and arg data
+        let mut cpos = f.pos as u64;
+        f.pos += args_index_size as usize;
+        let bpos = f.pos as u32;
+
+        for (base, args) in inst_data.iter_mut() {
+            let meta = self.com.opcodes.get(base.opcode as usize).ok_or_else(|| {
+                anyhow::anyhow!("Failed to find op {:x}'s metadata", base.opcode)
+            })?;
+
+            for arg in args.iter_mut() {
+                arg.0.size = arg.1.len() as u32;
+                f.write_struct_at(cpos, &arg.0, false, encoding, &None)?;
+                cpos += 8;
+
+                if arg.0.size == 0
+                    || (meta.name == "RETURNCODE"
+                        && arg.0.size == 1
+                        && arg.1[0] == b'M')
+                {
+                    f.write_u32_at(cpos, 0)?;
+                    cpos += 4;
+                    continue;
+                }
+
+                let offset = f.pos as u32 - bpos;
+                f.write_u32_at(cpos, offset)?;
+                cpos += 4;
+                f.write_all(&arg.1)?;
+            }
+        }
+
+        // Update args_data_size and write line_numbers
+        header.args_data_size = f.pos as u32 - bpos;
+        f.write_all(&self.data.line_numbers)?;
+
+        // Rewrite header with correct args_data_size
+        f.pos = 4;
+        header.pack(&mut f, false, encoding, &None)?;
+
+        // Apply XOR if needed
+        if let Some(xor) = self.xor_key {
+            let mut r = MemReader::new(f.into_inner());
+            f = MemWriter::new();
+            Self::xor(&mut r, &mut f, xor)?;
+        }
+
+        file.write_all(&f.data)?;
+        Ok(())
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {

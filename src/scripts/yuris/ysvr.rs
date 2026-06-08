@@ -165,7 +165,7 @@ impl StructUnpack for Variable {
         let version = get_info_as_version(info)?;
 
         let scope = reader.read_u8()?;
-        let unk = if version >= 500 {
+        let unk = if version >= 494 {
             Some(reader.read_u8()?)
         } else {
             None
@@ -203,7 +203,7 @@ impl StructPack for Variable {
         let version = get_info_as_version(info)?;
 
         writer.write_u8(self.scope)?;
-        if version >= 500 {
+        if version >= 494 {
             writer.write_u8(self.unk.unwrap_or(0))?;
         }
         writer.write_u16(self.script_id)?;
