@@ -26,12 +26,8 @@ pub fn get_base_offset<D: AsRef<[u8]> + ?Sized>(data: &D) -> Result<u64> {
     }
     for i in (aligned_offset..(data.len() - 8)).step_by(0x10) {
         if &data[i..i + 4] == YSER_MAGIC {
-            let header_size = u32::from_le_bytes([
-                data[i + 4],
-                data[i + 5],
-                data[i + 6],
-                data[i + 7],
-            ]);
+            let header_size =
+                u32::from_le_bytes([data[i + 4], data[i + 5], data[i + 6], data[i + 7]]);
             return Ok(i as u64 + header_size as u64);
         }
     }

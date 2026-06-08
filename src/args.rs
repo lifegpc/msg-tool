@@ -810,6 +810,11 @@ pub struct Arg {
     #[arg(long, global = true, default_value_t = num_cpus::get())]
     /// Workers count for compress files in Yu-RIS archive when creating in parallel. Default is CPU cores count.
     pub yuris_ypf_workers: usize,
+    #[cfg(feature = "yuris-arc")]
+    #[arg(long, global = true)]
+    /// Use new file type mapping for Yu-RIS archive (.ypf).
+    /// When enabled, ogg and wav are mapped to larger type values (OGG_ and WAV_).
+    pub yuris_use_new_file_type: bool,
     #[command(subcommand)]
     /// Command
     pub command: Command,

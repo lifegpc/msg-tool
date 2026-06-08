@@ -3439,6 +3439,8 @@ fn main() {
         yuris_ypf_zopfli: arg.yuris_ypf_zopfli,
         #[cfg(feature = "yuris-arc")]
         yuris_ypf_workers: arg.yuris_ypf_workers,
+        #[cfg(feature = "yuris-arc")]
+        yuris_use_new_file_type: arg.yuris_use_new_file_type,
     });
     match &arg.command {
         args::Command::Export { input, output } => {

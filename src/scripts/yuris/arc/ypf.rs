@@ -85,7 +85,12 @@ impl ScriptBuilder for YpfBuilder {
                 let mp = pelite::FileMap::open(filename)?;
                 base_offset = pe::get_base_offset(&mp)?;
             }
-            Ok(Box::new(YPF::new(file, archive_encoding, config, base_offset)?))
+            Ok(Box::new(YPF::new(
+                file,
+                archive_encoding,
+                config,
+                base_offset,
+            )?))
         }
     }
 
@@ -106,7 +111,12 @@ impl ScriptBuilder for YpfBuilder {
             reader.seek(SeekFrom::Start(pos))?;
             base_offset = pe::get_base_offset(&data)?;
         }
-        Ok(Box::new(YPF::new(reader, archive_encoding, config, base_offset)?))
+        Ok(Box::new(YPF::new(
+            reader,
+            archive_encoding,
+            config,
+            base_offset,
+        )?))
     }
 
     fn extensions(&self) -> &'static [&'static str] {
@@ -177,11 +187,43 @@ impl Default for ResourceType {
     }
 }
 
+/// Map file extension to `ResourceType`.
+///
+/// When `use_new_file_type` is true, ogg/wav are mapped to the newer
+/// type values (`OGG_` / `WAV_`); otherwise they use the legacy values.
+fn get_file_type(name: &str, use_new_file_type: bool) -> ResourceType {
+    let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+    match ext.as_str() {
+        "bmp" => ResourceType::BMP,
+        "png" => ResourceType::PNG,
+        "jpg" | "jpeg" => ResourceType::JPG,
+        "gif" => ResourceType::GIF,
+        "ycg" => ResourceType::YCG,
+        "psb" => ResourceType::PSB,
+        "wav" => {
+            if use_new_file_type {
+                ResourceType::WAV_
+            } else {
+                ResourceType::WAV
+            }
+        }
+        "ogg" => {
+            if use_new_file_type {
+                ResourceType::OGG_
+            } else {
+                ResourceType::OGG
+            }
+        }
+        "psd" => ResourceType::PSD,
+        "opus" => ResourceType::OPUS,
+        _ => ResourceType::Default,
+    }
+}
+
 #[derive(Clone, Debug)]
 struct YPFEntry {
     name_hash: u32,
     name: String,
-    #[allow(unused)]
     typ: ResourceType,
     compressed: bool,
     size: u32,
@@ -777,7 +819,7 @@ impl<T: Write + Seek> YPFArchiveWriter<T> {
             let header = YPFEntry {
                 name_hash: hasher.finish() as u32,
                 name: file.to_string(),
-                typ: ResourceType::Default,
+                typ: get_file_type(file, config.yuris_use_new_file_type),
                 compressed: config.yuris_ypf_compress_file,
                 size: 0,
                 compressed_size: 0,
