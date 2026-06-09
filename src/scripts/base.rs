@@ -569,13 +569,57 @@ pub trait Script: std::fmt::Debug {
     }
 
     #[cfg(feature = "image")]
+    /// Returns an iterator over images filenames.
+    fn iter_multi_image_name<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+        Err(anyhow::anyhow!(
+            "This script type does not support iter multi image name."
+        ))
+    }
+
+    #[cfg(feature = "image")]
+    /// Open a image in the multiple image file
+    fn open_image<'a>(&'a self, _index: usize) -> Result<ImageDataWithName> {
+        Err(anyhow::anyhow!(
+            "This script type does not support open image."
+        ))
+    }
+
+    #[cfg(feature = "image")]
+    /// Open a image in the multiple image file by its name.
+    ///
+    /// * `name` - The name of the file to open.
+    /// * `ignore_case` - If true, the name comparison will be case-insensitive.
+    fn open_image_by_name<'a>(
+        &'a self,
+        name: &str,
+        ignore_case: bool,
+    ) -> Result<ImageDataWithName> {
+        for (i, fname) in self.iter_multi_image_name()?.enumerate() {
+            if let Ok(fname) = fname {
+                if fname == name || (ignore_case && fname.eq_ignore_ascii_case(name)) {
+                    return self.open_image(i);
+                }
+            }
+        }
+        Err(anyhow::anyhow!(
+            "File with name '{}' not found in archive.",
+            name
+        ))
+    }
+
+    #[cfg(feature = "image")]
     /// Exports multiple images from this script.
     fn export_multi_image<'a>(
         &'a self,
     ) -> Result<Box<dyn Iterator<Item = Result<ImageDataWithName>> + 'a>> {
-        Err(anyhow::anyhow!(
-            "This script type does not support to export multi image."
-        ))
+        Ok(Box::new(self.iter_multi_image_name()?.enumerate().map(
+            |(i, fname)| {
+                fname?;
+                self.open_image(i)
+            },
+        )))
     }
 
     #[cfg(feature = "image")]

@@ -2,7 +2,6 @@
 use crate::ext::io::*;
 use crate::ext::psb::*;
 use crate::scripts::base::*;
-use crate::try_option;
 use crate::types::*;
 use crate::utils::img::*;
 use crate::utils::psd::*;
@@ -13,6 +12,17 @@ use libtlg_rs::*;
 use std::collections::HashMap;
 use std::io::{Read, Seek};
 use std::path::Path;
+use std::sync::OnceLock;
+
+/// Cached overlay state for PImg composite image computation.
+#[derive(Debug)]
+struct PImgOverlayState {
+    width: u32,
+    height: u32,
+    bases: HashMap<i64, (Tlg, u32, u32, u8)>,
+    base_id: i64,
+    all_non_diff: bool,
+}
 
 #[derive(Debug)]
 /// Emote PImg Script Builder
@@ -359,6 +369,7 @@ pub struct PImg {
     psd_compress: bool,
     zlib_compression_level: u32,
     psd_no_diff: bool,
+    overlay_state: OnceLock<PImgOverlayState>,
 }
 
 impl PImg {
@@ -376,6 +387,7 @@ impl PImg {
             psd_compress: config.psd_compress,
             zlib_compression_level: config.zlib_compression_level,
             psd_no_diff: config.emote_pimg_psd_no_diff,
+            overlay_state: OnceLock::new(),
         })
     }
 
@@ -394,6 +406,74 @@ impl PImg {
         }
         let resource = &self.psb.resources()[resource_id];
         Ok(load_tlg(MemReaderRef::new(&resource))?)
+    }
+
+    /// Returns true if overlay composite mode should be used.
+    fn overlay_mode(&self) -> bool {
+        let psb = self.psb.root();
+        self.overlay.unwrap_or_else(|| {
+            psb["layers"]
+                .members()
+                .all(|layer| layer["group_layer_id"].is_none())
+        })
+    }
+
+    /// Computes the overlay state by scanning all layers and loading base images.
+    fn compute_overlay_state(&self) -> Result<PImgOverlayState> {
+        let psb = self.psb.root();
+        let width = psb["width"]
+            .as_u32()
+            .ok_or(anyhow::anyhow!("missing width"))?;
+        let height = psb["height"]
+            .as_u32()
+            .ok_or(anyhow::anyhow!("missing height"))?;
+        let is_all_non_diff = psb["layers"]
+            .members()
+            .all(|layer| layer["diff_id"].is_none());
+        let mut bases = HashMap::new();
+        let mut base_id = None;
+        for i in psb["layers"].members() {
+            if !i["diff_id"].is_none() {
+                continue;
+            }
+            let layer_id = i["layer_id"]
+                .as_i64()
+                .ok_or(anyhow::anyhow!("missing layer_id"))?;
+            let top = i["top"].as_u32().ok_or(anyhow::anyhow!("missing top"))?;
+            let left = i["left"].as_u32().ok_or(anyhow::anyhow!("missing left"))?;
+            if is_all_non_diff {
+                let w = i["width"]
+                    .as_u32()
+                    .ok_or(anyhow::anyhow!("missing width for non-diff layer"))?;
+                let h = i["height"]
+                    .as_u32()
+                    .ok_or(anyhow::anyhow!("missing height for non-diff layer"))?;
+                if !(top == 0 && left == 0 && w == width && h == height) {
+                    continue;
+                }
+            }
+            let opacity = i["opacity"]
+                .as_u8()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid opacity"))?;
+            bases.insert(layer_id, (self.load_img(layer_id)?, top, left, opacity));
+            base_id = Some(layer_id);
+        }
+        Ok(PImgOverlayState {
+            width,
+            height,
+            bases,
+            base_id: base_id.ok_or(anyhow::anyhow!("No valid base layer found"))?,
+            all_non_diff: is_all_non_diff,
+        })
+    }
+
+    /// Returns the cached overlay state, computing it once if needed.
+    fn get_overlay_state(&self) -> Result<&PImgOverlayState> {
+        if let Some(state) = self.overlay_state.get() {
+            return Ok(state);
+        }
+        let state = self.compute_overlay_state()?;
+        Ok(self.overlay_state.get_or_init(|| state))
     }
 }
 
@@ -422,73 +502,193 @@ impl Script for PImg {
         !self.psd
     }
 
-    fn export_multi_image<'a>(
+    fn iter_multi_image_name<'a>(
         &'a self,
-    ) -> Result<Box<dyn Iterator<Item = Result<ImageDataWithName>> + 'a>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
         let psb = self.psb.root();
-        let overlay = self.overlay.unwrap_or_else(|| {
-            psb["layers"]
-                .members()
-                .all(|layer| layer["group_layer_id"].is_none())
-        });
-        if !overlay {
-            return Ok(Box::new(PImgIter2 {
-                pimg: self,
-                layers: psb.iter(),
-            }));
-        }
-        let width = psb["width"]
-            .as_u32()
-            .ok_or(anyhow::anyhow!("missing width"))?;
-        let height = psb["height"]
-            .as_u32()
-            .ok_or(anyhow::anyhow!("missing height"))?;
-        if !psb["layers"].is_list() {
-            return Err(anyhow::anyhow!("layers is not a list"));
-        }
-        if psb["layers"].len() == 0 {
-            return Ok(Box::new(std::iter::empty()));
-        }
-        let mut bases = HashMap::new();
-        let is_all_non_diff = psb["layers"]
-            .members()
-            .all(|layer| layer["diff_id"].is_none());
-        let mut base_id = None;
-        for i in psb["layers"].members() {
-            if !i["diff_id"].is_none() {
-                continue; // Skip layers with diff_id
+        if !self.overlay_mode() {
+            Ok(Box::new(
+                psb.iter()
+                    .filter(|(k, _)| k.ends_with(".tlg"))
+                    .map(|(k, _)| Ok(k.trim_end_matches(".tlg").to_string())),
+            ))
+        } else {
+            if !psb["layers"].is_list() {
+                return Err(anyhow::anyhow!("layers is not a list"));
             }
-            let layer_id = i["layer_id"]
-                .as_i64()
-                .ok_or(anyhow::anyhow!("missing layer_id"))?;
-            let top = i["top"].as_u32().ok_or(anyhow::anyhow!("missing top"))?;
-            let left = i["left"].as_u32().ok_or(anyhow::anyhow!("missing left"))?;
-            if is_all_non_diff {
-                let width = i["width"]
-                    .as_u32()
-                    .ok_or(anyhow::anyhow!("missing width for non-diff layer"))?;
-                let height = i["height"]
-                    .as_u32()
-                    .ok_or(anyhow::anyhow!("missing height for non-diff layer"))?;
-                if !(top == 0 && left == 0 && width == width && height == height) {
+            Ok(Box::new(psb["layers"].members().map(|layer| {
+                layer["name"]
+                    .as_str()
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid name"))
+            })))
+        }
+    }
+
+    fn open_image<'a>(&'a self, index: usize) -> Result<ImageDataWithName> {
+        let psb = self.psb.root();
+        if !self.overlay_mode() {
+            // Non-overlay mode: find the index-th .tlg entry and load it directly
+            let mut count = 0;
+            for (k, v) in psb.iter() {
+                if !k.ends_with(".tlg") {
                     continue;
                 }
+                if count == index {
+                    let resource_id = v
+                        .resource_id()
+                        .ok_or_else(|| anyhow::anyhow!("Layer {} does not have a resource ID", k))?
+                        as usize;
+                    let name = k.trim_end_matches(".tlg").to_string();
+                    if resource_id >= self.psb.resources().len() {
+                        return Err(anyhow::anyhow!(
+                            "Resource ID {} for layer {} is out of bounds",
+                            resource_id,
+                            k
+                        ));
+                    }
+                    let resource = &self.psb.resources()[resource_id];
+                    let tlg = load_tlg(MemReaderRef::new(resource))?;
+                    return Ok(ImageDataWithName {
+                        name,
+                        data: ImageData {
+                            width: tlg.width,
+                            height: tlg.height,
+                            color_type: match tlg.color {
+                                TlgColorType::Bgr24 => ImageColorType::Bgr,
+                                TlgColorType::Bgra32 => ImageColorType::Bgra,
+                                TlgColorType::Grayscale8 => ImageColorType::Grayscale,
+                            },
+                            depth: 8,
+                            data: tlg.data.clone(),
+                        },
+                    });
+                }
+                count += 1;
             }
-            let opacity = i["opacity"]
+            Err(anyhow::anyhow!("Layer index {} out of bounds", index))
+        } else {
+            // Overlay mode: composite the index-th layer
+            let state = self.get_overlay_state()?;
+            let layer = psb["layers"]
+                .members()
+                .nth(index)
+                .ok_or_else(|| anyhow::anyhow!("Layer index {} out of bounds", index))?;
+            let layer_id = layer["layer_id"]
+                .as_i64()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid layer_id"))?;
+            let layer_name = layer["name"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid name"))?;
+            let width = layer["width"]
+                .as_u32()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid width"))?;
+            let height = layer["height"]
+                .as_u32()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid height"))?;
+            let top = layer["top"]
+                .as_u32()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid top"))?;
+            let left = layer["left"]
+                .as_u32()
+                .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid left"))?;
+            let opacity = layer["opacity"]
                 .as_u8()
                 .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid opacity"))?;
-            bases.insert(layer_id, (self.load_img(layer_id)?, top, left, opacity));
-            base_id = Some(layer_id);
+            if (layer["diff_id"].is_none() && !state.all_non_diff)
+                || (state.all_non_diff && layer_id == state.base_id)
+            {
+                // Base layer (no diff compositing needed)
+                let base = &state
+                    .bases
+                    .get(&layer_id)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Base image for layer_id {} not found", layer_id)
+                    })?
+                    .0;
+                let mut data = ImageData {
+                    width: state.width,
+                    height: state.height,
+                    color_type: match base.color {
+                        TlgColorType::Bgr24 => ImageColorType::Bgr,
+                        TlgColorType::Bgra32 => ImageColorType::Bgra,
+                        TlgColorType::Grayscale8 => ImageColorType::Grayscale,
+                    },
+                    depth: 8,
+                    data: base.data.clone(),
+                };
+                if opacity != 255 {
+                    apply_opacity(&mut data, opacity)?;
+                }
+                if state.width != width || state.height != height || top != 0 || left != 0 {
+                    data = draw_on_canvas(data, state.width, state.height, left, top)?;
+                }
+                Ok(ImageDataWithName {
+                    name: layer_name.to_string(),
+                    data,
+                })
+            } else {
+                // Diff layer: composite diff onto base
+                let diff_id = if state.all_non_diff {
+                    state.base_id
+                } else {
+                    layer["diff_id"]
+                        .as_i64()
+                        .ok_or_else(|| anyhow::anyhow!("Layer does not have a valid diff_id"))?
+                };
+                let (base, base_top, base_left, base_opacity) = state
+                    .bases
+                    .get(&diff_id)
+                    .ok_or_else(|| anyhow::anyhow!("Base image layer {} not found", diff_id))?;
+                let diff = self.load_img(layer_id)?;
+                if base.color != diff.color {
+                    return Err(anyhow::anyhow!(
+                        "Color type mismatch for layer_id {}: base color {:?}, diff color {:?}",
+                        layer_id,
+                        base.color,
+                        diff.color
+                    ));
+                }
+                let mut base_img = ImageData {
+                    width: base.width,
+                    height: base.height,
+                    color_type: match base.color {
+                        TlgColorType::Bgr24 => ImageColorType::Bgr,
+                        TlgColorType::Bgra32 => ImageColorType::Bgra,
+                        TlgColorType::Grayscale8 => ImageColorType::Grayscale,
+                    },
+                    depth: 8,
+                    data: base.data.clone(),
+                };
+                if base.width != state.width
+                    || base.height != state.height
+                    || *base_top != 0
+                    || *base_left != 0
+                {
+                    base_img =
+                        draw_on_canvas(base_img, state.width, state.height, *base_left, *base_top)?;
+                }
+                if *base_opacity != 255 {
+                    apply_opacity(&mut base_img, *base_opacity)?;
+                }
+                let diff_img = ImageData {
+                    width: diff.width,
+                    height: diff.height,
+                    color_type: match diff.color {
+                        TlgColorType::Bgr24 => ImageColorType::Bgr,
+                        TlgColorType::Bgra32 => ImageColorType::Bgra,
+                        TlgColorType::Grayscale8 => ImageColorType::Grayscale,
+                    },
+                    depth: 8,
+                    data: diff.data.clone(),
+                };
+                draw_on_img_with_opacity(&mut base_img, &diff_img, left, top, opacity)?;
+                Ok(ImageDataWithName {
+                    name: layer_name.to_string(),
+                    data: base_img,
+                })
+            }
         }
-        Ok(Box::new(PImgIter {
-            pimg: self,
-            width,
-            height,
-            layers: psb["layers"].members(),
-            bases,
-            base_id: base_id.ok_or(anyhow::anyhow!("No valid base layer found"))?,
-            all_non_diff: is_all_non_diff,
-        }))
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
@@ -562,211 +762,5 @@ impl Script for PImg {
         let mut writer = std::io::BufWriter::new(file);
         psd.save(base, &mut writer)?;
         Ok(())
-    }
-}
-
-struct PImgIter<'a> {
-    pimg: &'a PImg,
-    width: u32,
-    height: u32,
-    layers: ListIter<'a>,
-    bases: HashMap<i64, (Tlg, u32, u32, u8)>,
-    base_id: i64,
-    all_non_diff: bool,
-}
-
-impl<'a> Iterator for PImgIter<'a> {
-    type Item = Result<ImageDataWithName>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.layers.next() {
-            Some(layer) => {
-                let layer_id =
-                    try_option!(layer["layer_id"].as_i64().ok_or_else(|| {
-                        anyhow::anyhow!("Layer does not have a valid layer_id")
-                    }));
-                let layer_name = try_option!(
-                    layer["name"]
-                        .as_str()
-                        .ok_or_else(|| { anyhow::anyhow!("Layer does not have a valid name") })
-                );
-                let width = try_option!(
-                    layer["width"]
-                        .as_u32()
-                        .ok_or_else(|| { anyhow::anyhow!("Layer does not have a valid width") })
-                );
-                let height = try_option!(
-                    layer["height"]
-                        .as_u32()
-                        .ok_or_else(|| { anyhow::anyhow!("Layer does not have a valid height") })
-                );
-                let top = try_option!(
-                    layer["top"]
-                        .as_u32()
-                        .ok_or_else(|| { anyhow::anyhow!("Layer does not have a valid top") })
-                );
-                let left = try_option!(
-                    layer["left"]
-                        .as_u32()
-                        .ok_or_else(|| { anyhow::anyhow!("Layer does not have a valid left") })
-                );
-                let opacity = try_option!(
-                    layer["opacity"]
-                        .as_u8()
-                        .ok_or_else(|| { anyhow::anyhow!("Layer does not have a valid opacity") })
-                );
-                if (layer["diff_id"].is_none() && !self.all_non_diff)
-                    || (self.all_non_diff && layer_id == self.base_id)
-                {
-                    let base = &try_option!(self.bases.get(&layer_id).ok_or(anyhow::anyhow!(
-                        "Base image for layer_id {} not found",
-                        layer_id
-                    )))
-                    .0;
-                    let mut data = ImageData {
-                        width: self.width,
-                        height: self.height,
-                        color_type: match base.color {
-                            TlgColorType::Bgr24 => ImageColorType::Bgr,
-                            TlgColorType::Bgra32 => ImageColorType::Bgra,
-                            TlgColorType::Grayscale8 => ImageColorType::Grayscale,
-                        },
-                        depth: 8,
-                        data: base.data.clone(),
-                    };
-                    if opacity != 255 {
-                        try_option!(apply_opacity(&mut data, opacity));
-                    }
-                    if self.width != width || self.height != height || top != 0 || left != 0 {
-                        data =
-                            try_option!(draw_on_canvas(data, self.width, self.height, left, top));
-                    }
-                    return Some(Ok(ImageDataWithName {
-                        name: layer_name.to_string(),
-                        data,
-                    }));
-                } else {
-                    let diff_id = if self.all_non_diff {
-                        self.base_id
-                    } else {
-                        try_option!(layer["diff_id"].as_i64().ok_or_else(|| {
-                            anyhow::anyhow!("Layer does not have a valid diff_id")
-                        }))
-                    };
-                    let (base, base_top, base_left, base_opacity) = try_option!(
-                        self.bases
-                            .get(&diff_id)
-                            .ok_or(anyhow::anyhow!("Base image layer {} not found", diff_id))
-                    );
-                    let diff = try_option!(self.pimg.load_img(layer_id));
-                    if base.color != diff.color {
-                        return Some(Err(anyhow::anyhow!(
-                            "Color type mismatch for layer_id {}: base color {:?}, diff color {:?}",
-                            layer_id,
-                            base.color,
-                            diff.color
-                        )));
-                    }
-                    let mut base_img = ImageData {
-                        width: base.width,
-                        height: base.height,
-                        color_type: match base.color {
-                            TlgColorType::Bgr24 => ImageColorType::Bgr,
-                            TlgColorType::Bgra32 => ImageColorType::Bgra,
-                            TlgColorType::Grayscale8 => ImageColorType::Grayscale,
-                        },
-                        depth: 8,
-                        data: base.data.clone(),
-                    };
-                    if base.width != self.width
-                        || base.height != self.height
-                        || *base_top != 0
-                        || *base_left != 0
-                    {
-                        base_img = try_option!(draw_on_canvas(
-                            base_img,
-                            self.width,
-                            self.height,
-                            *base_left,
-                            *base_top
-                        ));
-                    }
-                    if *base_opacity != 255 {
-                        try_option!(apply_opacity(&mut base_img, *base_opacity));
-                    }
-                    let diff = ImageData {
-                        width: diff.width,
-                        height: diff.height,
-                        color_type: match diff.color {
-                            TlgColorType::Bgr24 => ImageColorType::Bgr,
-                            TlgColorType::Bgra32 => ImageColorType::Bgra,
-                            TlgColorType::Grayscale8 => ImageColorType::Grayscale,
-                        },
-                        depth: 8,
-                        data: diff.data.clone(),
-                    };
-                    try_option!(draw_on_img_with_opacity(
-                        &mut base_img,
-                        &diff,
-                        left,
-                        top,
-                        opacity
-                    ));
-                    Some(Ok(ImageDataWithName {
-                        name: layer_name.to_string(),
-                        data: base_img,
-                    }))
-                }
-            }
-            None => None,
-        }
-    }
-}
-
-struct PImgIter2<'a> {
-    pimg: &'a PImg,
-    layers: ObjectIter<'a>,
-}
-
-impl<'a> Iterator for PImgIter2<'a> {
-    type Item = Result<ImageDataWithName>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.layers.next() {
-            Some((k, v)) => {
-                if !k.ends_with(".tlg") {
-                    return self.next();
-                }
-                let resource_id = try_option!(
-                    v.resource_id()
-                        .ok_or_else(|| anyhow::anyhow!("Layer {} does not have a resource ID", k))
-                ) as usize;
-                let name = k.trim_end_matches(".tlg").to_string();
-                if resource_id >= self.pimg.psb.resources().len() {
-                    return Some(Err(anyhow::anyhow!(
-                        "Resource ID {} for layer {} is out of bounds",
-                        resource_id,
-                        k
-                    )));
-                }
-                let resource = &self.pimg.psb.resources()[resource_id];
-                let tlg = try_option!(load_tlg(MemReaderRef::new(&resource)));
-                Some(Ok(ImageDataWithName {
-                    name,
-                    data: ImageData {
-                        width: tlg.width,
-                        height: tlg.height,
-                        color_type: match tlg.color {
-                            TlgColorType::Bgr24 => ImageColorType::Bgr,
-                            TlgColorType::Bgra32 => ImageColorType::Bgra,
-                            TlgColorType::Grayscale8 => ImageColorType::Grayscale,
-                        },
-                        depth: 8,
-                        data: tlg.data.clone(),
-                    },
-                }))
-            }
-            None => None,
-        }
     }
 }

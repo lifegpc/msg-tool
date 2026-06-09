@@ -165,63 +165,38 @@ impl Script for Hg3Image {
         self.entries.len() > 1
     }
 
-    fn export_multi_image<'a>(
+    fn iter_multi_image_name<'a>(
         &'a self,
-    ) -> Result<Box<dyn Iterator<Item = Result<ImageDataWithName>> + 'a>> {
-        Ok(Box::new(Hg3ImageIter {
-            iter: self.entries.iter(),
-            index: 0,
-            data: self.data.to_ref(),
-            draw_canvas: self.draw_canvas,
-        }))
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+        Ok(Box::new(
+            (0..self.entries.len()).map(|i| Ok(format!("{:04}", i))),
+        ))
     }
-}
 
-struct Hg3ImageIter<'a, T: Iterator<Item = &'a (Hg3Entry, usize, usize)> + 'a> {
-    iter: T,
-    index: usize,
-    data: MemReaderRef<'a>,
-    draw_canvas: bool,
-}
-
-impl<'a, T: Iterator<Item = &'a (Hg3Entry, usize, usize)> + 'a> Iterator for Hg3ImageIter<'a, T> {
-    type Item = Result<ImageDataWithName>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some((entry, offset, size)) = self.iter.next() {
-            let data = &self.data.data[*offset..*offset + *size];
-            let reader = Hg3Reader {
-                m_input: MemReaderRef::new(data),
-                m_info: entry.clone(),
-                m_pixel_size: entry.bpp / 8,
-            };
-            self.index += 1;
-            match reader.unpack() {
-                Ok(mut img) => {
-                    if self.draw_canvas {
-                        if entry.canvas_width > 0 && entry.canvas_height > 0 {
-                            img = match draw_on_canvas(
-                                img,
-                                entry.canvas_width,
-                                entry.canvas_height,
-                                entry.offset_x,
-                                entry.offset_y,
-                            ) {
-                                Ok(canvas_img) => canvas_img,
-                                Err(e) => return Some(Err(e)),
-                            };
-                        }
-                    }
-                    Some(Ok(ImageDataWithName {
-                        name: format!("{:04}", self.index - 1),
-                        data: img,
-                    }))
-                }
-                Err(e) => Some(Err(e)),
+    fn open_image<'a>(&'a self, index: usize) -> Result<ImageDataWithName> {
+        let (entry, offset, size) = &self.entries[index];
+        let data = &self.data.data[*offset..*offset + *size];
+        let reader = Hg3Reader {
+            m_input: MemReaderRef::new(data),
+            m_info: entry.clone(),
+            m_pixel_size: entry.bpp / 8,
+        };
+        let mut img = reader.unpack()?;
+        if self.draw_canvas {
+            if entry.canvas_width > 0 && entry.canvas_height > 0 {
+                img = draw_on_canvas(
+                    img,
+                    entry.canvas_width,
+                    entry.canvas_height,
+                    entry.offset_x,
+                    entry.offset_y,
+                )?;
             }
-        } else {
-            None
         }
+        Ok(ImageDataWithName {
+            name: format!("{:04}", index),
+            data: img,
+        })
     }
 }
 

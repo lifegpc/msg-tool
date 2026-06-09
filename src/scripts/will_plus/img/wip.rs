@@ -279,39 +279,20 @@ impl Script for WillPlusWipImage {
         self.frames.len() > 1
     }
 
-    fn export_multi_image<'a>(
+    fn iter_multi_image_name<'a>(
         &'a self,
-    ) -> Result<Box<dyn Iterator<Item = Result<ImageDataWithName>> + 'a>> {
-        Ok(Box::new(WillPlusWipIterator {
-            image: self,
-            index: 0,
-        }))
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+        Ok(Box::new(
+            (0..self.frames.len()).map(|i| Ok(format!("{:04}", i))),
+        ))
     }
-}
 
-struct WillPlusWipIterator<'a> {
-    image: &'a WillPlusWipImage,
-    index: usize,
-}
-
-impl<'a> Iterator for WillPlusWipIterator<'a> {
-    type Item = Result<ImageDataWithName>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(frame) = self.image.frames.get(self.index) {
-            let frame_index = self.index;
-            self.index += 1;
-            Some(
-                self.image
-                    .decode_frame(frame)
-                    .map(|data| ImageDataWithName {
-                        name: format!("{:04}", frame_index),
-                        data,
-                    }),
-            )
-        } else {
-            None
-        }
+    fn open_image<'a>(&'a self, index: usize) -> Result<ImageDataWithName> {
+        let frame = &self.frames[index];
+        self.decode_frame(frame).map(|data| ImageDataWithName {
+            name: format!("{:04}", index),
+            data,
+        })
     }
 }
 
