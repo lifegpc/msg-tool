@@ -3398,7 +3398,11 @@ impl Hxv4Crypt {
             .file_name()
             .ok_or_else(|| anyhow::anyhow!("Failed to get file name from path."))?;
         let s: &str = &b.to_string_lossy();
-        let pdir = p.parent().map(|s| s.to_owned()).unwrap_or_default();
+        let pdir = p
+            .parent()
+            .map(|s| s.to_owned())
+            .filter(|s| !s.as_os_str().is_empty())
+            .unwrap_or_else(|| PathBuf::from("."));
         let filep = get_ignorecase_path(&pdir.join("filelist.json"))?;
         let data = match std::fs::read(&filep) {
             Ok(data) => data,
