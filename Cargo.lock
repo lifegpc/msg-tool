@@ -1708,6 +1708,7 @@ dependencies = [
  "siphasher",
  "stylua",
  "tendril",
+ "tjs2dec",
  "toml 1.1.2+spec-1.1.0",
  "unicode-segmentation",
  "url",
@@ -2599,6 +2600,16 @@ checksum = "c8323304221c2a851516f22236c5722a72eaa19749016521d6dff0824447d96d"
 dependencies = [
  "displaydoc",
  "zerovec",
+]
+
+[[package]]
+name = "tjs2dec"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca509921484296b2a003d13a332bae26dbbe7e67fac0d1a69cf7fb201926062c"
+dependencies = [
+ "anyhow",
+ "clap 4.6.1",
 ]
 
 [[package]]

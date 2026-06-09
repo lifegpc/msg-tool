@@ -65,6 +65,7 @@ shake = { version = "0.1", optional = true }
 siphasher = { version = "1.0", optional = true }
 stylua = { version = "2.1", optional = true, default-features = false}
 tendril = { version = "0.5", optional = true }
+tjs2dec = { version = "0.4", optional = true }
 unicode-segmentation = "1.12"
 url = { version = "2.5", optional = true }
 utf16string = "0.2"
@@ -108,7 +109,7 @@ hexen-haus = ["dep:memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "dep:lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "dep:adler", "dep:aes", "dep:argon2", "dep:base64", "dep:blake2", "dep:bytes", "dep:cbc", "dep:chacha20", "chacha20/legacy", "chacha20/xchacha", "dep:fastcdc", "flate2", "dep:hex", "dep:int-enum", "dep:md5", "dep:memchr", "msg_tool_macro/kirikiri-arc", "dep:msg_tool_xp3data", "dep:parse-size", "dep:pelite", "serde/rc", "dep:sha2", "dep:sha3", "dep:shake", "dep:siphasher", "utils-case-insensitive-string", "utils-lzss", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
+kirikiri-arc = ["kirikiri", "dep:adler", "dep:aes", "dep:argon2", "dep:base64", "dep:blake2", "dep:bytes", "dep:cbc", "dep:chacha20", "chacha20/legacy", "chacha20/xchacha", "dep:fastcdc", "flate2", "dep:hex", "dep:int-enum", "dep:md5", "dep:memchr", "msg_tool_macro/kirikiri-arc", "dep:msg_tool_xp3data", "dep:parse-size", "dep:pelite", "serde/rc", "dep:sha2", "dep:sha3", "dep:shake", "dep:siphasher", "dep:tjs2dec", "utils-case-insensitive-string", "utils-lzss", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
 kirikiri-img = ["kirikiri", "image", "dep:libtlg-rs"]
 musica = []
 musica-arc = ["musica", "dep:crc32fast", "flate2", "dep:include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]

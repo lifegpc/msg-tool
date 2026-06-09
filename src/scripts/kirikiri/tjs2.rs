@@ -54,13 +54,13 @@ impl ScriptBuilder for Tjs2Builder {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct DataArea {
+pub(super) struct DataArea {
     byte_array: Vec<u8>,
     short_array: Vec<i16>,
     long_array: Vec<i32>,
     longlong_array: Vec<i64>,
     double_array: Vec<f64>,
-    string_array: Vec<String>,
+    pub(super) string_array: Vec<String>,
     octet_array: Vec<Vec<u8>>,
 }
 
@@ -192,7 +192,7 @@ impl StructPack for DataArea {
 /// Kirikiri TJS2 Script
 #[derive(Debug)]
 pub struct Tjs2 {
-    data_area: DataArea,
+    pub(super) data_area: DataArea,
     remaing: Vec<u8>,
     custom_yaml: bool,
 }

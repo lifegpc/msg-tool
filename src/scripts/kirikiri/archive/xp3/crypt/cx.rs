@@ -5,10 +5,11 @@ use crate::ext::mutex::MutexExt;
 use crate::utils::files::*;
 use crate::utils::struct_pack::*;
 use anyhow::Result;
-use chacha20::ChaCha20Legacy;
 use chacha20::cipher::array::Array;
 use chacha20::hchacha;
+use chacha20::{ChaCha20Legacy, KeyIvInit};
 use msg_tool_macro::{MyDebug, StructUnpack};
+use pelite::PeFile;
 use serde::{Deserializer, de};
 use sha3::Sha3_224;
 use shake::Shake256;
@@ -17,6 +18,7 @@ use std::ops::{Deref, DerefMut, Index};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use std::sync::{Mutex, Weak};
+use tjs2dec::{Tjs2File, Tjs2Object};
 
 const S_CTL_BLOCK_SIGNATURE: &[u8] = b" Encryption control block";
 
@@ -3398,9 +3400,19 @@ impl Hxv4Crypt {
         let s: &str = &b.to_string_lossy();
         let pdir = p.parent().map(|s| s.to_owned()).unwrap_or_default();
         let filep = get_ignorecase_path(&pdir.join("filelist.json"))?;
-        let data = std::fs::read(&filep)?;
+        let data = match std::fs::read(&filep) {
+            Ok(data) => data,
+            Err(err) => {
+                let keys = load_key_packages_from_exe(&pdir);
+                if keys.is_empty() {
+                    return Err(err.into());
+                }
+                eprintln!("Loaded {} key packages from game exe.", keys.len());
+                return Self::new2(&keys, "Unknown", filename, config);
+            }
+        };
         let data = decode_to_string(Encoding::Utf8, &data, true)?;
-        let manifest = serde_json::from_str::<CxdecDb>(&data)?;
+        let mut manifest = serde_json::from_str::<CxdecDb>(&data)?;
         let mut path_map: HashMap<_, _> = manifest
             .path_mapping
             .iter()
@@ -3428,6 +3440,11 @@ impl Hxv4Crypt {
             manifest.key_packages.len(),
             filep.display()
         );
+        let more_keys = load_key_packages_from_exe(&pdir);
+        if !more_keys.is_empty() {
+            eprintln!("Loaded {} key packages from game exe.", more_keys.len());
+            manifest.key_packages.extend_from_slice(&more_keys);
+        }
         let default_path_hash = calculate_path_hash("", "xp3hnp");
         if !path_map.contains_key(&default_path_hash) {
             path_map.insert(default_path_hash, String::new());
@@ -3606,6 +3623,626 @@ impl Crypt for Hxv4Crypt {
             .ok_or_else(|| anyhow::anyhow!("Archive not inited."))?;
         crypt.decrypt_with_seek(entry, cur_seg, stream)
     }
+}
+
+// Ported from https://github.com/hktkqj/cxdec-hxv4-static-analysis
+fn load_key_packages_from_exe<S: AsRef<std::path::Path> + ?Sized>(path: &S) -> Vec<KeyPackage> {
+    let mut packages = Vec::new();
+    let (files, _) = match crate::utils::files::collect_ext_files(
+        &path.as_ref().to_string_lossy(),
+        false,
+        &["exe"],
+    ) {
+        Ok(f) => f,
+        Err(_) => {
+            return packages;
+        }
+    };
+    for file in files {
+        match load_key_package_from_path(&file) {
+            Ok(key) => packages.push(key),
+            Err(_e) => {
+                // println!("{}\n{}", e, e.backtrace());
+            }
+        }
+    }
+    packages
+}
+
+fn load_key_package_from_path<S: AsRef<std::path::Path> + ?Sized>(path: &S) -> Result<KeyPackage> {
+    let view = pelite::FileMap::open(path)?;
+    load_key_package(&view, path)
+}
+
+fn find_resource<
+    'a,
+    'b,
+    D: Into<pelite::resources::Name<'b>>,
+    N: Into<pelite::resources::Name<'b>>,
+>(
+    resources: &pelite::resources::Resources<'a>,
+    dir: D,
+    path: N,
+) -> Result<&'a [u8]> {
+    use pelite::resources::*;
+    let base = resources.root()?.get_dir(dir.into())?;
+    let ent = base.get(path.into())?;
+    match ent {
+        Entry::DataEntry(data) => Ok(data.bytes()?),
+        Entry::Directory(dir) => Ok(dir.first_data()?.bytes()?),
+    }
+}
+
+/// Minimal PE section info for RVA → file offset mapping.
+struct PeSections {
+    image_base: u64,
+    sections: Vec<(u32, u32, u32, u32)>, // (va, virtual_size, raw, raw_size)
+}
+
+fn parse_pe_sections(data: &[u8]) -> Result<PeSections> {
+    if data.len() < 0x40 {
+        anyhow::bail!("PE file too small");
+    }
+    let pe_off = u32::from_le_bytes(data[0x3C..0x40].try_into()?) as usize;
+    if pe_off + 4 > data.len() || &data[pe_off..pe_off + 4] != b"PE\0\0" {
+        anyhow::bail!("Not a PE file");
+    }
+    let coff = pe_off + 4;
+    let section_count = u16::from_le_bytes(data[coff + 2..coff + 4].try_into()?) as usize;
+    let optional_size = u16::from_le_bytes(data[coff + 16..coff + 18].try_into()?) as usize;
+    let optional = coff + 20;
+    let magic = u16::from_le_bytes(data[optional..optional + 2].try_into()?);
+    let image_base = if magic == 0x10B {
+        // PE32
+        u32::from_le_bytes(data[optional + 28..optional + 32].try_into()?) as u64
+    } else if magic == 0x20B {
+        // PE32+
+        u64::from_le_bytes(data[optional + 24..optional + 32].try_into()?)
+    } else {
+        anyhow::bail!("Unsupported PE optional header magic 0x{magic:x}");
+    };
+    let section_table = optional + optional_size;
+    let mut sections = Vec::with_capacity(section_count);
+    for i in 0..section_count {
+        let off = section_table + i * 40;
+        let va = u32::from_le_bytes(data[off + 12..off + 16].try_into()?);
+        let virtual_size = u32::from_le_bytes(data[off + 8..off + 12].try_into()?);
+        let raw_size = u32::from_le_bytes(data[off + 16..off + 20].try_into()?);
+        let raw = u32::from_le_bytes(data[off + 20..off + 24].try_into()?);
+        let size = virtual_size.max(raw_size);
+        sections.push((va, size, raw, raw_size));
+    }
+    Ok(PeSections {
+        image_base,
+        sections,
+    })
+}
+
+fn rva_to_offset(ps: &PeSections, rva: u32) -> Option<u32> {
+    for &(va, size, raw, raw_size) in &ps.sections {
+        if va <= rva && rva < va + size {
+            let offset = raw + (rva - va);
+            if offset < raw + raw_size {
+                return Some(offset);
+            }
+        }
+    }
+    None
+}
+
+fn va_to_rva(ps: &PeSections, va: u64) -> Option<u32> {
+    if va >= ps.image_base {
+        Some((va - ps.image_base) as u32)
+    } else {
+        None
+    }
+}
+
+const BRES_SALT_SIZE: usize = 0x2000;
+
+/// Strategy 1: scan x86 code for the adjacent pair
+///   mov dword ptr [salt_ptr_global], offset salt_bytes
+///   mov dword ptr [salt_size_global], 2000h
+fn iter_salt_assignment_candidates(data: &[u8], ps: &PeSections) -> Vec<(u32, Vec<u8>)> {
+    let mut candidates = Vec::new();
+    if data.len() < 20 {
+        return candidates;
+    }
+    let mut off = 0usize;
+    while off + 20 <= data.len() {
+        if &data[off..off + 2] != b"\xC7\x05" {
+            off += 1;
+            continue;
+        }
+        if off + 10 > data.len() {
+            break;
+        }
+        let salt_va = u32::from_le_bytes(data[off + 6..off + 10].try_into().unwrap());
+        if (salt_va as u64) < ps.image_base {
+            off += 1;
+            continue;
+        }
+        let salt_rva = match va_to_rva(ps, salt_va as u64) {
+            Some(rva) => rva,
+            None => {
+                off += 1;
+                continue;
+            }
+        };
+        let salt_file_off = match rva_to_offset(ps, salt_rva) {
+            Some(o) => o as usize,
+            None => {
+                off += 1;
+                continue;
+            }
+        };
+        if salt_file_off + BRES_SALT_SIZE > data.len() {
+            off += 1;
+            continue;
+        }
+        // Look for the size assignment (0x2000) nearby
+        let window_end = (off + 64).min(data.len().saturating_sub(10));
+        for size_off in (off + 10..window_end).step_by(1) {
+            if &data[size_off..size_off + 2] != b"\xC7\x05" {
+                continue;
+            }
+            let size_val =
+                u32::from_le_bytes(data[size_off + 6..size_off + 10].try_into().unwrap());
+            if size_val != BRES_SALT_SIZE as u32 {
+                continue;
+            }
+            let salt = data[salt_file_off..salt_file_off + BRES_SALT_SIZE].to_vec();
+            candidates.push((salt_file_off as u32, salt));
+            break;
+        }
+        off += 1;
+    }
+    candidates
+}
+
+/// Strategy 2: for packed EXEs, locate salt from data markers.
+fn iter_packed_neighborhood_candidates(data: &[u8]) -> Vec<(u32, Vec<u8>)> {
+    let mut candidates = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    // Marker "V2Link\0\0" — salt sits immediately before it
+    let marker_v2 = b"V2Link\x00\x00";
+    let mut cursor = 0;
+    while let Some(pos) = data[cursor..]
+        .windows(marker_v2.len())
+        .position(|w| w == marker_v2)
+    {
+        let anchor = cursor + pos;
+        if anchor >= BRES_SALT_SIZE {
+            let salt_off = anchor - BRES_SALT_SIZE;
+            if salt_off + BRES_SALT_SIZE <= data.len() && seen.insert(salt_off) {
+                candidates.push((
+                    salt_off as u32,
+                    data[salt_off..salt_off + BRES_SALT_SIZE].to_vec(),
+                ));
+            }
+        }
+        cursor = anchor + 1;
+    }
+
+    // Marker "forcedataxp3\0" — salt starts at 16-byte alignment after it
+    let marker_fp3 = b"forcedataxp3\x00";
+    cursor = 0;
+    while let Some(pos) = data[cursor..]
+        .windows(marker_fp3.len())
+        .position(|w| w == marker_fp3)
+    {
+        let anchor = cursor + pos;
+        let window_start = (anchor + marker_fp3.len() + 0xF) & !0xF;
+        let window_end = (anchor + 0x100).min(data.len().saturating_sub(BRES_SALT_SIZE));
+        for salt_off in (window_start..=window_end).step_by(0x10) {
+            if salt_off + BRES_SALT_SIZE <= data.len() && seen.insert(salt_off) {
+                candidates.push((
+                    salt_off as u32,
+                    data[salt_off..salt_off + BRES_SALT_SIZE].to_vec(),
+                ));
+            }
+        }
+        cursor = anchor + 1;
+    }
+
+    candidates
+}
+
+/// Locate the 8192‑byte bres salt embedded in a PE executable.
+///
+/// Mirrors the Python `iter_auto_salt_candidates` + `load_salt` logic from
+/// the cxdec‑hxv4‑static‑analysis toolchain.
+fn load_bres_salt<S: AsRef<[u8]> + ?Sized>(data: &S) -> Result<Vec<u8>> {
+    let data = data.as_ref();
+    let ps = parse_pe_sections(data)?;
+
+    // Strategy 1: code assignments
+    let candidates = iter_salt_assignment_candidates(data, &ps);
+    if !candidates.is_empty() {
+        // println!(
+        //     "Located bres salt via code assignment (file offset 0x{:x}).",
+        //     candidates[0].0
+        // );
+        return Ok(candidates[0].1.clone());
+    }
+
+    // Strategy 2: packed-neighborhood markers
+    let candidates = iter_packed_neighborhood_candidates(data);
+    if !candidates.is_empty() {
+        // println!(
+        //     "Located bres salt via data marker (file offset 0x{:x}).",
+        //     candidates[0].0
+        // );
+        return Ok(candidates[0].1.clone());
+    }
+
+    anyhow::bail!("Could not locate 0x{BRES_SALT_SIZE:x}-byte bres salt in PE");
+}
+
+fn decode_bres_root(text: &[u8]) -> Result<String> {
+    let text = decode_to_string(Encoding::Utf16LE, text, true)?;
+    let text = text.trim_end_matches('\0');
+    if !text.starts_with("bres://./") {
+        anyhow::bail!("Unexpected bres root: {text}");
+    }
+    Ok(text[9..].trim_end_matches('/').to_owned())
+}
+
+fn decrypt_bres(data: &[u8], path_key: &str, salt: &[u8]) -> Result<Vec<u8>> {
+    // generate chacha8 params
+    use chacha20::ChaCha8;
+    use chacha20::cipher::{StreamCipher, StreamCipherSeek};
+    use sha3::{Digest, Sha3_384};
+    let mut h = Sha3_384::new();
+    h.update(encode_string(Encoding::Utf16LE, path_key, true)?);
+    h.update(salt);
+    let mut digest = MemReader::new(h.finalize().to_vec());
+    let mut key_bytes = [0u8; 32];
+    let mut nonce = [0; 2];
+    digest.read_exact(&mut key_bytes)?;
+    for k in nonce.iter_mut() {
+        *k = digest.read_u32()?;
+    }
+    let ctr_base = digest.read_u32()?;
+    let ctr_high = digest.read_u32()?;
+    let mut data = data.to_vec();
+    let mut nonce_bytes = [0u8; 12];
+    nonce_bytes[0..4].copy_from_slice(&ctr_high.to_le_bytes());
+    for (i, &word) in nonce.iter().enumerate() {
+        nonce_bytes[4 + i * 4..4 + (i + 1) * 4].copy_from_slice(&word.to_le_bytes());
+    }
+    let mut cipher = ChaCha8::new_from_slices(&key_bytes, &nonce_bytes)?;
+    let chunk_size = 64;
+    for (bn, chunk) in data.chunks_mut(chunk_size).enumerate() {
+        let ctr_low = ctr_base ^ (bn as u32);
+        cipher.seek((ctr_low as u64) * 64);
+        cipher.apply_keystream(chunk);
+    }
+    Ok(data)
+}
+
+fn parse_tjs_strings(data: &[u8]) -> Result<Vec<String>> {
+    use super::super::super::super::tjs2::*;
+    if !data.starts_with(b"TJS2100\0") {
+        anyhow::bail!("invalid tjs2 compiled script.");
+    }
+    let mut reader = MemReaderRef::new(data);
+    reader.pos = 0xC;
+    let data = DataArea::unpack(&mut reader, false, Encoding::Utf16LE, &None)?;
+    Ok(data.string_array)
+}
+
+fn find_bootstrap_url<'a>(strings: &'a Vec<String>) -> Result<&'a str> {
+    for value in strings.iter() {
+        if value.starts_with("bres://./") && value.to_lowercase().ends_with("/bootstrap") {
+            return Ok(value.as_str());
+        }
+    }
+    anyhow::bail!("Could not find bootstrap bres URL in STARTUP.TJS strings")
+}
+
+fn bres_key_from_url(url: &str) -> Result<String> {
+    if !url.starts_with("bres://./") {
+        anyhow::bail!("Not a local bres URL: {url}");
+    }
+    Ok(url[9..]
+        .split('/')
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("No data"))?
+        .to_owned())
+}
+
+const PARAMS_PAT: &[u8] = b"\0\0\0\0\0\0\0\0PARAMS";
+const UPKEY_PAT: &[u8] = b"p\0t\0-\0-\0n\0o\0\0\0\0\0";
+
+fn parse_config_table(dll: &[u8]) -> Result<HashMap<String, Vec<u8>>> {
+    let mut ofs =
+        memchr::memmem::find(dll, PARAMS_PAT).ok_or_else(|| anyhow::anyhow!("No parmas in dll"))?;
+    ofs += PARAMS_PAT.len() - 6;
+    let mut reader = MemReaderRef::new(dll);
+    reader.pos = ofs;
+    let mut tags = HashMap::new();
+    loop {
+        let tag = reader.read_cstring()?;
+        if tag.as_bytes().is_empty() {
+            break;
+        }
+        let tag = decode_to_string(Encoding::Utf8, tag.as_bytes(), true)?;
+        let length = reader.read_u16()?;
+        let value = reader.read_exact_vec(length as usize)?;
+        tags.insert(tag, value);
+    }
+    if let Some(mut ofs) = memchr::memmem::find(dll, UPKEY_PAT) {
+        ofs += UPKEY_PAT.len();
+        reader.pos = ofs;
+        tags.insert("upperKey".into(), reader.read_exact_vec(8)?);
+    }
+    Ok(tags)
+}
+
+struct TjsVM<'a> {
+    file: &'a Tjs2File,
+    obj: &'a Tjs2Object,
+    i: usize,
+    reg: HashMap<i32, String>,
+}
+
+impl<'a> TjsVM<'a> {
+    fn new(file: &'a Tjs2File, obj: &'a Tjs2Object) -> Self {
+        Self {
+            file,
+            obj,
+            i: 0,
+            reg: HashMap::new(),
+        }
+    }
+    fn run(&mut self) -> Result<String> {
+        let len = self.obj.code.len();
+        while self.i < len {
+            if let Some(s) = self.run_step()? {
+                return Ok(s);
+            }
+        }
+        anyhow::bail!("No _bootStrap calld call invoked.");
+    }
+    fn run_step(&mut self) -> Result<Option<String>> {
+        use tjs2dec::Variant;
+        use tjs2dec::vmcodes::vm::*;
+        let code = &self.obj.code;
+        let op = code[self.i];
+        const VM_INC1: i32 = VM_INC + 1;
+        const VM_INC2: i32 = VM_INC + 2;
+        const VM_INC3: i32 = VM_INC + 3;
+        const VM_DEC1: i32 = VM_DEC + 1;
+        const VM_DEC2: i32 = VM_DEC + 2;
+        const VM_DEC3: i32 = VM_DEC + 3;
+        match op {
+            VM_CONST => {
+                self.ensure(3)?;
+                let dst_reg = code[self.i + 1];
+                let src = code[self.i + 2];
+                if let Some(v) = self.obj.data.get(src as usize) {
+                    match v {
+                        Variant::String(idx) => {
+                            if let Some(s) = self.file.const_pools.strings.get(*idx as usize) {
+                                self.reg.insert(dst_reg, s.to_owned());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                self.i += 3;
+            }
+            VM_DELD | VM_TYPEOFD | VM_DELI | VM_TYPEOFI | VM_GPD | VM_GPDS | VM_SPD | VM_SPDE
+            | VM_SPDEH | VM_SPDS | VM_GPI | VM_GPIS | VM_SPI | VM_SPIE | VM_SPIS | VM_INC1
+            | VM_INC2 | VM_DEC1 | VM_DEC2 => {
+                self.skip(4)?;
+            }
+            VM_CP | VM_CEQ | VM_CDEQ | VM_CLT | VM_CGT | VM_CHKINS | VM_ADDCI | VM_CHGTHIS
+            | VM_CCL | VM_ENTRY | VM_SETP | VM_GETP | VM_INC3 | VM_DEC3 => {
+                self.skip(3)?;
+            }
+            VM_CL | VM_SRV | VM_GLOBAL | VM_THROW | VM_TT | VM_TF | VM_SETF | VM_SETNF
+            | VM_LNOT | VM_BNOT | VM_ASC | VM_CHR | VM_NUM | VM_CHS | VM_INV | VM_CHKINV
+            | VM_TYPEOF | VM_EVAL | VM_EEXP | VM_INT | VM_REAL | VM_STR | VM_OCTET | VM_JF
+            | VM_JNF | VM_JMP | VM_INC | VM_DEC => {
+                self.skip(2)?;
+            }
+            VM_RET | VM_NOP | VM_NF | VM_EXTRY | VM_REGMEMBER | VM_DEBUGGER => {
+                self.skip(1)?;
+            }
+            VM_CALL | VM_CALLD | VM_CALLI | VM_NEW => {
+                let ns = match op {
+                    VM_CALL | VM_NEW => 4,
+                    VM_CALLD | VM_CALLI => 5,
+                    _ => unreachable!(),
+                };
+                self.ensure(ns)?;
+                let i = self.i;
+                let argc = code[i + ns - 1];
+                self.i += ns;
+                if argc == -1 {
+                    // omit args
+                } else if argc == -2 {
+                    // expand args
+                    self.ensure(1)?;
+                    let num = code[i + ns] as usize;
+                    self.i += 1;
+                    self.ensure(num * 2)?;
+                    self.i += num * 2;
+                } else {
+                    let argc = argc as usize;
+                    self.ensure(argc)?;
+                    if op == VM_CALLD {
+                        let obj = code[i + 2];
+                        let member = code[i + 3];
+                        // %proxy
+                        if obj == -2 {
+                            if let Some(v) = self.obj.data.get(member as usize) {
+                                match v {
+                                    Variant::String(idx) => {
+                                        if let Some(s) =
+                                            self.file.const_pools.strings.get(*idx as usize)
+                                        {
+                                            if s == "_bootStrap" {
+                                                if argc >= 1 {
+                                                    let farg = code[i + 5];
+                                                    return Ok(Some(
+                                                        self.reg
+                                                            .get(&farg)
+                                                            .ok_or_else(|| {
+                                                                anyhow::anyhow!(
+                                                                    "No string in %{}",
+                                                                    farg
+                                                                )
+                                                            })?
+                                                            .to_owned(),
+                                                    ));
+                                                }
+                                            }
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    self.i += argc;
+                }
+            }
+            _ => {
+                for base in [
+                    VM_LOR, VM_LAND, VM_BOR, VM_BXOR, VM_BAND, VM_SAR, VM_SAL, VM_SR, VM_ADD,
+                    VM_SUB, VM_MOD, VM_DIV, VM_IDIV, VM_MUL,
+                ] {
+                    match op - base {
+                        0 => {
+                            self.skip(3)?;
+                            return Ok(None);
+                        }
+                        1 | 2 => {
+                            self.skip(5)?;
+                            return Ok(None);
+                        }
+                        3 => {
+                            self.skip(4)?;
+                            return Ok(None);
+                        }
+                        _ => {}
+                    }
+                }
+                anyhow::bail!("unknown instruction {}", op);
+            }
+        }
+        Ok(None)
+    }
+
+    fn ensure(&self, need: usize) -> Result<()> {
+        if self.i + need > self.obj.code.len() {
+            anyhow::bail!(
+                "truncated instruction at {}: need {}, code_len {}",
+                self.i,
+                need,
+                self.obj.code.len()
+            );
+        }
+        Ok(())
+    }
+
+    fn skip(&mut self, size: usize) -> Result<()> {
+        self.ensure(size)?;
+        self.i += size;
+        Ok(())
+    }
+}
+
+fn get_boot_strap(tjs: &[u8]) -> Result<String> {
+    use tjs2dec::load_tjs2_bytecode;
+    let file = load_tjs2_bytecode(tjs)?;
+    let global_obj = file
+        .objects
+        .iter()
+        .find(|s| s.name.as_ref().is_some_and(|s| s == "global"))
+        .ok_or_else(|| anyhow::anyhow!("No global object."))?;
+    let mut vm = TjsVM::new(&file, global_obj);
+    vm.run()
+}
+
+fn load_key_package<S: AsRef<[u8]> + ?Sized, P: AsRef<std::path::Path> + ?Sized>(
+    data: &S,
+    path: &P,
+) -> Result<KeyPackage> {
+    let bn = path
+        .as_ref()
+        .file_stem()
+        .map(|s| (&s.to_string_lossy()).to_string())
+        .unwrap_or_else(|| "TBD".into());
+    let file = PeFile::from_bytes(data)?;
+    let resources = file.resources()?;
+    let bootstrap = find_resource(&resources, 10, "BOOTSTRAP")?;
+    let startup_tjs = find_resource(&resources, 10, "STARTUP.TJS")?;
+    let text = find_resource(&resources, "TEXT", 127)?;
+    // println!("Resource loaded.");
+    let salt = load_bres_salt(data)?;
+    // println!(
+    //     "bres_salt={}b",
+    //     hex::encode(salt.get(..16).unwrap_or_default())
+    // );
+    let text = decode_bres_root(text)?;
+    // println!("bres root: {text}");
+    let startup_tjs = decrypt_bres(startup_tjs, &text, &salt)?;
+    let strings = parse_tjs_strings(&startup_tjs)?;
+    // println!("strings: {strings:#?}");
+    let bootstrap_url = find_bootstrap_url(&strings)?;
+    // println!("bootstrap url: {bootstrap_url}");
+    let bootstrap_key = bres_key_from_url(bootstrap_url)?;
+    // println!("bootstrap key: {bootstrap_key}");
+    let bootstrap = decrypt_bres(bootstrap, &bootstrap_key, &salt)?;
+    // println!(
+    //     "bootstrap={}b",
+    //     hex::encode(bootstrap.get(..16).unwrap_or_default())
+    // );
+    let mut reader = flate2::read::ZlibDecoder::new(MemReaderRef::new(&bootstrap[8..]));
+    let mut dll = Vec::new();
+    reader.read_to_end(&mut dll)?;
+    if !dll.starts_with(b"MZ") {
+        anyhow::bail!("Not a dll.");
+    }
+    let config = parse_config_table(&dll)?;
+    let warning = config
+        .get("WARNING")
+        .ok_or_else(|| anyhow::anyhow!("WARNING not found"))?;
+    let warning = decode_to_string(Encoding::Utf8, &warning, true)?;
+    // println!("warning: {warning}");
+    let params = config
+        .get("PARAMS")
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("PARAMS not found"))?;
+    // println!("params: {}", hex::encode(&params));
+    let archive_unique_key = config
+        .get("UNIQUE")
+        .ok_or_else(|| anyhow::anyhow!("UNIQUE not found"))?;
+    let archive_unique_key = decode_to_string(Encoding::Utf16LE, &archive_unique_key, true)?;
+    // println!("archive_unique_key: {archive_unique_key}");
+    let upper_key = config.get("upperKey").cloned();
+    // println!(
+    //     "upper_key: {:?}",
+    //     upper_key.as_ref().map(|s| hex::encode(s))
+    // );
+    let boot_strap = get_boot_strap(&startup_tjs)?;
+    // println!("boot_strap: {boot_strap:?}");
+    Ok(KeyPackage {
+        description: "TBD".into(),
+        key: KeyData {
+            boot_strap,
+            warning,
+            params,
+            archive_unique_key,
+            upper_key,
+        },
+        sku: bn,
+    })
 }
 
 #[test]
