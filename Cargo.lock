@@ -1511,6 +1511,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "libsteamless"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73e463ef0797adef557f8747a89ea24fcc402b787f4c75465c8b3392ccc73fc3"
+dependencies = [
+ "aes",
+ "anyhow",
+ "cbc",
+ "pelite",
+]
+
+[[package]]
 name = "libtlg-rs"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1681,6 +1693,7 @@ dependencies = [
  "json",
  "lazy_static",
  "libflac-sys",
+ "libsteamless",
  "libtlg-rs",
  "lz4",
  "markup5ever",

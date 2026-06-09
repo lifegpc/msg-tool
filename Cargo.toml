@@ -39,6 +39,7 @@ json = { version = "0.12", optional = true }
 jpegxl-sys = { package = "msg-tool-jpegxl-sys", version = "0.11", optional = true, features = ["vendored"] }
 lazy_static = "1.5.0"
 libflac-sys = { version = "0.3", optional = true }
+libsteamless = { version = "0.1", optional = true }
 libtlg-rs = { version = "0.2", optional = true, features = ["encode"] }
 lz4 = { version = "1.28", optional = true }
 markup5ever = { version = "0.38", optional = true }
@@ -109,7 +110,7 @@ hexen-haus = ["dep:memchr", "utils-str"]
 hexen-haus-arc = ["hexen-haus"]
 hexen-haus-img = ["hexen-haus", "image"]
 kirikiri = ["emote-psb", "fancy-regex", "flate2", "json", "dep:lz4", "utils-escape"]
-kirikiri-arc = ["kirikiri", "dep:adler", "dep:aes", "dep:argon2", "dep:base64", "dep:blake2", "dep:bytes", "dep:cbc", "dep:chacha20", "chacha20/legacy", "chacha20/xchacha", "dep:fastcdc", "flate2", "dep:hex", "dep:int-enum", "dep:md5", "dep:memchr", "msg_tool_macro/kirikiri-arc", "dep:msg_tool_xp3data", "dep:parse-size", "dep:pelite", "serde/rc", "dep:sha2", "dep:sha3", "dep:shake", "dep:siphasher", "dep:tjs2dec", "utils-case-insensitive-string", "utils-lzss", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
+kirikiri-arc = ["kirikiri", "dep:adler", "dep:aes", "dep:argon2", "dep:base64", "dep:blake2", "dep:bytes", "dep:cbc", "dep:chacha20", "chacha20/legacy", "chacha20/xchacha", "dep:fastcdc", "flate2", "dep:hex", "dep:int-enum", "dep:libsteamless", "dep:md5", "dep:memchr", "msg_tool_macro/kirikiri-arc", "dep:msg_tool_xp3data", "dep:parse-size", "dep:pelite", "serde/rc", "dep:sha2", "dep:sha3", "dep:shake", "dep:siphasher", "dep:tjs2dec", "utils-case-insensitive-string", "utils-lzss", "utils-serde-base64bytes", "utils-simple-pack", "zopfli", "zstd"]
 kirikiri-img = ["kirikiri", "image", "dep:libtlg-rs"]
 musica = []
 musica-arc = ["musica", "dep:crc32fast", "flate2", "dep:include-flate", "utils-blowfish", "utils-rc4", "utils-serde-base64bytes", "utils-xored-stream"]

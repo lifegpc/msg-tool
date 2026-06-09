@@ -3655,7 +3655,36 @@ fn load_key_packages_from_exe<S: AsRef<std::path::Path> + ?Sized>(path: &S) -> V
 
 fn load_key_package_from_path<S: AsRef<std::path::Path> + ?Sized>(path: &S) -> Result<KeyPackage> {
     let view = pelite::FileMap::open(path)?;
-    load_key_package(&view, path)
+    let mut last_error = match load_key_package(&view, path) {
+        Ok(key) => return Ok(key),
+        Err(e) => e,
+    };
+    if libsteamless::is_steamstub(&view) {
+        let options = libsteamless::SteamlessOptions::default();
+        match libsteamless::process_data(view.as_ref().to_vec(), &options, &|_level, _message| {}) {
+            Ok(unpacked) => match load_key_package(&unpacked, path) {
+                Ok(key) => return Ok(key),
+                Err(e) => {
+                    last_error = e;
+                }
+            },
+            Err(err) => {
+                last_error = err;
+            }
+        }
+    }
+    let v = view.as_ref();
+    // DMM DRM may put game exe at the end of protected exe
+    if let Some(pos) = memchr::memmem::find(&v[4..], &v[..4]) {
+        let nv = &v[4 + pos..];
+        match load_key_package(&nv, path) {
+            Ok(key) => return Ok(key),
+            Err(e) => {
+                last_error = e;
+            }
+        }
+    }
+    Err(last_error)
 }
 
 fn find_resource<
