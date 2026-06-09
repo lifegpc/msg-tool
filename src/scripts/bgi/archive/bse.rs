@@ -153,6 +153,10 @@ impl<T: Read + Seek, F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> A
         &self.filename
     }
 
+    fn size(&self) -> Option<u64> {
+        None
+    }
+
     fn script_type(&self) -> Option<&ScriptType> {
         (self.detect)(&self.header, self.header.len(), &self.filename)
     }

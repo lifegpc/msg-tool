@@ -505,6 +505,10 @@ impl<'b> ArchiveContent for Entry<'b> {
         &self.index.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.index.archived_size)
+    }
+
     fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(self))
     }
@@ -766,6 +770,10 @@ impl<'a> ArchiveContent for SimpleCryptZlib<'a> {
     fn name(&self) -> &str {
         &self.index.name
     }
+
+    fn size(&self) -> Option<u64> {
+        Some(self.index.original_size)
+    }
 }
 
 impl<'a> Read for SimpleCryptZlib<'a> {
@@ -849,6 +857,10 @@ impl<'b> ArchiveContent for SimpleCrypt<'b> {
         &self.index.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.index.original_size)
+    }
+
     fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(self))
     }
@@ -888,10 +900,13 @@ impl<'a> MdfEntry<'a> {
         Ok(Self { inner, index })
     }
 }
-
 impl<'a> ArchiveContent for MdfEntry<'a> {
     fn name(&self) -> &str {
         &self.index.name
+    }
+
+    fn size(&self) -> Option<u64> {
+        Some(self.index.original_size)
     }
 }
 
@@ -917,6 +932,10 @@ impl<'a> Read for CustomFilterEntry<'a> {
 impl<'a> ArchiveContent for CustomFilterEntry<'a> {
     fn name(&self) -> &str {
         &self.index.name
+    }
+
+    fn size(&self) -> Option<u64> {
+        Some(self.index.original_size)
     }
 
     fn script_type(&self) -> Option<&ScriptType> {
@@ -954,6 +973,10 @@ impl<'a> Seek for CustomFilterWithSeekEntry<'a> {
 impl<'b> ArchiveContent for CustomFilterWithSeekEntry<'b> {
     fn name(&self) -> &str {
         &self.index.name
+    }
+
+    fn size(&self) -> Option<u64> {
+        Some(self.index.original_size)
     }
 
     fn script_type(&self) -> Option<&ScriptType> {

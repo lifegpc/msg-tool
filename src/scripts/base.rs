@@ -247,6 +247,8 @@ pub trait ScriptBuilder: std::fmt::Debug {
 pub trait ArchiveContent: Read {
     /// Returns the name of the file in the archive.
     fn name(&self) -> &str;
+    /// Returns the packed size of the file.
+    fn size(&self) -> Option<u64>;
     /// Returns true if the file is a script.
     fn is_script(&self) -> bool {
         self.script_type().is_some()

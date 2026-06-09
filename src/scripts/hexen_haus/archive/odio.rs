@@ -317,6 +317,10 @@ impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for OdioEntr
         &self.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.data_size)
+    }
+
     fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(self))
     }

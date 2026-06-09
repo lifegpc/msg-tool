@@ -157,6 +157,10 @@ impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for Entry<T>
         &self.header.filename
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.header.size as u64)
+    }
+
     fn script_type(&self) -> Option<&ScriptType> {
         self.script_type.as_ref()
     }
@@ -242,6 +246,10 @@ impl<F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> Read for MemEntry
 impl<F: Fn(&[u8], usize, &str) -> Option<&'static ScriptType>> ArchiveContent for MemEntry<F> {
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn size(&self) -> Option<u64> {
+        Some(self.data.data.len() as u64)
     }
 
     fn script_type(&self) -> Option<&ScriptType> {

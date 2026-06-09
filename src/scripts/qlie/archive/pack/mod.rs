@@ -400,6 +400,10 @@ impl<T: Read + std::fmt::Debug> ArchiveContent for QliePackArchiveContent<T> {
         &self.entry.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.entry.size as u64)
+    }
+
     fn script_type(&self) -> Option<&ScriptType> {
         self.typ.as_ref()
     }

@@ -397,6 +397,10 @@ impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for WagEntry
         &self.header.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.header.size as u64)
+    }
+
     fn script_type(&self) -> Option<&ScriptType> {
         self.typ.as_ref()
     }

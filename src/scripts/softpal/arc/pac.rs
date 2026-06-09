@@ -335,6 +335,10 @@ impl ArchiveContent for MemEntry {
         &self.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.data.len() as u64)
+    }
+
     fn script_type(&self) -> Option<&ScriptType> {
         self.script_type.as_ref()
     }
@@ -413,6 +417,10 @@ impl<T: Read + Seek + std::fmt::Debug> PacEntry<T> {
 impl<T: Read + Seek + Send + Sync + std::fmt::Debug> ArchiveContent for PacEntry<T> {
     fn name(&self) -> &str {
         &self.header.name
+    }
+
+    fn size(&self) -> Option<u64> {
+        Some(self.header.size as u64)
     }
 
     fn script_type(&self) -> Option<&ScriptType> {

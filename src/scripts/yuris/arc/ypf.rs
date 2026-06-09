@@ -649,6 +649,10 @@ impl<'b, T: Read + Seek + std::fmt::Debug + Send + Sync + 'b> ArchiveContent for
         &self.entry.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.entry.compressed_size as u64)
+    }
+
     fn script_type(&self) -> Option<&ScriptType> {
         self.script_type.as_ref()
     }

@@ -222,6 +222,11 @@ impl<T: Read + Seek + std::fmt::Debug + Send + Sync> ArchiveContent for GrpEntry
     fn name(&self) -> &str {
         &self.info.name
     }
+
+    fn size(&self) -> Option<u64> {
+        Some(self.info.size)
+    }
+
     fn to_data<'a>(&'a mut self) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
         Ok(Box::new(self))
     }

@@ -144,6 +144,10 @@ impl ArchiveContent for Entry {
         &self.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.data.data.len() as u64)
+    }
+
     fn script_type(&self) -> Option<&ScriptType> {
         if self.data.data.starts_with(b"ESCR1_00") {
             Some(&ScriptType::Escude)

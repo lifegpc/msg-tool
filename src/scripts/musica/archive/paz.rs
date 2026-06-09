@@ -535,6 +535,10 @@ impl<T: Read> ArchiveContent for PazFileEntry<T> {
         &self.entry.name
     }
 
+    fn size(&self) -> Option<u64> {
+        Some(self.entry.size as u64)
+    }
+
     fn script_type(&self) -> Option<&ScriptType> {
         let ext_name = std::path::Path::new(&self.entry.name)
             .extension()
