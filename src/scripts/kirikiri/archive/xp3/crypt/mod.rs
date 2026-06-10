@@ -302,6 +302,12 @@ enum CryptType {
     Hxv4Crypt {
         key_packages: Vec<cx::KeyPackage>,
     },
+    #[serde(rename_all = "PascalCase")]
+    Xor2Crypt {
+        key1: u8,
+        key2: u8,
+    },
+    LeaveSLeaveCrypt,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -517,6 +523,10 @@ impl Schema {
                 filename,
                 config,
             )?),
+            CryptType::Xor2Crypt { key1, key2 } => {
+                Box::new(Xor2Crypt::new(self.base.clone(), *key1, *key2))
+            }
+            CryptType::LeaveSLeaveCrypt => Box::new(LeaveSLeaveCrypt::new(self.base.clone())),
         })
     }
 }
@@ -2553,6 +2563,86 @@ impl Crypt for PureMoreCrypt {
             entry.flags = 0;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct Xor2Crypt {
+    base: BaseSchema,
+    key1: u8,
+    key2: u8,
+}
+
+impl Xor2Crypt {
+    pub fn new(base: BaseSchema, key1: u8, key2: u8) -> Self {
+        Self { base, key1, key2 }
+    }
+}
+
+impl Crypt for Xor2Crypt {
+    base_schema_impl!();
+    fn decrypt_supported(&self) -> bool {
+        true
+    }
+    fn decrypt_seek_supported(&self) -> bool {
+        true
+    }
+    fn decrypt<'a>(
+        &self,
+        _entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn Read + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadDebug + Send + Sync + 'a>> {
+        Ok(Box::new(Xor2CryptReader::new(
+            stream,
+            cur_seg,
+            (self.key1, self.key2),
+        )))
+    }
+    fn decrypt_with_seek<'a>(
+        &self,
+        _entry: &Xp3Entry,
+        cur_seg: &Segment,
+        stream: Box<dyn ReadSeek + Send + Sync + 'a>,
+    ) -> Result<Box<dyn ReadSeek + Send + Sync + 'a>> {
+        Ok(Box::new(Xor2CryptReader::new(
+            stream,
+            cur_seg,
+            (self.key1, self.key2),
+        )))
+    }
+}
+
+seek_reader_key_impl!(Xor2CryptReader<T>, (u8, u8));
+
+impl<R: Read> Read for Xor2CryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        let mut offset = self.seg_start + self.pos;
+        for t in (&mut buf[..readed]).iter_mut() {
+            *t ^= if offset % 2 == 0 {
+                self.key.0
+            } else {
+                self.key.1
+            };
+            offset += 1;
+        }
+        self.pos += readed as u64;
+        Ok(readed)
+    }
+}
+
+seek_crypt_filehash_key_u8_impl!(LeaveSLeaveCrypt, LeaveSLeaveCryptReader<T>);
+
+impl<R: Read> Read for LeaveSLeaveCryptReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let readed = self.inner.read(buf)?;
+        for t in (&mut buf[..readed]).iter_mut() {
+            let b = *t ^ self.key;
+            *t = (b << 4) | (b >> 4);
+        }
+        self.pos += readed as u64;
+        Ok(readed)
     }
 }
 

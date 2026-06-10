@@ -228,6 +228,10 @@
     "Berry's": {
         "$type": "SourireCrypt"
     },
+    "Bi'an Huazang": {
+        "$type": "NatsupochiCrypt",
+        "Title": "彼岸花葬"
+    },
     "Bishuu ~Chigyaku no Mesu Dorei~": {
         "$type": "CxEncryption",
         "Mask": 531,
@@ -676,6 +680,10 @@
     "Fate/stay night": {
         "$type": "FateCrypt",
         "HashAfterCrypt": true
+    },
+    "Feicui Yue": {
+        "$type": "NatsupochiCrypt",
+        "Title": "翡翠月"
     },
     "Fukashi na Aijou": {
         "$type": "HashCrypt",
@@ -1279,6 +1287,10 @@
     "Jimi me na Jijo-san no Oshigoto Sex": {
         "$type": "HashCrypt",
         "Title": "地味めな侍女さんのお仕事セックス～お嬢様に代わってお相手します～"
+    },
+    "Jixiang Ling": {
+        "$type": "NatsupochiCrypt",
+        "Title": "吉祥铃"
     },
     "JK Trouble Main\"s": {
         "$type": "CxEncryption",
@@ -2921,6 +2933,10 @@
         "ControlBlockName": "shugaten.bin",
         "Title": "しゅがてん！-sugarfull tempering- | 糖调! -sugarfull tempering- | 糖调! | 甜糖热恋"
     },
+    "Shuidi Li de Xiatian": {
+        "$type": "NatsupochiCrypt",
+        "Title": "水滴里的夏天"
+    },
     "Sis x Miko": {
         "$type": "SisMikoCrypt",
         "StartupTjsNotEncrypted": true,
@@ -3326,8 +3342,34 @@
         "ControlBlockName": "walpurgis.bin",
         "Title": "ヴァルプルギス"
     },
+    "Wanruo Zhaoyang": {
+        "$type": "NatsupochiCrypt",
+        "Title": "宛若朝阳"
+    },
     "With Ribbon": {
         "$type": "SourireCrypt"
+    },
+    "Wuyue Moli Episode 01 - Hewei Shen?": {
+        "$type": "PoringSoftCrypt",
+        "Title": "五月茉莉 首部曲-何謂神？ | MayJasmine Episode01 What is God? | 五月茉莉 首部曲-何谓神？"
+    },
+    "Wu zhi Benjing": {
+        "$type": "Xor2Crypt",
+        "Key1": 91,
+        "Key2": 57,
+        "Title": "雾之本境"
+    },
+    "Xue zhi Benjing 2010": {
+        "$type": "HashCrypt",
+        "Title": "雪之本境 2010"
+    },
+    "Xue zhi Benjing ~Jie Jing Pian~": {
+        "$type": "NatsupochiCrypt",
+        "Title": "雪之本境～解境篇～"
+    },
+    "Xue zhi Benjing Ex": {
+        "$type": "NatsupochiCrypt",
+        "Title": "雪之本境Ex"
     },
     "xx na Kanojo no Tsukurikata 2": {
         "$type": "Kano2Crypt",
@@ -3348,6 +3390,16 @@
         "Mask": 4,
         "KeySeq": "AQMDAgQB",
         "Title": "やや置き場がない！"
+    },
+    "Ye zhi Libie: Ruoye Guichen Demo": {
+        "$type": "LeaveSLeaveCrypt",
+        "Title": "叶之离别:若叶归尘 Demo"
+    },
+    "Yiwang Huayuan": {
+        "$type": "Xor2Crypt",
+        "Key1": 83,
+        "Key2": 58,
+        "Title": "遗忘花园"
     },
     "Yome no Ane ga Kyonyuu Sugite": {
         "$type": "HashCrypt",
@@ -3385,6 +3437,18 @@
     },
     "your diary + H": {
         "$type": "SourireCrypt"
+    },
+    "Yu Gang Jilong": {
+        "$type": "PoringSoftCrypt",
+        "Title": "雨港基隆"
+    },
+    "Yuezhuo: Jinghuashuiyue": {
+        "$type": "PoringSoftCrypt",
+        "Title": "鸑鷟：镜花水月"
+    },
+    "Yuezhuo: Juzi Zhuan": {
+        "$type": "PoringSoftCrypt",
+        "Title": "鸑鷟：橘子传"
     },
     "Yurameku Kokoro ni Michita Sekai de": {
         "$type": "XorCrypt",
@@ -3426,6 +3490,10 @@
         "Key": 205,
         "Title": "勇者と魔王と、魔女のカフェ"
     },
+    "Yuye": {
+        "$type": "NatsupochiCrypt",
+        "Title": "雨夜"
+    },
     "Zecchou Spiral!!": {
         "$type": "CxEncryption",
         "Mask": 492,
@@ -3450,6 +3518,12 @@
     "Zettai Sakusei! Succubus-chan": {
         "$type": "HashCrypt",
         "Title": "絶対搾精！ サキュバスちゃん"
+    },
+    "Ziluolan: Li - Season 2 -Shui Zhong Daoying-": {
+        "$type": "Xor2Crypt",
+        "Key1": 61,
+        "Key2": 229,
+        "Title": "紫罗兰·里 第二季 夏 -水中倒影-"
     },
     "Zutto Sukishite Takusan Sukishite": {
         "$type": "CxEncryption",
