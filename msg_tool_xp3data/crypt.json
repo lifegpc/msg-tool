@@ -362,6 +362,11 @@
         "ControlBlockName": "chikan.bin",
         "Title": "痴漢遊戯"
     },
+    "Chouxiaoya de Tian'e Hu": {
+        "$type": "NVLCrypt",
+        "Key": "5eJFeAAoEgA=",
+        "Title": "丑小鸭的天鹅湖"
+    },
     "Clover Day's": {
         "$type": "CxEncryption",
         "Mask": 443,
@@ -755,6 +760,16 @@
         "$type": "DieselmineCrypt",
         "Title": "顔騎天国"
     },
+    "Gaokao Lian'ai Yibai Tian [PKG]": {
+        "$type": "NVLCrypt",
+        "Key": "DPAEYQBKQgA=",
+        "Title": "高考恋爱一百天 [PKG] | 高考戀愛一百天 [PKG]"
+    },
+    "Gaokao Lian'ai Yibai Tian [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "He9bowDKQQA=",
+        "Title": "高考恋爱一百天 [Steam] | 高考戀愛一百天 [Steam]"
+    },
     "GINKA": {
         "$type": "Hxv4Crypt",
         "KeyPackages": [
@@ -1104,6 +1119,11 @@
         "$type": "HashCrypt",
         "Title": "本番有り! 人妻デリバリー ～どこかで見た美人妻たちを一人占め～"
     },
+    "Hong-se Xuanlü [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "mt43PgAiSAA=",
+        "Title": "虹色旋律 [Steam]"
+    },
     "Hora, Sonna ni Koe o Morasu...": {
         "$type": "HashCrypt",
         "Title": "ほら、そんなに声を漏らすと彼氏にバレちまうぜ？ ～エロゲ世界でモブの少女を寝取ってみた～"
@@ -1126,6 +1146,26 @@
     },
     "Hotel. [Trial]": {
         "$type": "AppliqueCrypt"
+    },
+    "Hua Luo Dong Yang Snowdreams -lost in winter- [Demo]": {
+        "$type": "NVLCrypt",
+        "Key": "og3ge1+mHzo=",
+        "Title": "花落冬陽 Snowdreams -lost in winter- [Demo] | 花落冬阳 Snowdreams -lost in winter- [Demo]"
+    },
+    "Hua Luo Dong Yang Snowdreams -lost in winter- [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "eCmjFPPfYso=",
+        "Title": "花落冬陽 Snowdreams -lost in winter- [Steam] | 花落冬阳 Snowdreams -lost in winter- [Steam]"
+    },
+    "Huiyi Wangque zhi Xia [PKG]": {
+        "$type": "NVLCrypt",
+        "Key": "az0gbQB0QQA=",
+        "Title": "回忆忘却之匣 [PKG] | 回憶忘卻之匣 [PKG]"
+    },
+    "Huiyi Wangque zhi Xia [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "3ojzLADUQQA=",
+        "Title": "回忆忘却之匣 [Steam] | 回憶忘卻之匣 [Steam]"
     },
     "Ichizu ni Zettai Fukujuu na Imouto": {
         "$type": "HashCrypt",
@@ -1313,6 +1353,11 @@
     "Juurin! Orc Gakuen!": {
         "$type": "HashCrypt",
         "Title": "蹂躙！オーク学園！ ～転校生は褐色ビッチな女勇者！？～"
+    },
+    "Juzi Ban Duanpian Zuopinji [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "HmADHnCnSAA=",
+        "Title": "橘子班短篇作品集 [Steam] | Short Stories Collection of Class Tangerine [Steam]"
     },
     "Kagachi-sama Onagusame Tatematsurimasu": {
         "$type": "HashCrypt",
@@ -2521,6 +2566,16 @@
         "$type": "AppliqueCrypt",
         "Title": "PURELY×CATION 体験版"
     },
+    "Qi Feng [Steam Demo]": {
+        "$type": "NVLCrypt",
+        "Key": "kkRLbfKkPQA=",
+        "Title": "祈風 [Steam Demo] | 祈风 [Steam Demo]"
+    },
+    "Qi Feng [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "tO/augDUQQA=",
+        "Title": "祈風 [Steam] | 祈风 [Steam]"
+    },
     "Rakugaki Overheart": {
         "$type": "NephriteCrypt",
         "Title": "らくがきオーバーハート"
@@ -2635,6 +2690,11 @@
         "$type": "AkabeiCrypt",
         "Seed": 798088789,
         "Title": "Role player：小粥姉妹の粘膜ポトレ ぐりぐちゃLIVE！ | ROLEPLAYER：小粥姐妹的黏膜游戏！"
+    },
+    "Rong Xue [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "+64areSLJUY=",
+        "Title": "茸雪 [Steam] | Tiny Snow [Steam]"
     },
     "Royal Garden": {
         "$type": "SmileCrypt",
@@ -3359,6 +3419,11 @@
         "Key2": 57,
         "Title": "雾之本境"
     },
+    "Wu zhi Benjing S [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "L/0VPDRxerg=",
+        "Title": "雾之本境S [Steam]"
+    },
     "Xue zhi Benjing 2010": {
         "$type": "HashCrypt",
         "Title": "雪之本境 2010"
@@ -3370,6 +3435,11 @@
     "Xue zhi Benjing Ex": {
         "$type": "NatsupochiCrypt",
         "Title": "雪之本境Ex"
+    },
+    "Xue zhi Benjing S [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "L7qlaLOri4I=",
+        "Title": "雪之本境S [Steam]"
     },
     "xx na Kanojo no Tsukurikata 2": {
         "$type": "Kano2Crypt",
@@ -3490,6 +3560,11 @@
         "Key": 205,
         "Title": "勇者と魔王と、魔女のカフェ"
     },
+    "Yuxiang [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "e5hjiwBwQgA=",
+        "Title": "余香 [Steam] | Lingering Fragrance [Steam]"
+    },
     "Yuye": {
         "$type": "NatsupochiCrypt",
         "Title": "雨夜"
@@ -3518,6 +3593,11 @@
     "Zettai Sakusei! Succubus-chan": {
         "$type": "HashCrypt",
         "Title": "絶対搾精！ サキュバスちゃん"
+    },
+    "Zhen Lian ~Jiyu Fengqiu~ [Steam]": {
+        "$type": "NVLCrypt",
+        "Key": "lv1cSgA0SAA=",
+        "Title": "真恋～寄语枫秋～ [Steam] | 真戀～寄語楓秋～ [Steam]"
     },
     "Ziluolan: Li - Season 2 -Shui Zhong Daoying-": {
         "$type": "Xor2Crypt",

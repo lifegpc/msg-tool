@@ -1,6 +1,7 @@
 mod chain_reaction;
 mod cx;
 mod cz;
+mod nvl;
 
 use super::Entry;
 use super::archive::*;
@@ -308,6 +309,10 @@ enum CryptType {
         key2: u8,
     },
     LeaveSLeaveCrypt,
+    #[serde(rename_all = "PascalCase")]
+    NVLCrypt {
+        key: Base64Bytes,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -527,6 +532,7 @@ impl Schema {
                 Box::new(Xor2Crypt::new(self.base.clone(), *key1, *key2))
             }
             CryptType::LeaveSLeaveCrypt => Box::new(LeaveSLeaveCrypt::new(self.base.clone())),
+            CryptType::NVLCrypt { key } => Box::new(nvl::NVLCrypt::new(self.base.clone(), &key.bytes)?),
         })
     }
 }
@@ -2649,6 +2655,7 @@ impl<R: Read> Read for LeaveSLeaveCryptReader<R> {
 seek_reader_key_impl!(ChainReactionCryptReader<T>, (u32, u32));
 seek_reader_key_impl!(XanaduCryptReader<T>, (u32, u32));
 seek_reader_key_impl!(SisMikoCryptReader<T>, (u32, u32));
+seek_reader_key_impl!(NVLCryptReader<T>, [u8; 12]);
 
 #[test]
 fn test_deserialize_crypt() {
