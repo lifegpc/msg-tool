@@ -10,7 +10,7 @@ use chacha20::hchacha;
 use chacha20::{ChaCha20Legacy, KeyIvInit};
 use msg_tool_macro::{MyDebug, StructUnpack};
 use pelite::PeFile;
-use serde::{Deserializer, de};
+use serde::{Deserializer, Serialize, Serializer, de};
 use sha3::Sha3_224;
 use shake::Shake256;
 use std::collections::HashSet;
@@ -1960,6 +1960,15 @@ impl<'de> Deserialize<'de> for FileHash {
     }
 }
 
+impl Serialize for FileHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(self.0))
+    }
+}
+
 impl FileHash {
     fn to_string(&self) -> String {
         hex::encode(&self.0)
@@ -1998,6 +2007,15 @@ impl<'de> Deserialize<'de> for PathHash {
     }
 }
 
+impl Serialize for PathHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(self.0.to_be_bytes()))
+    }
+}
+
 impl<'a> TryFrom<&'a [u8]> for PathHash {
     type Error = anyhow::Error;
     fn try_from(value: &'a [u8]) -> Result<Self> {
@@ -2019,7 +2037,7 @@ impl PathHash {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct KeyData {
     boot_strap: String,
@@ -2032,7 +2050,13 @@ struct KeyData {
 }
 
 mod hex_vec {
-    use serde::{Deserialize, Deserializer};
+    use serde::{Deserialize, Deserializer, Serializer};
+    pub fn serialize<S>(bytes: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(bytes))
+    }
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
     where
         D: Deserializer<'de>,
@@ -2043,7 +2067,17 @@ mod hex_vec {
 }
 
 mod hex_vec_optional {
-    use serde::{Deserialize, Deserializer};
+    use super::hex_vec;
+    use serde::{Deserialize, Deserializer, Serializer};
+    pub fn serialize<S>(bytes: &Option<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match bytes {
+            Some(b) => hex_vec::serialize(b, serializer),
+            None => serializer.serialize_none(),
+        }
+    }
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
     where
         D: Deserializer<'de>,
@@ -2058,7 +2092,7 @@ mod hex_vec_optional {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct KeyPackage {
     #[allow(unused)]
     description: String,
@@ -2066,16 +2100,18 @@ pub struct KeyPackage {
     sku: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize, msg_tool_macro::Default)]
 #[serde(rename_all = "camelCase")]
 struct CxdecDb {
     #[allow(unused)]
+    #[default("xp3hnp".into())]
     file_hash_salt: String,
     /// xp3 filename -> path hash -> file hash -> file name
     file_list: HashMap<String, HashMap<PathHash, HashMap<FileHash, Option<String>>>>,
     #[serde(default)]
     key_packages: Vec<KeyPackage>,
     #[allow(unused)]
+    #[default("xp3hnp".into())]
     path_hash_salt: String,
     path_mapping: HashMap<PathHash, Option<String>>,
     project_name: String,
@@ -2098,6 +2134,8 @@ pub struct HxCrypt {
     info_map: Mutex<HashMap<String, HxEntry>>,
     file_hash: FileHashOption,
     path_hash: PathHashOption,
+    dump_file_hash: Option<String>,
+    filename: String,
 }
 
 #[derive(Clone)]
@@ -2245,6 +2283,8 @@ impl HxCrypt {
             info_map: Mutex::new(HashMap::new()),
             file_hash: config.xp3_cxdec_file_hash,
             path_hash: config.xp3_cxdec_path_hash,
+            dump_file_hash: config.xp3_dump_file_hash_list.clone(),
+            filename: filename.to_owned(),
         })
     }
 
@@ -2259,6 +2299,7 @@ impl HxCrypt {
         file_mapping: Arc<HashMap<FileHash, String>>,
         path_mapping: Arc<HashMap<PathHash, String>>,
         control_block: Vec<u32>,
+        filename: &str,
     ) -> Result<Self> {
         Ok(Self {
             base: CxEncryption::new_inner2(
@@ -2275,6 +2316,8 @@ impl HxCrypt {
             info_map: Mutex::new(HashMap::new()),
             file_hash: config.xp3_cxdec_file_hash,
             path_hash: config.xp3_cxdec_path_hash,
+            dump_file_hash: config.xp3_dump_file_hash_list.clone(),
+            filename: filename.to_owned(),
         })
     }
 
@@ -2411,6 +2454,10 @@ impl HxCrypt {
         }
     }
 
+    fn read_manifest(mainfest_dir: &str) -> Result<CxdecDb> {
+        Ok(serde_json::from_reader(std::fs::File::open(mainfest_dir)?)?)
+    }
+
     fn read_index<T: Read + Seek>(&self, stream: T, flags: u16) -> Result<()> {
         let mut reader = self.read_index_stream(stream, flags)?;
         let root_obj = TjsValue::unpack(&mut reader, true, Encoding::Utf16LE, &None)?;
@@ -2420,12 +2467,29 @@ impl HxCrypt {
         let mut info_map = self.info_map.lock_blocking();
         info_map.clear();
         let set = create_garbage_filename_set("xp3hnp");
+        let basename: &str = &std::path::Path::new(&self.filename)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        let mut manifest = if let Some(filename) = self.dump_file_hash.as_ref() {
+            Some(match Self::read_manifest(filename) {
+                Ok(manifest) => manifest,
+                Err(_) => CxdecDb::default(),
+            })
+        } else {
+            None
+        };
         for i in (0..root_obj.len()).step_by(2) {
             let path_hash = PathHash::try_from(
                 root_obj[i]
                     .as_bytes()
                     .ok_or_else(|| anyhow::anyhow!("path hash is not bytes."))?,
             )?;
+            if let Some(m) = manifest.as_mut() {
+                if !m.path_mapping.contains_key(&path_hash) {
+                    m.path_mapping.insert(path_hash, None);
+                }
+            }
             let dir_obj = &root_obj[i + 1];
             if !dir_obj.is_array() {
                 anyhow::bail!("dir object at index {} is not array.", i + 1);
@@ -2441,6 +2505,13 @@ impl HxCrypt {
                         .as_bytes()
                         .ok_or_else(|| anyhow::anyhow!("entry hash is not bytes."))?,
                 )?;
+                if let Some(m) = manifest.as_mut() {
+                    let xp3 = m.file_list.entry(basename.into()).or_default();
+                    let path = xp3.entry(path_hash).or_default();
+                    if !path.contains_key(&entry_hash) {
+                        path.insert(entry_hash, None);
+                    }
+                }
                 let entry_obj = &dir_obj[j + 1];
                 if !entry_obj.is_array() {
                     anyhow::bail!("Entry object at index {},{} is not array.", i + 1, j + 1);
@@ -2471,6 +2542,11 @@ impl HxCrypt {
                 };
                 info_map.insert(uname, entry);
             }
+        }
+        if let Some(filename) = &self.dump_file_hash
+            && let Some(db) = manifest
+        {
+            serde_json::to_writer_pretty(std::fs::File::create(filename)?, &db)?;
         }
         Ok(())
     }
@@ -3389,6 +3465,7 @@ pub struct Hxv4Crypt {
     project: String,
     #[skip_fmt]
     config: ExtraConfig,
+    filename: String,
 }
 
 impl Hxv4Crypt {
@@ -3460,6 +3537,7 @@ impl Hxv4Crypt {
             key_packages: manifest.key_packages,
             project: manifest.project_name,
             config: config.clone(),
+            filename: filename.to_owned(),
         })
     }
 
@@ -3499,6 +3577,7 @@ impl Hxv4Crypt {
             key_packages: key_packages.to_vec(),
             project: project.to_owned(),
             config: config.clone(),
+            filename: filename.to_owned(),
         })
     }
 
@@ -3560,6 +3639,7 @@ impl Hxv4Crypt {
             self.file_mapping.clone(),
             self.path_mapping.clone(),
             control_block,
+            &self.filename,
         )?;
         crypt.init(archive)?;
         Ok(crypt)

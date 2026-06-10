@@ -761,6 +761,10 @@ pub struct Arg {
     #[arg(long, global = true, value_enum,  default_value_t = crate::scripts::kirikiri::archive::xp3::PathHashOption::Both)]
     /// Control the behavior to how to append path name to files from Cxdec3/4(Hxv4) protected archives.
     pub xp3_cxdec_path_hash: crate::scripts::kirikiri::archive::xp3::PathHashOption,
+    #[cfg(feature = "kirikiri-arc")]
+    #[arg(long, global = true)]
+    /// Dump xp3 file name hash into a json file. Only some protected archive may supported.
+    pub xp3_dump_file_hash_list: Option<String>,
     #[cfg(feature = "yuris")]
     #[arg(long, global = true)]
     /// Path to the ysc.ybn file

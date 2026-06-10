@@ -3441,6 +3441,8 @@ fn main() {
         yuris_ypf_workers: arg.yuris_ypf_workers,
         #[cfg(feature = "yuris-arc")]
         yuris_use_new_file_type: arg.yuris_use_new_file_type,
+        #[cfg(feature = "kirikiri-arc")]
+        xp3_dump_file_hash_list: arg.xp3_dump_file_hash_list.clone(),
     });
     match &arg.command {
         args::Command::Export { input, output } => {

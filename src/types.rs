@@ -711,6 +711,9 @@ pub struct ExtraConfig {
     /// Use new file type mapping for Yu-RIS archive (.ypf).
     /// When enabled, ogg and wav are mapped to larger type values (OGG_ and WAV_).
     pub yuris_use_new_file_type: bool,
+    #[cfg(feature = "kirikiri-arc")]
+    /// Dump xp3 file name hash into a json file. Only some protected archive may supported.
+    pub xp3_dump_file_hash_list: Option<String>,
 }
 
 #[cfg(feature = "artemis")]
