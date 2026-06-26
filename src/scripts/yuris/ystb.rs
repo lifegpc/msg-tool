@@ -1594,6 +1594,7 @@ impl Script for YSTB {
         let mut cpos = f.pos as u64;
         f.pos += args_index_size as usize;
         let bpos = f.pos as u32;
+        let mut cache = Vec::new();
 
         for (base, args) in inst_data.iter_mut() {
             let meta =
@@ -1614,10 +1615,16 @@ impl Script for YSTB {
                     continue;
                 }
 
+                if let Some(offset) = memchr::memmem::find(&cache, &arg.1) {
+                    f.write_u32_at(cpos, offset as u32)?;
+                    cpos += 4;
+                    continue;
+                }
                 let offset = f.pos as u32 - bpos;
                 f.write_u32_at(cpos, offset)?;
                 cpos += 4;
                 f.write_all(&arg.1)?;
+                cache.extend_from_slice(&arg.1);
             }
         }
 
@@ -1764,6 +1771,7 @@ impl Script for YSTB {
         let mut cpos = f.pos as u64;
         f.pos += data.header.args_index_size as usize;
         let bpos = f.pos as u32;
+        let mut cache = Vec::new();
         for i in data.insts.iter_mut() {
             let meta =
                 self.com.opcodes.get(i.opcode as usize).ok_or_else(|| {
@@ -1780,10 +1788,16 @@ impl Script for YSTB {
                     cpos += 4;
                     continue;
                 }
+                if let Some(offset) = memchr::memmem::find(&cache, &arg.data) {
+                    f.write_u32_at(cpos, offset as u32)?;
+                    cpos += 4;
+                    continue;
+                }
                 let offset = f.pos as u32 - bpos;
                 f.write_u32_at(cpos, offset)?;
                 cpos += 4;
                 f.write_all(&arg.data)?;
+                cache.extend_from_slice(&arg.data);
             }
         }
         data.header.args_data_size = f.pos as u32 - bpos;

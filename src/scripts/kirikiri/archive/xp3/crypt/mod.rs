@@ -532,7 +532,9 @@ impl Schema {
                 Box::new(Xor2Crypt::new(self.base.clone(), *key1, *key2))
             }
             CryptType::LeaveSLeaveCrypt => Box::new(LeaveSLeaveCrypt::new(self.base.clone())),
-            CryptType::NVLCrypt { key } => Box::new(nvl::NVLCrypt::new(self.base.clone(), &key.bytes)?),
+            CryptType::NVLCrypt { key } => {
+                Box::new(nvl::NVLCrypt::new(self.base.clone(), &key.bytes)?)
+            }
         })
     }
 }

@@ -13,7 +13,7 @@ impl NVLCrypt {
         }
         Ok(Self {
             base,
-            key: key.try_into()?
+            key: key.try_into()?,
         })
     }
 
@@ -39,7 +39,14 @@ impl Crypt for NVLCrypt {
         let hash_key = reader.read_u32()?;
         let name_hash = reader.read_u32()?;
         let extension_hash = reader.read_u32()?;
-        Ok((format!("{:08x}.{:08x}", hash_key ^ name_hash, hash_key ^ extension_hash), 12))
+        Ok((
+            format!(
+                "{:08x}.{:08x}",
+                hash_key ^ name_hash,
+                hash_key ^ extension_hash
+            ),
+            12,
+        ))
     }
     fn decrypt_supported(&self) -> bool {
         true
