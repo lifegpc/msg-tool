@@ -14,6 +14,20 @@ fn escape_dep_string(s: &str) -> String {
     s.replace("\\", "\\\\").replace(" ", "\\ ")
 }
 
+/// Normalize archive filenames replacing backslash with forward slash on non-Windows.
+/// Game archives created on Windows may embed `\` as path separator, which is
+/// not recognized on Unix and would produce flat filenames instead of directories.
+fn normalize_archive_filename<'a>(name: &'a str) -> std::borrow::Cow<'a, std::path::Path> {
+    #[cfg(not(windows))]
+    {
+        std::borrow::Cow::Owned(std::path::PathBuf::from(name.replace('\\', "/")))
+    }
+    #[cfg(windows)]
+    {
+        std::borrow::Cow::Borrowed(name.as_ref())
+    }
+}
+
 fn get_encoding(
     arg: &args::Arg,
     builder: &Box<dyn scripts::ScriptBuilder + Send + Sync>,
@@ -468,11 +482,11 @@ pub fn export_script(
                             let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
                             let mut out_path = std::path::PathBuf::from(&odir);
                             if !arg.image_output_flat {
-                                out_path.push(f.name());
+                                out_path.push(normalize_archive_filename(f.name()));
                                 out_path.set_extension("");
                                 out_path.push(img_data.name);
                             } else {
-                                let name = std::path::Path::new(f.name());
+                                let name = normalize_archive_filename(f.name());
                                 out_path.push(format!(
                                     "{}_{}",
                                     name.file_stem().unwrap_or_default().to_string_lossy(),
@@ -546,7 +560,8 @@ pub fn export_script(
                         }
                     };
                     let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
-                    let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                    let mut out_path =
+                        std::path::PathBuf::from(&odir).join(normalize_archive_filename(f.name()));
                     out_path.set_extension(out_type.as_ref());
                     match utils::files::make_sure_dir_exists(&out_path) {
                         Ok(_) => {}
@@ -607,7 +622,8 @@ pub fn export_script(
                         continue;
                     }
                     let ext = of.as_ref();
-                    let mut out_dir = std::path::PathBuf::from(&odir).join(f.name());
+                    let mut out_dir =
+                        std::path::PathBuf::from(&odir).join(normalize_archive_filename(f.name()));
                     if arg.output_no_extra_ext {
                         out_dir.remove_all_extensions();
                     } else {
@@ -779,7 +795,8 @@ pub fn export_script(
                     COUNTER.inc(types::ScriptResult::Ignored);
                     continue;
                 }
-                let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                let mut out_path =
+                    std::path::PathBuf::from(&odir).join(normalize_archive_filename(f.name()));
                 if arg.output_no_extra_ext {
                     out_path.remove_all_extensions();
                 }
@@ -946,7 +963,8 @@ pub fn export_script(
                     }
                 }
             } else {
-                let out_path = std::path::PathBuf::from(&odir).join(f.name());
+                let out_path =
+                    std::path::PathBuf::from(&odir).join(normalize_archive_filename(f.name()));
                 match utils::files::make_sure_dir_exists(&out_path) {
                     Ok(_) => {}
                     Err(e) => {
@@ -1545,7 +1563,7 @@ pub fn import_script(
                 if !arg.no_multi_message && !of.is_custom() && script_file.multiple_message_files()
                 {
                     let out_dir = std::path::PathBuf::from(&odir)
-                        .join(f.name())
+                        .join(normalize_archive_filename(f.name()))
                         .with_extension("");
                     let outfiles = utils::files::find_ext_files(
                         &out_dir.to_string_lossy(),
@@ -1760,13 +1778,15 @@ pub fn import_script(
                 #[cfg(feature = "image")]
                 if script_file.is_image() {
                     let out_type = arg.image_type.unwrap_or(types::ImageOutputType::Png);
-                    let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                    let mut out_path =
+                        std::path::PathBuf::from(&odir).join(normalize_archive_filename(f.name()));
                     if arg.output_no_extra_ext {
                         out_path.remove_all_extensions();
                     }
                     out_path.set_extension(out_type.as_ref());
                     if !out_path.exists() {
-                        out_path = std::path::PathBuf::from(&odir).join(f.name());
+                        out_path = std::path::PathBuf::from(&odir)
+                            .join(normalize_archive_filename(f.name()));
                         if !out_path.exists() {
                             if imp_cfg.warn_when_output_file_not_found {
                                 eprintln!(
@@ -1838,7 +1858,8 @@ pub fn import_script(
                     }
                     continue;
                 }
-                let mut out_path = std::path::PathBuf::from(&odir).join(f.name());
+                let mut out_path =
+                    std::path::PathBuf::from(&odir).join(normalize_archive_filename(f.name()));
                 if arg.output_no_extra_ext {
                     out_path.remove_all_extensions();
                 }
@@ -1849,7 +1870,8 @@ pub fn import_script(
                 };
                 out_path.set_extension(ext);
                 if !out_path.exists() {
-                    out_path = std::path::PathBuf::from(&odir).join(f.name());
+                    out_path =
+                        std::path::PathBuf::from(&odir).join(normalize_archive_filename(f.name()));
                     if !out_path.exists() {
                         if imp_cfg.warn_when_output_file_not_found {
                             eprintln!(
@@ -2083,7 +2105,8 @@ pub fn import_script(
                     continue;
                 }
             } else {
-                let out_path = std::path::PathBuf::from(&odir).join(f.name());
+                let out_path =
+                    std::path::PathBuf::from(&odir).join(normalize_archive_filename(f.name()));
                 let size = if out_path.is_file() {
                     match std::fs::metadata(&out_path) {
                         Ok(meta) => Some(meta.len()),
@@ -2788,7 +2811,7 @@ pub fn unpack_archive(
                 continue;
             }
         };
-        let out_path = std::path::PathBuf::from(&odir).join(&filename);
+        let out_path = std::path::PathBuf::from(&odir).join(normalize_archive_filename(&filename));
         if skip_existed && out_path.exists() {
             continue;
         }
