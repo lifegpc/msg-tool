@@ -195,7 +195,7 @@ msg-tool create -t <script-type> <input> <output>
 | `kirikiri-scn`/`kr-scn` | `kirikiri` | Kirikiri Scene File (.scn) | ✔️ | ✔️ | ❌ | ❌ | ✔️ | ✔️ | ❌ | |
 | `kirikiri-simple-crypt`/`kr-simple-crypt` | `kirikiri` | Kirikiri Simple Crypt Text File | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |
 | `kirikiri-mdf`/`kr-mdf` | `kirikiri` | Kirikiri Zlib-Compressed File | ❌ | ❌ | ❌ | ❌ | ✔️ | ❌ | ❌ | |
-| `kirikiri-tjs-ns0`/`kr-tjs-ns0` | `kirikiri` | Kirikiri TJS NS0 binary encoded script | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | |
+| `kirikiri-tjs-ns0`/`kr-tjs-ns0` | `kirikiri` | Kirikiri TJS NS0/4s0 binary encoded script (.pbd) | ❌ | ❌ | ❌ | ❌ | ✔️ | ✔️ | ✔️ | Supports PackinOne crypt field (ChaCha8+Blake2s) and LZ4 stream framing for `TJS/4s0` |
 | `kirikiri-tjs2`/`kr-tjs2` | `kirikiri` | Kirikiri compiled TJS2 script | ✔️ | ✔️ | ❌ | ❌ | ✔️ | ✔️ | ❌ | |
 
 | Archive Type | Feature Name | Name | Unpack | Pack | Remarks |

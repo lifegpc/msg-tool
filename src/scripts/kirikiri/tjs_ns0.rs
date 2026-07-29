@@ -1,4 +1,8 @@
 //! Kirikiri TJS NS0 binary encoded script
+//!
+//! `TJS/ns0` keeps the upstream author path unchanged.
+//! `TJS/4s0` (PackinOne crypt + framed LZ4) is a side path only
+//! (see `TjsNs0::from_4s0` and helpers at the bottom of this file).
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -10,6 +14,11 @@ use overf::wrapping;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, Write};
+
+/// Shared TypeByte hook: ns0 keeps [`ByteChecker`]; 4s0 uses PackinOne engine checker.
+trait TypeCheck {
+    fn get_seed(&mut self, type_code: u8) -> u8;
+}
 
 #[derive(Debug)]
 /// Kirikiri TJS NS0 Script Builder
@@ -123,9 +132,9 @@ fn pack_string<W: Write>(s: &str, writer: &mut W, big: bool, encoding: Encoding)
 }
 
 impl TjsValue {
-    fn pack<W: Write>(
+    fn pack<W: Write, C: TypeCheck>(
         &self,
-        checker: &mut ByteChecker,
+        checker: &mut C,
         writer: &mut W,
         big: bool,
         encoding: Encoding,
@@ -185,8 +194,8 @@ impl TjsValue {
         Ok(())
     }
 
-    fn unpack<R: Read + Seek>(
-        checker: &mut ByteChecker,
+    fn unpack<R: Read + Seek, C: TypeCheck>(
+        checker: &mut C,
         reader: &mut R,
         big: bool,
         encoding: Encoding,
@@ -292,6 +301,12 @@ impl ByteChecker {
     }
 }
 
+impl TypeCheck for ByteChecker {
+    fn get_seed(&mut self, type_code: u8) -> u8 {
+        ByteChecker::get_seed(self, type_code)
+    }
+}
+
 #[derive(Clone, Debug, StructPack, StructUnpack)]
 struct Header {
     magic: [u8; 4],
@@ -322,6 +337,11 @@ impl TjsNs0 {
         if header.check[1] != b's' || header.check[2] != b'0' || header.check[3] != 0 {
             return Err(anyhow::anyhow!("Not a valid TJS/ns0 file"));
         }
+        // 4s0 side path only — upstream ns0 logic below is unchanged.
+        if header.check[0] == b'4' {
+            return Self::from_4s0(reader, header, encoding, config);
+        }
+        // ---- original upstream ns0 path ----
         if header.crypt != 0 {
             return Err(anyhow::anyhow!("Encrypted TJS/ns0 files are not supported"));
         }
@@ -331,6 +351,7 @@ impl TjsNs0 {
         let mut reader = match header.check[0] {
             b'n' => reader,
             b'4' => {
+                // Unreachable: 4s0 enters from_4s0 above. Arm kept to mirror upstream.
                 let decompressed = lz4::block::decompress(&reader.data[reader.pos..], None)?;
                 MemReader::new(decompressed)
             }
@@ -411,5 +432,390 @@ impl Script for TjsNs0 {
         file.write_u32(checksum)?;
         file.flush()?;
         Ok(())
+    }
+}
+
+
+// =============================================================================
+// 4s0 side path (PackinOne / tjsdatapack) — only used when header method is '4'
+// =============================================================================
+
+impl TjsNs0 {
+    /// Decode `TJS/4s0`: optional BasicCryptFilter, then LZ4DecompressStream framing,
+    /// then the same Variant SM as ns0 (engine TypeByte checker).
+    fn from_4s0(
+        mut reader: MemReader,
+        header: Header,
+        encoding: Encoding,
+        config: &ExtraConfig,
+    ) -> Result<Self> {
+        let iv = if header.iv_len != 0 {
+            let n = header.iv_len as usize;
+            if reader.pos + n > reader.data.len() {
+                return Err(anyhow::anyhow!("TJS/4s0 IV truncated"));
+            }
+            let v = reader.data[reader.pos..reader.pos + n].to_vec();
+            reader.pos += n;
+            v
+        } else {
+            Vec::new()
+        };
+
+        let mut body = reader.data[reader.pos..].to_vec();
+        if header.crypt != 0 {
+            body = four_s0::stream_crypt_decrypt(&body, header.seed, &iv, header.crypt)?;
+        }
+        let plain = four_s0::lz4_stream_decompress(&body)?;
+
+        let mut plain_reader = MemReader::new(plain);
+        let mut checker = four_s0::PackinOneTypeByteChecker::from_seed(header.seed);
+        let data = TjsValue::unpack(&mut checker, &mut plain_reader, false, encoding)?;
+        // Trailing u32 is present on engine dumps; do not use upstream final_check.
+        let _ = plain_reader.read_u32();
+
+        Ok(Self {
+            data,
+            custom_yaml: config.custom_yaml,
+            header,
+        })
+    }
+}
+
+/// Isolated 4s0 crypt / LZ4 helpers (does not touch ns0 ByteChecker).
+mod four_s0 {
+    use super::TypeCheck;
+    use anyhow::Result;
+    use blake2::digest::{KeyInit, Mac};
+    use blake2::Blake2sMac256;
+    use std::os::raw::{c_char, c_int};
+
+    /// PackinOne `FUN_101cedb0` / `FUN_101d6ec0` TypeByte checker.
+    pub struct PackinOneTypeByteChecker {
+        b0: u8,
+        b1: u8,
+        b2: u8,
+    }
+
+    impl PackinOneTypeByteChecker {
+        pub fn from_seed(seed: u32) -> Self {
+            Self {
+                b0: ((seed >> 24) as u8) ^ (seed as u8),
+                b1: (seed >> 8) as u8,
+                b2: (seed >> 16) as u8,
+            }
+        }
+
+        fn step(&mut self) -> u8 {
+            let t = self.b0 ^ self.b0.wrapping_shl(1);
+            self.b0 = self.b1;
+            self.b1 = self.b2;
+            self.b2 = self.b2 ^ (self.b2 >> 3) ^ t ^ (t >> 5);
+            self.b2
+        }
+
+        fn expect_for_tag(&mut self, tag: u8) -> u8 {
+            if tag == 0 {
+                self.b2
+            } else {
+                self.step()
+            }
+        }
+    }
+
+    impl TypeCheck for PackinOneTypeByteChecker {
+        fn get_seed(&mut self, type_code: u8) -> u8 {
+            self.expect_for_tag(type_code)
+        }
+    }
+
+    /// `b1330` switch(field-1) -> (ChaCha rounds p3, expand p4).
+    fn crypt_params(field: u16) -> Result<(u32, u32)> {
+        Ok(match field {
+            1 => (8, 0x10),
+            2 => (0xC, 8),
+            3 => (0x14, 4),
+            4 => (8, 1),
+            5 => (0xC, 1),
+            6 => (0x14, 1),
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unsupported TJS datapack crypt field: {field}"
+                ))
+            }
+        })
+    }
+
+    pub fn derive_key(seed: u32, iv: &[u8]) -> Result<[u8; 32]> {
+        let mut mac = <Blake2sMac256 as KeyInit>::new_from_slice(&seed.to_le_bytes())
+            .map_err(|e| anyhow::anyhow!("blake2s key init: {e}"))?;
+        Mac::update(&mut mac, iv);
+        let out = Mac::finalize(mac).into_bytes();
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&out);
+        Ok(key)
+    }
+
+    fn quarter_round(s: &mut [u32; 16], a: usize, b: usize, c: usize, d: usize) {
+        s[a] = s[a].wrapping_add(s[b]);
+        s[d] = (s[d] ^ s[a]).rotate_left(16);
+        s[c] = s[c].wrapping_add(s[d]);
+        s[b] = (s[b] ^ s[c]).rotate_left(12);
+        s[a] = s[a].wrapping_add(s[b]);
+        s[d] = (s[d] ^ s[a]).rotate_left(8);
+        s[c] = s[c].wrapping_add(s[d]);
+        s[b] = (s[b] ^ s[c]).rotate_left(7);
+    }
+
+    fn chacha_block(
+        key: &[u8; 32],
+        nonce_lo: u32,
+        nonce_hi: u32,
+        block_counter: u64,
+        rounds: u32,
+    ) -> [u8; 64] {
+        let mut st = [0u32; 16];
+        st[0] = 0x6170_7865;
+        st[1] = 0x3320_646e;
+        st[2] = 0x7962_2d32;
+        st[3] = 0x6b20_6574;
+        for i in 0..8 {
+            st[4 + i] = u32::from_le_bytes(key[i * 4..i * 4 + 4].try_into().unwrap());
+        }
+        st[12] = block_counter as u32;
+        st[13] = (block_counter >> 32) as u32;
+        st[14] = nonce_lo;
+        st[15] = nonce_hi;
+        let mut x = st;
+        let mut r = rounds;
+        while r > 0 {
+            quarter_round(&mut x, 0, 4, 8, 12);
+            quarter_round(&mut x, 1, 5, 9, 13);
+            quarter_round(&mut x, 2, 6, 10, 14);
+            quarter_round(&mut x, 3, 7, 11, 15);
+            quarter_round(&mut x, 0, 5, 10, 15);
+            quarter_round(&mut x, 1, 6, 11, 12);
+            quarter_round(&mut x, 2, 7, 8, 13);
+            quarter_round(&mut x, 3, 4, 9, 14);
+            r -= 2;
+        }
+        let mut out = [0u8; 64];
+        for i in 0..16 {
+            out[i * 4..i * 4 + 4].copy_from_slice(&x[i].wrapping_add(st[i]).to_le_bytes());
+        }
+        out
+    }
+
+    fn xorshift32(mut x: u32, fallback: u32) -> u32 {
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        if x == 0 {
+            fallback
+        } else {
+            x
+        }
+    }
+
+    pub fn gen_ks_buffer(
+        key: &[u8; 32],
+        nonce_lo: u32,
+        nonce_hi: u32,
+        block_counter: u64,
+        p4: u32,
+        rounds: u32,
+        fallback: u32,
+    ) -> Vec<u8> {
+        let block = chacha_block(key, nonce_lo, nonce_hi, block_counter, rounds);
+        if p4 <= 1 {
+            return block.to_vec();
+        }
+        let mut words = Vec::with_capacity((p4 as usize) * 16);
+        for i in 0..16 {
+            words.push(u32::from_le_bytes(
+                block[i * 4..i * 4 + 4].try_into().unwrap(),
+            ));
+        }
+        let mut src_i = 0usize;
+        let extra_groups = (p4 as usize) * 4 - 4;
+        for _ in 0..extra_groups {
+            for _k in 0..4 {
+                let w = words[src_i];
+                src_i += 1;
+                words.push(xorshift32(w, fallback));
+            }
+        }
+        let mut out = Vec::with_capacity(words.len() * 4);
+        for w in words {
+            out.extend_from_slice(&w.to_le_bytes());
+        }
+        out
+    }
+
+    pub fn stream_crypt_decrypt(
+        body: &[u8],
+        seed: u32,
+        iv: &[u8],
+        field: u16,
+    ) -> Result<Vec<u8>> {
+        let (rounds, p4) = crypt_params(field)?;
+        let key = derive_key(seed, iv)?;
+        let nonce_lo = xxhash_rust::xxh32::xxh32(iv, seed);
+        let nonce_hi = seed;
+        let mut fallback = nonce_hi ^ nonce_lo;
+        if fallback == 0 {
+            fallback = if seed != 0 { seed } else { 0xffff_ffff };
+        }
+        let mut out = Vec::with_capacity(body.len());
+        let mut produced = 0usize;
+        let mut bc = 0u64;
+        while produced < body.len() {
+            let ks = gen_ks_buffer(&key, nonce_lo, nonce_hi, bc, p4, rounds, fallback);
+            let n = ks.len().min(body.len() - produced);
+            for i in 0..n {
+                out.push(body[produced + i] ^ ks[i]);
+            }
+            produced += n;
+            bc += 1;
+        }
+        Ok(out)
+    }
+
+    unsafe extern "C" {
+        fn LZ4_decompress_safe_usingDict(
+            source: *const c_char,
+            dest: *mut c_char,
+            compressed_size: c_int,
+            max_decompressed_size: c_int,
+            dict_start: *const c_char,
+            dict_size: c_int,
+        ) -> c_int;
+    }
+
+    fn lz4_decompress_block(chunk: &[u8], dict: &[u8], prefer_us: i32) -> Option<Vec<u8>> {
+        let mut ordered = vec![
+            prefer_us,
+            2048,
+            1024,
+            512,
+            256,
+            (chunk.len() as i32).saturating_mul(4),
+            (chunk.len() as i32).saturating_mul(8),
+            1 << 16,
+        ];
+        let mut seen = std::collections::BTreeSet::new();
+        ordered.retain(|s| *s > 0 && seen.insert(*s));
+
+        for us in ordered {
+            let mut buf = vec![0u8; us as usize];
+            let ret = if dict.is_empty() {
+                unsafe {
+                    lz4::liblz4::LZ4_decompress_safe(
+                        chunk.as_ptr() as *const c_char,
+                        buf.as_mut_ptr() as *mut c_char,
+                        chunk.len() as c_int,
+                        us,
+                    )
+                }
+            } else {
+                unsafe {
+                    LZ4_decompress_safe_usingDict(
+                        chunk.as_ptr() as *const c_char,
+                        buf.as_mut_ptr() as *mut c_char,
+                        chunk.len() as c_int,
+                        us,
+                        dict.as_ptr() as *const c_char,
+                        dict.len() as c_int,
+                    )
+                }
+            };
+            if ret > 0 {
+                buf.truncate(ret as usize);
+                return Some(buf);
+            }
+        }
+        None
+    }
+
+    /// `[u16 csize][LZ4 block]*` with dict = prior output (max 64KiB).
+    pub fn lz4_stream_decompress(data: &[u8]) -> Result<Vec<u8>> {
+        if data.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut pos = 0usize;
+        let mut out = Vec::new();
+        while pos + 2 <= data.len() {
+            let n = u16::from_le_bytes(data[pos..pos + 2].try_into().unwrap()) as usize;
+            if n == 0 {
+                break;
+            }
+            if pos + 2 + n > data.len() {
+                break;
+            }
+            let chunk = &data[pos + 2..pos + 2 + n];
+            let dict: &[u8] = if out.len() > 65536 {
+                &out[out.len() - 65536..]
+            } else if out.is_empty() {
+                &[]
+            } else {
+                &out[..]
+            };
+            let got = lz4_decompress_block(chunk, dict, 4096).or_else(|| {
+                if !dict.is_empty() {
+                    lz4_decompress_block(chunk, &[], 4096)
+                } else {
+                    None
+                }
+            });
+            let Some(block) = got else {
+                break;
+            };
+            out.extend_from_slice(&block);
+            pos += 2 + n;
+        }
+        if out.is_empty() {
+            if let Ok(d) = lz4::block::decompress(data, Some(1 << 20)) {
+                return Ok(d);
+            }
+            if data.len() > 2 {
+                if let Ok(d) = lz4::block::decompress(&data[2..], Some(1 << 20)) {
+                    return Ok(d);
+                }
+            }
+            return Err(anyhow::anyhow!(
+                "Failed to decompress TJS/4s0 LZ4 stream (consumed={pos}, len={})",
+                data.len()
+            ));
+        }
+        Ok(out)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn to_hex(data: &[u8]) -> String {
+            data.iter().map(|b| format!("{b:02x}")).collect()
+        }
+
+        fn from_hex(s: &str) -> Vec<u8> {
+            (0..s.len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+                .collect()
+        }
+
+        #[test]
+        fn yuzuki_empty_iv_key_schedule() {
+            let seed = 0x1435_3CC6u32;
+            let key = derive_key(seed, b"").unwrap();
+            assert_eq!(
+                to_hex(&key),
+                "2fca145d50b8cb030395f0868c49ed85aa0280c6d0b844c09673351e64408aed"
+            );
+            let xx = xxhash_rust::xxh32::xxh32(b"", seed);
+            assert_eq!(xx, 0x9848_23D3);
+            let ks = gen_ks_buffer(&key, xx, seed, 0, 0x10, 8, seed ^ xx);
+            assert_eq!(&ks[..16], &from_hex("2e9d7adaabc57ee65d0d4f2b440895d5")[..]);
+        }
     }
 }
