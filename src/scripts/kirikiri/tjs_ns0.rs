@@ -1,8 +1,11 @@
 //! Kirikiri TJS NS0 binary encoded script
 //!
-//! `TJS/ns0` keeps the upstream author path unchanged.
-//! `TJS/4s0` (PackinOne crypt + framed LZ4) is a side path only
-//! (see `TjsNs0::from_4s0` and helpers at the bottom of this file).
+//! Pipeline:
+//!   header → [4s0 only: crypt + framed LZ4] → TypeByte Variant SM (+ trailing u32)
+//!
+//! `TJS/4s0` only adds filter layers; after unwrap it rejoins the same Variant parse
+//! as ns0. PackinOne TypeByte (cedb0) is used for 4s0 because upstream `ByteChecker`
+//! does not match encrypted-pack seeds (verified on 由月a).
 use crate::ext::io::*;
 use crate::scripts::base::*;
 use crate::types::*;
@@ -337,23 +340,21 @@ impl TjsNs0 {
         if header.check[1] != b's' || header.check[2] != b'0' || header.check[3] != 0 {
             return Err(anyhow::anyhow!("Not a valid TJS/ns0 file"));
         }
-        // 4s0 side path only — upstream ns0 logic below is unchanged.
-        if header.check[0] == b'4' {
-            return Self::from_4s0(reader, header, encoding, config);
-        }
-        // ---- original upstream ns0 path ----
-        if header.crypt != 0 {
-            return Err(anyhow::anyhow!("Encrypted TJS/ns0 files are not supported"));
-        }
-        if header.iv_len != 0 {
-            return Err(anyhow::anyhow!("TJS/ns0 files with IV are not supported"));
-        }
-        let mut reader = match header.check[0] {
-            b'n' => reader,
-            b'4' => {
-                // Unreachable: 4s0 enters from_4s0 above. Arm kept to mirror upstream.
-                let decompressed = lz4::block::decompress(&reader.data[reader.pos..], None)?;
-                MemReader::new(decompressed)
+
+        // Filter stage only:
+        //   '4' → optional crypt + framed LZ4  (side path, then rejoin)
+        //   'n' → upstream ns0 constraints, raw body
+        // Variant SM + trailing check below is shared.
+        let (mut reader, is_4s0) = match header.check[0] {
+            b'4' => (Self::unwrap_4s0_filters(reader, &header)?, true),
+            b'n' => {
+                if header.crypt != 0 {
+                    return Err(anyhow::anyhow!("Encrypted TJS/ns0 files are not supported"));
+                }
+                if header.iv_len != 0 {
+                    return Err(anyhow::anyhow!("TJS/ns0 files with IV are not supported"));
+                }
+                (reader, false)
             }
             _ => {
                 return Err(anyhow::anyhow!(
@@ -361,22 +362,59 @@ impl TjsNs0 {
                 ));
             }
         };
-        let mut checker = ByteChecker::new(header.seed);
-        let data = TjsValue::unpack(&mut checker, &mut reader, false, encoding)?;
-        let expected_checksum = checker.final_check();
-        let actual_checksum = reader.read_u32()?;
-        if expected_checksum != actual_checksum {
-            return Err(anyhow::anyhow!(
-                "TJS/ns0 checksum mismatch: expected {:08X}, got {:08X}",
-                expected_checksum,
-                actual_checksum
-            ));
-        }
+
+        // ---- shared Variant parse (same as upstream ns0 after filters) ----
+        // PackinOne 4s0 TypeByte uses engine cedb0/d6ec0, not upstream ByteChecker.
+        // ns0 samples match both; 4s0 plaintext fails upstream ByteChecker on tag bytes.
+        let data = if is_4s0 {
+            let mut checker = four_s0::PackinOneTypeByteChecker::from_seed(header.seed);
+            let data = TjsValue::unpack(&mut checker, &mut reader, false, encoding)?;
+            // Trailing u32 present; engine trailer != upstream final_check algorithm.
+            let _ = reader.read_u32();
+            data
+        } else {
+            let mut checker = ByteChecker::new(header.seed);
+            let data = TjsValue::unpack(&mut checker, &mut reader, false, encoding)?;
+            let expected_checksum = checker.final_check();
+            let actual_checksum = reader.read_u32()?;
+            if expected_checksum != actual_checksum {
+                return Err(anyhow::anyhow!(
+                    "TJS/ns0 checksum mismatch: expected {:08X}, got {:08X}",
+                    expected_checksum,
+                    actual_checksum
+                ));
+            }
+            data
+        };
+
         Ok(Self {
             data,
             custom_yaml: config.custom_yaml,
             header,
         })
+    }
+
+    /// 4s0 filter unwrap only: read optional IV, decrypt if `crypt != 0`, framed LZ4.
+    /// Returns a reader positioned at the plaintext Variant stream (same stage as ns0 body).
+    fn unwrap_4s0_filters(mut reader: MemReader, header: &Header) -> Result<MemReader> {
+        let iv = if header.iv_len != 0 {
+            let n = header.iv_len as usize;
+            if reader.pos + n > reader.data.len() {
+                return Err(anyhow::anyhow!("TJS/4s0 IV truncated"));
+            }
+            let v = reader.data[reader.pos..reader.pos + n].to_vec();
+            reader.pos += n;
+            v
+        } else {
+            Vec::new()
+        };
+
+        let mut body = reader.data[reader.pos..].to_vec();
+        if header.crypt != 0 {
+            body = four_s0::stream_crypt_decrypt(&body, header.seed, &iv, header.crypt)?;
+        }
+        let plain = four_s0::lz4_stream_decompress(&body)?;
+        Ok(MemReader::new(plain))
     }
 }
 
@@ -437,51 +475,10 @@ impl Script for TjsNs0 {
 
 
 // =============================================================================
-// 4s0 side path (PackinOne / tjsdatapack) — only used when header method is '4'
+// 4s0 filter helpers only (crypt + framed LZ4). Variant parse rejoins `new()` above.
 // =============================================================================
 
-impl TjsNs0 {
-    /// Decode `TJS/4s0`: optional BasicCryptFilter, then LZ4DecompressStream framing,
-    /// then the same Variant SM as ns0 (engine TypeByte checker).
-    fn from_4s0(
-        mut reader: MemReader,
-        header: Header,
-        encoding: Encoding,
-        config: &ExtraConfig,
-    ) -> Result<Self> {
-        let iv = if header.iv_len != 0 {
-            let n = header.iv_len as usize;
-            if reader.pos + n > reader.data.len() {
-                return Err(anyhow::anyhow!("TJS/4s0 IV truncated"));
-            }
-            let v = reader.data[reader.pos..reader.pos + n].to_vec();
-            reader.pos += n;
-            v
-        } else {
-            Vec::new()
-        };
-
-        let mut body = reader.data[reader.pos..].to_vec();
-        if header.crypt != 0 {
-            body = four_s0::stream_crypt_decrypt(&body, header.seed, &iv, header.crypt)?;
-        }
-        let plain = four_s0::lz4_stream_decompress(&body)?;
-
-        let mut plain_reader = MemReader::new(plain);
-        let mut checker = four_s0::PackinOneTypeByteChecker::from_seed(header.seed);
-        let data = TjsValue::unpack(&mut checker, &mut plain_reader, false, encoding)?;
-        // Trailing u32 is present on engine dumps; do not use upstream final_check.
-        let _ = plain_reader.read_u32();
-
-        Ok(Self {
-            data,
-            custom_yaml: config.custom_yaml,
-            header,
-        })
-    }
-}
-
-/// Isolated 4s0 crypt / LZ4 helpers (does not touch ns0 ByteChecker).
+/// Isolated 4s0 crypt / LZ4 helpers (does not replace ns0 ByteChecker).
 mod four_s0 {
     use super::TypeCheck;
     use anyhow::Result;
