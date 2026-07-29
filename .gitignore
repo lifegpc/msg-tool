@@ -6,3 +6,5 @@
 .vscode/
 /vendor
 /tmp
+tests_data/
+_write_tjs_ns0.py
