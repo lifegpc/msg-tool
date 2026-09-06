@@ -3320,6 +3320,8 @@ fn main() {
         flac_compression_level: arg.flac_compression_level,
         #[cfg(feature = "artemis")]
         artemis_asb_format_lua: !arg.artemis_asb_no_format_lua,
+        #[cfg(feature = "artemis")]
+        artemis_asb_decompile: arg.artemis_asb_decompile,
         #[cfg(feature = "kirikiri")]
         kirikiri_title: arg.kirikiri_title,
         #[cfg(feature = "favorite")]

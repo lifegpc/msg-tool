@@ -114,6 +114,42 @@ impl Command {
         xml.push('>');
         xml
     }
+
+    fn control_index(&self) -> Option<usize> {
+        self.attributes.get("\x0bindex")?.parse().ok()
+    }
+
+    fn is_internal(&self) -> bool {
+        self.name.starts_with('\x0b')
+    }
+
+    fn is_internal_goto(&self) -> bool {
+        self.name == "\x0bgoto"
+    }
+
+    fn to_source(&self, indent: usize) -> String {
+        self.to_source_as(&self.name, indent)
+    }
+
+    fn to_source_as(&self, name: &str, indent: usize) -> String {
+        let mut source = "\t".repeat(indent);
+        source.push('[');
+        source.push_str(name);
+        for (key, value) in &self.attributes {
+            if !key.starts_with('\x0b') {
+                source.push(' ');
+                source.push_str(key);
+                source.push_str("=\"");
+                // Artemis tag attributes are script expressions, not XML.
+                // Escaping here changes operators and string literals, e.g.
+                // `$foo + 'bar'` must remain an expression.
+                source.push_str(value);
+                source.push('"');
+            }
+        }
+        source.push(']');
+        source
+    }
 }
 
 impl<'a> Index<&'a str> for Command {
@@ -434,6 +470,7 @@ pub struct Asb {
     custom_yaml: bool,
     is_iet: bool,
     format_lua: bool,
+    decompile: bool,
     end_tags: Arc<HashSet<String>>,
 }
 
@@ -467,6 +504,7 @@ impl Asb {
                 .extension()
                 .map_or(false, |ext| ext.eq_ignore_ascii_case("iet")),
             format_lua: config.artemis_asb_format_lua,
+            decompile: config.artemis_asb_decompile,
             end_tags: config.artemis_asb_end_tags.clone(),
         })
     }
@@ -486,6 +524,299 @@ impl Asb {
         config.column_width = 120;
         config.line_endings = stylua_lib::LineEndings::Unix;
         Ok(format_code(script, config, None, OutputVerification::None)?)
+    }
+
+    fn decompile(&self) -> String {
+        let items = if self.format_lua {
+            self.items
+                .iter()
+                .map(|item| {
+                    if let Item::Command(command) = item
+                        && command.name == "lua"
+                        && let Some(script) = command.attributes.get("script")
+                    {
+                        let mut command = command.clone();
+                        command.attributes.insert(
+                            "script".to_string(),
+                            match self.format_lua(script) {
+                                Ok(script) => script,
+                                Err(_) => {
+                                    eprintln!("Warning: Failed to format Lua script.");
+                                    crate::COUNTER.inc_warning();
+                                    script.clone()
+                                }
+                            },
+                        );
+                        return Item::Command(command);
+                    }
+                    item.clone()
+                })
+                .collect::<Vec<_>>()
+        } else {
+            self.items.clone()
+        };
+        Self::decompile_items(&items)
+    }
+
+    fn decompile_items(items: &[Item]) -> String {
+        let mut source = String::new();
+        let mut start = 0;
+        for (index, item) in items.iter().enumerate() {
+            if let Item::Label(label) = item {
+                Self::decompile_range(&items[start..index], 0, index - start, 0, &mut source);
+                source.push('*');
+                source.push_str(label);
+                source.push('\n');
+                start = index + 1;
+            }
+        }
+        Self::decompile_range(&items[start..], 0, items.len() - start, 0, &mut source);
+        source
+    }
+
+    fn command_at(items: &[Item], index: usize) -> Option<&Command> {
+        match items.get(index) {
+            Some(Item::Command(command)) => Some(command),
+            _ => None,
+        }
+    }
+
+    fn goto_before(items: &[Item], index: usize) -> Option<usize> {
+        Self::command_at(items, index.checked_sub(1)?)
+            .filter(|command| command.is_internal_goto())?
+            .control_index()
+            .filter(|target| *target <= items.len())
+    }
+
+    fn has_local_control_target(items: &[Item], index: usize, end: usize, target: usize) -> bool {
+        index < target
+            && target < end
+            && Self::command_at(items, target).is_some_and(Command::is_internal_goto)
+    }
+
+    /// Finds an end for control flow whose virtual address cannot be mapped to
+    /// an item offset. This happens when a script has multiple labels: Artemis
+    /// keeps the compiler's file-wide virtual addresses, while `items` is a
+    /// label-local slice here.
+    fn implicit_control_end(
+        items: &[Item],
+        start: usize,
+        end: usize,
+        control_end: Option<usize>,
+    ) -> usize {
+        let mut has_command = false;
+        let mut index = start;
+        while index < end {
+            let Some(command) = Self::command_at(items, index) else {
+                index += 1;
+                continue;
+            };
+            if command.is_internal_goto() {
+                return index;
+            }
+            if matches!(command.name.as_str(), "if" | "elseif" | "loop") {
+                let nested_end = command.control_index();
+                let is_nested = control_end
+                    .zip(nested_end)
+                    .is_some_and(|(control_end, nested_end)| nested_end < control_end);
+                if !is_nested && has_command {
+                    return index;
+                }
+                if !is_nested {
+                    return index;
+                }
+
+                // A smaller virtual end belongs to a nested control. Skip its
+                // first branch while looking for the enclosing control's end.
+                let next = Self::implicit_control_end(items, index + 1, end, nested_end);
+                index = next.max(index + 1);
+                if Self::command_at(items, index).is_some_and(Command::is_internal_goto) {
+                    index += 1;
+                }
+                continue;
+            }
+            if matches!(command.name.as_str(), "return" | "exit" | "jump" | "stop") {
+                return index + 1;
+            }
+            has_command = true;
+            index += 1;
+        }
+        end
+    }
+
+    fn terminal_before_nested_control(items: &[Item], start: usize, end: usize) -> Option<usize> {
+        for index in start..end {
+            let command = Self::command_at(items, index)?;
+            if matches!(command.name.as_str(), "if" | "elseif" | "loop") {
+                return None;
+            }
+            if matches!(command.name.as_str(), "return" | "exit" | "jump" | "stop") {
+                return Some(index + 1);
+            }
+        }
+        None
+    }
+
+    fn decompile_range(
+        items: &[Item],
+        mut index: usize,
+        end: usize,
+        indent: usize,
+        source: &mut String,
+    ) {
+        while index < end {
+            let Some(command) = Self::command_at(items, index) else {
+                index += 1;
+                continue;
+            };
+            if command.is_internal() {
+                index += 1;
+                continue;
+            }
+            if command.name == "lua" {
+                source.push_str(&"\t".repeat(indent));
+                source.push_str("[lua]\n");
+                if let Some(script) = command.attributes.get("script") {
+                    source.push_str(script);
+                    if !script.ends_with('\n') {
+                        source.push('\n');
+                    }
+                }
+                source.push_str(&"\t".repeat(indent));
+                source.push_str("[/lua]\n");
+                index += 1;
+                continue;
+            }
+            let control_end = command.control_index();
+            if matches!(command.name.as_str(), "if" | "elseif")
+                && (control_end
+                    .is_none_or(|control_end| control_end <= index || control_end >= end)
+                    || !control_end.is_some_and(|control_end| {
+                        Self::has_local_control_target(items, index, end, control_end)
+                    }))
+            {
+                let branch_end = Self::implicit_control_end(items, index + 1, end, control_end);
+                source.push_str(&command.to_source_as(
+                    if command.name == "elseif" {
+                        "if"
+                    } else {
+                        &command.name
+                    },
+                    indent,
+                ));
+                source.push('\n');
+                Self::decompile_range(items, index + 1, branch_end, indent + 1, source);
+                let mut next = branch_end;
+                while let Some(elseif) = Self::command_at(items, next)
+                    && elseif.name == "elseif"
+                    && elseif.control_index() == control_end
+                {
+                    let next_end = Self::implicit_control_end(items, next + 1, end, control_end);
+                    source.push_str(&elseif.to_source(indent));
+                    source.push('\n');
+                    Self::decompile_range(items, next + 1, next_end, indent + 1, source);
+                    next = next_end;
+                }
+                source.push_str(&"\t".repeat(indent));
+                source.push_str("[/if]\n");
+                index = next;
+                continue;
+            }
+            if matches!(command.name.as_str(), "if" | "elseif")
+                && let Some(branch_end) = control_end
+                && index < branch_end
+                && branch_end <= end
+                && Self::has_local_control_target(items, index, end, branch_end)
+            {
+                let branch_end = Self::terminal_before_nested_control(items, index + 1, branch_end)
+                    .unwrap_or(branch_end);
+                let mut flow_end = Self::goto_before(items, branch_end);
+                let mut next_branch = branch_end;
+                while flow_end.is_none() && next_branch < end {
+                    let Some(next) = Self::command_at(items, next_branch) else {
+                        break;
+                    };
+                    if next.name != "elseif" {
+                        break;
+                    }
+                    let Some(next_end) = next.control_index() else {
+                        break;
+                    };
+                    if next_branch >= next_end || next_end > end {
+                        break;
+                    }
+                    flow_end = Self::goto_before(items, next_end);
+                    next_branch = next_end;
+                }
+                if let Some(flow_end) =
+                    flow_end.filter(|flow_end| *flow_end >= branch_end && *flow_end <= end)
+                {
+                    source.push_str(&command.to_source(indent));
+                    source.push('\n');
+                    Self::decompile_range(
+                        items,
+                        index + 1,
+                        branch_end.saturating_sub(1),
+                        indent + 1,
+                        source,
+                    );
+
+                    let mut branch = branch_end;
+                    while branch < flow_end {
+                        if let Some(elseif) = Self::command_at(items, branch)
+                            && elseif.name == "elseif"
+                            && let Some(next_end) = elseif.control_index()
+                            && branch < next_end
+                            && next_end <= flow_end
+                        {
+                            source.push_str(&elseif.to_source(indent));
+                            source.push('\n');
+                            Self::decompile_range(
+                                items,
+                                branch + 1,
+                                next_end.saturating_sub(1),
+                                indent + 1,
+                                source,
+                            );
+                            branch = next_end;
+                        } else {
+                            source.push_str(&"\t".repeat(indent));
+                            source.push_str("[else]\n");
+                            Self::decompile_range(items, branch, flow_end, indent + 1, source);
+                            branch = flow_end;
+                        }
+                    }
+                    source.push_str(&"\t".repeat(indent));
+                    source.push_str("[/if]\n");
+                    index = flow_end;
+                    continue;
+                }
+
+                source.push_str(&command.to_source(indent));
+                source.push('\n');
+                Self::decompile_range(items, index + 1, branch_end, indent + 1, source);
+                source.push_str(&"\t".repeat(indent));
+                source.push_str("[/if]\n");
+                index = branch_end;
+                continue;
+            }
+            if command.name == "loop"
+                && let Some(loop_end) = control_end
+                && index < loop_end
+                && loop_end <= end
+            {
+                source.push_str(&command.to_source(indent));
+                source.push('\n');
+                Self::decompile_range(items, index + 1, loop_end, indent + 1, source);
+                source.push_str(&"\t".repeat(indent));
+                source.push_str("[/loop]\n");
+                index = loop_end;
+                continue;
+            }
+            source.push_str(&command.to_source(indent));
+            source.push('\n');
+            index += 1;
+        }
     }
 }
 
@@ -511,7 +842,13 @@ impl Script for Asb {
     }
 
     fn custom_output_extension<'a>(&'a self) -> &'a str {
-        if self.custom_yaml { "yaml" } else { "json" }
+        if self.decompile {
+            "txt"
+        } else if self.custom_yaml {
+            "yaml"
+        } else {
+            "json"
+        }
     }
 
     fn extract_messages(&self) -> Result<Vec<Message>> {
@@ -713,7 +1050,9 @@ impl Script for Asb {
     }
 
     fn custom_export(&self, filename: &std::path::Path, encoding: Encoding) -> Result<()> {
-        let s = if self.format_lua {
+        let s = if self.decompile {
+            self.decompile()
+        } else if self.format_lua {
             let items: Vec<_> = self
                 .items
                 .iter()
@@ -757,6 +1096,11 @@ impl Script for Asb {
         encoding: Encoding,
         output_encoding: Encoding,
     ) -> Result<()> {
+        if self.decompile {
+            return Err(anyhow::anyhow!(
+                "Importing Artemis ASB decompiled text is not supported."
+            ));
+        }
         create_file(
             custom_filename,
             file,
@@ -898,4 +1242,100 @@ fn test_parse2() {
             }),
         ]
     )
+}
+
+#[test]
+fn test_decompile_flow_control() {
+    let command = |name: &str, attributes: &[(&str, &str)]| {
+        Item::Command(Command {
+            name: name.to_string(),
+            line_number: 0,
+            attributes: attributes
+                .iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect(),
+        })
+    };
+    let script = Asb {
+        items: vec![
+            Item::Label("top".to_string()),
+            command("if", &[("\x0bindex", "3"), ("estimate", "$a")]),
+            command("print", &[("data", "yes")]),
+            command("\x0bgoto", &[("\x0bindex", "5")]),
+            command("elseif", &[("\x0bindex", "5"), ("estimate", "$b")]),
+            command("print", &[("data", "maybe")]),
+            command("print", &[("data", "after")]),
+            command("lua", &[("script", "function test()\nend")]),
+            command("loop", &[("\x0bindex", "9"), ("estimate", "$loop")]),
+            command("print", &[("data", "again")]),
+            command("\x0bgoto", &[("\x0bindex", "7")]),
+        ],
+        custom_yaml: false,
+        is_iet: true,
+        format_lua: true,
+        decompile: true,
+        end_tags: Arc::new(HashSet::new()),
+    };
+
+    let source = script.decompile();
+    assert!(!source.contains('\x0b'));
+    assert!(source.contains("[if estimate=\"$a\"]"));
+    assert!(source.contains("[if estimate=\"$b\"]"));
+    assert!(source.contains("[/if]"));
+    let formatted_lua = script.format_lua("function test()\nend").unwrap();
+    assert!(source.contains("[lua]"));
+    assert!(source.contains(&formatted_lua));
+    assert!(source.contains("[/lua]"));
+    assert!(source.contains("[loop estimate=\"$loop\"]"));
+    assert!(source.contains("[/loop]"));
+}
+
+#[test]
+fn test_decompile_nested_flow_with_file_wide_indices() {
+    let command = |name: &str, attributes: &[(&str, &str)]| {
+        Item::Command(Command {
+            name: name.to_string(),
+            line_number: 0,
+            attributes: attributes
+                .iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect(),
+        })
+    };
+    let script = Asb {
+        items: vec![
+            Item::Label("nested".to_string()),
+            command("if", &[("\x0bindex", "50"), ("estimate", "$outer")]),
+            command("if", &[("\x0bindex", "30"), ("estimate", "$inner")]),
+            command("print", &[("data", "inside")]),
+            command("\x0bgoto", &[("\x0bindex", "31")]),
+            command("print", &[("data", "after inner")]),
+            command("return", &[]),
+            command("print", &[("data", "outside")]),
+        ],
+        custom_yaml: false,
+        is_iet: true,
+        format_lua: false,
+        decompile: true,
+        end_tags: Arc::new(HashSet::new()),
+    };
+
+    assert_eq!(
+        script.decompile(),
+        "*nested\n[if estimate=\"$outer\"]\n\t[if estimate=\"$inner\"]\n\t\t[print data=\"inside\"]\n\t[/if]\n\t[print data=\"after inner\"]\n\t[return]\n[/if]\n[print data=\"outside\"]\n"
+    );
+}
+
+#[test]
+fn test_decompile_attribute_values_are_not_xml_escaped() {
+    let command = Command {
+        name: "debugprint".to_string(),
+        line_number: 0,
+        attributes: [("data".to_string(), "$foo + 'bar' & <baz>".to_string())].into(),
+    };
+
+    assert_eq!(
+        command.to_source(0),
+        "[debugprint data=\"$foo + 'bar' & <baz>\"]"
+    );
 }

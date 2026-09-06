@@ -473,7 +473,6 @@ impl Script for TjsNs0 {
     }
 }
 
-
 // =============================================================================
 // 4s0 filter helpers only (crypt + framed LZ4). Variant parse rejoins `new()` above.
 // =============================================================================
@@ -482,8 +481,8 @@ impl Script for TjsNs0 {
 mod four_s0 {
     use super::TypeCheck;
     use anyhow::Result;
-    use blake2::digest::{KeyInit, Mac};
     use blake2::Blake2sMac256;
+    use blake2::digest::{KeyInit, Mac};
     use std::os::raw::{c_char, c_int};
 
     /// PackinOne `FUN_101cedb0` / `FUN_101d6ec0` TypeByte checker.
@@ -511,11 +510,7 @@ mod four_s0 {
         }
 
         fn expect_for_tag(&mut self, tag: u8) -> u8 {
-            if tag == 0 {
-                self.b2
-            } else {
-                self.step()
-            }
+            if tag == 0 { self.b2 } else { self.step() }
         }
     }
 
@@ -537,7 +532,7 @@ mod four_s0 {
             _ => {
                 return Err(anyhow::anyhow!(
                     "Unsupported TJS datapack crypt field: {field}"
-                ))
+                ));
             }
         })
     }
@@ -606,11 +601,7 @@ mod four_s0 {
         x ^= x << 13;
         x ^= x >> 17;
         x ^= x << 5;
-        if x == 0 {
-            fallback
-        } else {
-            x
-        }
+        if x == 0 { fallback } else { x }
     }
 
     pub fn gen_ks_buffer(
@@ -648,12 +639,7 @@ mod four_s0 {
         out
     }
 
-    pub fn stream_crypt_decrypt(
-        body: &[u8],
-        seed: u32,
-        iv: &[u8],
-        field: u16,
-    ) -> Result<Vec<u8>> {
+    pub fn stream_crypt_decrypt(body: &[u8], seed: u32, iv: &[u8], field: u16) -> Result<Vec<u8>> {
         let (rounds, p4) = crypt_params(field)?;
         let key = derive_key(seed, iv)?;
         let nonce_lo = xxhash_rust::xxh32::xxh32(iv, seed);

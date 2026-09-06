@@ -356,6 +356,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Do not format lua code in Artemis ASB script(.asb/.iet) when exporting.
     pub artemis_asb_no_format_lua: bool,
+    #[cfg(feature = "artemis")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Decompile Artemis ASB scripts to their textual tag form when custom exporting.
+    pub artemis_asb_decompile: bool,
     // Default value is from tagFilters in macro.iet
     #[cfg(feature = "artemis-panmimisoft")]
     #[arg(

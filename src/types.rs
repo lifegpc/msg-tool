@@ -459,6 +459,9 @@ pub struct ExtraConfig {
     #[default(true)]
     /// Format lua code in Artemis ASB script(.asb/.iet) when exporting.
     pub artemis_asb_format_lua: bool,
+    #[cfg(feature = "artemis")]
+    /// Decompile Artemis ASB scripts to their textual tag form when custom exporting.
+    pub artemis_asb_decompile: bool,
     #[cfg(feature = "kirikiri")]
     /// Whether to handle title in Kirikiri SCN script.
     pub kirikiri_title: bool,
