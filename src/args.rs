@@ -683,6 +683,10 @@ pub struct Arg {
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Whether to compress files in Qlie pack archive.
     pub qlie_pack_compress_files: bool,
+    #[cfg(feature = "qlie-arc")]
+    #[arg(long, global = true, action = ArgAction::SetTrue)]
+    /// Pack Qlie archives using the legacy QliePack V1-compatible behavior.
+    pub qlie_pack_v1: bool,
     #[cfg(feature = "qlie-img")]
     #[arg(long, global = true, action = ArgAction::SetTrue)]
     /// Whether to use PNG file directly for Qlie DPNG images when importing.

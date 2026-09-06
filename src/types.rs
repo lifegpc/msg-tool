@@ -606,6 +606,9 @@ pub struct ExtraConfig {
     #[cfg(feature = "qlie-arc")]
     /// Whether to compress files in Qlie pack archive.
     pub qlie_pack_compress_files: bool,
+    #[cfg(feature = "qlie-arc")]
+    /// Whether to use legacy QliePack V1-compatible packing behavior.
+    pub qlie_pack_v1: bool,
     #[cfg(feature = "qlie-img")]
     /// Whether to use PNG file directly for Qlie DPNG images when importing.
     /// Enable this will disable reencoding PNG files. Useful when the PNG files are already optimized by other tools.

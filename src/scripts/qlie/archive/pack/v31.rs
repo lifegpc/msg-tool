@@ -163,7 +163,16 @@ impl<T: Write + Seek> QliePackArchiveWriterV31<T> {
             hash_size: 0,
             key: [0; 0x400],
         };
-        rand::rng().fill(&mut qkey.key[..0x100]);
+        if config.qlie_pack_v1 {
+            // QliePack V1 fills this region with rand() % 255, so 0xff is
+            // deliberately excluded.
+            let mut rng = rand::rng();
+            for byte in &mut qkey.key[..0x100] {
+                *byte = rng.random_range(0..255);
+            }
+        } else {
+            rand::rng().fill(&mut qkey.key[..0x100]);
+        }
         let key = encryption.compute_hash(&qkey.key[..0x100])? & 0xFFFFFFF;
         encrypt(&mut qkey.signature, key)?;
         let mut entries = Vec::new();
@@ -240,7 +249,10 @@ impl<T: Write + Seek> QliePackArchiveWriterV31<T> {
             entries,
             key,
             common_key: None,
-            compress_files: config.qlie_pack_compress_files,
+            // QliePack V1 always writes the source bytes.  Keep the normal
+            // streaming path below: known-size files still do not need to be
+            // buffered just because legacy compatibility was requested.
+            compress_files: config.qlie_pack_compress_files && !config.qlie_pack_v1,
         };
         if !has_key_file {
             let key_path = config.qlie_pack_keyfile.as_ref().unwrap();

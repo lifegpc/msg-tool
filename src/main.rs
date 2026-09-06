@@ -3398,6 +3398,8 @@ fn main() {
         qlie_pack_keyfile: arg.qlie_pack_keyfile.clone(),
         #[cfg(feature = "qlie-arc")]
         qlie_pack_compress_files: arg.qlie_pack_compress_files,
+        #[cfg(feature = "qlie-arc")]
+        qlie_pack_v1: arg.qlie_pack_v1,
         #[cfg(feature = "qlie-img")]
         qlie_dpng_use_raw_png: arg.qlie_dpng_use_raw_png,
         #[cfg(feature = "qlie-img")]
