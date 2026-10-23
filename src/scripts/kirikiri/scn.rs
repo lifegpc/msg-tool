@@ -740,6 +740,9 @@ impl Script for ScnScript {
                             cur_mes = mes.next();
                         }
                         if self.language_index != 0
+                            // Some game such as D.C.5 contains select with no texts.
+                            // We don't need to insert text to these select blocks.
+                            && select["text"].is_string()
                             && {
                                 if self.insert_language {
                                     while select["language"].len() < self.language_index {
