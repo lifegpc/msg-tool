@@ -114,6 +114,8 @@ pub enum TextEncoding {
 pub enum OutputScriptType {
     /// Text script
     M3t,
+    /// Name/Dialogue text exchange format
+    Nd,
     /// Same as M3t, buf different extension
     M3ta,
     /// Same as M3t, buf different extension
@@ -149,6 +151,7 @@ impl OutputScriptType {
         matches!(
             self,
             OutputScriptType::M3t
+                | OutputScriptType::Nd
                 | OutputScriptType::M3ta
                 | OutputScriptType::M3tTxt
                 | OutputScriptType::Po
@@ -162,6 +165,7 @@ impl AsRef<str> for OutputScriptType {
     fn as_ref(&self) -> &str {
         match self {
             OutputScriptType::M3t => "m3t",
+            OutputScriptType::Nd => "nd",
             OutputScriptType::M3ta => "m3ta",
             OutputScriptType::M3tTxt => "txt",
             OutputScriptType::Json => "json",

@@ -699,6 +699,34 @@ pub fn export_script(
                                     }
                                 }
                             }
+                            types::OutputScriptType::Nd => {
+                                let enc = get_output_encoding(arg);
+                                let s = output_scripts::nd::NdDumper::dump(&data);
+                                let b = match utils::encoding::encode_string(enc, &s, false) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error encoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let mut f = match utils::files::write_file(&ofp) {
+                                    Ok(f) => f,
+                                    Err(e) => {
+                                        eprintln!("Error writing file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                match f.write_all(&b) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("Error writing file {}: {}", ofp.display(), e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
                             types::OutputScriptType::Yaml => {
                                 let enc = get_output_encoding(arg);
                                 let s = match serde_yaml_ng::to_string(&data) {
@@ -878,6 +906,34 @@ pub fn export_script(
                             Ok(_) => {}
                             Err(e) => {
                                 eprintln!("Error writing to file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                    }
+                    types::OutputScriptType::Nd => {
+                        let enc = get_output_encoding(arg);
+                        let s = output_scripts::nd::NdDumper::dump(&mes);
+                        let b = match utils::encoding::encode_string(enc, &s, false) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                eprintln!("Error encoding string: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let mut f = match utils::files::write_file(&out_path) {
+                            Ok(f) => f,
+                            Err(e) => {
+                                eprintln!("Error writing file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        match f.write_all(&b) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("Error writing file {}: {}", out_path.display(), e);
                                 COUNTER.inc_error();
                                 continue;
                             }
@@ -1293,6 +1349,34 @@ pub fn export_script(
                         }
                     }
                 }
+                types::OutputScriptType::Nd => {
+                    let enc = get_output_encoding(arg);
+                    let s = output_scripts::nd::NdDumper::dump(&data);
+                    let b = match utils::encoding::encode_string(enc, &s, false) {
+                        Ok(b) => b,
+                        Err(e) => {
+                            eprintln!("Error encoding string: {}", e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    let mut f = match utils::files::write_file(&ofp) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            eprintln!("Error writing file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    };
+                    match f.write_all(&b) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error writing file {}: {}", ofp.display(), e);
+                            COUNTER.inc_error();
+                            continue;
+                        }
+                    }
+                }
                 types::OutputScriptType::Yaml => {
                     let enc = get_output_encoding(arg);
                     let s = match serde_yaml_ng::to_string(&data) {
@@ -1431,6 +1515,13 @@ pub fn export_script(
         | types::OutputScriptType::M3tTxt => {
             let enc = get_output_encoding(arg);
             let s = output_scripts::m3t::M3tDumper::dump(&mes, arg.m3t_no_quote);
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            let mut f = utils::files::write_file(&f)?;
+            f.write_all(&b)?;
+        }
+        types::OutputScriptType::Nd => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::nd::NdDumper::dump(&mes);
             let b = utils::encoding::encode_string(enc, &s, false)?;
             let mut f = utils::files::write_file(&f)?;
             f.write_all(&b)?;
@@ -1668,6 +1759,35 @@ pub fn import_script(
                                     Ok(mes) => mes,
                                     Err(e) => {
                                         eprintln!("Error parsing M3T: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                }
+                            }
+                            types::OutputScriptType::Nd => {
+                                let enc = get_output_encoding(arg);
+                                let b = match utils::files::read_file(&out_f) {
+                                    Ok(b) => b,
+                                    Err(e) => {
+                                        eprintln!("Error reading file {}: {}", out_f, e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let s = match utils::encoding::decode_with_bom_detect(enc, &b, true)
+                                {
+                                    Ok((s, _)) => s,
+                                    Err(e) => {
+                                        eprintln!("Error decoding string: {}", e);
+                                        COUNTER.inc_error();
+                                        continue;
+                                    }
+                                };
+                                let mut parser = output_scripts::nd::NdParser::new(&s);
+                                match parser.parse() {
+                                    Ok(mes) => mes,
+                                    Err(e) => {
+                                        eprintln!("Error parsing ND: {}", e);
                                         COUNTER.inc_error();
                                         continue;
                                     }
@@ -1975,6 +2095,34 @@ pub fn import_script(
                             Ok(mes) => mes,
                             Err(e) => {
                                 eprintln!("Error parsing M3T: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        }
+                    }
+                    types::OutputScriptType::Nd => {
+                        let enc = get_output_encoding(arg);
+                        let b = match utils::files::read_file(&out_path) {
+                            Ok(b) => b,
+                            Err(e) => {
+                                eprintln!("Error reading file {}: {}", out_path.display(), e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let s = match utils::encoding::decode_with_bom_detect(enc, &b, true) {
+                            Ok((s, _)) => s,
+                            Err(e) => {
+                                eprintln!("Error decoding string: {}", e);
+                                COUNTER.inc_error();
+                                continue;
+                            }
+                        };
+                        let mut parser = output_scripts::nd::NdParser::new(&s);
+                        match parser.parse() {
+                            Ok(mes) => mes,
+                            Err(e) => {
+                                eprintln!("Error parsing ND: {}", e);
                                 COUNTER.inc_error();
                                 continue;
                             }
@@ -2300,6 +2448,13 @@ pub fn import_script(
                     );
                     parser.parse()?
                 }
+                types::OutputScriptType::Nd => {
+                    let enc = get_output_encoding(arg);
+                    let b = utils::files::read_file(&out_f)?;
+                    let (s, _) = utils::encoding::decode_with_bom_detect(enc, &b, true)?;
+                    let mut parser = output_scripts::nd::NdParser::new(&s);
+                    parser.parse()?
+                }
                 types::OutputScriptType::Yaml => {
                     let enc = get_output_encoding(arg);
                     let b = utils::files::read_file(&out_f)?;
@@ -2403,6 +2558,13 @@ pub fn import_script(
                 arg.llm_trans_mark.as_ref().map(|s| s.as_str()),
                 arg.m3t_use_original_text,
             );
+            parser.parse()?
+        }
+        types::OutputScriptType::Nd => {
+            let enc = get_output_encoding(arg);
+            let b = utils::files::read_file(&out_f)?;
+            let (s, _) = utils::encoding::decode_with_bom_detect(enc, &b, true)?;
+            let mut parser = output_scripts::nd::NdParser::new(&s);
             parser.parse()?
         }
         types::OutputScriptType::Yaml => {
@@ -2966,6 +3128,13 @@ pub fn parse_output_script_as_extend(
             let mes = parser.parse_as_extend()?;
             Ok(mes)
         }
+        types::OutputScriptType::Nd => {
+            let enc = get_input_output_script_encoding(arg);
+            let b = utils::files::read_file(input)?;
+            let (s, _) = utils::encoding::decode_with_bom_detect(enc, &b, true)?;
+            let mut parser = output_scripts::nd::NdParser::new(&s);
+            parser.parse_as_extend()
+        }
         types::OutputScriptType::Po | types::OutputScriptType::Pot => {
             let enc = get_input_output_script_encoding(arg);
             let b = utils::files::read_file(input)?;
@@ -3003,6 +3172,13 @@ pub fn parse_output_script(
             );
             let mes = parser.parse()?;
             Ok(mes)
+        }
+        types::OutputScriptType::Nd => {
+            let enc = get_input_output_script_encoding(arg);
+            let b = utils::files::read_file(input)?;
+            let (s, _) = utils::encoding::decode_with_bom_detect(enc, &b, true)?;
+            let mut parser = output_scripts::nd::NdParser::new(&s);
+            parser.parse()
         }
         types::OutputScriptType::Po | types::OutputScriptType::Pot => {
             let enc = get_input_output_script_encoding(arg);
@@ -3052,6 +3228,13 @@ pub fn dump_output_script_as_extend(
             utils::files::write_file(output)?.write_all(&b)?;
             Ok(())
         }
+        types::OutputScriptType::Nd => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::nd::NdDumper::dump_extended(mes);
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            utils::files::write_file(output)?.write_all(&b)?;
+            Ok(())
+        }
         types::OutputScriptType::Po | types::OutputScriptType::Pot => {
             let enc = get_output_encoding(arg);
             let s = output_scripts::po::PoDumper::new();
@@ -3079,6 +3262,13 @@ pub fn dump_output_script(
         | types::OutputScriptType::M3tTxt => {
             let enc = get_output_encoding(arg);
             let s = output_scripts::m3t::M3tDumper::dump(mes, arg.m3t_no_quote);
+            let b = utils::encoding::encode_string(enc, &s, false)?;
+            utils::files::write_file(output)?.write_all(&b)?;
+            Ok(())
+        }
+        types::OutputScriptType::Nd => {
+            let enc = get_output_encoding(arg);
+            let s = output_scripts::nd::NdDumper::dump(mes);
             let b = utils::encoding::encode_string(enc, &s, false)?;
             utils::files::write_file(output)?.write_all(&b)?;
             Ok(())

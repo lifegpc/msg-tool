@@ -273,7 +273,7 @@ pub struct Arg {
     pub kirikiri_chat_json: Option<String>,
     #[cfg(feature = "kirikiri")]
     #[arg(long, global = true, group = "kirikiri_chat_jsong")]
-    /// Kirikiri chat message translation directory. All json files in this directory will be merged. (Only m3t files are supported.)
+    /// Kirikiri chat message translation directory. All supported translation files in this directory will be merged.
     pub kirikiri_chat_dir: Option<String>,
     #[cfg(feature = "kirikiri")]
     #[arg(long, global = true, value_delimiter = ',')]
@@ -1079,6 +1079,7 @@ pub fn load_kirikiri_chat_json(
         if !matches!(
             outt,
             OutputScriptType::M3t
+                | OutputScriptType::Nd
                 | OutputScriptType::M3ta
                 | OutputScriptType::M3tTxt
                 | OutputScriptType::Po
@@ -1095,12 +1096,23 @@ pub fn load_kirikiri_chat_json(
             > = std::collections::HashMap::new();
             for file in files {
                 let f = crate::utils::files::read_file(&file)?;
-                let data = crate::utils::encoding::decode_to_string(
-                    crate::get_output_encoding(arg),
-                    &f,
-                    true,
-                )?;
-                let m3t = if outt.is_m3t() {
+                let data = if outt == OutputScriptType::Nd {
+                    let (data, _) = crate::utils::encoding::decode_with_bom_detect(
+                        crate::get_output_encoding(arg),
+                        &f,
+                        true,
+                    )?;
+                    data
+                } else {
+                    crate::utils::encoding::decode_to_string(
+                        crate::get_output_encoding(arg),
+                        &f,
+                        true,
+                    )?
+                };
+                let m3t = if outt == OutputScriptType::Nd {
+                    crate::output_scripts::nd::NdParser::new(&data).parse_as_vec()?
+                } else if outt.is_m3t() {
                     crate::output_scripts::m3t::M3tParser::new(
                         &data,
                         arg.llm_trans_mark.as_ref().map(|s| s.as_str()),

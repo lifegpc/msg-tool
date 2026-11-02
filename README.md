@@ -61,6 +61,7 @@ msg-tool create -t <script-type> <input> <output>
 ## Supported Output Script Types
 - `json` - [GalTransl](https://github.com/GalTransl/GalTransl)'s JSON format
 - `m3t` / `m3ta` - A simple text format that supports both original/llm/translated messages.
+- `nd` - A line-based Name/Dialogue format with original and translated text pairs.
 - `yaml` - Same as `json`, but in YAML format.
 - `po`/`pot` - Gettext PO/POT format.
 
