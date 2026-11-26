@@ -3341,6 +3341,7 @@ pub fn convert_file(
             pb.to_string_lossy().into_owned()
         }
     };
+    utils::files::make_sure_dir_exists(&output)?;
     if input_support_src && output_support_src {
         let input_mes = parse_output_script_as_extend(input, input_type, arg)?;
         dump_output_script_as_extend(&output, output_type, &input_mes, arg)?;
