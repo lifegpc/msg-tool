@@ -38,62 +38,72 @@ impl<'a> NdParser<'a> {
                 break;
             }
 
-            let source_line = index + 1;
-            let source_text = lines
-                .get(index)
-                .ok_or_else(|| anyhow!("Missing source line at line {source_line}"))?
-                .strip_prefix("○ ")
-                .ok_or_else(|| anyhow!("Expected '○ ' source line at line {source_line}"))?;
-            index += 1;
-
-            let translated_line = index + 1;
-            let translated_text = lines
-                .get(index)
-                .ok_or_else(|| anyhow!("Missing '● ' translation line after line {source_line}"))?
-                .strip_prefix("● ")
-                .ok_or_else(|| {
-                    anyhow!("Expected '● ' translation line at line {translated_line}")
-                })?;
-            index += 1;
-
-            let (name, source) = parse_speaker(source_text, source_line)?;
-            let (translated_name, translated) = parse_speaker(translated_text, translated_line)?;
-            if let Some(translated_name) = translated_name {
-                if name.as_deref() != Some(translated_name) {
-                    return Err(anyhow!(
-                        "Speaker marker does not match the source at line {translated_line}"
-                    ));
+            let mut source = None;
+            let mut translated = None;
+            while let Some(line) = lines.get(index) {
+                if line.is_empty() {
+                    index += 1;
+                    break;
                 }
+                let line_number = index + 1;
+                if line.starts_with('#') {
+                    index += 1;
+                    continue;
+                }
+                if let Some(text) = line.strip_prefix("○ ") {
+                    if source.is_none() {
+                        source = Some((text, line_number));
+                    }
+                } else if let Some(text) = line.strip_prefix("● ") {
+                    if translated.is_some() {
+                        return Err(anyhow!(
+                            "Multiple '● ' translation lines in ND unit at line {line_number}"
+                        ));
+                    }
+                    translated = Some((text, line_number));
+                } else {
+                    return Err(anyhow!("Invalid ND line at line {line_number}: {line}"));
+                }
+                index += 1;
             }
-            if translated
-                .chars()
-                .any(|ch| matches!(ch, '○' | '●' | '【' | '】'))
-            {
-                return Err(anyhow!(
-                    "ND structure markers are not allowed in translated text at line {translated_line}"
-                ));
-            }
+
+            let (source_text, source_line) = source.ok_or_else(|| {
+                anyhow!(
+                    "Missing '○ ' source line in ND unit before line {}",
+                    index + 1
+                )
+            })?;
+            let (translated_text, translated_line) = translated.ok_or_else(|| {
+                anyhow!("Missing '● ' translation line for source at line {source_line}")
+            })?;
+
+            let (name, source) = parse_speaker(source_text);
+            let translated = if translated_text.is_empty() {
+                translated_text
+            } else if let Some(name) = name {
+                let (translated_name, translated) = parse_speaker(translated_text);
+                match translated_name {
+                    Some(translated_name) if translated_name == name => translated,
+                    Some(_) => {
+                        return Err(anyhow!(
+                            "Speaker marker does not match the source at line {translated_line}"
+                        ));
+                    }
+                    None => {
+                        return Err(anyhow!(
+                            "Missing speaker marker for source at line {translated_line}"
+                        ));
+                    }
+                }
+            } else {
+                translated_text
+            };
 
             cells.push(NdCell {
                 name: name.map(str::to_owned),
                 source: source.replace("\\n", "\n"),
                 translated: translated.replace("\\n", "\n"),
             });
-
-            let mut saw_blank = false;
-            while let Some(line) = lines
-                .get(index)
-                .filter(|line| line.is_empty() || line.starts_with('#'))
-            {
-                saw_blank |= line.is_empty();
-                index += 1;
-            }
-            if index < lines.len() && !saw_blank {
-                return Err(anyhow!(
-                    "Expected a blank line between ND units before line {}",
-                    index + 1
-                ));
-            }
         }
 
         Ok(cells)
@@ -139,25 +149,24 @@ impl<'a> NdParser<'a> {
     }
 }
 
-fn parse_speaker(text: &str, line: usize) -> Result<(Option<&str>, &str)> {
-    if let Some(text) = text.strip_prefix('【') {
-        let end = text
-            .find('】')
-            .ok_or_else(|| anyhow!("Unclosed speaker marker at line {line}"))?;
-        let name = text
-            .get(..end)
-            .ok_or_else(|| anyhow!("Invalid speaker marker at line {line}"))?;
-        if name.is_empty() {
-            return Err(anyhow!("Empty speaker marker at line {line}"));
-        }
-        let body_start = end + '】'.len_utf8();
-        let body = text
-            .get(body_start..)
-            .ok_or_else(|| anyhow!("Invalid speaker marker at line {line}"))?;
-        Ok((Some(name), body))
-    } else {
-        Ok((None, text))
+fn parse_speaker(text: &str) -> (Option<&str>, &str) {
+    let Some(after_open) = text.strip_prefix('【') else {
+        return (None, text);
+    };
+    let Some(end) = after_open.find('】') else {
+        return (None, text);
+    };
+    if end == 0 {
+        return (None, text);
     }
+    let Some(name) = after_open.get(..end) else {
+        return (None, text);
+    };
+    let body_start = end.saturating_add('】'.len_utf8());
+    let Some(body) = after_open.get(body_start..) else {
+        return (None, text);
+    };
+    (Some(name), body)
 }
 
 /// A dumper for the ND format. Output always uses LF line endings.
